@@ -1,0 +1,2 @@
+ou=Usuarios,ou=OrgAtencionEspecializada,dc=hospital,dc=manises
+ou=Usuarios,ou=OrgAtencionPrimaria,dc=hospital,dc=manises
