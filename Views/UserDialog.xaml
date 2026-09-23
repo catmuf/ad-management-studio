@@ -1,0 +1,310 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Active Directory User"
+    Height="660" Width="720"
+    MinHeight="550" MinWidth="600"
+    WindowStartupLocation="CenterOwner"
+    Background="#18191D"
+    Foreground="#F3F4F6"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <!-- Standard Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#373B4D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="BorderBrush" Value="#0078D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1084D9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernCheckBox" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style x:Key="ModernTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="tabBorder" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Margin="0,0,4,0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="#2A2D3A"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- Tabs -->
+            <RowDefinition Height="Auto"/> <!-- Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="0,0,0,10" BorderBrush="#2D313F" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Name="TxtDialogTitle" Text="Create New Active Directory User" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                <TextBlock Name="TxtDialogSubtitle" Text="Enter account information, organizational details, and security policies." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Tabs Content -->
+        <TabControl Grid.Row="1" Background="#2A2D3A" BorderBrush="#373B4D" BorderThickness="1" Padding="16">
+            <!-- 1. General Info -->
+            <TabItem Header="👤 Profile" Style="{StaticResource ModernTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- First Name -->
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,12">
+                            <TextBlock Text="First Name *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtFirstName" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Last Name -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,12">
+                            <TextBlock Text="Last Name *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtLastName" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Display Name -->
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,12">
+                            <TextBlock Text="Display Name" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtDisplayName" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Username (SamAccountName) -->
+                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,12">
+                            <DockPanel LastChildFill="True">
+                                <TextBlock Text="Username (SamAccountName) *" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <Button Name="BtnSuggestUsername" DockPanel.Dock="Right" Style="{StaticResource ModernButton}" Padding="6,2" Height="22" FontSize="11" Margin="6,0,0,0">
+                                    <TextBlock Text="Auto Suggest"/>
+                                </Button>
+                            </DockPanel>
+                            <TextBox Name="TxtUsername" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- UPN Suffix -->
+                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="10,0,0,12">
+                            <TextBlock Text="User Principal Name (UPN) *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtUPN" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Email -->
+                        <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,10,12">
+                            <TextBlock Text="Email Address" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtEmail" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Employee ID / DNI / NIE -->
+                        <StackPanel Grid.Row="3" Grid.Column="1" Margin="10,0,0,12">
+                            <TextBlock Text="Employee ID / DNI" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtEmployeeID" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Description -->
+                        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="0,0,0,8">
+                            <TextBlock Text="Description / Notes" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtDescription" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 2. Organization -->
+            <TabItem Header="🏢 Organization" Style="{StaticResource ModernTabItem}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Job Title -->
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,12">
+                            <TextBlock Text="Job Title / Cargo" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtJobTitle" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Department -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,12">
+                            <TextBlock Text="Department" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtDepartment" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Company -->
+                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,12">
+                            <TextBlock Text="Company" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtCompany" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Office -->
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,12">
+                            <TextBlock Text="Office Location" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtOffice" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+
+                        <!-- Logon Script -->
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,12">
+                            <TextBlock Text="Logon Script Path" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtScriptPath" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 3. Credentials & Security (for creation or editing) -->
+            <TabItem Name="TabCredentials" Header="🔑 Password &amp; Status" Style="{StaticResource ModernTabItem}">
+                <StackPanel Margin="4">
+                    <!-- Password Row -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <TextBlock Text="Account Password *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBox Name="TxtPassword" Style="{StaticResource ModernTextBox}" Height="32"/>
+                        </StackPanel>
+                        <Button Name="BtnGeneratePassword" Grid.Column="1" Style="{StaticResource ModernButton}" Height="32" VerticalAlignment="Bottom">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🎲" Margin="0,0,6,0"/>
+                                <TextBlock Text="Generate Strong Password"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Border Background="#1A1C23" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="PASSWORD REQUIREMENTS" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                            <TextBlock Text="• Minimum 12 characters" FontSize="11" Foreground="#9CA3AF"/>
+                            <TextBlock Text="• Must contain uppercase, lowercase, numbers, and special symbols" FontSize="11" Foreground="#9CA3AF"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Account Options Checkboxes -->
+                    <TextBlock Text="ACCOUNT POLICIES" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,6,0,6"/>
+                    <CheckBox Name="ChkMustChangePassword" Style="{StaticResource ModernCheckBox}" Content="User must change password at next logon" IsChecked="True"/>
+                    <CheckBox Name="ChkPasswordNeverExpires" Style="{StaticResource ModernCheckBox}" Content="Password never expires"/>
+                    <CheckBox Name="ChkAccountEnabled" Style="{StaticResource ModernCheckBox}" Content="Account is enabled" IsChecked="True"/>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 4. Target OU Location -->
+            <TabItem Header="📁 Target OU" Style="{StaticResource ModernTabItem}">
+                <StackPanel Margin="4">
+                    <TextBlock Text="Select Organizational Unit (OU) *" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <ComboBox Name="CmbTargetOU" Style="{StaticResource ModernComboBox}" Height="34" Margin="0,0,0,16"/>
+
+                    <Border Background="#1A1C23" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="4" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED OU DISTINGUISHED NAME:" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                            <TextBlock Name="TxtSelectedOUDN" Text="--" FontSize="11" Foreground="#0078D4" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <!-- Bottom Action Buttons -->
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <TextBlock Name="TxtDialogError" VerticalAlignment="Center" Foreground="#FFA3A8" FontSize="12" FontWeight="SemiBold"/>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Name="BtnCancel" Style="{StaticResource ModernButton}" Margin="0,0,10,0">
+                    <TextBlock Text="Cancel"/>
+                </Button>
+                <Button Name="BtnSaveUser" Style="{StaticResource PrimaryButton}">
+                    <TextBlock Text="Save User"/>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

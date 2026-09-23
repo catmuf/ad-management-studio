@@ -1,0 +1,106 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Move Active Directory Object"
+    Height="400" Width="520"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="NoResize"
+    Background="#18191D"
+    Foreground="#F3F4F6"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#373B4D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="BorderBrush" Value="#0078D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1084D9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="0,0,0,10" BorderBrush="#2D313F" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Text="Move to Another Organizational Unit" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                <TextBlock Name="TxtObjectName" Text="Object: --" FontSize="13" Foreground="#0078D4" FontWeight="SemiBold" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1">
+            <TextBlock Text="Target Organizational Unit (OU) *" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <ComboBox Name="CmbTargetOU" Style="{StaticResource ModernComboBox}" Height="34" Margin="0,0,0,14"/>
+
+            <Border Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="4" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="TARGET DISTINGUISHED NAME:" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                    <TextBlock Name="TxtSelectedOUDN" Text="--" FontSize="11" Foreground="#9CA3AF" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <TextBlock Name="TxtDialogError" VerticalAlignment="Center" Foreground="#FFA3A8" FontSize="12" FontWeight="SemiBold"/>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Name="BtnCancel" Style="{StaticResource ModernButton}" Margin="0,0,10,0">
+                    <TextBlock Text="Cancel"/>
+                </Button>
+                <Button Name="BtnConfirmMove" Style="{StaticResource PrimaryButton}">
+                    <TextBlock Text="Move Object"/>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

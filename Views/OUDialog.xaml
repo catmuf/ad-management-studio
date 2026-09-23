@@ -1,0 +1,130 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Organizational Unit"
+    Height="440" Width="560"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="NoResize"
+    Background="#18191D"
+    Foreground="#F3F4F6"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#373B4D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="BorderBrush" Value="#0078D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1084D9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernCheckBox" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- Form Fields -->
+            <RowDefinition Height="Auto"/> <!-- Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="0,0,0,10" BorderBrush="#2D313F" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Name="TxtDialogTitle" Text="Create Organizational Unit (OU)" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                <TextBlock Text="Create a new container to organize users, groups, and computers." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Fields -->
+        <StackPanel Grid.Row="1">
+            <!-- Name -->
+            <TextBlock Text="Organizational Unit Name *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <TextBox Name="TxtOUName" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,0,0,12"/>
+
+            <!-- Parent OU -->
+            <TextBlock Text="Parent Container / OU *" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <ComboBox Name="CmbParentOU" Style="{StaticResource ModernComboBox}" Height="34" Margin="0,0,0,12"/>
+
+            <!-- Description -->
+            <TextBlock Text="Description" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <TextBox Name="TxtOUDescription" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,0,0,14"/>
+
+            <!-- Protect Accidental Deletion -->
+            <CheckBox Name="ChkProtected" Style="{StaticResource ModernCheckBox}" Content="Protect container from accidental deletion (Recommended)" IsChecked="True"/>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <TextBlock Name="TxtDialogError" VerticalAlignment="Center" Foreground="#FFA3A8" FontSize="12" FontWeight="SemiBold"/>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Name="BtnCancel" Style="{StaticResource ModernButton}" Margin="0,0,10,0">
+                    <TextBlock Text="Cancel"/>
+                </Button>
+                <Button Name="BtnSaveOU" Style="{StaticResource PrimaryButton}">
+                    <TextBlock Text="Create OU"/>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

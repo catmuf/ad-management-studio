@@ -1,0 +1,22 @@
+{
+  "Domain": {
+    "AutoDetect": true,
+    "DomainName": "vielcahp.com",
+    "DomainController": "",
+    "SearchBase": "",
+    "DisableOU": ""
+  },
+  "UI": {
+    "Theme": "Dark",
+    "AutoRefresh": false,
+    "RefreshIntervalSeconds": 60,
+    "PageSize": 500
+  },
+  "Defaults": {
+    "PasswordLength": 16,
+    "PasswordRequireChange": true,
+    "UsernameFormat": "first.last",
+    "ExportDelimiter": ";",
+    "ExportPath": ""
+  }
+}

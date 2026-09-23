@@ -1,3 +1,0 @@
-ou=Usuarios,ou=OrgAtencionEspecializada,dc=hospital,dc=manises
-ou=C.E. Aldaia,ou=Usuarios,ou=OrgAtencionEspecializada,dc=hospital,dc=manises
-ou=C.E. Mislata,ou=Usuarios,ou=OrgAtencionEspecializada,dc=hospital,dc=manises
