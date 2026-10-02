@@ -1,0 +1,24 @@
+# PowerShell & Scripting
+*.ps1xml
+*.log
+*.tmp
+*.bak
+
+# Windows System Files
+[Tt]humbs.db
+[Ee]hthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Visual Studio Code & Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.vs/
+*.suo
+*.user
+
+# Export and temporary output files
+*.csv.tmp

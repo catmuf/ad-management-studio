@@ -5,6 +5,7 @@ A modern, high-performance PowerShell application built with **WPF (Windows Pres
 ![Platform](https://img.shields.io/badge/Platform-Windows%20Server%20%7C%20Windows%2010%2F11-blue)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-blue)
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green)
+[![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange)](https://github.com/catmuf/ad-management-studio/wiki)
 
 ---
 
@@ -120,3 +121,18 @@ Settings can be managed directly in the application's **Settings** tab or in `co
   }
 }
 ```
+
+---
+
+## 📖 Documentation & Wiki
+
+Comprehensive guides, architecture diagrams, and troubleshooting tips are available in the [Project Wiki](https://github.com/catmuf/ad-management-studio/wiki):
+
+* [Installation & Prerequisites](https://github.com/catmuf/ad-management-studio/wiki/Installation-and-Prerequisites)
+* [User Management Guide](https://github.com/catmuf/ad-management-studio/wiki/User-Management-Guide)
+* [Group Management Guide](https://github.com/catmuf/ad-management-studio/wiki/Group-Management-Guide)
+* [Organizational Units Guide](https://github.com/catmuf/ad-management-studio/wiki/Organizational-Units-Guide)
+* [Architecture & Design Details](https://github.com/catmuf/ad-management-studio/wiki/Architecture-and-Design)
+* [Configuration & Customization Reference](https://github.com/catmuf/ad-management-studio/wiki/Configuration-and-Customization)
+* [Troubleshooting & FAQ](https://github.com/catmuf/ad-management-studio/wiki/Troubleshooting-and-FAQ)
+
