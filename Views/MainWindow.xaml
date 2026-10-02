@@ -1,23 +1,23 @@
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Active Directory Management Studio"
-    Height="820" Width="1240"
-    MinHeight="650" MinWidth="950"
+    Title="Active Directory Management Studio - SysAdmin Edition"
+    Height="860" Width="1340"
+    MinHeight="680" MinWidth="1050"
     WindowStartupLocation="CenterScreen"
-    Background="#18191D"
+    Background="#14161C"
     Foreground="#F3F4F6"
     FontFamily="Segoe UI, Segoe UI Variable, Arial"
     FontSize="13">
 
     <Window.Resources>
-        <!-- Modern Color Palette -->
-        <SolidColorBrush x:Key="BgDark" Color="#121316"/>
-        <SolidColorBrush x:Key="BgSidebar" Color="#1A1C23"/>
-        <SolidColorBrush x:Key="BgSurface" Color="#22252F"/>
-        <SolidColorBrush x:Key="BgCard" Color="#2A2D3A"/>
-        <SolidColorBrush x:Key="BgInput" Color="#1A1C23"/>
-        <SolidColorBrush x:Key="BorderBrushColor" Color="#373B4D"/>
+        <!-- Modern Professional Palette -->
+        <SolidColorBrush x:Key="BgDark" Color="#0F1015"/>
+        <SolidColorBrush x:Key="BgSidebar" Color="#161820"/>
+        <SolidColorBrush x:Key="BgSurface" Color="#1E212B"/>
+        <SolidColorBrush x:Key="BgCard" Color="#252936"/>
+        <SolidColorBrush x:Key="BgInput" Color="#181A22"/>
+        <SolidColorBrush x:Key="BorderBrushColor" Color="#2F3446"/>
         <SolidColorBrush x:Key="AccentPrimary" Color="#0078D4"/>
         <SolidColorBrush x:Key="AccentHover" Color="#1084D9"/>
         <SolidColorBrush x:Key="AccentActive" Color="#006CBE"/>
@@ -31,9 +31,9 @@
 
         <!-- Standard Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Background" Value="#252936"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -46,11 +46,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#373B4D"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#4F5468"/>
+                                <Setter TargetName="border" Property="Background" Value="#323749"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#4B526D"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#22252F"/>
+                                <Setter TargetName="border" Property="Background" Value="#1E212B"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Opacity" Value="0.45"/>
@@ -111,9 +111,9 @@
 
         <!-- Modern Input TextBox -->
         <Style x:Key="ModernTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Background" Value="#181A22"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -135,9 +135,9 @@
 
         <!-- Modern ComboBox -->
         <Style x:Key="ModernComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Background" Value="#181A22"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -148,27 +148,27 @@
             <Setter Property="Foreground" Value="#9CA3AF"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Height" Value="42"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Margin" Value="0,1"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border Name="navBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="12,0" Margin="8,1">
+                        <Border Name="navBorder" Background="{TemplateBinding Background}" CornerRadius="5" Padding="10,0" Margin="6,1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Name="navIndicator" Text="▌" Foreground="Transparent" Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBlock Name="navIndicator" Text="▌" Foreground="Transparent" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
                                 <ContentPresenter VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="navBorder" Property="Background" Value="#22252F"/>
+                                <Setter TargetName="navBorder" Property="Background" Value="#1E212B"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="navBorder" Property="Background" Value="#2A2D3A"/>
+                                <Setter TargetName="navBorder" Property="Background" Value="#252936"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                                 <Setter TargetName="navIndicator" Property="Foreground" Value="#0078D4"/>
                             </Trigger>
@@ -180,14 +180,14 @@
 
         <!-- Modern DataGrid Style -->
         <Style x:Key="ModernDataGrid" TargetType="DataGrid">
-            <Setter Property="Background" Value="#1A1C23"/>
+            <Setter Property="Background" Value="#161820"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="RowBackground" Value="#1A1C23"/>
-            <Setter Property="AlternatingRowBackground" Value="#20232B"/>
+            <Setter Property="RowBackground" Value="#161820"/>
+            <Setter Property="AlternatingRowBackground" Value="#1B1E28"/>
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="HorizontalGridLinesBrush" Value="#2D313F"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#262A38"/>
             <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
             <Setter Property="AutoGenerateColumns" Value="False"/>
@@ -199,84 +199,113 @@
             <Setter Property="RowHeight" Value="32"/>
         </Style>
 
-        <!-- Modern DataGrid ColumnHeader -->
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#2A2D3A"/>
+            <Setter Property="Background" Value="#1F232F"/>
             <Setter Property="Foreground" Value="#D1D5DB"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="Padding" Value="10,0"/>
-            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
         </Style>
 
-        <!-- Modern DataGrid Row -->
-        <Style TargetType="DataGridRow">
-            <Setter Property="Padding" Value="4,0"/>
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#004C87"/>
-                    <Setter Property="Foreground" Value="#FFFFFF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Modern DataGrid Cell -->
         <Style TargetType="DataGridCell">
-            <Setter Property="Padding" Value="8,0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,4"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Background" Value="#0078D4"/>
                     <Setter Property="Foreground" Value="#FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Filter Chip RadioButton -->
+        <Style x:Key="FilterChip" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="Background" Value="#181A22"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Name="chipBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14" Padding="{TemplateBinding Padding}" Margin="0,0,6,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chipBorder" Property="Background" Value="#252936"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="chipBorder" Property="Background" Value="#0078D4"/>
+                                <Setter TargetName="chipBorder" Property="BorderBrush" Value="#0078D4"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="#14161C">
         <Grid.RowDefinitions>
-            <RowDefinition Height="56"/> <!-- Top Header -->
-            <RowDefinition Height="*"/>  <!-- Main Body (Sidebar + Content) -->
-            <RowDefinition Height="30"/> <!-- Status Bar -->
+            <RowDefinition Height="54"/>  <!-- Top App Bar / Telemetry -->
+            <RowDefinition Height="*"/>   <!-- Main Body: Navigation + Viewport -->
+            <RowDefinition Height="30"/>  <!-- Bottom Status Bar -->
         </Grid.RowDefinitions>
 
-        <!-- TOP HEADER -->
-        <Border Grid.Row="0" Background="#16181F" BorderBrush="#2D313F" BorderThickness="0,0,0,1" Padding="18,0">
+        <!-- TOP APP BAR -->
+        <Border Grid.Row="0" Background="#111319" BorderBrush="#252936" BorderThickness="0,0,0,1" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="340"/> <!-- Logo & Profiles -->
+                    <ColumnDefinition Width="*"/>   <!-- Live Connection Telemetry -->
+                    <ColumnDefinition Width="Auto"/> <!-- Quick Actions -->
                 </Grid.ColumnDefinitions>
 
-                <!-- App Branding -->
+                <!-- Left: Branding & Profile Selector -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="34" Height="34" Background="#0078D4" CornerRadius="6" Margin="0,0,12,0">
-                        <TextBlock Text="⚡" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Windows Server Management Suite" FontSize="11" Foreground="#9CA3AF"/>
+                    <TextBlock Text="⚡" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF"/>
+                        <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="10" Foreground="#60A5FA"/>
                     </StackPanel>
+
+                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" Width="150" Height="28" FontSize="11" Margin="0,0,6,0">
+                        <ComboBoxItem Content="Default (Auto-Detect)" IsSelected="True"/>
+                    </ComboBox>
                 </StackPanel>
 
-                <!-- Connection Indicator Badge -->
-                <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="16" Padding="14,4">
+                <!-- Center: Connection Telemetry Badge -->
+                <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1B1E28" BorderBrush="#2F3446" BorderThickness="1" CornerRadius="16" Padding="14,4">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Name="StatusDot" Width="8" Height="8" Fill="#107C41" Margin="0,0,8,0"/>
                         <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="#E5E7EB"/>
                         <TextBlock Text=" | DC: " FontSize="12" Foreground="#9CA3AF"/>
                         <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="#9CA3AF"/>
+                        <TextBlock Text=" | " FontSize="12" Foreground="#6B7280"/>
+                        <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Top Quick Actions -->
+                <!-- Right: Diagnostics & Refresh -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Margin="0,0,8,0">
+                    <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔄" Margin="0,0,6,0"/>
+                            <TextBlock Text="🩺" Margin="0,0,5,0"/>
+                            <TextBlock Text="Diagnostics"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Padding="10,5">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔄" Margin="0,0,5,0"/>
                             <TextBlock Text="Refresh All"/>
                         </StackPanel>
                     </Button>
@@ -284,577 +313,1160 @@
             </Grid>
         </Border>
 
-        <!-- MAIN BODY: SIDEBAR + CONTENT -->
+        <!-- MAIN BODY -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220"/> <!-- Left Sidebar -->
-                <ColumnDefinition Width="*"/>   <!-- Main Viewport -->
+                <ColumnDefinition Width="220"/> <!-- Sidebar -->
+                <ColumnDefinition Width="*"/>   <!-- Viewport -->
             </Grid.ColumnDefinitions>
 
             <!-- LEFT SIDEBAR -->
-            <Border Grid.Column="0" Background="#16181F" BorderBrush="#2D313F" BorderThickness="0,0,1,0">
-                <DockPanel LastChildFill="True">
-                    <!-- Navigation Category Header -->
-                    <TextBlock DockPanel.Dock="Top" Text="NAVIGATION" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="16,16,16,8"/>
-
-                    <!-- Nav Items -->
-                    <StackPanel DockPanel.Dock="Top">
+            <Border Grid.Column="0" Background="#13151D" BorderBrush="#252936" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,8,0,12">
+                        <!-- Group 1: DIRECTORY SERVICES -->
+                        <TextBlock Text="DIRECTORY SERVICES" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="14,10,14,4"/>
                         <RadioButton Name="NavDashboard" Style="{StaticResource NavTabButton}" IsChecked="True">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📊" Margin="0,0,10,0"/>
+                                <TextBlock Text="📊" Margin="0,0,8,0"/>
                                 <TextBlock Text="Dashboard"/>
                             </StackPanel>
                         </RadioButton>
-
                         <RadioButton Name="NavUsers" Style="{StaticResource NavTabButton}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="👥" Margin="0,0,10,0"/>
+                                <TextBlock Text="👥" Margin="0,0,8,0"/>
                                 <TextBlock Text="Users"/>
                             </StackPanel>
                         </RadioButton>
-
                         <RadioButton Name="NavGroups" Style="{StaticResource NavTabButton}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🛡️" Margin="0,0,10,0"/>
+                                <TextBlock Text="🛡️" Margin="0,0,8,0"/>
                                 <TextBlock Text="Groups"/>
                             </StackPanel>
                         </RadioButton>
-
                         <RadioButton Name="NavOUs" Style="{StaticResource NavTabButton}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📁" Margin="0,0,10,0"/>
+                                <TextBlock Text="📁" Margin="0,0,8,0"/>
                                 <TextBlock Text="Org. Units (OUs)"/>
                             </StackPanel>
                         </RadioButton>
-                    </StackPanel>
+                        <RadioButton Name="NavComputers" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💻" Margin="0,0,8,0"/>
+                                <TextBlock Text="Computers"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                    <!-- Bottom Nav Items -->
-                    <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,12">
-                        <Separator Background="#2D313F" Margin="12,8"/>
+                        <!-- Group 2: SOFTERRA LDAP SUITE -->
+                        <Separator Background="#252936" Margin="12,8"/>
+                        <TextBlock Text="SOFTERRA LDAP SUITE" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" Margin="14,4,14,4"/>
+
+                        <RadioButton Name="NavDirectorySearch" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔍" Margin="0,0,8,0"/>
+                                <TextBlock Text="Directory Search"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavLdapSql" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚡" Margin="0,0,8,0"/>
+                                <TextBlock Text="LDAP-SQL Console"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavAttributeEditor" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🏷️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Raw Attribute Editor"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavObjectCompare" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚖️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Object Compare"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavLdifStudio" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📜" Margin="0,0,8,0"/>
+                                <TextBlock Text="LDIF Studio"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavAuditReports" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🛡️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Security &amp; Audits"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavSchemaBrowser" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📚" Margin="0,0,8,0"/>
+                                <TextBlock Text="Schema Browser"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavBulkEditor" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="👥" Margin="0,0,8,0"/>
+                                <TextBlock Text="Bulk Operations"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Group 3: SYSTEM -->
+                        <Separator Background="#252936" Margin="12,8"/>
+                        <TextBlock Text="SYSTEM" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="14,4,14,4"/>
+
+                        <RadioButton Name="NavConnections" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🌐" Margin="0,0,8,0"/>
+                                <TextBlock Text="Connections"/>
+                            </StackPanel>
+                        </RadioButton>
                         <RadioButton Name="NavSettings" Style="{StaticResource NavTabButton}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚙️" Margin="0,0,10,0"/>
+                                <TextBlock Text="⚙️" Margin="0,0,8,0"/>
                                 <TextBlock Text="Settings"/>
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
-
-                    <!-- Spacer -->
-                    <Grid/>
-                </DockPanel>
+                </ScrollViewer>
             </Border>
 
             <!-- MAIN VIEWPORT CONTENT TABS -->
-            <Grid Grid.Column="1" Background="#1B1D24" Margin="0">
+            <Grid Grid.Column="1" Background="#161821">
 
                 <!-- 1. DASHBOARD PANEL -->
-                <Grid Name="PanelDashboard" Visibility="Visible" Margin="24">
+                <Grid Name="PanelDashboard" Visibility="Visible" Margin="22">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Title & Subtitle -->
-                        <RowDefinition Height="Auto"/> <!-- KPI Cards Grid -->
-                        <RowDefinition Height="*"/>    <!-- Quick Operations & Recent -->
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                        <TextBlock Text="Active Directory Overview" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Real-time health, statistics, and domain object metrics." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="Active Directory Overview &amp; Health" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Real-time directory statistics, security alerts, and quick administration launchpads." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <!-- KPI Cards (6 Cards) -->
-                    <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,24">
-                        <!-- Card 1: Total Users -->
-                        <Border Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6">
+                    <!-- KPI Cards Grid -->
+                    <Grid Grid.Row="1" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Total Users Card -->
+                        <Border Grid.Column="0" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="TOTAL USERS" FontSize="11" FontWeight="Bold" Foreground="#9CA3AF"/>
-                                <TextBlock Name="CardTotalUsers" Text="--" FontSize="28" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,6,0,4"/>
-                                <TextBlock Text="Registered in directory" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="TOTAL USERS" FontSize="11" FontWeight="SemiBold" Foreground="#9CA3AF"/>
+                                <TextBlock Name="CardTotalUsers" Text="0" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,4,0,0"/>
+                                <TextBlock Text="Accounts in directory" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Card 2: Active Users -->
-                        <Border Background="#22252F" BorderBrush="#107C41" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6" Cursor="Hand" Name="CardBtnActiveUsers">
+                        <!-- Active Users Card -->
+                        <Border Grid.Column="1" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="ACTIVE USERS" FontSize="11" FontWeight="Bold" Foreground="#107C41"/>
-                                <TextBlock Name="CardActiveUsers" Text="--" FontSize="28" FontWeight="Bold" Foreground="#107C41" Margin="0,6,0,4"/>
-                                <TextBlock Text="Click to filter active accounts" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="ACTIVE" FontSize="11" FontWeight="SemiBold" Foreground="#107C41"/>
+                                <TextBlock Name="CardActiveUsers" Text="0" FontSize="26" FontWeight="Bold" Foreground="#107C41" Margin="0,4,0,0"/>
+                                <TextBlock Text="Enabled accounts" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Card 3: Disabled Users -->
-                        <Border Background="#22252F" BorderBrush="#D13438" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6" Cursor="Hand" Name="CardBtnDisabledUsers">
+                        <!-- Disabled Users Card -->
+                        <Border Grid.Column="2" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="DISABLED USERS" FontSize="11" FontWeight="Bold" Foreground="#D13438"/>
-                                <TextBlock Name="CardDisabledUsers" Text="--" FontSize="28" FontWeight="Bold" Foreground="#FFA3A8" Margin="0,6,0,4"/>
-                                <TextBlock Text="Click to view disabled accounts" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="DISABLED" FontSize="11" FontWeight="SemiBold" Foreground="#EF4444"/>
+                                <TextBlock Name="CardDisabledUsers" Text="0" FontSize="26" FontWeight="Bold" Foreground="#EF4444" Margin="0,4,0,0"/>
+                                <TextBlock Text="Inactive / Archived" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Card 4: Locked Accounts -->
-                        <Border Background="#22252F" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6" Cursor="Hand" Name="CardBtnLockedUsers">
+                        <!-- Locked Accounts Card -->
+                        <Border Grid.Column="3" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="LOCKED OUT ACCOUNTS" FontSize="11" FontWeight="Bold" Foreground="#F59E0B"/>
-                                <TextBlock Name="CardLockedUsers" Text="--" FontSize="28" FontWeight="Bold" Foreground="#F59E0B" Margin="0,6,0,4"/>
-                                <TextBlock Text="Click to view &amp; unlock accounts" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="LOCKED OUT" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B"/>
+                                <TextBlock Name="CardLockedUsers" Text="0" FontSize="26" FontWeight="Bold" Foreground="#F59E0B" Margin="0,4,0,0"/>
+                                <TextBlock Text="Auth limit exceeded" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Card 5: Total Groups -->
-                        <Border Background="#22252F" BorderBrush="#0078D4" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6" Cursor="Hand" Name="CardBtnGroups">
+                        <!-- Groups Card -->
+                        <Border Grid.Column="4" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
                             <StackPanel>
-                                <TextBlock Text="TOTAL GROUPS" FontSize="11" FontWeight="Bold" Foreground="#0078D4"/>
-                                <TextBlock Name="CardTotalGroups" Text="--" FontSize="28" FontWeight="Bold" Foreground="#60A5FA" Margin="0,6,0,4"/>
-                                <TextBlock Text="Click to manage groups" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="GROUPS" FontSize="11" FontWeight="SemiBold" Foreground="#60A5FA"/>
+                                <TextBlock Name="CardTotalGroups" Text="0" FontSize="26" FontWeight="Bold" Foreground="#60A5FA" Margin="0,4,0,0"/>
+                                <TextBlock Text="Security &amp; Distribution" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Card 6: Total OUs -->
-                        <Border Background="#22252F" BorderBrush="#0EA5E9" BorderThickness="1" CornerRadius="8" Padding="18,16" Margin="6" Cursor="Hand" Name="CardBtnOUs">
+                        <!-- OUs Card -->
+                        <Border Grid.Column="5" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="8" Padding="14">
                             <StackPanel>
-                                <TextBlock Text="ORGANIZATIONAL UNITS" FontSize="11" FontWeight="Bold" Foreground="#0EA5E9"/>
-                                <TextBlock Name="CardTotalOUs" Text="--" FontSize="28" FontWeight="Bold" Foreground="#38BDF8" Margin="0,6,0,4"/>
-                                <TextBlock Text="Click to explore OU hierarchy" FontSize="11" Foreground="#6B7280"/>
+                                <TextBlock Text="ORG. UNITS" FontSize="11" FontWeight="SemiBold" Foreground="#A78BFA"/>
+                                <TextBlock Name="CardTotalOUs" Text="0" FontSize="26" FontWeight="Bold" Foreground="#A78BFA" Margin="0,4,0,0"/>
+                                <TextBlock Text="Containers in tree" FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
-                    </UniformGrid>
+                    </Grid>
 
-                    <!-- Quick Shortcuts / Actions Box -->
-                    <Border Grid.Row="2" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="20">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="QUICK ACTIONS" FontSize="12" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,14"/>
-                            
-                            <WrapPanel Grid.Row="1">
-                                <Button Name="QuickBtnNewUser" Style="{StaticResource PrimaryButton}" Margin="0,0,12,12" Height="36">
+                    <!-- Quick Launchpads & Health Actions -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Quick Launch Suite -->
+                        <Border Grid.Column="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,10,0">
+                            <StackPanel>
+                                <TextBlock Text="🚀 SysAdmin Quick Launchpad" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+
+                                <Button Name="BtnDashSearch" Style="{StaticResource ModernButton}" Margin="0,0,0,8" HorizontalContentAlignment="Left" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="➕" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Create New User"/>
+                                        <TextBlock Text="🔍 " FontSize="16"/>
+                                        <StackPanel Margin="6,0,0,0">
+                                            <TextBlock Text="Advanced Directory Search &amp; Filter Builder" FontWeight="Bold"/>
+                                            <TextBlock Text="Execute custom LDAP filters, scopes, and paged directory queries." FontSize="11" Foreground="#9CA3AF"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Button>
 
-                                <Button Name="QuickBtnNewGroup" Style="{StaticResource ModernButton}" Margin="0,0,12,12" Height="36">
+                                <Button Name="BtnDashSql" Style="{StaticResource ModernButton}" Margin="0,0,0,8" HorizontalContentAlignment="Left" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="🛡️" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Create New Group"/>
+                                        <TextBlock Text="⚡ " FontSize="16"/>
+                                        <StackPanel Margin="6,0,0,0">
+                                            <TextBlock Text="LDAP-SQL Query Console" FontWeight="Bold"/>
+                                            <TextBlock Text="Query Active Directory objects using familiar SQL dialect." FontSize="11" Foreground="#9CA3AF"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Button>
 
-                                <Button Name="QuickBtnNewOU" Style="{StaticResource ModernButton}" Margin="0,0,12,12" Height="36">
+                                <Button Name="BtnDashAttributes" Style="{StaticResource ModernButton}" Margin="0,0,0,8" HorizontalContentAlignment="Left" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📁" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Create New OU"/>
+                                        <TextBlock Text="🏷️ " FontSize="16"/>
+                                        <StackPanel Margin="6,0,0,0">
+                                            <TextBlock Text="Raw LDAP Attribute Editor" FontWeight="Bold"/>
+                                            <TextBlock Text="Inspect and modify mandatory, optional, and operational attributes." FontSize="11" Foreground="#9CA3AF"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Button>
 
-                                <Button Name="QuickBtnExportAll" Style="{StaticResource ModernButton}" Margin="0,0,12,12" Height="36">
+                                <Button Name="BtnDashAudits" Style="{StaticResource ModernButton}" HorizontalContentAlignment="Left" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📤" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Export Directory Report"/>
+                                        <TextBlock Text="🛡️ " FontSize="16"/>
+                                        <StackPanel Margin="6,0,0,0">
+                                            <TextBlock Text="Security &amp; Hygiene Auditing" FontWeight="Bold"/>
+                                            <TextBlock Text="Audit inactive users, passwords never expire, empty groups, and unprotected OUs." FontSize="11" Foreground="#9CA3AF"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Button>
-                            </WrapPanel>
-                        </Grid>
-                    </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- System Environment Status -->
+                        <Border Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="8" Padding="18" Margin="10,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="🌐 Active Directory Environment" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Text="Primary DC Emulator:" Foreground="#9CA3AF"/>
+                                    <TextBlock Name="TxtDashPdc" Text="Detecting..." HorizontalAlignment="Right" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Separator Background="#252936" Margin="0,4,0,8"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Text="Default Naming Context:" Foreground="#9CA3AF"/>
+                                    <TextBlock Name="TxtDashDefaultNC" Text="Detecting..." HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11"/>
+                                </Grid>
+                                <Separator Background="#252936" Margin="0,4,0,8"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Text="Active Directory Module:" Foreground="#9CA3AF"/>
+                                    <TextBlock Name="TxtDashModuleStatus" Text="Loaded" HorizontalAlignment="Right" Foreground="#107C41" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Separator Background="#252936" Margin="0,4,0,8"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Text="LDAP Protocol Support:" Foreground="#9CA3AF"/>
+                                    <TextBlock Text="LDAP v3 (RFC 4511) &amp; LDAPS" HorizontalAlignment="Right" Foreground="#60A5FA"/>
+                                </Grid>
+                                <Separator Background="#252936" Margin="0,4,0,14"/>
+
+                                <Button Name="BtnDashTestConn" Style="{StaticResource ModernButton}" HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="🩺 "/>
+                                        <TextBlock Text="Run Diagnostics"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
 
                 <!-- 2. USERS PANEL -->
-                <Grid Name="PanelUsers" Visibility="Collapsed" Margin="20">
+                <Grid Name="PanelUsers" Visibility="Collapsed" Margin="18">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Search & Filters Toolbar -->
-                        <RowDefinition Height="Auto"/> <!-- Action Buttons Toolbar -->
-                        <RowDefinition Height="*"/>    <!-- DataGrid -->
-                    </Grid.RowDefinitions>
-
-                    <!-- Filter / Search Row -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Live Search Input -->
-                        <TextBox Name="TxtUserSearch" Grid.Column="0" Style="{StaticResource ModernTextBox}" Height="34" Margin="0,0,10,0"/>
-
-                        <!-- Status Filter -->
-                        <ComboBox Name="CmbUserStatus" Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="140" Height="34" Margin="0,0,10,0">
-                            <ComboBoxItem Content="All Statuses" IsSelected="True"/>
-                            <ComboBoxItem Content="Active Only"/>
-                            <ComboBoxItem Content="Disabled Only"/>
-                            <ComboBoxItem Content="Locked Only"/>
-                        </ComboBox>
-
-                        <!-- OU Scope Filter -->
-                        <ComboBox Name="CmbUserOU" Grid.Column="2" Style="{StaticResource ModernComboBox}" Width="240" Height="34" Margin="0,0,10,0">
-                            <ComboBoxItem Content="Entire Domain" IsSelected="True"/>
-                        </ComboBox>
-
-                        <!-- Search Button -->
-                        <Button Name="BtnUserSearch" Grid.Column="3" Style="{StaticResource ModernButton}" Height="34" Width="80">
-                            <TextBlock Text="Search"/>
-                        </Button>
-                    </Grid>
-
-                    <!-- Action Ribbon -->
-                    <DockPanel Grid.Row="1" Margin="0,0,0,12" LastChildFill="False">
-                        <!-- Primary User Actions -->
-                        <Button Name="BtnUserNew" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="➕" Margin="0,0,6,0"/>
-                                <TextBlock Text="New User"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserEdit" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="✏️" Margin="0,0,6,0"/>
-                                <TextBlock Text="Edit"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserView" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="👁️" Margin="0,0,6,0"/>
-                                <TextBlock Text="Details"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserPassword" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🔑" Margin="0,0,6,0"/>
-                                <TextBlock Text="Reset Password"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserToggleStatus" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚡" Margin="0,0,6,0"/>
-                                <TextBlock Text="Enable/Disable"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserUnlock" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🔓" Margin="0,0,6,0"/>
-                                <TextBlock Text="Unlock"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserMove" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📂" Margin="0,0,6,0"/>
-                                <TextBlock Text="Move OU"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnUserDelete" Style="{StaticResource DangerButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🗑️" Margin="0,0,6,0"/>
-                                <TextBlock Text="Delete"/>
-                            </StackPanel>
-                        </Button>
-
-                        <!-- Right Actions -->
-                        <Button DockPanel.Dock="Right" Name="BtnUserExport" Style="{StaticResource ModernButton}" Height="32">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📤" Margin="0,0,6,0"/>
-                                <TextBlock Text="Export CSV"/>
-                            </StackPanel>
-                        </Button>
-                    </DockPanel>
-
-                    <!-- Users DataGrid -->
-                    <DataGrid Name="GridUsers" Grid.Row="2" Style="{StaticResource ModernDataGrid}">
-                        <DataGrid.Columns>
-                            <!-- Status Badge Column -->
-                            <DataGridTemplateColumn Header="Status" Width="90">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding StatusBadge}" Foreground="#FFFFFF" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="160" FontWeight="SemiBold"/>
-                            <DataGridTextColumn Header="Username" Binding="{Binding SamAccountName}" Width="130"/>
-                            <DataGridTextColumn Header="Email" Binding="{Binding Mail}" Width="160"/>
-                            <DataGridTextColumn Header="Title / Cargo" Binding="{Binding Title}" Width="140"/>
-                            <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="140"/>
-                            <DataGridTextColumn Header="Office" Binding="{Binding Office}" Width="110"/>
-                            <DataGridTextColumn Header="Employee ID" Binding="{Binding EmployeeID}" Width="90"/>
-                            <DataGridTextColumn Header="OU Path" Binding="{Binding OUPath}" Width="180"/>
-                            <DataGridTextColumn Header="Last Logon" Binding="{Binding LastLogonDate}" Width="120"/>
-                        </DataGrid.Columns>
-
-                        <!-- Context Menu -->
-                        <DataGrid.ContextMenu>
-                            <ContextMenu Background="#22252F" Foreground="#FFFFFF" BorderBrush="#373B4D">
-                                <MenuItem Name="CtxUserView" Header="👁️ View Details"/>
-                                <MenuItem Name="CtxUserEdit" Header="✏️ Edit User"/>
-                                <Separator Background="#373B4D"/>
-                                <MenuItem Name="CtxUserPassword" Header="🔑 Reset Password"/>
-                                <MenuItem Name="CtxUserUnlock" Header="🔓 Unlock Account"/>
-                                <MenuItem Name="CtxUserToggle" Header="⚡ Enable / Disable"/>
-                                <MenuItem Name="CtxUserMove" Header="📂 Move to Another OU"/>
-                                <Separator Background="#373B4D"/>
-                                <MenuItem Name="CtxUserCopyUser" Header="📋 Copy Username"/>
-                                <Separator Background="#373B4D"/>
-                                <MenuItem Name="CtxUserDelete" Header="🗑️ Delete User" Foreground="#FFA3A8"/>
-                            </ContextMenu>
-                        </DataGrid.ContextMenu>
-                    </DataGrid>
-                </Grid>
-
-                <!-- 3. GROUPS PANEL -->
-                <Grid Name="PanelGroups" Visibility="Collapsed" Margin="20">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Filters -->
+                        <RowDefinition Height="Auto"/> <!-- Search & Filter Chips -->
                         <RowDefinition Height="Auto"/> <!-- Action Ribbon -->
                         <RowDefinition Height="*"/>    <!-- DataGrid -->
                     </Grid.RowDefinitions>
 
-                    <!-- Filter Row -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                    <!-- Filter Bar -->
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                        <TextBox Name="TxtGroupSearch" Grid.Column="0" Style="{StaticResource ModernTextBox}" Height="34" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="0" Name="TxtSearchUsers" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
 
-                        <ComboBox Name="CmbGroupCategory" Grid.Column="1" Style="{StaticResource ModernComboBox}" Width="150" Height="34" Margin="0,0,10,0">
-                            <ComboBoxItem Content="All Categories" IsSelected="True"/>
-                            <ComboBoxItem Content="Security"/>
-                            <ComboBoxItem Content="Distribution"/>
-                        </ComboBox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <RadioButton Name="FilterUserAll" Style="{StaticResource FilterChip}" Content="All" IsChecked="True"/>
+                                <RadioButton Name="FilterUserActive" Style="{StaticResource FilterChip}" Content="Active"/>
+                                <RadioButton Name="FilterUserDisabled" Style="{StaticResource FilterChip}" Content="Disabled"/>
+                                <RadioButton Name="FilterUserLocked" Style="{StaticResource FilterChip}" Content="Locked"/>
+                            </StackPanel>
 
-                        <ComboBox Name="CmbGroupScope" Grid.Column="2" Style="{StaticResource ModernComboBox}" Width="140" Height="34" Margin="0,0,10,0">
-                            <ComboBoxItem Content="All Scopes" IsSelected="True"/>
-                            <ComboBoxItem Content="Global"/>
-                            <ComboBoxItem Content="Universal"/>
-                            <ComboBoxItem Content="DomainLocal"/>
-                        </ComboBox>
+                            <ComboBox Grid.Column="2" Name="CmbUserOUFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
 
-                        <Button Name="BtnGroupSearch" Grid.Column="3" Style="{StaticResource ModernButton}" Height="34" Width="80">
-                            <TextBlock Text="Search"/>
-                        </Button>
-                    </Grid>
+                            <Button Grid.Column="3" Name="BtnSearchUsers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search"/>
+                        </Grid>
+                    </Border>
 
                     <!-- Action Ribbon -->
-                    <DockPanel Grid.Row="1" Margin="0,0,0,12" LastChildFill="False">
-                        <Button Name="BtnGroupNew" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="➕" Margin="0,0,6,0"/>
-                                <TextBlock Text="New Group"/>
-                            </StackPanel>
-                        </Button>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Name="BtnNewUser" Style="{StaticResource PrimaryButton}" Content="➕ New User" Margin="0,0,6,0"/>
+                        <Button Name="BtnEditUser" Style="{StaticResource ModernButton}" Content="✏️ Edit" Margin="0,0,6,0"/>
+                        <Button Name="BtnViewUser" Style="{StaticResource ModernButton}" Content="👁️ Details" Margin="0,0,6,0"/>
+                        <Button Name="BtnResetPassword" Style="{StaticResource ModernButton}" Content="🔑 Reset PW" Margin="0,0,6,0"/>
+                        <Button Name="BtnToggleStatus" Style="{StaticResource ModernButton}" Content="⚡ Toggle Status" Margin="0,0,6,0"/>
+                        <Button Name="BtnMoveUser" Style="{StaticResource ModernButton}" Content="📂 Move OU" Margin="0,0,6,0"/>
+                        <Button Name="BtnUserRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                        <Button Name="BtnUserCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,0"/>
+                        <Button Name="BtnDeleteUser" Style="{StaticResource DangerButton}" Content="🗑️ Delete" Margin="0,0,6,0"/>
+                        <Button Name="BtnExportUsers" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                    </StackPanel>
 
-                        <Button Name="BtnGroupMembers" Style="{StaticResource ModernButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="👥" Margin="0,0,6,0"/>
-                                <TextBlock Text="Manage Members"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Name="BtnGroupDelete" Style="{StaticResource DangerButton}" Height="32" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🗑️" Margin="0,0,6,0"/>
-                                <TextBlock Text="Delete Group"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button DockPanel.Dock="Right" Name="BtnGroupExport" Style="{StaticResource ModernButton}" Height="32">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📤" Margin="0,0,6,0"/>
-                                <TextBlock Text="Export CSV"/>
-                            </StackPanel>
-                        </Button>
-                    </DockPanel>
-
-                    <!-- Groups DataGrid -->
-                    <DataGrid Name="GridGroups" Grid.Row="2" Style="{StaticResource ModernDataGrid}">
+                    <!-- DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridUsers" Style="{StaticResource ModernDataGrid}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Group Name" Binding="{Binding Name}" Width="220" FontWeight="SemiBold"/>
-                            <DataGridTextColumn Header="Category" Binding="{Binding GroupCategory}" Width="110"/>
-                            <DataGridTextColumn Header="Scope" Binding="{Binding GroupScope}" Width="110"/>
-                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="80"/>
-                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
-                            <DataGridTextColumn Header="OU Path" Binding="{Binding OUPath}" Width="*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
+                            <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="160"/>
+                            <DataGridTextColumn Header="Username" Binding="{Binding SamAccountName}" Width="120"/>
+                            <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="180"/>
+                            <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="140"/>
+                            <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="140"/>
+                            <DataGridTextColumn Header="OU Location" Binding="{Binding OUPath}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
 
-                <!-- 4. ORGANIZATIONAL UNITS (OUs) PANEL -->
-                <Grid Name="PanelOUs" Visibility="Collapsed" Margin="20">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="320"/> <!-- OU TreeView -->
-                        <ColumnDefinition Width="*"/>   <!-- OU Details & Contents -->
-                    </Grid.ColumnDefinitions>
+                <!-- 3. GROUPS PANEL -->
+                <Grid Name="PanelGroups" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Left: OU Tree Explorer -->
-                    <Border Grid.Column="0" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,14,0">
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/> <!-- Title & Toolbar -->
-                                <RowDefinition Height="*"/>    <!-- TreeView -->
-                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
-                                <TextBlock Text="DIRECTORY TREE" FontWeight="Bold" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center"/>
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button Name="BtnOUNew" Style="{StaticResource PrimaryButton}" Height="28" Padding="8,2" Margin="0,0,4,0">
-                                        <TextBlock Text="➕ New OU"/>
-                                    </Button>
-                                    <Button Name="BtnOURefresh" Style="{StaticResource ModernButton}" Height="28" Padding="8,2">
-                                        <TextBlock Text="🔄"/>
-                                    </Button>
-                                </StackPanel>
-                            </DockPanel>
-
-                            <!-- Modern Styled TreeView -->
-                            <TreeView Name="TreeOUs" Grid.Row="1" Background="#1A1C23" Foreground="#FFFFFF" BorderBrush="#373B4D" BorderThickness="1">
-                                <TreeView.ItemTemplate>
-                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                        <StackPanel Orientation="Horizontal" Margin="2,4">
-                                            <TextBlock Text="📁" Margin="0,0,6,0"/>
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
-                                        </StackPanel>
-                                    </HierarchicalDataTemplate>
-                                </TreeView.ItemTemplate>
-                            </TreeView>
+                            <TextBox Grid.Column="0" Name="TxtSearchGroups" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
+                            <ComboBox Grid.Column="1" Name="CmbGroupScopeFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
+                            <ComboBox Grid.Column="2" Name="CmbGroupCategoryFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
+                            <Button Grid.Column="3" Name="BtnSearchGroups" Style="{StaticResource PrimaryButton}" Height="30" Content="Search"/>
                         </Grid>
                     </Border>
 
-                    <!-- Right: Selected OU Inspector -->
-                    <Border Grid.Column="1" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="18">
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Name="BtnNewGroup" Style="{StaticResource PrimaryButton}" Content="➕ New Group" Margin="0,0,6,0"/>
+                        <Button Name="BtnManageMembers" Style="{StaticResource ModernButton}" Content="👥 Manage Members" Margin="0,0,6,0"/>
+                        <Button Name="BtnGroupRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                        <Button Name="BtnDeleteGroup" Style="{StaticResource DangerButton}" Content="🗑️ Delete Group" Margin="0,0,6,0"/>
+                        <Button Name="BtnExportGroups" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="2" Name="GridGroups" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Group Name" Binding="{Binding Name}" Width="200"/>
+                            <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="160"/>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding GroupScope}" Width="110"/>
+                            <DataGridTextColumn Header="Category" Binding="{Binding GroupCategory}" Width="110"/>
+                            <DataGridTextColumn Header="OU Location" Binding="{Binding OUPath}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 4. ORG. UNITS (OUs) PANEL -->
+                <Grid Name="PanelOUs" Visibility="Collapsed" Margin="18">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="320"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: OU Directory Tree -->
+                    <Border Grid.Column="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,10,0">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/> <!-- Selected OU Header & Actions -->
-                                <RowDefinition Height="Auto"/> <!-- Summary Bar -->
-                                <RowDefinition Height="*"/>    <!-- Sub-contents TabControl -->
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Header -->
-                            <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="False">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Name="TxtOUDetailName" Text="Select an Organizational Unit" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                    <TextBlock Name="TxtOUDetailDN" Text="Click on any OU in the tree to browse its objects." FontSize="11" Foreground="#9CA3AF" Margin="0,2,0,0"/>
-                                </StackPanel>
+                            <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TreeView Grid.Row="1" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF"/>
 
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Name="BtnOUDelete" Style="{StaticResource DangerButton}" Height="30" Margin="0,0,8,0">
-                                        <TextBlock Text="🗑️ Delete OU"/>
-                                    </Button>
-                                </StackPanel>
-                            </DockPanel>
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Name="BtnNewOU" Style="{StaticResource PrimaryButton}" Content="➕ New OU" Margin="0,0,6,0"/>
+                                <Button Name="BtnDeleteOU" Style="{StaticResource DangerButton}" Content="🗑️ Delete OU"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
-                            <!-- Summary info -->
-                            <Border Grid.Row="1" Background="#1A1C23" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,12">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Protection: " Foreground="#9CA3AF" FontWeight="SemiBold"/>
-                                    <TextBlock Name="TxtOUProtection" Text="--" Foreground="#107C41" FontWeight="Bold" Margin="0,0,24,0"/>
-                                    <TextBlock Text="Description: " Foreground="#9CA3AF" FontWeight="SemiBold"/>
-                                    <TextBlock Name="TxtOUDescription" Text="--" Foreground="#FFFFFF"/>
-                                </StackPanel>
-                            </Border>
+                    <!-- Right: Selected OU Details & Objects -->
+                    <Border Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                            <!-- Members in OU DataGrid -->
-                            <Grid Grid.Row="2">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="USERS &amp; GROUPS IN THIS OU" FontSize="11" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,8"/>
-                                <DataGrid Name="GridOUObjects" Grid.Row="1" Style="{StaticResource ModernDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding ObjectClass}" Width="90"/>
-                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" FontWeight="SemiBold"/>
-                                        <DataGridTextColumn Header="Username / Sam" Binding="{Binding SamAccountName}" Width="160"/>
-                                        <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
+                            <!-- OU Inspector Header -->
+                            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                                <TextBlock Name="TxtSelectedOUName" Text="Select an Organizational Unit" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Name="TxtSelectedOUDN" Text="" FontSize="11" Foreground="#9CA3AF" FontFamily="Consolas" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="Contained Directory Objects:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                            </StackPanel>
+
+                            <!-- Contained Objects DataGrid -->
+                            <DataGrid Grid.Row="2" Name="GridOUObjects" Style="{StaticResource ModernDataGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding ObjectClass}" Width="80"/>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180"/>
+                                    <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="140"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                                    <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
                         </Grid>
                     </Border>
                 </Grid>
 
-                <!-- 5. SETTINGS PANEL -->
-                <Grid Name="PanelSettings" Visibility="Collapsed" Margin="24">
+                <!-- 5. COMPUTERS PANEL -->
+                <Grid Name="PanelComputers" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0" Name="TxtSearchComputers" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
+                            <Button Grid.Column="1" Name="BtnSearchComputers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search Computers"/>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Name="BtnComputerRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                        <Button Name="BtnComputerCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,0"/>
+                        <Button Name="BtnExportComputers" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="2" Name="GridComputers" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Computer Name" Binding="{Binding Name}" Width="150"/>
+                            <DataGridTextColumn Header="DNS Hostname" Binding="{Binding DNSHostName}" Width="190"/>
+                            <DataGridTextColumn Header="Operating System" Binding="{Binding OperatingSystem}" Width="180"/>
+                            <DataGridTextColumn Header="Version" Binding="{Binding OSVersion}" Width="100"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                            <DataGridTextColumn Header="Last Logon" Binding="{Binding LastLogon}" Width="140"/>
+                            <DataGridTextColumn Header="OU Location" Binding="{Binding OUPath}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 6. DIRECTORY SEARCH PANEL (SOFTERRA FILTER BUILDER) -->
+                <Grid Name="PanelDirectorySearch" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Search Builder Bar -->
+                        <RowDefinition Height="Auto"/> <!-- Execution & Export Action Ribbon -->
+                        <RowDefinition Height="*"/>    <!-- Results DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Row 1: Search Base & Scope & Presets -->
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="220"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <TextBlock Text="Search Base (DN):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                    <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Height="28"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                    <TextBlock Text="Scope:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                    <ComboBox Name="CmbSearchScope" Style="{StaticResource ModernComboBox}" Height="28">
+                                        <ComboBoxItem Content="Subtree" IsSelected="True"/>
+                                        <ComboBoxItem Content="OneLevel"/>
+                                        <ComboBoxItem Content="Base"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Search Presets:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                    <ComboBox Name="CmbSearchPresets" Style="{StaticResource ModernComboBox}" Height="28">
+                                        <ComboBoxItem Content="Custom Filter..." IsSelected="True"/>
+                                        <ComboBoxItem Content="All Users"/>
+                                        <ComboBoxItem Content="Locked Out Accounts"/>
+                                        <ComboBoxItem Content="Disabled Accounts"/>
+                                        <ComboBoxItem Content="Passwords Never Expire"/>
+                                        <ComboBoxItem Content="Empty Groups"/>
+                                        <ComboBoxItem Content="Privileged Accounts (adminCount=1)"/>
+                                        <ComboBoxItem Content="Service Accounts (SPNs)"/>
+                                        <ComboBoxItem Content="All Computers"/>
+                                        <ComboBoxItem Content="Domain Controllers"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Row 2: Condition Builder -->
+                            <Grid Grid.Row="1" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <ComboBox Grid.Column="0" Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="objectClass" IsSelected="True"/>
+                                    <ComboBoxItem Content="sAMAccountName"/>
+                                    <ComboBoxItem Content="displayName"/>
+                                    <ComboBoxItem Content="mail"/>
+                                    <ComboBoxItem Content="department"/>
+                                    <ComboBoxItem Content="userAccountControl"/>
+                                    <ComboBoxItem Content="memberOf"/>
+                                </ComboBox>
+
+                                <ComboBox Grid.Column="1" Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="=" IsSelected="True"/>
+                                    <ComboBoxItem Content="starts with"/>
+                                    <ComboBoxItem Content="ends with"/>
+                                    <ComboBoxItem Content="contains"/>
+                                    <ComboBoxItem Content="* is present"/>
+                                    <ComboBoxItem Content="!="/>
+                                </ComboBox>
+
+                                <TextBox Grid.Column="2" Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Height="28" Text="user" Margin="0,0,8,0"/>
+                                <Button Grid.Column="3" Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="28" Content="Insert Condition"/>
+                            </Grid>
+
+                            <!-- Row 3: Raw LDAP Filter & Execute -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,10,0"/>
+                                <Button Grid.Column="1" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="30" Width="130" Content="🔍 Run Search"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Execution Stats & Export Ribbon -->
+                    <Border Grid.Row="1" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Name="TxtSearchStatus" Text="Ready to execute search." Foreground="#9CA3AF" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnSearchInspectAttr" Style="{StaticResource ModernButton}" Content="🏷️ Inspect Attributes" Margin="0,0,6,0"/>
+                                <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
+                                <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,0"/>
+                                <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Results DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridSearchResults" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Class" Binding="{Binding ObjectClass}" Width="90"/>
+                            <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="150"/>
+                            <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="180"/>
+                            <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 7. LDAP-SQL CONSOLE -->
+                <Grid Name="PanelLdapSql" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Query Templates & Execute -->
+                        <RowDefinition Height="140"/>  <!-- Editor -->
+                        <RowDefinition Height="Auto"/> <!-- Stats & Action Ribbon -->
+                        <RowDefinition Height="*"/>    <!-- Results -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="SQL Query Template:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#9CA3AF"/>
+                            <ComboBox Grid.Column="1" Name="CmbSqlTemplates" Style="{StaticResource ModernComboBox}" Height="28">
+                                <ComboBoxItem Content="Select All Users" IsSelected="True"/>
+                                <ComboBoxItem Content="Select Users with Email"/>
+                                <ComboBoxItem Content="Select Disabled Accounts"/>
+                                <ComboBoxItem Content="Select Computers"/>
+                                <ComboBoxItem Content="Select Groups"/>
+                            </ComboBox>
+
+                            <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                <Button Name="BtnClearSql" Style="{StaticResource ModernButton}" Content="Clear" Margin="0,0,6,0"/>
+                                <Button Name="BtnExecuteSql" Style="{StaticResource PrimaryButton}" Content="⚡ Execute SQL (F5)"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- SQL Editor -->
+                    <TextBox Grid.Row="1" Name="TxtSqlQuery" Style="{StaticResource ModernTextBox}"
+                             FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"
+                             Text="SELECT sAMAccountName, displayName, mail, department FROM SUBTREE WHERE objectClass = 'user'"/>
+
+                    <!-- Stats & Ribbon -->
+                    <Border Grid.Row="2" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Name="TxtSqlStatus" Text="Ready to execute query." Foreground="#38BDF8" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnSqlExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
+                                <Button Name="BtnSqlExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,0"/>
+                                <Button Name="BtnSqlExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tabular Results -->
+                    <DataGrid Grid.Row="3" Name="GridSqlResults" Style="{StaticResource ModernDataGrid}"/>
+                </Grid>
+
+                <!-- 8. RAW ATTRIBUTE EDITOR (SOFTERRA SIGNATURE) -->
+                <Grid Name="PanelAttributeEditor" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Object Selector & Header -->
+                        <RowDefinition Height="Auto"/> <!-- Filter & Actions -->
+                        <RowDefinition Height="*"/>    <!-- Attributes DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Target Object Selector -->
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                <TextBlock Text="Target Object Distinguished Name (DN) or SamAccountName:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                <TextBox Name="TxtAttrEditorDN" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Name="BtnLoadRawAttributes" Style="{StaticResource PrimaryButton}" Height="28" Width="140" Content="🏷️ Load Attributes" VerticalAlignment="Bottom"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filter Bar & Attribute Actions -->
+                    <Border Grid.Row="1" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="240"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0" Name="TxtSearchAttributes" Style="{StaticResource ModernTextBox}" Height="28" Margin="0,0,10,0"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Name="TxtAttrCount" Text="0 attributes loaded" Foreground="#9CA3AF" Margin="0,0,12,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Name="BtnEditAttrValue" Style="{StaticResource PrimaryButton}" Content="✏️ Edit Value" Margin="0,0,6,0"/>
+                                <Button Name="BtnClearAttrValue" Style="{StaticResource DangerButton}" Content="🗑️ Clear Attribute" Margin="0,0,6,0"/>
+                                <Button Name="BtnCopyAttrValue" Style="{StaticResource ModernButton}" Content="📋 Copy Value" Margin="0,0,6,0"/>
+                                <Button Name="BtnExportObjectLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Attributes DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridRawAttributes" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Attribute Name" Binding="{Binding Name}" Width="190"/>
+                            <DataGridTextColumn Header="Value (Decoded)" Binding="{Binding Value}" Width="*"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="160"/>
+                            <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="60"/>
+                            <DataGridCheckBoxColumn Header="Operational" Binding="{Binding IsOperational}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 9. OBJECT COMPARE PANEL -->
+                <Grid Name="PanelObjectCompare" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Pickers -->
+                        <RowDefinition Height="Auto"/> <!-- Summary Badges & Filter -->
+                        <RowDefinition Height="*"/>    <!-- Diff Grid -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Object A (Left):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                <TextBox Name="TxtCompareObjectA" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="1" Text="VS" FontWeight="Bold" FontSize="14" Foreground="#60A5FA" VerticalAlignment="Center" Margin="6,16,14,0"/>
+
+                            <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                                <TextBlock Text="Object B (Right):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                <TextBox Name="TxtCompareObjectB" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="3" Name="BtnExecuteCompare" Style="{StaticResource PrimaryButton}" Height="28" Width="140" Content="⚖️ Compare" VerticalAlignment="Bottom"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Summary & Filters -->
+                    <Border Grid.Row="1" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Name="TxtCompareSummary" Text="Enter two objects to compare." Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <CheckBox Name="ChkCompareDiffsOnly" Content="Show Differences Only" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <Button Name="BtnCompareExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export Diff to CSV"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Diff DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridCompareResults" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Attribute" Binding="{Binding Attribute}" Width="180"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding DisplayStatus}" Width="120"/>
+                            <DataGridTextColumn Header="Object A Value" Binding="{Binding ValueA}" Width="*"/>
+                            <DataGridTextColumn Header="Object B Value" Binding="{Binding ValueB}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 10. LDIF STUDIO PANEL -->
+                <Grid Name="PanelLdifStudio" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Templates & Buttons -->
+                        <RowDefinition Height="*"/>    <!-- Editor -->
+                        <RowDefinition Height="Auto"/> <!-- Execution Console Header -->
+                        <RowDefinition Height="130"/>  <!-- Execution Console -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="LDIF Template:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#9CA3AF"/>
+                            <ComboBox Grid.Column="1" Name="CmbLdifTemplates" Style="{StaticResource ModernComboBox}" Height="28">
+                                <ComboBoxItem Content="Template: Modify Attribute" IsSelected="True"/>
+                                <ComboBoxItem Content="Template: Add New User"/>
+                                <ComboBoxItem Content="Template: Delete Object"/>
+                            </ComboBox>
+
+                            <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                <Button Name="BtnLdifValidate" Style="{StaticResource ModernButton}" Content="🔍 Validate / Dry-Run" Margin="0,0,6,0"/>
+                                <Button Name="BtnLdifExecute" Style="{StaticResource PrimaryButton}" Content="⚡ Execute LDIF Live" Margin="0,0,6,0"/>
+                                <Button Name="BtnLdifExport" Style="{StaticResource ModernButton}" Content="💾 Save File"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TextBox Grid.Row="1" Name="TxtLdifEditor" Style="{StaticResource ModernTextBox}"
+                             FontFamily="Consolas" FontSize="13" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"/>
+
+                    <TextBlock Grid.Row="2" Text="Execution &amp; Transaction Log:" FontWeight="SemiBold" Margin="0,0,0,4"/>
+
+                    <TextBox Grid.Row="3" Name="TxtLdifLog" Style="{StaticResource ModernTextBox}"
+                             FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto" Background="#111319" Foreground="#10B981"/>
+                </Grid>
+
+                <!-- 11. SECURITY & AUDIT REPORTS PANEL -->
+                <Grid Name="PanelAuditReports" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Audit Selection & Controls -->
+                        <RowDefinition Height="Auto"/> <!-- Summary Metrics Cards -->
+                        <RowDefinition Height="*"/>    <!-- Findings DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Audit Category:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#9CA3AF"/>
+                            <ComboBox Grid.Column="1" Name="CmbAuditCategory" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,12,0">
+                                <ComboBoxItem Content="Inactive Users" IsSelected="True"/>
+                                <ComboBoxItem Content="Passwords Never Expire"/>
+                                <ComboBoxItem Content="Locked Out Accounts"/>
+                                <ComboBoxItem Content="Privileged Accounts (Admins)"/>
+                                <ComboBoxItem Content="Empty Groups (0 Members)"/>
+                                <ComboBoxItem Content="Unprotected OUs"/>
+                                <ComboBoxItem Content="Service Accounts (SPNs)"/>
+                                <ComboBoxItem Content="Inactive Computers"/>
+                            </ComboBox>
+
+                            <TextBlock Grid.Column="2" Text="Days Threshold:" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#9CA3AF"/>
+                            <ComboBox Grid.Column="3" Name="CmbAuditDays" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,12,0">
+                                <ComboBoxItem Content="30"/>
+                                <ComboBoxItem Content="60"/>
+                                <ComboBoxItem Content="90" IsSelected="True"/>
+                                <ComboBoxItem Content="180"/>
+                            </ComboBox>
+
+                            <Button Grid.Column="4" Name="BtnRunAudit" Style="{StaticResource PrimaryButton}" Height="30" Content="🛡️ Run Audit"/>
+
+                            <StackPanel Grid.Column="6" Orientation="Horizontal">
+                                <Button Name="BtnExportAuditHtml" Style="{StaticResource ModernButton}" Height="30" Content="📄 HTML Executive Report" Margin="0,0,6,0"/>
+                                <Button Name="BtnExportAuditCsv" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export CSV"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Audit Metrics Cards -->
+                    <Border Grid.Row="1" Background="#1E212D" BorderBrush="#2E3345" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <TextBlock Name="TxtAuditSummary" Text="Select an audit category and click 'Run Audit'." FontWeight="SemiBold" Foreground="#38BDF8"/>
+                            <TextBlock Name="TxtAuditCount" Text="" HorizontalAlignment="Right" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Findings DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridAuditResults" Style="{StaticResource ModernDataGrid}"/>
+                </Grid>
+
+                <!-- 12. SCHEMA BROWSER PANEL -->
+                <Grid Name="PanelSchemaBrowser" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Switcher & Search -->
+                        <RowDefinition Height="*"/>    <!-- DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,12,0">
+                                <RadioButton Name="RadioSchemaClasses" Style="{StaticResource FilterChip}" Content="Object Classes" IsChecked="True"/>
+                                <RadioButton Name="RadioSchemaAttributes" Style="{StaticResource FilterChip}" Content="Attribute Types"/>
+                            </StackPanel>
+
+                            <TextBox Grid.Column="1" Name="TxtSearchSchema" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
+
+                            <Button Grid.Column="3" Name="BtnRefreshSchema" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Load Schema"/>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" Name="GridSchema" Style="{StaticResource ModernDataGrid}"/>
+                </Grid>
+
+                <!-- 13. BULK OPERATIONS PANEL -->
+                <Grid Name="PanelBulkEditor" Visibility="Collapsed" Margin="18">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                        <TextBlock Text="Application Settings" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Configure domain controller connection, default formats, and export preferences." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
-                    </StackPanel>
-
-                    <Border Grid.Row="1" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="24" MaxWidth="700" HorizontalAlignment="Left">
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,14">
                         <StackPanel>
-                            <!-- Domain Name -->
-                            <TextBlock Text="Target Domain Name" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBox Name="SettingDomainName" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,0,0,16"/>
+                            <TextBlock Text="👥 Batch Object Operations" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                            <TextBlock Text="Perform mass operations on multiple directory accounts at once." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,14"/>
 
-                            <!-- Preferred Domain Controller -->
-                            <TextBlock Text="Preferred Domain Controller (Optional / Leave blank for auto-discovery)" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBox Name="SettingDC" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,0,0,16"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Default Search Base -->
-                            <TextBlock Text="Default Search Base / Root OU (Leave blank for whole domain)" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBox Name="SettingSearchBase" Style="{StaticResource ModernTextBox}" Height="32" Margin="0,0,0,16"/>
+                                <ComboBox Grid.Column="0" Name="CmbBulkOperation" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="Set Attribute" IsSelected="True"/>
+                                    <ComboBoxItem Content="Enable"/>
+                                    <ComboBoxItem Content="Disable"/>
+                                    <ComboBoxItem Content="Unlock"/>
+                                    <ComboBoxItem Content="RequirePasswordChange"/>
+                                    <ComboBoxItem Content="MoveOU"/>
+                                </ComboBox>
 
-                            <!-- Username Generation Format -->
-                            <TextBlock Text="Default Username Suggestion Format" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <ComboBox Name="SettingUsernameFormat" Style="{StaticResource ModernComboBox}" Height="32" Margin="0,0,0,16">
-                                <ComboBoxItem Content="first.last (e.g. john.doe)" IsSelected="True"/>
-                                <ComboBoxItem Content="flast (e.g. jdoe)"/>
-                                <ComboBoxItem Content="firstl (e.g. johnd)"/>
-                                <ComboBoxItem Content="lastf (e.g. doej)"/>
-                            </ComboBox>
-
-                            <!-- Password Default Length -->
-                            <TextBlock Text="Default Generated Password Length" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <TextBox Name="SettingPasswordLength" Style="{StaticResource ModernTextBox}" Height="32" Text="16" Margin="0,0,0,16"/>
-
-                            <!-- Export Delimiter -->
-                            <TextBlock Text="CSV Export Delimiter" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                            <ComboBox Name="SettingDelimiter" Style="{StaticResource ModernComboBox}" Height="32" Margin="0,0,0,24">
-                                <ComboBoxItem Content="; (Semicolon - Recommended for Excel in Europe)" IsSelected="True"/>
-                                <ComboBoxItem Content=", (Comma - Standard CSV)"/>
-                                <ComboBoxItem Content="Tab (\t)"/>
-                            </ComboBox>
-
-                            <!-- Save Settings Button -->
-                            <Button Name="BtnSaveSettings" Style="{StaticResource PrimaryButton}" Height="36" Width="140" HorizontalAlignment="Left">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="💾" Margin="0,0,6,0"/>
-                                    <TextBlock Text="Save Settings"/>
-                                </StackPanel>
-                            </Button>
+                                <TextBox Grid.Column="1" Name="TxtBulkAttrName" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,8,0" Tag="Attribute Name (e.g. department)"/>
+                                <TextBox Grid.Column="2" Name="TxtBulkNewValue" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,8,0" Tag="New Value"/>
+                                <Button Grid.Column="3" Name="BtnExecuteBulk" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Execute Bulk Operation"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
+
+                    <!-- Log console -->
+                    <Border Grid.Row="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Batch Execution Log:" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="1" Name="TxtBulkLog" Style="{StaticResource ModernTextBox}"
+                                     FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" Background="#111319" Foreground="#38BDF8"/>
+                        </Grid>
+                    </Border>
                 </Grid>
+
+                <!-- 14. CONNECTIONS PANEL -->
+                <Grid Name="PanelConnections" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🌐 Active Directory Connection Profiles" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Manage domain controller profiles, custom ports, LDAPS SSL, and diagnostic checks." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnNewProfile" Style="{StaticResource PrimaryButton}" Content="➕ Add Profile" Margin="0,0,6,0"/>
+                                <Button Name="BtnRunDiagFull" Style="{StaticResource ModernButton}" Content="🩺 Test Connection Diagnostics"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Diagnostics Card & Profile Manager -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="340"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Profiles List -->
+                        <Border Grid.Column="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,10,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Configured Profiles" FontWeight="Bold" Margin="0,0,0,8"/>
+                                <ListBox Grid.Row="1" Name="ListProfiles" Background="#161820" BorderThickness="1" BorderBrush="#2F3446" Foreground="#FFFFFF"/>
+
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Name="BtnDeleteProfile" Style="{StaticResource DangerButton}" Content="Delete Profile"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Live Diagnostic Results -->
+                        <Border Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Server Diagnostics &amp; Health Report" FontSize="15" FontWeight="Bold" Margin="0,0,0,14"/>
+
+                                <Border Background="#161820" BorderBrush="#2F3446" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="Target Server:" Foreground="#9CA3AF"/>
+                                            <TextBlock Name="TxtDiagServer" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="IP Address:" Foreground="#9CA3AF"/>
+                                            <TextBlock Name="TxtDiagIp" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="LDAP TCP Port (389):" Foreground="#9CA3AF"/>
+                                            <TextBlock Name="TxtDiagPortStatus" Text="--" HorizontalAlignment="Right" Foreground="#107C41" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="Round-Trip Latency:" Foreground="#9CA3AF"/>
+                                            <TextBlock Name="TxtDiagLatency" Text="--" HorizontalAlignment="Right" Foreground="#38BDF8" FontWeight="Bold"/>
+                                        </Grid>
+                                        <Grid>
+                                            <TextBlock Text="RootDSE Default NC:" Foreground="#9CA3AF"/>
+                                            <TextBlock Name="TxtDiagDefaultNC" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Name="TxtDiagMessage" Text="Ready." Foreground="#9CA3AF" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- 15. SETTINGS PANEL -->
+                <Grid Name="PanelSettings" Visibility="Collapsed" Margin="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="Application Settings &amp; Preferences" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Configure directory defaults, naming conventions, password policies, and CSV exports." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="8" Padding="20">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel MaxWidth="700" HorizontalAlignment="Left">
+                                <TextBlock Text="Active Directory Configuration" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
+
+                                <CheckBox Name="ChkAutoDetect" Content="Auto-detect Active Directory domain and primary controller" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="Default SearchBase DN (optional override):" Margin="0,0,0,4"/>
+                                <TextBox Name="TxtCfgSearchBase" Style="{StaticResource ModernTextBox}" Margin="0,0,0,14"/>
+
+                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <TextBlock Text="User Provisioning Defaults" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
+
+                                <TextBlock Text="Default Username Format:" Margin="0,0,0,4"/>
+                                <ComboBox Name="CmbUsernameFormat" Style="{StaticResource ModernComboBox}" Margin="0,0,0,12">
+                                    <ComboBoxItem Content="first.last (e.g. john.doe)" IsSelected="True"/>
+                                    <ComboBoxItem Content="flast (e.g. jdoe)"/>
+                                    <ComboBoxItem Content="firstl (e.g. johnd)"/>
+                                    <ComboBoxItem Content="lastf (e.g. doej)"/>
+                                </ComboBox>
+
+                                <TextBlock Text="Generated Password Length:" Margin="0,0,0,4"/>
+                                <TextBox Name="TxtCfgPasswordLength" Style="{StaticResource ModernTextBox}" Text="16" Margin="0,0,0,12"/>
+
+                                <CheckBox Name="ChkCfgRequirePwChange" Content="Require password change at next logon by default" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+
+                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <TextBlock Text="Export Preferences" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
+
+                                <TextBlock Text="CSV Delimiter:" Margin="0,0,0,4"/>
+                                <ComboBox Name="CmbExportDelimiter" Style="{StaticResource ModernComboBox}" Margin="0,0,0,16">
+                                    <ComboBoxItem Content="; (Semicolon - Recommended for Excel Europe)" IsSelected="True"/>
+                                    <ComboBoxItem Content=", (Comma - Standard CSV)"/>
+                                </ComboBox>
+
+                                <Button Name="BtnSaveSettings" Style="{StaticResource PrimaryButton}" Content="💾 Save Settings" Width="140" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
             </Grid>
         </Grid>
 
-        <!-- STATUS BAR -->
-        <Border Grid.Row="2" Background="#121316" BorderBrush="#2D313F" BorderThickness="0,1,0,0" Padding="16,0">
+        <!-- BOTTOM STATUS BAR -->
+        <Border Grid.Row="2" Background="#0F1015" BorderBrush="#252936" BorderThickness="0,1,0,0" Padding="14,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Name="TxtStatusBarMessage" Grid.Column="0" Text="Ready" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center"/>
-                <TextBlock Name="TxtStatusBarCounter" Grid.Column="1" Text="Loaded 0 objects" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Name="TxtStatusMessage" Text="Ready: Active Directory Management Studio initialized." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center"/>
             </Grid>
         </Border>
     </Grid>

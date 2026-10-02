@@ -1,0 +1,202 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LDAP Attribute Editor" Height="580" Width="680"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        Background="#181A20" Foreground="#E5E7EB" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#22252F"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#373B4D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="#60A5FA"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2B2F3E"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- Editor Body -->
+            <RowDefinition Height="Auto"/> <!-- Footer / Actions -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" BorderBrush="#2D313F" BorderThickness="0,0,0,1" Padding="0,0,0,16" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🏷️ " FontSize="20"/>
+                        <TextBlock Name="TxtHeaderAttrName" Text="Attribute Name" FontSize="18" FontWeight="Bold" Foreground="#60A5FA"/>
+                    </StackPanel>
+                    <TextBlock Name="TxtHeaderType" Text="Syntax: String (Unicode) | Single-Valued" FontSize="12" Foreground="#9CA3AF" Margin="28,4,0,0"/>
+                </StackPanel>
+
+                <Border Grid.Column="1" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                    <TextBlock Name="TxtHeaderDN" Text="CN=Object,DC=corp,DC=example,DC=com" FontSize="11" Foreground="#9CA3AF" MaxWidth="300" TextTrimming="CharacterEllipsis"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Editor Modes (Dynamically switched depending on attribute type) -->
+        <Grid Grid.Row="1">
+            <!-- Mode 1: Standard String / Value Editor -->
+            <Grid Name="ModeStringEditor" Visibility="Visible">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Attribute Value:" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBox Grid.Row="1" Name="TxtStringValue" Style="{StaticResource ModernTextBox}"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="13"/>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Name="BtnClearValue" Style="{StaticResource DangerButton}" Content="🗑️ Clear Value" Margin="0,0,8,0"/>
+                    <Button Name="BtnSetNever" Style="{StaticResource ModernButton}" Content="Set to 'Never' (0)" Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Mode 2: Multi-Valued Attribute Editor -->
+            <Grid Name="ModeMultiValueEditor" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock Text="Values in this attribute:" FontWeight="SemiBold"/>
+                    <TextBlock Name="TxtMultiCount" Text="0 values" HorizontalAlignment="Right" Foreground="#9CA3AF"/>
+                </Grid>
+
+                <ListBox Grid.Row="1" Name="ListMultiValues" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1"
+                         Foreground="#FFFFFF" FontFamily="Consolas" FontSize="13" Padding="4">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="8,6"/>
+                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <Grid Grid.Row="2" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Column="0" Name="TxtNewMultiValue" Style="{StaticResource ModernTextBox}" Margin="0,0,8,0" Tag="Enter new value..."/>
+                    <Button Grid.Column="1" Name="BtnAddMultiValue" Style="{StaticResource ModernButton}" Content="➕ Add" Margin="0,0,8,0"/>
+                    <Button Grid.Column="2" Name="BtnRemoveMultiValue" Style="{StaticResource DangerButton}" Content="➖ Remove Selected"/>
+                </Grid>
+            </Grid>
+
+            <!-- Mode 3: UAC Flags Bitmask Editor -->
+            <Grid Name="ModeUacEditor" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock Text="userAccountControl Bitmask Flags:" FontWeight="SemiBold"/>
+                    <TextBlock Name="TxtUacComputed" Text="Computed Value: 512 (0x0200)" HorizontalAlignment="Right" Foreground="#60A5FA" FontWeight="Bold"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl Name="ItemsUacFlags">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#22252F" BorderBrush="#2D313F" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,2">
+                                    <CheckBox IsChecked="{Binding IsChecked}" Foreground="#E5E7EB" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding FlagName}" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                            <TextBlock Text=" (" Foreground="#9CA3AF"/>
+                                            <TextBlock Text="{Binding HexValue}" Foreground="#60A5FA" FontFamily="Consolas"/>
+                                            <TextBlock Text=")" Foreground="#9CA3AF"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Name="BtnPresetNormalUser" Style="{StaticResource ModernButton}" Content="Preset: Normal User (512)" Margin="0,0,8,0"/>
+                    <Button Name="BtnPresetDisabledUser" Style="{StaticResource ModernButton}" Content="Preset: Disabled (514)" Margin="0,0,8,0"/>
+                    <Button Name="BtnPresetPwdNeverExpire" Style="{StaticResource ModernButton}" Content="Toggle DONT_EXPIRE_PASSWORD"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Footer / Actions -->
+        <Border Grid.Row="2" BorderBrush="#2D313F" BorderThickness="0,1,0,0" Padding="0,16,0,0" Margin="0,16,0,0">
+            <Grid>
+                <TextBlock Name="TxtEditorStatus" Text="" Foreground="#10B981" VerticalAlignment="Center" FontSize="12"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Name="BtnCancel" Style="{StaticResource ModernButton}" Content="Cancel" Margin="0,0,8,0"/>
+                    <Button Name="BtnSaveAttribute" Style="{StaticResource PrimaryButton}" Content="💾 Save Changes"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
