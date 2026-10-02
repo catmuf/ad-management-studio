@@ -1,101 +1,95 @@
 # Active Directory Management Studio
+### Enterprise Directory Management & Softerra LDAP Administrator Suite
 
-A modern, high-performance PowerShell application built with **WPF (Windows Presentation Foundation) & XAML** for managing Microsoft Windows Server Active Directory environments.
+A modern, high-performance administration suite built with **PowerShell & WPF/XAML** for managing Microsoft Active Directory and LDAP environments. Engineered for Systems Administrators, Security Engineers, and Directory Operators who require both daily standard administration and advanced low-level directory tooling.
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%20Server%20%7C%20Windows%2010%2F11-blue)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-blue)
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green)
+![LDAP](https://img.shields.io/badge/LDAP-RFC%204511%20%7C%20RFC%202849-orange)
+[![Handbook](https://img.shields.io/badge/Manual-SysAdmin%20Handbook-purple)](HANDBOOK.md)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange)](https://github.com/catmuf/ad-management-studio/wiki)
 
 ---
 
-## ✨ Features
+## ⚡ Key Highlights & Capabilities
 
-### 👥 User Management
-- **Instant Search & Filter**: Real-time search across Name, SamAccountName, Email, Employee ID, Title, and Description.
-- **Account Status Filtering**: Quick filter chips for *All*, *Active*, *Disabled*, and *Locked Out* accounts.
-- **OU Scope Filtering**: Filter directory search results by selected Organizational Unit or across the entire domain.
-- **Full User Lifecycle**:
-  - **Create User**: Multi-tab dialog covering profile details, UPN, auto-generated usernames, cryptographically secure password generation, organizational attributes, and target OU placement.
-  - **Edit User**: Modify existing user properties, job titles, department, office, contact details, and employee IDs.
-  - **Inspect / View Details**: Comprehensive user inspector showing account metadata, SID, GUID, creation/modification timestamps, logon statistics, and group memberships.
-  - **Reset Password**: Reset account password with 1-click password generation, complexity validation, unlock toggle, and "must change at next logon" options.
-  - **Unlock Account**: Instantly unlock accounts locked by failed logon attempts.
-  - **Enable / Disable**: Toggle account status with safety prompts and color-coded status badges.
-  - **Move OU**: Move users between Organizational Units.
-  - **Delete User**: Permanent account deletion protected by explicit confirmation prompts.
-  - **Export to CSV**: Export user inventories to CSV/Excel with UTF-8 encoding and customizable delimiters.
+### 🛠️ Softerra LDAP Administrator 2026 Feature Equivalence
+- **Visual LDAP Filter Builder**: Construct complex RFC 4515 LDAP search filters visually with presets for locked accounts, disabled users, empty groups, Kerberos SPNs, and recursive nested memberships (`1.2.840.113556.1.4.1941`).
+- **LDAP-SQL Console**: Query directory objects using familiar ANSI-SQL grammar (`SELECT ... FROM ... WHERE ...`) with instant export to CSV, JSON, and LDIF.
+- **Raw Attribute Editor & UAC Bitmask Decoder**: Inspect and modify single-valued, multi-valued arrays, and `userAccountControl` bitmask flags with live computed hex/dec values.
+- **Object Compare & Diff**: Attribute-by-attribute side-by-side comparison between any two directory objects with difference isolation and drift reports.
+- **RFC 2849 LDIF Studio**: In-app editor for LDIF import/export scripts featuring a two-stage safety model (Dry-Run simulation before live execution).
+- **Security Audits & Executive Reports**: 8 automated security posture audits with styled HTML executive reports and remediation advice.
+- **AD Schema Browser**: Browse Active Directory object classes and attribute syntaxes directly from the schema partition.
+- **Bulk Operations Engine**: Mass batch updates, attribute overrides, status toggling, and OU migrations.
+- **Connection Profiles & Diagnostics**: Multi-domain / multi-controller profiles, custom ports (389, 636 LDAPS, 3268 GC), and real-time TCP socket, latency, and RootDSE diagnostics.
 
-### 🛡️ Group Management
-- **Browse & Search Groups**: List security and distribution groups across all scopes (*Global*, *Universal*, *Domain Local*).
-- **Create & Delete Groups**: Create new security or distribution groups in any target OU.
-- **Membership Management**:
-  - View real-time group members.
-  - Search domain principals to add members.
-  - Remove members with confirmation.
-- **Export Groups**: Export group lists to CSV.
-
-### 📁 Organizational Unit (OU) Management
-- **Directory Tree Explorer**: Hierarchical, interactive TreeView of the entire domain OU structure.
-- **OU Object Inspection**: Click on any OU to view all contained users and groups.
-- **Create OU**: Create child OUs with custom descriptions and accidental deletion protection.
-- **Delete OU**: Safe deletion with safeguards for accidental deletion flags.
-
-### 📊 Health Dashboard & Quick Audits
-- Real-time directory KPI summary cards:
-  - Total Users, Active Users, Disabled Users, Locked Accounts, Total Groups, and Total OUs.
-- Interactive cards: Clicking any card instantly filters the relevant view (e.g. click *Locked Accounts* to immediately view and unlock locked users).
+### 👥 Complete Active Directory Lifecycle Operations
+- **Users**: Account provisioning, templates, password reset, unlock, enable/disable, and OU relocation.
+- **Groups**: Security and distribution group management, scopes (Global, Universal, Domain Local), and interactive member rosters.
+- **Organizational Units (OUs)**: Hierarchical directory tree navigation, OU creation, accidental deletion safeguard, and contained object inspection.
+- **Computers**: Domain workstation and server inventory, operating systems, versions, and logon tracking.
+- **Dashboard**: Live directory health KPI cards with interactive drill-down navigation and PDC latency telemetry.
 
 ---
 
-## 🚀 Getting Started
+## 📖 SysAdmin Handbook
+
+For detailed guides, LDAP filter recipes, SQL grammar, and UAC bitmask tables, consult the comprehensive [**SysAdmin Handbook (HANDBOOK.md)**](HANDBOOK.md).
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-1. **Windows PowerShell 5.1** or **PowerShell 7+** on Windows Server (2016/2019/2022/2025) or Windows 10/11.
-2. Active Directory PowerShell module (`RSAT-AD-PowerShell`).
-3. Domain member computer or Domain Controller with appropriate administrative permissions.
+- **Windows Server (2016-2025)** or **Windows 10/11**
+- **Windows PowerShell 5.1** or **PowerShell 7.2+**
+- Active Directory domain connection (RSAT module or native ADSI fallback)
 
-### Running the Application
-
-Simply launch `main.ps1`:
-
+### Launching the Application
 ```powershell
-# From PowerShell
+# Clone the repository
+git clone git@github.com:catmuf/ad-management-studio.git
+cd ad-management-studio
+
+# Launch Active Directory Management Studio in STA mode
 .\main.ps1
 ```
 
-Alternatively, right-click `main.ps1` and select **Run with PowerShell**.
-
 ---
 
-## 📁 Project Architecture
+## 📁 Repository Structure
 
 ```
-user-management/
+ad-management-studio/
 ├── main.ps1                   # Application entrypoint & STA launcher
-├── config.json                # Application configuration & domain settings
+├── HANDBOOK.md                # Comprehensive SysAdmin Handbook & Operator Manual
+├── config.json                # Application configuration & connection profiles
 ├── Modules/
-│   ├── ADService.psm1         # Active Directory data operations (Users, Groups, OUs, Stats)
-│   ├── ValidationService.psm1 # Password complexity, random generator, email & username sanitization
-│   ├── ExportService.psm1     # CSV/Excel export engine
-│   └── ConfigService.psm1     # JSON settings persistence & domain auto-discovery
+│   ├── ADService.psm1         # LDAP engine, RSAT/ADSI bridge, SQL, LDIF, Compare, Audits
+│   ├── ValidationService.psm1 # UAC bitmask, LargeInteger, GUID, SID, LDAP filter validation
+│   ├── ExportService.psm1     # CSV, JSON, LDIF, and HTML Executive Report exporter
+│   └── ConfigService.psm1     # Settings persistence, Profiles, and RootDSE discovery
 ├── Views/
-│   ├── MainWindow.xaml        # Main window layout (Header, Sidebar, Tab panels, Status bar)
-│   ├── UserDialog.xaml        # User creation and modification modal
+│   ├── MainWindow.xaml        # Central workspace (15 panels, dark-mode, telemetry ribbon)
+│   ├── AttributeEditDialog.xaml# Multi-mode attribute editor (Scalar, Multi-Valued, UAC)
+│   ├── ConnectionDialog.xaml  # Connection profile modal with live TCP diagnostics
+│   ├── UserDialog.xaml        # User provisioning and modification modal
 │   ├── UserDetailDialog.xaml  # User inspection and group membership viewer
 │   ├── PasswordDialog.xaml    # Password reset and generator modal
 │   ├── GroupDialog.xaml       # Group creation and settings modal
 │   ├── MemberDialog.xaml      # Group membership manager modal
 │   ├── OUDialog.xaml          # Organizational Unit creation modal
 │   └── MoveDialog.xaml        # Object OU mover modal
-└── README.md                  # Documentation
+└── README.md                  # Project overview
 ```
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration Reference
 
-Settings can be managed directly in the application's **Settings** tab or in `config.json`:
+Application settings and profiles are stored in `config.json`:
 
 ```json
 {
@@ -103,8 +97,7 @@ Settings can be managed directly in the application's **Settings** tab or in `co
     "AutoDetect": true,
     "DomainName": "",
     "DomainController": "",
-    "SearchBase": "",
-    "DisableOU": ""
+    "SearchBase": ""
   },
   "UI": {
     "Theme": "Dark",
@@ -116,23 +109,24 @@ Settings can be managed directly in the application's **Settings** tab or in `co
     "PasswordLength": 16,
     "PasswordRequireChange": true,
     "UsernameFormat": "first.last",
-    "ExportDelimiter": ";",
-    "ExportPath": ""
-  }
+    "ExportDelimiter": ";"
+  },
+  "Profiles": []
 }
 ```
 
 ---
 
-## 📖 Documentation & Wiki
+## 🛡️ Security & Privacy Notice
 
-Comprehensive guides, architecture diagrams, and troubleshooting tips are available in the [Project Wiki](https://github.com/catmuf/ad-management-studio/wiki):
+- **Authentication**: Uses Windows Single Sign-On (Kerberos / NTLM). No credentials are saved in plaintext.
+- **Zero Telemetry**: All queries run strictly between your administrative workstation and your configured Domain Controllers.
+- **Safe Defaults**: All created Organizational Units are protected against accidental deletion by default.
 
-* [Installation & Prerequisites](https://github.com/catmuf/ad-management-studio/wiki/Installation-and-Prerequisites)
-* [User Management Guide](https://github.com/catmuf/ad-management-studio/wiki/User-Management-Guide)
-* [Group Management Guide](https://github.com/catmuf/ad-management-studio/wiki/Group-Management-Guide)
-* [Organizational Units Guide](https://github.com/catmuf/ad-management-studio/wiki/Organizational-Units-Guide)
-* [Architecture & Design Details](https://github.com/catmuf/ad-management-studio/wiki/Architecture-and-Design)
-* [Configuration & Customization Reference](https://github.com/catmuf/ad-management-studio/wiki/Configuration-and-Customization)
-* [Troubleshooting & FAQ](https://github.com/catmuf/ad-management-studio/wiki/Troubleshooting-and-FAQ)
+---
 
+## 📄 License & Attribution
+
+- **Author**: Catmuf (`catmuf@gmail.com`)
+- **License**: MIT License
+- **Documentation**: [Project Wiki](https://github.com/catmuf/ad-management-studio/wiki) | [SysAdmin Handbook](HANDBOOK.md)
