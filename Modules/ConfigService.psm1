@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     ConfigService module for Active Directory Management Studio.
 .DESCRIPTION
@@ -32,6 +32,23 @@ function Get-AppSettings {
             ExportDelimiter       = ";"
             ExportPath            = ""
         }
+        Ldap = [PSCustomObject]@{
+            Port           = 389
+            UseSSL         = $false
+            TimeoutSeconds = 30
+            PageSize       = 1000
+        }
+        Profiles = @(
+            [PSCustomObject]@{
+                Name                  = "Default (Auto-Detect)"
+                Server                = ""
+                Port                  = 389
+                UseSSL                = $false
+                SearchBase            = ""
+                UseCurrentCredentials = $true
+                Username              = ""
+            }
+        )
     }
 
     if (Test-Path $ConfigPath) {
@@ -86,42 +103,77 @@ function Get-ADEnvironmentContext {
         ErrorMessage         = ""
     }
 
-    if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
+    $targetServer = $null
+    if ($Config -and $Config.Domain -and (-not [string]::IsNullOrWhiteSpace($Config.Domain.DomainController))) {
+        $targetServer = $Config.Domain.DomainController
+    }
+
+    # Strategy 1: ActiveDirectory PowerShell Module
+    $hasAdModule = $false
+    if (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue) {
+        $hasAdModule = $true
+    } else {
         try {
             Import-Module ActiveDirectory -ErrorAction Stop
+            $hasAdModule = $true
+        } catch {
+            $hasAdModule = $false
+        }
+    }
+
+    if ($hasAdModule) {
+        try {
+            $adDomain = if ($targetServer) {
+                Get-ADDomain -Server $targetServer -ErrorAction Stop
+            } else {
+                Get-ADDomain -ErrorAction Stop
+            }
+
+            $context.IsConnected          = $true
+            $context.DomainName           = $adDomain.DNSRoot
+            $context.ForestName           = $adDomain.Forest
+            $context.NetBIOSName          = $adDomain.NetBIOSName
+            $context.PDCEmulator          = $adDomain.PDCEmulator
+            $context.DefaultNamingContext = $adDomain.DistinguishedName
+            $context.DomainControllers    = @($adDomain.ReplicaDirectoryServers)
+            if ($adDomain.PDCEmulator -and -not ($context.DomainControllers -contains $adDomain.PDCEmulator)) {
+                $context.DomainControllers = @($adDomain.PDCEmulator) + $context.DomainControllers
+            }
+            return $context
         }
         catch {
-            $context.ErrorMessage = "ActiveDirectory PowerShell module is not installed or available."
+            # Fall through to RootDSE ADSI fallback
+            $context.ErrorMessage = $_.Exception.Message
+        }
+    }
+
+    # Strategy 2: Native .NET ADSI RootDSE (Zero dependencies on RSAT)
+    try {
+        $dsePath = if ($targetServer) { "LDAP://$targetServer/RootDSE" } else { "LDAP://RootDSE" }
+        $rootDse = [System.DirectoryServices.DirectoryEntry]$dsePath
+        
+        $defNC = $rootDse.defaultNamingContext
+        $dnsHost = $rootDse.dnsHostName
+        $rootNC = $rootDse.rootDomainNamingContext
+
+        if ($defNC) {
+            $parts = ($defNC -split 'DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
+            $domainFqdn = $parts -join '.'
+
+            $context.IsConnected          = $true
+            $context.DomainName           = if ($domainFqdn) { $domainFqdn } else { $dnsHost }
+            $context.PDCEmulator          = $dnsHost
+            $context.DefaultNamingContext = $defNC
+            $context.DomainControllers    = @($dnsHost)
+            $context.ErrorMessage         = ""
             return $context
         }
     }
-
-    try {
-        $targetServer = $null
-        if ($Config -and $Config.Domain -and (-not [string]::IsNullOrWhiteSpace($Config.Domain.DomainController))) {
-            $targetServer = $Config.Domain.DomainController
-        }
-
-        $adDomain = if ($targetServer) {
-            Get-ADDomain -Server $targetServer -ErrorAction Stop
-        } else {
-            Get-ADDomain -ErrorAction Stop
-        }
-
-        $context.IsConnected          = $true
-        $context.DomainName           = $adDomain.DNSRoot
-        $context.ForestName           = $adDomain.Forest
-        $context.NetBIOSName          = $adDomain.NetBIOSName
-        $context.PDCEmulator          = $adDomain.PDCEmulator
-        $context.DefaultNamingContext = $adDomain.DistinguishedName
-        $context.DomainControllers    = @($adDomain.ReplicaDirectoryServers)
-        if ($adDomain.PDCEmulator -and -not ($context.DomainControllers -contains $adDomain.PDCEmulator)) {
-            $context.DomainControllers = @($adDomain.PDCEmulator) + $context.DomainControllers
-        }
-    }
     catch {
-        $context.IsConnected  = $false
-        $context.ErrorMessage = $_.Exception.Message
+        $context.IsConnected = $false
+        if (-not $context.ErrorMessage) {
+            $context.ErrorMessage = $_.Exception.Message
+        }
     }
 
     return $context

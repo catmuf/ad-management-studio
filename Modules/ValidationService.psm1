@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     ValidationService module for Active Directory Management Studio.
 .DESCRIPTION
@@ -203,4 +203,250 @@ function Test-SpanishID {
     return ($clean -match '^\d{8}[A-Z]$' -or $clean -match '^[XYZ]\d{7}[A-Z]$')
 }
 
-Export-ModuleMember -Function Remove-Diacritics, New-SecurePassword, Test-PasswordComplexity, Get-SuggestedUsername, Test-ValidEmailAddress, Test-SpanishID
+# UAC Flag definitions (RFC / Microsoft AD spec)
+$script:UAC_FLAGS = [ordered]@{
+    "SCRIPT"                          = 0x0001
+    "ACCOUNTDISABLE"                  = 0x0002
+    "HOMEDIR_REQUIRED"                = 0x0008
+    "LOCKOUT"                         = 0x0010
+    "PASSWD_NOTREQD"                  = 0x0020
+    "PASSWD_CANT_CHANGE"              = 0x0040
+    "ENCRYPTED_TEXT_PWD_ALLOWED"      = 0x0080
+    "TEMP_DUPLICATE_ACCOUNT"          = 0x0100
+    "NORMAL_ACCOUNT"                  = 0x0200
+    "INTERDOMAIN_TRUST_ACCOUNT"       = 0x0800
+    "WORKSTATION_TRUST_ACCOUNT"       = 0x1000
+    "SERVER_TRUST_ACCOUNT"            = 0x2000
+    "DONT_EXPIRE_PASSWORD"            = 0x10000
+    "MNS_LOGON_ACCOUNT"               = 0x20000
+    "SMARTCARD_REQUIRED"              = 0x40000
+    "TRUSTED_FOR_DELEGATION"          = 0x80000
+    "NOT_DELEGATED"                   = 0x100000
+    "USE_DES_KEY_ONLY"                = 0x200000
+    "DONT_REQ_PREAUTH"                = 0x400000
+    "PASSWORD_EXPIRED"                = 0x800000
+    "TRUSTED_TO_AUTH_FOR_DELEGATION"  = 0x1000000
+    "PARTIAL_SECRETS_ACCOUNT"         = 0x4000000
+}
+
+function ConvertFrom-UACFlags {
+    [CmdletBinding()]
+    param (
+        [int64]$UAC
+    )
+
+    $active = New-Object System.Collections.Generic.List[string]
+    $details = [ordered]@{}
+
+    foreach ($key in $script:UAC_FLAGS.Keys) {
+        $val = $script:UAC_FLAGS[$key]
+        $isSet = (($UAC -band $val) -eq $val)
+        $details[$key] = $isSet
+        if ($isSet) {
+            $active.Add($key)
+        }
+    }
+
+    return [PSCustomObject]@{
+        RawValue    = $UAC
+        ActiveFlags = $active -join ", "
+        FlagList    = $active
+        Flags       = $details
+    }
+}
+
+function ConvertTo-UACFlags {
+    [CmdletBinding()]
+    param (
+        [string[]]$Flags
+    )
+
+    $uac = 0
+    foreach ($flag in $Flags) {
+        if ($script:UAC_FLAGS.Contains($flag)) {
+            $uac = $uac -bor $script:UAC_FLAGS[$flag]
+        }
+    }
+    return $uac
+}
+
+function ConvertFrom-ADLargeInteger {
+    [CmdletBinding()]
+    param (
+        $Value
+    )
+
+    if ($null -eq $Value) { return "Not Set" }
+    
+    # Handle IADsLargeInteger COM object or 64-bit int
+    $int64Val = 0
+    if ($Value -is [int64] -or $Value -is [int] -or $Value -is [double] -or $Value -is [string]) {
+        if (-not [int64]::TryParse($Value.ToString(), [ref]$int64Val)) {
+            return $Value.ToString()
+        }
+    }
+    elseif ($Value.GetType().Name -match 'LargeInteger|IADsLargeInteger') {
+        $high = [int64]$Value.HighPart
+        $low = [int64]$Value.LowPart
+        if ($low -lt 0) { $low += [int64]4294967296 }
+        $int64Val = ($high -shl 32) + $low
+    }
+
+    if ($int64Val -eq 0 -or $int64Val -eq 9223372036854775807 -or $int64Val -eq -1) {
+        return "Never"
+    }
+
+    try {
+        $dt = [DateTime]::FromFileTime($int64Val)
+        return $dt.ToString("yyyy-MM-dd HH:mm:ss")
+    }
+    catch {
+        return $int64Val.ToString()
+    }
+}
+
+function ConvertTo-ADLargeInteger {
+    [CmdletBinding()]
+    param (
+        [DateTime]$DateTime
+    )
+    return $DateTime.ToFileTime()
+}
+
+function ConvertFrom-ADSid {
+    [CmdletBinding()]
+    param (
+        $Value
+    )
+    if ($null -eq $Value) { return "" }
+    if ($Value -is [byte[]]) {
+        try {
+            $sid = New-Object System.Security.Principal.SecurityIdentifier($Value, 0)
+            return $sid.Value
+        }
+        catch {
+            return ($Value | ForEach-Object { $_.ToString("X2") }) -join ""
+        }
+    }
+    return $Value.ToString()
+}
+
+function ConvertFrom-ADGuid {
+    [CmdletBinding()]
+    param (
+        $Value
+    )
+    if ($null -eq $Value) { return "" }
+    if ($Value -is [byte[]]) {
+        try {
+            $guid = New-Object System.Guid(,$Value)
+            return $guid.ToString()
+        }
+        catch {
+            return ($Value | ForEach-Object { $_.ToString("X2") }) -join ""
+        }
+    }
+    return $Value.ToString()
+}
+
+function Test-LdapFilter {
+    [CmdletBinding()]
+    param (
+        [string]$Filter
+    )
+
+    $result = [PSCustomObject]@{
+        IsValid = $false
+        Message = ""
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Filter)) {
+        $result.Message = "Filter cannot be empty."
+        return $result
+    }
+
+    $trimmed = $Filter.Trim()
+    if (-not ($trimmed.StartsWith("(") -and $trimmed.EndsWith(")"))) {
+        $result.Message = "LDAP filter must be enclosed in parentheses (e.g. (objectClass=user))."
+        return $result
+    }
+
+    # Count matching parentheses
+    $openCount = 0
+    foreach ($char in $trimmed.ToCharArray()) {
+        if ($char -eq '(') { $openCount++ }
+        elseif ($char -eq ')') { 
+            $openCount-- 
+            if ($openCount -lt 0) {
+                $result.Message = "Mismatched parentheses: closing parenthesis without matching opening."
+                return $result
+            }
+        }
+    }
+
+    if ($openCount -ne 0) {
+        $result.Message = "Mismatched parentheses: $openCount unclosed '(' found."
+        return $result
+    }
+
+    $result.IsValid = $true
+    $result.Message = "Filter syntax is structurally valid."
+    return $result
+}
+
+function Test-LdifSyntax {
+    [CmdletBinding()]
+    param (
+        [string]$Content
+    )
+
+    $result = [PSCustomObject]@{
+        IsValid    = $false
+        EntryCount = 0
+        Message    = ""
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Content)) {
+        $result.Message = "LDIF content is empty."
+        return $result
+    }
+
+    $lines = $Content -split '\r?\n'
+    $hasDn = $false
+    $count = 0
+
+    foreach ($line in $lines) {
+        $t = $line.Trim()
+        if ($t -match '^dn:\s*.+') {
+            $hasDn = $true
+            $count++
+        }
+    }
+
+    if (-not $hasDn) {
+        $result.Message = "No 'dn:' entry definitions found in LDIF."
+        return $result
+    }
+
+    $result.IsValid = $true
+    $result.EntryCount = $count
+    $result.Message = "Valid LDIF format with $count entry/entries."
+    return $result
+}
+
+Export-ModuleMember -Function `
+    Remove-Diacritics, `
+    New-SecurePassword, `
+    Test-PasswordComplexity, `
+    Get-SuggestedUsername, `
+    Test-ValidEmailAddress, `
+    Test-SpanishID, `
+    ConvertFrom-UACFlags, `
+    ConvertTo-UACFlags, `
+    ConvertFrom-ADLargeInteger, `
+    ConvertTo-ADLargeInteger, `
+    ConvertFrom-ADSid, `
+    ConvertFrom-ADGuid, `
+    Test-LdapFilter, `
+    Test-LdifSyntax
+

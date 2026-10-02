@@ -6,6 +6,23 @@
     "SearchBase": "",
     "DisableOU": ""
   },
+  "Ldap": {
+    "Port": 389,
+    "UseSSL": false,
+    "TimeoutSeconds": 30,
+    "PageSize": 1000
+  },
+  "Profiles": [
+    {
+      "Name": "Default (Auto-Detect)",
+      "Server": "",
+      "Port": 389,
+      "UseSSL": false,
+      "SearchBase": "",
+      "UseCurrentCredentials": true,
+      "Username": ""
+    }
+  ],
   "UI": {
     "Theme": "Dark",
     "AutoRefresh": false,
