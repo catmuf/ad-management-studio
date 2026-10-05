@@ -749,14 +749,18 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="300"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBox Grid.Column="0" Name="TxtSearchUsers" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
+                            <Grid Grid.Column="0" Margin="0,0,10,0">
+                                <TextBox Name="TxtSearchUsers" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search by name, username, email, department, title, office, or description. Live search or press Enter."/>
+                                <TextBlock Name="TxtSearchUsersPlaceholder" Text="🔍 Search users (name, email, dept...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchUsers" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            </Grid>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
                                 <RadioButton Name="FilterUserAll" Style="{StaticResource FilterChip}" Content="All" IsChecked="True"/>
@@ -767,7 +771,13 @@
 
                             <ComboBox Grid.Column="2" Name="CmbUserOUFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
 
-                            <Button Grid.Column="3" Name="BtnSearchUsers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search"/>
+                            <Button Grid.Column="3" Name="BtnSearchUsers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search" Margin="0,0,10,0"/>
+
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4">
+                                    <TextBlock Name="TxtUsersCountBadge" Text="0 users displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
                         </Grid>
                     </Border>
 

@@ -23,6 +23,19 @@ if (Test-Path $valServicePath) {
 }
 
 #region Helper Functions
+function Remove-DiacriticsText {
+    param ([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+    $norm = $Text.Normalize([System.Text.NormalizationForm]::FormD)
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($c in $norm.ToCharArray()) {
+        if ([System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($c) -ne [System.Globalization.UnicodeCategory]::NonSpacingMark) {
+            [void]$sb.Append($c)
+        }
+    }
+    return $sb.ToString().Normalize([System.Text.NormalizationForm]::FormC)
+}
+
 function Convert-DNToOUPath {
     param ([string]$DistinguishedName)
     if ([string]::IsNullOrEmpty($DistinguishedName)) { return "" }
@@ -71,6 +84,7 @@ function Format-ADUserRecord {
         Surname            = $User.Surname
         UserPrincipalName  = $User.UserPrincipalName
         Mail               = $User.Mail
+        Email              = if ($User.Mail) { $User.Mail } else { $User.UserPrincipalName }
         Title              = $User.Title
         Department         = $User.Department
         Office             = $User.Office
@@ -113,8 +127,35 @@ function Get-ADUsersList {
 
     $filter = "*"
     if (-not [string]::IsNullOrWhiteSpace($SearchText)) {
-        $st = $SearchText.Trim()
-        $filter = "(anr -like `"*$st*`") -or (SamAccountName -like `"*$st*`") -or (EmployeeID -like `"*$st*`") -or (Description -like `"*$st*`") -or (Mail -like `"*$st*`")"
+        $cleanText = $SearchText.Trim()
+        $safeTerm = $cleanText.Replace("'", "''")
+        $asciiTerm = (Remove-DiacriticsText $safeTerm)
+
+        $terms = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        [void]$terms.Add($safeTerm)
+        if ($asciiTerm -and $asciiTerm -ne $safeTerm) {
+            [void]$terms.Add($asciiTerm)
+        }
+
+        $orClauses = [System.Collections.Generic.List[string]]::new()
+        $searchAttrs = @('DisplayName', 'Name', 'GivenName', 'Surname', 'SamAccountName', 'UserPrincipalName', 'Mail', 'Title', 'Department', 'Office', 'Description', 'EmployeeID')
+
+        foreach ($term in $terms) {
+            foreach ($attr in $searchAttrs) {
+                $orClauses.Add("($attr -like `"*$term*`")")
+            }
+
+            $words = $term -split '\s+' | Where-Object { $_ }
+            if ($words.Count -ge 2) {
+                $w1 = $words[0]
+                $w2 = $words[1]
+                $orClauses.Add("((GivenName -like `"*$w1*`") -and (Surname -like `"*$w2*`"))")
+                $orClauses.Add("((GivenName -like `"*$w2*`") -and (Surname -like `"*$w1*`"))")
+                $orClauses.Add("((DisplayName -like `"*$w1*`") -and (DisplayName -like `"*$w2*`"))")
+            }
+        }
+
+        $filter = ($orClauses -join " -or ")
     }
 
     $params = @{
@@ -150,11 +191,53 @@ function Get-ADUsersList {
             }
         }
 
-        return $results
+        return ,@($results)
     }
     catch {
-        Write-Error "Error querying AD users: $_"
-        return @()
+        Write-Warning "Direct AD filter failed, attempting fallback search: $_"
+        try {
+            $fallbackParams = @{
+                Properties = $props
+                Filter     = "*"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
+                $fallbackParams['SearchBase'] = $SearchBase
+            }
+            if ($Limit -gt 0) {
+                $fallbackParams['ResultSetSize'] = [Math]::Max($Limit, 500)
+            }
+            $allRaw = Get-ADUser @fallbackParams -ErrorAction Stop
+            $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+            $cleanQuery = if ($SearchText) { $SearchText.Trim() } else { "" }
+            $cleanAscii = Remove-DiacriticsText $cleanQuery
+
+            foreach ($u in $allRaw) {
+                $formatted = Format-ADUserRecord -User $u
+                $include = $true
+                switch ($StatusFilter) {
+                    "Active"   { if (-not $formatted.Enabled -or $formatted.LockedOut) { $include = $false } }
+                    "Disabled" { if ($formatted.Enabled) { $include = $false } }
+                    "Locked"   { if (-not $formatted.LockedOut) { $include = $false } }
+                }
+
+                if ($include -and $cleanQuery) {
+                    $composite = "$($formatted.DisplayName) $($formatted.GivenName) $($formatted.Surname) $($formatted.SamAccountName) $($formatted.Department) $($formatted.Title) $($formatted.Office) $($formatted.Description) $($formatted.Mail) $($formatted.Email) $($formatted.EmployeeID)"
+                    $asciiComp = Remove-DiacriticsText $composite
+                    if ($composite -notmatch [regex]::Escape($cleanQuery) -and $asciiComp -notmatch [regex]::Escape($cleanAscii)) {
+                        $include = $false
+                    }
+                }
+
+                if ($include) {
+                    $results.Add($formatted)
+                }
+            }
+            return ,@($results)
+        }
+        catch {
+            Write-Error "Error querying AD users: $_"
+            return ,@()
+        }
     }
 }
 
@@ -2267,6 +2350,7 @@ function Invoke-ADBulkUpdate {
 #endregion
 
 Export-ModuleMember -Function `
+    Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
     Remove-ADUserItem, Set-ADUserPassword, Set-ADUserStatus, Unlock-ADUserAccount, Move-ADPrincipal, `
     Get-ADGroupsList, Get-ADGroupMembersList, New-ADGroupItem, Remove-ADGroupItem, `

@@ -282,10 +282,104 @@ function Refresh-Users {
 
     $users = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
     $state.CachedUsers = $users
-    if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = $users
+    if ([string]::IsNullOrWhiteSpace($searchText)) {
+        $state.AllScopeUsers = $users
     }
+
+    if ($controls['GridUsers']) {
+        $controls['GridUsers'].ItemsSource = @($users)
+    }
+
+    $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
+        "$($users.Count) users displayed"
+    } else {
+        "$($users.Count) user(s) matching '$searchText'"
+    }
+
+    if ($controls['TxtUsersCountBadge']) {
+        $controls['TxtUsersCountBadge'].Text = $countMsg
+        $controls['TxtUsersCountBadge'].Foreground = if ($users.Count -gt 0) {
+            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+        } else {
+            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+        }
+    }
+
     Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
+}
+
+function Filter-UsersLive {
+    $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
+    if ([string]::IsNullOrWhiteSpace($query)) {
+        if ($state.AllScopeUsers) {
+            if ($controls['GridUsers']) { $controls['GridUsers'].ItemsSource = @($state.AllScopeUsers) }
+            if ($controls['TxtUsersCountBadge']) {
+                $controls['TxtUsersCountBadge'].Text = "$($state.AllScopeUsers.Count) users displayed"
+                $controls['TxtUsersCountBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
+            }
+        }
+        return
+    }
+
+    $sourceList = if ($state.AllScopeUsers -and $state.AllScopeUsers.Count -gt 0) {
+        $state.AllScopeUsers
+    } elseif ($state.CachedUsers) {
+        $state.CachedUsers
+    } else {
+        @()
+    }
+
+    $cleanQuery = $query.Trim()
+    $asciiQuery = Remove-DiacriticsText $cleanQuery
+    $terms = @($cleanQuery)
+    if ($asciiQuery -and $asciiQuery -ne $cleanQuery) {
+        $terms += $asciiQuery
+    }
+    $words = $cleanQuery -split '\s+' | Where-Object { $_ }
+
+    $filtered = @($sourceList | Where-Object {
+        $u = $_
+        $matched = $false
+
+        $composite = "$($u.DisplayName) $($u.GivenName) $($u.Surname) $($u.SamAccountName) $($u.Department) $($u.Title) $($u.Office) $($u.Description) $($u.Mail) $($u.Email) $($u.EmployeeID)"
+        $asciiComp = Remove-DiacriticsText $composite
+
+        foreach ($t in $terms) {
+            if ($composite -match [regex]::Escape($t) -or $asciiComp -match [regex]::Escape($t)) {
+                $matched = $true
+                break
+            }
+        }
+
+        if (-not $matched -and $words.Count -ge 2) {
+            $allWords = $true
+            foreach ($w in $words) {
+                $wAscii = Remove-DiacriticsText $w
+                if ($composite -notmatch [regex]::Escape($w) -and $asciiComp -notmatch [regex]::Escape($wAscii)) {
+                    $allWords = $false
+                    break
+                }
+            }
+            if ($allWords) { $matched = $true }
+        }
+
+        $matched
+    })
+
+    if ($controls['GridUsers']) {
+        $controls['GridUsers'].ItemsSource = @($filtered)
+    }
+
+    if ($controls['TxtUsersCountBadge']) {
+        $controls['TxtUsersCountBadge'].Text = "$($filtered.Count) user(s) found"
+        $controls['TxtUsersCountBadge'].Foreground = if ($filtered.Count -gt 0) {
+            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+        } else {
+            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+        }
+    }
+
+    Set-Status -Message "Found $($filtered.Count) user(s) matching '$query'." -Count "$($filtered.Count) users displayed"
 }
 
 function Open-UserDialog {
@@ -706,8 +800,41 @@ function Export-UsersAction {
 # User Actions Wiring
 if ($controls['BtnSearchUsers']) { $controls['BtnSearchUsers'].Add_Click({ Refresh-Users }) }
 if ($controls['TxtSearchUsers']) {
+    $controls['TxtSearchUsers'].Add_TextChanged({
+        $hasText = -not [string]::IsNullOrEmpty($controls['TxtSearchUsers'].Text)
+        if ($controls['TxtSearchUsersPlaceholder']) {
+            $controls['TxtSearchUsersPlaceholder'].Visibility = if ($hasText) { 'Collapsed' } else { 'Visible' }
+        }
+        if ($controls['BtnClearSearchUsers']) {
+            $controls['BtnClearSearchUsers'].Visibility = if ($hasText) { 'Visible' } else { 'Collapsed' }
+        }
+
+        if (-not $hasText) {
+            if ($state.AllScopeUsers) {
+                if ($controls['GridUsers']) { $controls['GridUsers'].ItemsSource = @($state.AllScopeUsers) }
+                if ($controls['TxtUsersCountBadge']) {
+                    $controls['TxtUsersCountBadge'].Text = "$($state.AllScopeUsers.Count) users displayed"
+                    $controls['TxtUsersCountBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
+                }
+            } else {
+                Refresh-Users
+            }
+        } else {
+            Filter-UsersLive
+        }
+    })
+
     $controls['TxtSearchUsers'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-Users }
+    })
+}
+
+if ($controls['BtnClearSearchUsers']) {
+    $controls['BtnClearSearchUsers'].Add_Click({
+        if ($controls['TxtSearchUsers']) {
+            $controls['TxtSearchUsers'].Text = ""
+            $controls['TxtSearchUsers'].Focus()
+        }
     })
 }
 if ($controls['FilterUserAll'])      { $controls['FilterUserAll'].Add_Checked({ Refresh-Users }) }
