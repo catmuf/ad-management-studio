@@ -1279,7 +1279,8 @@ function Filter-ComboAttributes {
         [bool]$IncludeAny = $false,
         [System.Windows.Controls.TextBlock]$OutcomeText = $null,
         [System.Windows.Controls.Border]$OutcomeBorder = $null,
-        [System.Windows.Controls.TextBox]$SyncSearchBox = $null
+        [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
+        [bool]$OpenDropDown = $true
     )
 
     if ($state.IsFilteringAttributes -or -not $Combo) { return }
@@ -1288,10 +1289,6 @@ function Filter-ComboAttributes {
         $editBox = $Combo.Template.FindName("PART_EditableTextBox", $Combo)
         $caret = if ($editBox) { $editBox.CaretIndex } else { 0 }
         $trimmed = if ($Query) { $Query.Trim() } else { "" }
-
-        if ($SyncSearchBox -and $SyncSearchBox.Text -ne $trimmed) {
-            $SyncSearchBox.Text = $trimmed
-        }
 
         $allList = if ($state.MasterAttributeList -and $state.MasterAttributeList.Count -gt 0) {
             $state.MasterAttributeList
@@ -1308,7 +1305,9 @@ function Filter-ComboAttributes {
                 $Combo.Items.Clear()
             }
             $Combo.ItemsSource = @($fullList)
-            $Combo.IsDropDownOpen = $true
+            if ($OpenDropDown) {
+                $Combo.IsDropDownOpen = $true
+            }
             if ($editBox) {
                 $editBox.Text = ""
                 $editBox.CaretIndex = 0
@@ -1339,7 +1338,15 @@ function Filter-ComboAttributes {
                 $Combo.Items.Clear()
             }
             $Combo.ItemsSource = @($matched)
-            $Combo.IsDropDownOpen = $true
+            if ($OpenDropDown) {
+                $Combo.IsDropDownOpen = $true
+            }
+
+            # Select exact match or first match so user has an active, visible selection in the popup
+            $exact = $matched | Where-Object { $_ -eq $trimmed } | Select-Object -First 1
+            $selected = if ($exact) { $exact } else { $matched[0] }
+            $Combo.SelectedItem = $selected
+
             if ($editBox) {
                 $editBox.Text = $Query
                 $editBox.CaretIndex = [Math]::Min($caret, $Query.Length)
@@ -1363,6 +1370,7 @@ function Filter-ComboAttributes {
                 $Combo.Items.Clear()
             }
             $Combo.ItemsSource = @()
+            $Combo.SelectedItem = $null
             $Combo.Text = $trimmed
             if ($editBox) {
                 $editBox.Text = $Query
@@ -1389,7 +1397,6 @@ function Attach-SearchableAttributeDropdown {
         [System.Collections.Generic.List[string]]$MasterList,
         [System.Windows.Controls.TextBlock]$OutcomeText,
         [System.Windows.Controls.Border]$OutcomeBorder,
-        [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
         [bool]$IncludeAnyOption = $false
     )
 
@@ -1421,7 +1428,7 @@ function Attach-SearchableAttributeDropdown {
         }
     }.GetNewClosure())
 
-    # DropDownOpened: when user clicks the toggle arrow, ensure the list is ready
+    # DropDownOpened: when user clicks the toggle arrow, display full list if blank, or filtered list if text entered
     $Combo.Add_DropDownOpened({
         if ($state.IsFilteringAttributes) { return }
         $currentText = if ($editBox.Text) { $editBox.Text.Trim() } else { "" }
@@ -1429,7 +1436,7 @@ function Attach-SearchableAttributeDropdown {
             if ($Combo.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $Combo.SelectedItem.Content.ToString() } else { $Combo.SelectedItem.ToString() }
         } else { "" }
 
-        if ([string]::IsNullOrWhiteSpace($currentText) -or ($selectedText -and $currentText -eq $selectedText)) {
+        if ([string]::IsNullOrWhiteSpace($currentText)) {
             $fullList = [System.Collections.Generic.List[string]]::new()
             if ($IncludeAnyOption) { [void]$fullList.Add("Any Attribute") }
             foreach ($item in $MasterList) { [void]$fullList.Add($item) }
@@ -1444,6 +1451,9 @@ function Attach-SearchableAttributeDropdown {
             finally {
                 $state.IsFilteringAttributes = $false
             }
+        } else {
+            Filter-ComboAttributes -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
+                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
         }
     }.GetNewClosure())
 
@@ -1492,7 +1502,7 @@ function Attach-SearchableAttributeDropdown {
         if ($selectedText -and $editBox.Text -eq $selectedText) { return }
 
         Filter-ComboAttributes -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
-            -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -SyncSearchBox $SyncSearchBox
+            -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
     }.GetNewClosure())
 
     # Selection change: close dropdown and show confirmation badge
@@ -1588,7 +1598,6 @@ function Populate-SearchAttributeDropdowns {
                 -MasterList $state.MasterAttributeList `
                 -OutcomeText $controls['TxtSearchAttrOutcome'] `
                 -OutcomeBorder $controls['BorderSearchAttrOutcome'] `
-                -SyncSearchBox $controls['TxtSearchAttrFilter'] `
                 -IncludeAnyOption $false
         }
 
@@ -1621,7 +1630,6 @@ function Populate-SearchAttributeDropdowns {
                 -MasterList $state.MasterAttributeList `
                 -OutcomeText $null `
                 -OutcomeBorder $null `
-                -SyncSearchBox $null `
                 -IncludeAnyOption $true
         }
 
@@ -1662,10 +1670,12 @@ function Filter-SearchAttributes {
 
     if ($controls['CmbFilterAttr']) {
         Filter-ComboAttributes -Combo $controls['CmbFilterAttr'] -Query $query -IncludeAny $false `
-            -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome']
+            -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] `
+            -OpenDropDown $true
     }
     if ($controls['CmbRegexTargetAttr']) {
-        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $query -IncludeAny $true
+        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $query -IncludeAny $true `
+            -OpenDropDown $false
     }
 }
 
