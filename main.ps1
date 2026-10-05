@@ -1272,6 +1272,188 @@ if ($controls['BtnExportComputers']) {
 #endregion
 
 #region 6. Directory Search (Visual LDAP Filter Builder)
+function Attach-SearchableAttributeDropdown {
+    param(
+        [System.Windows.Controls.ComboBox]$Combo,
+        [System.Collections.Generic.List[string]]$MasterList,
+        [System.Windows.Controls.TextBlock]$OutcomeText,
+        [System.Windows.Controls.Border]$OutcomeBorder,
+        [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
+        [bool]$IncludeAnyOption = $false
+    )
+
+    if (-not $Combo -or -not $MasterList -or $MasterList.Count -eq 0) { return }
+
+    $Combo.IsEditable = $true
+    $Combo.IsTextSearchEnabled = $false
+    $Combo.StaysOpenOnEdit = $true
+    $Combo.MaxDropDownHeight = 320
+
+    $Combo.ApplyTemplate()
+    $editBox = $Combo.Template.FindName("PART_EditableTextBox", $Combo)
+    if (-not $editBox) { return }
+
+    # When dropdown receives focus: select all text so typing immediately starts a new query
+    $editBox.Add_GotFocus({
+        $editBox.SelectAll()
+        $Combo.IsDropDownOpen = $true
+    })
+
+    # DropDownOpened: when user clicks the toggle arrow, ensure the list is ready
+    $Combo.Add_DropDownOpened({
+        if ($state.IsFilteringAttributes) { return }
+        $currentText = if ($editBox.Text) { $editBox.Text.Trim() } else { "" }
+        $selectedText = if ($Combo.SelectedItem) {
+            if ($Combo.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $Combo.SelectedItem.Content.ToString() } else { $Combo.SelectedItem.ToString() }
+        } else { "" }
+
+        if ([string]::IsNullOrWhiteSpace($currentText) -or ($selectedText -and $currentText -eq $selectedText)) {
+            $fullList = [System.Collections.Generic.List[string]]::new()
+            if ($IncludeAnyOption) { [void]$fullList.Add("Any Attribute") }
+            foreach ($item in $MasterList) { [void]$fullList.Add($item) }
+            $Combo.ItemsSource = @($fullList)
+            if ($selectedText) { $Combo.SelectedItem = $selectedText }
+        }
+    })
+
+    # Keyboard navigation: Down/Up to browse, Enter to confirm, Escape to cancel
+    $editBox.Add_PreviewKeyDown({
+        param($s, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Down) {
+            if (-not $Combo.IsDropDownOpen) {
+                $Combo.IsDropDownOpen = $true
+                $e.Handled = $true
+            }
+        } elseif ($e.Key -eq [System.Windows.Input.Key]::Enter) {
+            $Combo.IsDropDownOpen = $false
+            $e.Handled = $true
+            if ($controls['TxtFilterVal']) {
+                $controls['TxtFilterVal'].Focus()
+                $controls['TxtFilterVal'].SelectAll()
+            }
+        } elseif ($e.Key -eq [System.Windows.Input.Key]::Escape) {
+            $fullList = [System.Collections.Generic.List[string]]::new()
+            if ($IncludeAnyOption) { [void]$fullList.Add("Any Attribute") }
+            foreach ($item in $MasterList) { [void]$fullList.Add($item) }
+            $Combo.ItemsSource = @($fullList)
+            $Combo.IsDropDownOpen = $false
+            $e.Handled = $true
+        }
+    })
+
+    # Live Real-Time Filtering as user types directly in the dropdown
+    $FilterCombo = {
+        param([string]$query)
+        if ($state.IsFilteringAttributes) { return }
+        $state.IsFilteringAttributes = $true
+        try {
+            $caret = $editBox.CaretIndex
+            $trimmed = if ($query) { $query.Trim() } else { "" }
+
+            if ($SyncSearchBox -and $SyncSearchBox.Text -ne $trimmed) {
+                $SyncSearchBox.Text = $trimmed
+            }
+
+            if ([string]::IsNullOrWhiteSpace($trimmed)) {
+                $fullList = [System.Collections.Generic.List[string]]::new()
+                if ($IncludeAnyOption) { [void]$fullList.Add("Any Attribute") }
+                foreach ($item in $MasterList) { [void]$fullList.Add($item) }
+                $Combo.ItemsSource = @($fullList)
+                $Combo.IsDropDownOpen = $true
+                $editBox.Text = ""
+                $editBox.CaretIndex = 0
+
+                if ($OutcomeText) {
+                    $OutcomeText.Text = "Displaying all $($fullList.Count) attributes (type directly in dropdown to search)"
+                    $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+                }
+                if ($OutcomeBorder) {
+                    $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+                }
+                return
+            }
+
+            $matched = [System.Collections.Generic.List[string]]::new()
+            if ($IncludeAnyOption -and "Any Attribute".IndexOf($trimmed, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                [void]$matched.Add("Any Attribute")
+            }
+            foreach ($attr in $MasterList) {
+                if ($attr.IndexOf($trimmed, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    [void]$matched.Add($attr)
+                }
+            }
+
+            if ($matched.Count -gt 0) {
+                $Combo.ItemsSource = @($matched)
+                $Combo.IsDropDownOpen = $true
+                $editBox.Text = $query
+                $editBox.CaretIndex = $caret
+
+                if ($OutcomeText) {
+                    $plural = if ($matched.Count -eq 1) { "attribute" } else { "attributes" }
+                    $preview = if ($matched.Count -le 3) {
+                        " ($([string]::Join(', ', $matched)))"
+                    } else {
+                        " (e.g. $($matched[0]), $($matched[1]), $($matched[2])...)"
+                    }
+                    $OutcomeText.Text = "Found $($matched.Count) matching $plural for '$trimmed'$preview"
+                    $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+                }
+                if ($OutcomeBorder) {
+                    $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#064E3B")
+                }
+            } else {
+                $Combo.ItemsSource = @()
+                $Combo.Text = $trimmed
+
+                if ($OutcomeText) {
+                    $OutcomeText.Text = "No attributes matched '$trimmed' (custom attribute allowed)"
+                    $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24")
+                }
+                if ($OutcomeBorder) {
+                    $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#451A03")
+                }
+            }
+        }
+        finally {
+            $state.IsFilteringAttributes = $false
+        }
+    }
+
+    $editBox.Add_TextChanged({
+        if ($state.IsFilteringAttributes) { return }
+        if (-not $editBox.IsKeyboardFocused) { return }
+        $selectedText = if ($Combo.SelectedItem) {
+            if ($Combo.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $Combo.SelectedItem.Content.ToString() } else { $Combo.SelectedItem.ToString() }
+        } else { "" }
+        if ($selectedText -and $editBox.Text -eq $selectedText) { return }
+
+        & $FilterCombo -query $editBox.Text
+    })
+
+    $Combo.Add_SelectionChanged({
+        if ($state.IsFilteringAttributes) { return }
+        if (-not $Combo.SelectedItem) { return }
+
+        $sel = if ($Combo.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+            $Combo.SelectedItem.Content.ToString()
+        } else {
+            $Combo.SelectedItem.ToString()
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($sel)) {
+            $Combo.IsDropDownOpen = $false
+            if ($OutcomeText) {
+                $OutcomeText.Text = "Selected attribute: $sel (Ready to insert condition)"
+                $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
+            if ($OutcomeBorder) {
+                $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+            }
+        }
+    })
+}
+
 function Populate-SearchAttributeDropdowns {
     if ($state.SearchAttributesLoaded) { return }
 
@@ -1334,6 +1516,13 @@ function Populate-SearchAttributeDropdowns {
             $controls['CmbFilterAttr'].Items.Clear()
             $controls['CmbFilterAttr'].ItemsSource = @($allAttrNames)
             $controls['CmbFilterAttr'].SelectedItem = if ($allAttrNames.Contains($cur)) { $cur } else { "sAMAccountName" }
+
+            Attach-SearchableAttributeDropdown -Combo $controls['CmbFilterAttr'] `
+                -MasterList $state.MasterAttributeList `
+                -OutcomeText $controls['TxtSearchAttrOutcome'] `
+                -OutcomeBorder $controls['BorderSearchAttrOutcome'] `
+                -SyncSearchBox $controls['TxtSearchAttrFilter'] `
+                -IncludeAnyOption $false
         }
 
         if ($controls['CmbRegexTargetAttr']) {
@@ -1358,10 +1547,17 @@ function Populate-SearchAttributeDropdowns {
             $controls['CmbRegexTargetAttr'].Items.Clear()
             $controls['CmbRegexTargetAttr'].ItemsSource = @($regexAttrs)
             $controls['CmbRegexTargetAttr'].SelectedItem = if ($regexAttrs.Contains($curRegex)) { $curRegex } else { "Any Attribute" }
+
+            Attach-SearchableAttributeDropdown -Combo $controls['CmbRegexTargetAttr'] `
+                -MasterList $state.MasterAttributeList `
+                -OutcomeText $null `
+                -OutcomeBorder $null `
+                -SyncSearchBox $null `
+                -IncludeAnyOption $true
         }
 
         if ($controls['TxtSearchAttrOutcome']) {
-            $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($allAttrNames.Count) attributes"
+            $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($allAttrNames.Count) attributes (type directly in dropdown to search)"
             $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
         }
         if ($controls['BorderSearchAttrOutcome']) {
@@ -1417,7 +1613,7 @@ function Filter-SearchAttributes {
             }
 
             if ($controls['TxtSearchAttrOutcome']) {
-                $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($state.MasterAttributeList.Count) attributes"
+                $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($state.MasterAttributeList.Count) attributes (type directly in dropdown to search)"
                 $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
             }
             if ($controls['BorderSearchAttrOutcome']) {
@@ -1492,7 +1688,7 @@ function Init-DirectorySearch {
     Populate-SearchAttributeDropdowns
 }
 
-# Live Attribute Search & Outcome Event Listeners
+# Live Attribute Search & Outcome Event Listeners for Quick Search Bar
 if ($controls['TxtSearchAttrFilter']) {
     $controls['TxtSearchAttrFilter'].Add_TextChanged({
         Filter-SearchAttributes
@@ -1522,27 +1718,6 @@ if ($controls['BtnClearAttrFilter']) {
             $controls['TxtSearchAttrFilter'].Focus()
         }
         Filter-SearchAttributes
-    })
-}
-
-if ($controls['CmbFilterAttr']) {
-    $controls['CmbFilterAttr'].Add_SelectionChanged({
-        if ($state.IsFilteringAttributes) { return }
-        if (-not $controls['CmbFilterAttr'].SelectedItem) { return }
-
-        $sel = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-            $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
-        } else {
-            $controls['CmbFilterAttr'].SelectedItem.ToString()
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($sel) -and $controls['TxtSearchAttrOutcome']) {
-            $controls['TxtSearchAttrOutcome'].Text = "Selected attribute: $sel (Ready to insert condition)"
-            $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
-            if ($controls['BorderSearchAttrOutcome']) {
-                $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
-            }
-        }
     })
 }
 
