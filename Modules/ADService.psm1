@@ -887,6 +887,111 @@ function Remove-ADOrganizationalUnitItem {
         }
     }
 }
+
+function Get-ADObjectsInOU {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SearchBase,
+
+        [ValidateSet("OneLevel", "Subtree", "Base")]
+        [string]$SearchScope = "OneLevel",
+
+        [string]$Server = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SearchBase)) {
+        return @()
+    }
+
+    try {
+        $filter = "(|(objectClass=user)(objectClass=group)(objectClass=computer)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=container))"
+        $props = @('objectClass', 'name', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated')
+        
+        $searchParams = @{
+            LDAPFilter  = $filter
+            SearchBase  = $SearchBase
+            SearchScope = $SearchScope
+            Properties  = $props
+        }
+        if ($Server) { $searchParams['Server'] = $Server }
+
+        $rawObjects = Get-ADObject @searchParams -ErrorAction Stop
+
+        $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+        foreach ($obj in $rawObjects) {
+            # Skip the SearchBase itself if returned in Base/Subtree
+            if ($obj.DistinguishedName -eq $SearchBase) { continue }
+
+            $objClass = $obj.ObjectClass
+            $friendlyType = switch ($objClass) {
+                'user' {
+                    if ($obj.ObjectClass -contains 'user' -and -not ($obj.ObjectClass -contains 'computer')) { "User" }
+                    else { "Computer" }
+                }
+                'computer' { "Computer" }
+                'group'    { "Group" }
+                'organizationalUnit' { "OU" }
+                'contact'  { "Contact" }
+                'container'{ "Container" }
+                default    { 
+                    if ($obj.ObjectClass -is [array]) { $obj.ObjectClass[0] } else { [string]$obj.ObjectClass }
+                }
+            }
+
+            # Determine status based on type
+            $status = "Active"
+            if ($friendlyType -in @('User', 'Computer')) {
+                if ($obj.userAccountControl) {
+                    $uac = [int64]$obj.userAccountControl
+                    if (($uac -band 2) -ne 0) { $status = "Disabled" }
+                    elseif (($uac -band 16) -ne 0) { $status = "Locked" }
+                }
+            } elseif ($friendlyType -eq 'Group') {
+                if ($obj.groupType) {
+                    $gt = [int64]$obj.groupType
+                    $status = if (($gt -band 0x80000000) -ne 0) { "Security" } else { "Distribution" }
+                } else {
+                    $status = "Group"
+                }
+            } elseif ($friendlyType -eq 'OU') {
+                $status = "OU"
+            } else {
+                $status = "Normal"
+            }
+
+            $results.Add([PSCustomObject]@{
+                ObjectClass       = $friendlyType
+                Name              = if ($obj.Name) { $obj.Name } else { "" }
+                SamAccountName    = if ($obj.sAMAccountName) { $obj.sAMAccountName } else { "-" }
+                Status            = $status
+                DistinguishedName = $obj.DistinguishedName
+                Description       = if ($obj.Description) { $obj.Description } else { "" }
+                WhenCreated       = if ($obj.whenCreated) { $obj.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
+            })
+        }
+
+        # Sort by ObjectClass priority (OU first, then Groups, Users, Computers, etc.), then by Name
+        $sorted = $results | Sort-Object @{
+            Expression = {
+                switch ($_.ObjectClass) {
+                    'OU'        { 1 }
+                    'Group'     { 2 }
+                    'User'      { 3 }
+                    'Computer'  { 4 }
+                    'Contact'   { 5 }
+                    default     { 6 }
+                }
+            }
+        }, Name
+
+        return @($sorted)
+    }
+    catch {
+        Write-Error "Failed to query objects in OU '$SearchBase': $_"
+        return @()
+    }
+}
 #endregion
 
 #region Dashboard Metrics
@@ -2166,7 +2271,7 @@ Export-ModuleMember -Function `
     Remove-ADUserItem, Set-ADUserPassword, Set-ADUserStatus, Unlock-ADUserAccount, Move-ADPrincipal, `
     Get-ADGroupsList, Get-ADGroupMembersList, New-ADGroupItem, Remove-ADGroupItem, `
     Add-ADPrincipalToGroup, Remove-ADPrincipalFromGroup, `
-    Get-ADOUTree, Get-ADOUFlatList, New-ADOrganizationalUnitItem, Remove-ADOrganizationalUnitItem, `
+    Get-ADOUTree, Get-ADOUFlatList, New-ADOrganizationalUnitItem, Remove-ADOrganizationalUnitItem, Get-ADObjectsInOU, `
     Get-ADDashboardStats, `
     Invoke-LdapQuery, Get-ADObjectRawAttributes, Set-ADObjectRawAttribute, Add-ADObjectRawAttributeValue, `
     Remove-ADObjectRawAttributeValue, Clear-ADObjectRawAttribute, Invoke-LdapSqlQuery, Invoke-LdifImport, `

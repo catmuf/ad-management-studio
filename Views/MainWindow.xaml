@@ -133,15 +133,129 @@
             </Setter>
         </Style>
 
-        <!-- Modern ComboBox -->
+        <!-- ComboBoxItem Dark Style -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border Name="ItemBorder" Background="{TemplateBinding Background}"
+                                BorderThickness="0" CornerRadius="3" Margin="2,1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#282D3E"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ComboBox ToggleButton Template -->
+        <ControlTemplate x:Key="ComboBoxToggleButtonTemplate" TargetType="ToggleButton">
+            <Border Name="ToggleBorder" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="24"/>
+                    </Grid.ColumnDefinitions>
+                    <Path Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Data="M 0 0 L 4 4 L 8 0 Z" Fill="#9CA3AF" Margin="0,1,0,0"/>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ToggleBorder" Property="Background" Value="#222634"/>
+                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="#4B526D"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="#0078D4"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="#38BDF8"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter TargetName="ToggleBorder" Property="Opacity" Value="0.5"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="#6B7280"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Modern ComboBox (Dark Mode Aero Replacement) -->
         <Style x:Key="ModernComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="#181A22"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="#181A22"/>
             <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Name="ToggleButton" Focusable="False"
+                                          ClickMode="Press"
+                                          Template="{StaticResource ComboBoxToggleButtonTemplate}"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            <ContentPresenter Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                            <Popup Name="PART_Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Name="DropDownBorder" Background="#181A22"
+                                        BorderBrush="#383E54" BorderThickness="1"
+                                        CornerRadius="4" Margin="0,2,0,0"
+                                        MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="DropDownBorder" Property="MinHeight" Value="40"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#6B7280"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
+        <!-- Default ComboBox Style (inherits from ModernComboBox) -->
+        <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
 
         <!-- Nav RadioButton Style (Sidebar Tabs) -->
         <Style x:Key="NavTabButton" TargetType="RadioButton">
@@ -728,7 +842,16 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Margin="0,0,0,8"/>
-                            <TreeView Grid.Row="1" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF"/>
+                            <TreeView Grid.Row="1" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF">
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                        <StackPanel Orientation="Horizontal" Margin="2,3">
+                                            <TextBlock Text="📁 " FontSize="13" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="#E5E7EB" FontSize="13" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                            </TreeView>
 
                             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Name="BtnNewOU" Style="{StaticResource PrimaryButton}" Content="➕ New OU" Margin="0,0,6,0"/>
@@ -753,8 +876,17 @@
                             </StackPanel>
 
                             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                                <TextBlock Text="Contained Directory Objects:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                                <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                                <TextBlock Text="Contained Directory Objects:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Border Background="#252A3A" CornerRadius="10" Padding="8,2" Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <TextBlock Name="TxtSelectedOUObjectsCount" Text="0 objects" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                                </Border>
+                                <TextBlock Text="Scope:" VerticalAlignment="Center" Foreground="#9CA3AF" Margin="0,0,6,0"/>
+                                <ComboBox Name="CmbOUSearchScope" Style="{StaticResource ModernComboBox}" Width="140" Height="28" Margin="0,0,10,0">
+                                    <ComboBoxItem Content="OneLevel" IsSelected="True"/>
+                                    <ComboBoxItem Content="Subtree"/>
+                                </ComboBox>
+                                <Button Name="BtnRefreshOUObjects" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Refresh" Margin="0,0,8,0"/>
+                                <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Height="28" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
                             </StackPanel>
 
                             <!-- Contained Objects DataGrid -->
@@ -822,6 +954,7 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -907,6 +1040,42 @@
 
                                 <TextBox Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,10,0"/>
                                 <Button Grid.Column="1" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="30" Width="130" Content="🔍 Run Search"/>
+                            </Grid>
+
+                            <!-- Row 4: Advanced Regular Expression Filter (Softerra LDAP Administrator 2026 Parity) -->
+                            <Grid Grid.Row="3" Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <CheckBox Grid.Column="0" Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="#E5E7EB" FontWeight="SemiBold"/>
+
+                                <ComboBox Grid.Column="1" Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="Any Attribute" IsSelected="True"/>
+                                    <ComboBoxItem Content="sAMAccountName"/>
+                                    <ComboBoxItem Content="displayName"/>
+                                    <ComboBoxItem Content="mail"/>
+                                    <ComboBoxItem Content="distinguishedName"/>
+                                    <ComboBoxItem Content="department"/>
+                                    <ComboBoxItem Content="title"/>
+                                    <ComboBoxItem Content="description"/>
+                                    <ComboBoxItem Content="telephoneNumber"/>
+                                </ComboBox>
+
+                                <TextBox Grid.Column="2" Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,0"/>
+
+                                <CheckBox Grid.Column="3" Name="ChkRegexIgnoreCase" Content="Ignore Case" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="#9CA3AF"/>
+
+                                <CheckBox Grid.Column="4" Name="ChkRegexInvert" Content="Invert Match (Not)" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="#9CA3AF"/>
+
+                                <Border Grid.Column="5" Name="BorderRegexStatus" Background="#1E293B" CornerRadius="3" Padding="8,4" VerticalAlignment="Center">
+                                    <TextBlock Name="TxtRegexStatus" Text="RegEx: Ready" FontSize="11" Foreground="#38BDF8" FontFamily="Consolas"/>
+                                </Border>
                             </Grid>
                         </Grid>
                     </Border>

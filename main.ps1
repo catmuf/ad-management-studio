@@ -1105,21 +1105,56 @@ function Open-OUDialog {
 
 if ($controls['BtnNewOU']) { $controls['BtnNewOU'].Add_Click({ Open-OUDialog }) }
 
-if ($controls['TreeOUs']) {
-    $controls['TreeOUs'].Add_SelectedItemChanged({
-        $selectedNode = $controls['TreeOUs'].SelectedItem
-        if ($selectedNode) {
-            if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $selectedNode.Name }
-            if ($controls['TxtSelectedOUDN'])   { $controls['TxtSelectedOUDN'].Text   = $selectedNode.DistinguishedName }
+function Load-OUObjectsUI {
+    $selectedNode = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+    if (-not $selectedNode) { return }
 
-            try {
-                $rawItems = Get-ADObjectsInOU -SearchBase $selectedNode.DistinguishedName
-                if ($controls['GridOUObjects']) {
-                    $controls['GridOUObjects'].ItemsSource = $rawItems
-                }
-            } catch {
-                if ($controls['GridOUObjects']) { $controls['GridOUObjects'].ItemsSource = @() }
-            }
+    if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $selectedNode.Name }
+    if ($controls['TxtSelectedOUDN'])   { $controls['TxtSelectedOUDN'].Text   = $selectedNode.DistinguishedName }
+
+    $scope = "OneLevel"
+    if ($controls['CmbOUSearchScope'] -and $controls['CmbOUSearchScope'].SelectedItem) {
+        $scope = $controls['CmbOUSearchScope'].SelectedItem.Content.ToString()
+    }
+
+    try {
+        Set-Status -Message "Fetching directory objects in $($selectedNode.Name)..."
+        $rawItems = Get-ADObjectsInOU -SearchBase $selectedNode.DistinguishedName -SearchScope $scope
+        if ($controls['GridOUObjects']) {
+            $controls['GridOUObjects'].ItemsSource = $rawItems
+        }
+        if ($controls['TxtSelectedOUObjectsCount']) {
+            $count = if ($rawItems) { $rawItems.Count } else { 0 }
+            $controls['TxtSelectedOUObjectsCount'].Text = "$count object(s)"
+        }
+        Set-Status -Message "Loaded $($rawItems.Count) object(s) in $($selectedNode.Name)."
+    } catch {
+        if ($controls['GridOUObjects']) { $controls['GridOUObjects'].ItemsSource = @() }
+        if ($controls['TxtSelectedOUObjectsCount']) { $controls['TxtSelectedOUObjectsCount'].Text = "0 objects" }
+        Set-Status -Message "Error querying OU objects: $($_.Exception.Message)"
+    }
+}
+
+if ($controls['TreeOUs']) {
+    $controls['TreeOUs'].Add_SelectedItemChanged({ Load-OUObjectsUI })
+}
+
+if ($controls['CmbOUSearchScope']) {
+    $controls['CmbOUSearchScope'].Add_SelectionChanged({ Load-OUObjectsUI })
+}
+
+if ($controls['BtnRefreshOUObjects']) {
+    $controls['BtnRefreshOUObjects'].Add_Click({ Load-OUObjectsUI })
+}
+
+if ($controls['GridOUObjects']) {
+    $controls['GridOUObjects'].Add_MouseDoubleClick({
+        $item = $controls['GridOUObjects'].SelectedItem
+        if ($item -and $item.DistinguishedName) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $item.DistinguishedName
+            Load-RawAttributesUI -TargetDN $item.DistinguishedName
         }
     })
 }
@@ -1303,11 +1338,81 @@ function Invoke-LdapSearchUI {
     $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000
 
     if ($res.Success) {
-        $state.CurrentSearchResults = $res.Results
-        $controls['GridSearchResults'].ItemsSource = $res.Results
-        $msg = "Search completed in $($res.ElapsedMilliseconds) ms. Found $($res.Count) object(s)."
-        $controls['TxtSearchStatus'].Text = $msg
-        Set-Status -Message $msg -Count "$($res.Count) results"
+        $rawResults = $res.Results
+        $finalResults = $rawResults
+
+        # Advanced RegEx Filtering Suite (Softerra LDAP Administrator 2026 Parity)
+        $isRegexEnabled = if ($controls['ChkUseRegexFilter']) { [bool]$controls['ChkUseRegexFilter'].IsChecked } else { $false }
+        $regexPattern = if ($controls['TxtRegexPattern']) { $controls['TxtRegexPattern'].Text.Trim() } else { "" }
+
+        if ($isRegexEnabled -and -not [string]::IsNullOrEmpty($regexPattern)) {
+            $ignoreCase = if ($controls['ChkRegexIgnoreCase']) { [bool]$controls['ChkRegexIgnoreCase'].IsChecked } else { $true }
+            $invertMatch = if ($controls['ChkRegexInvert']) { [bool]$controls['ChkRegexInvert'].IsChecked } else { $false }
+            $targetAttr = if ($controls['CmbRegexTargetAttr'] -and $controls['CmbRegexTargetAttr'].SelectedItem) {
+                $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
+            } else { "Any Attribute" }
+
+            $regexOptions = [System.Text.RegularExpressions.RegexOptions]::None
+            if ($ignoreCase) {
+                $regexOptions = $regexOptions -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+            }
+
+            try {
+                $rx = [System.Text.RegularExpressions.Regex]::new($regexPattern, $regexOptions)
+
+                $filteredList = [System.Collections.Generic.List[PSCustomObject]]::new()
+                foreach ($item in $rawResults) {
+                    $matched = $false
+                    if ($targetAttr -eq "Any Attribute") {
+                        foreach ($prop in $item.PSObject.Properties) {
+                            if ($prop.Value) {
+                                $valStr = if ($prop.Value -is [array]) { $prop.Value -join " " } else { $prop.Value.ToString() }
+                                if ($rx.IsMatch($valStr)) {
+                                    $matched = $true
+                                    break
+                                }
+                            }
+                        }
+                    } else {
+                        $prop = $item.PSObject.Properties[$targetAttr]
+                        if (-not $prop) {
+                            $prop = $item.PSObject.Properties[$targetAttr.ToLower()]
+                        }
+                        if ($prop -and $prop.Value) {
+                            $valStr = if ($prop.Value -is [array]) { $prop.Value -join " " } else { $prop.Value.ToString() }
+                            if ($rx.IsMatch($valStr)) {
+                                $matched = $true
+                            }
+                        }
+                    }
+
+                    if ($invertMatch) {
+                        $matched = -not $matched
+                    }
+
+                    if ($matched) {
+                        $filteredList.Add($item)
+                    }
+                }
+
+                $finalResults = @($filteredList)
+                $msg = "Search completed in $($res.ElapsedMilliseconds) ms. $($rawResults.Count) LDAP objects found -> $($finalResults.Count) matched RegEx '/$regexPattern/'."
+                $controls['TxtSearchStatus'].Text = $msg
+                Set-Status -Message $msg -Count "$($finalResults.Count) regex matches"
+            }
+            catch {
+                $controls['TxtSearchStatus'].Text = "RegEx Error: $($_.Exception.Message)"
+                [System.Windows.MessageBox]::Show("Invalid Regular Expression: `n$($_.Exception.Message)", "RegEx Syntax Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                $finalResults = $rawResults
+            }
+        } else {
+            $msg = "Search completed in $($res.ElapsedMilliseconds) ms. Found $($res.Count) object(s)."
+            $controls['TxtSearchStatus'].Text = $msg
+            Set-Status -Message $msg -Count "$($res.Count) results"
+        }
+
+        $state.CurrentSearchResults = $finalResults
+        $controls['GridSearchResults'].ItemsSource = $finalResults
     } else {
         $controls['TxtSearchStatus'].Text = "Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP Search Failed: `n$($res.Error)", "Search Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
@@ -1318,6 +1423,55 @@ if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ I
 if ($controls['TxtRawLdapFilter']) {
     $controls['TxtRawLdapFilter'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Invoke-LdapSearchUI }
+    })
+}
+
+if ($controls['TxtRegexPattern']) {
+    $controls['TxtRegexPattern'].Add_TextChanged({
+        $pat = $controls['TxtRegexPattern'].Text.Trim()
+        if ([string]::IsNullOrEmpty($pat)) {
+            if ($controls['TxtRegexStatus']) {
+                $controls['TxtRegexStatus'].Text = "RegEx: Ready"
+                $controls['TxtRegexStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
+            if ($controls['BorderRegexStatus']) {
+                $controls['BorderRegexStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+            }
+            return
+        }
+
+        try {
+            [void][System.Text.RegularExpressions.Regex]::new($pat)
+            if ($controls['TxtRegexStatus']) {
+                $controls['TxtRegexStatus'].Text = "RegEx: Valid"
+                $controls['TxtRegexStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+            }
+            if ($controls['BorderRegexStatus']) {
+                $controls['BorderRegexStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#064E3B")
+            }
+        } catch {
+            if ($controls['TxtRegexStatus']) {
+                $controls['TxtRegexStatus'].Text = "RegEx: Invalid"
+                $controls['TxtRegexStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+            }
+            if ($controls['BorderRegexStatus']) {
+                $controls['BorderRegexStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#7F1D1D")
+            }
+        }
+    })
+
+    $controls['TxtRegexPattern'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
+            Invoke-LdapSearchUI
+        }
+    })
+}
+
+if ($controls['ChkUseRegexFilter']) {
+    $controls['ChkUseRegexFilter'].Add_Checked({
+        if ($controls['TxtRegexPattern'] -and [string]::IsNullOrWhiteSpace($controls['TxtRegexPattern'].Text)) {
+            $controls['TxtRegexPattern'].Focus()
+        }
     })
 }
 
