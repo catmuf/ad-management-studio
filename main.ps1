@@ -242,6 +242,18 @@ if ($controls['BtnDashTestConn']) {
     })
 }
 
+if ($controls['BtnDiagnostics']) {
+    $controls['BtnDiagnostics'].Add_Click({
+        if ($controls['NavConnections']) {
+            $controls['NavConnections'].IsChecked = $true
+        } else {
+            Show-Panel "Connections"
+            Refresh-Connections
+        }
+        Run-ConnectionDiagnostics
+    })
+}
+
 if ($controls['BtnGlobalRefresh']) {
     $controls['BtnGlobalRefresh'].Add_Click({ Refresh-All })
 }
@@ -460,6 +472,22 @@ function Open-PasswordDialog {
 
     $dControls['TxtTargetUser'].Text = "Target: $($User.DisplayName) ($($User.SamAccountName))"
     $dControls['TxtNewPassword'].Text = New-SecurePassword -Length ($appConfig.Defaults.PasswordLength)
+
+    $updatePwStatus = {
+        $p = $dControls['TxtNewPassword'].Text
+        if ($dControls['TxtPasswordStatus']) {
+            $chk = Test-PasswordComplexity -Password $p
+            if ($chk.IsValid) {
+                $dControls['TxtPasswordStatus'].Text = "Password meets domain complexity requirements."
+                $dControls['TxtPasswordStatus'].Foreground = [System.Windows.Media.Brushes]::LimeGreen
+            } else {
+                $dControls['TxtPasswordStatus'].Text = $chk.Message
+                $dControls['TxtPasswordStatus'].Foreground = [System.Windows.Media.Brushes]::Gold
+            }
+        }
+    }
+    $dControls['TxtNewPassword'].Add_TextChanged({ & $updatePwStatus })
+    & $updatePwStatus
 
     $dControls['BtnGeneratePassword'].Add_Click({
         $dControls['TxtNewPassword'].Text = New-SecurePassword -Length ($appConfig.Defaults.PasswordLength)
@@ -1645,6 +1673,17 @@ function Open-AttributeEditDialog {
         $dControls['BtnClearValue'].Add_Click({
             $dControls['TxtStringValue'].Text = ""
         })
+
+        if ($dControls['BtnSetNever']) {
+            if ($selAttr.Name -in @('accountExpires', 'pwdLastSet', 'lockoutTime')) {
+                $dControls['BtnSetNever'].Visibility = [System.Windows.Visibility]::Visible
+                $dControls['BtnSetNever'].Add_Click({
+                    $dControls['TxtStringValue'].Text = "0"
+                })
+            } else {
+                $dControls['BtnSetNever'].Visibility = [System.Windows.Visibility]::Collapsed
+            }
+        }
     }
 
     $dControls['BtnCancel'].Add_Click({ $dlg.Close() })
@@ -2174,16 +2213,29 @@ function Open-ConnectionDialog {
 }
 
 function Refresh-Connections {
-    if (-not $controls['ListProfiles']) { return }
-    $controls['ListProfiles'].Items.Clear()
-    $profiles = @($appConfig.Profiles)
-    if ($profiles.Count -eq 0) {
-        $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-        $controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
-    } else {
-        foreach ($p in $profiles) {
-            [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($p.Server):$($p.Port)]")
+    if ($controls['ListProfiles']) {
+        $controls['ListProfiles'].Items.Clear()
+        $profiles = @($appConfig.Profiles)
+        if ($profiles.Count -eq 0) {
+            $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            $controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
+        } else {
+            foreach ($p in $profiles) {
+                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($p.Server):$($p.Port)]")
+            }
         }
+    }
+
+    if ($controls['CmbActiveProfile']) {
+        $controls['CmbActiveProfile'].Items.Clear()
+        $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+        [void]$controls['CmbActiveProfile'].Items.Add("Default ($defaultServer)")
+        if ($appConfig.Profiles) {
+            foreach ($p in $appConfig.Profiles) {
+                [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)")
+            }
+        }
+        $controls['CmbActiveProfile'].SelectedIndex = 0
     }
 }
 
@@ -2235,6 +2287,14 @@ function Load-SettingsPanel {
     if ($controls['TxtCfgSearchBase']) { $controls['TxtCfgSearchBase'].Text = $appConfig.Domain.SearchBase }
     if ($controls['TxtCfgPasswordLength']) { $controls['TxtCfgPasswordLength'].Text = $appConfig.Defaults.PasswordLength.ToString() }
     if ($controls['ChkCfgRequirePwChange']) { $controls['ChkCfgRequirePwChange'].IsChecked = $appConfig.Defaults.RequirePasswordChange }
+    if ($controls['CmbUsernameFormat']) {
+        $fmt = if ($appConfig.Defaults.UsernameFormat) { $appConfig.Defaults.UsernameFormat } else { "first.last" }
+        $controls['CmbUsernameFormat'].SelectedIndex = if ($fmt -eq "flast") { 1 } else { 0 }
+    }
+    if ($controls['CmbExportDelimiter']) {
+        $delim = if ($appConfig.Defaults.ExportDelimiter) { $appConfig.Defaults.ExportDelimiter } else { ";" }
+        $controls['CmbExportDelimiter'].SelectedIndex = if ($delim -eq ",") { 1 } else { 0 }
+    }
 }
 
 if ($controls['BtnSaveSettings']) {
@@ -2248,6 +2308,14 @@ if ($controls['BtnSaveSettings']) {
 
         if ($controls['ChkCfgRequirePwChange']) {
             $appConfig.Defaults.RequirePasswordChange = [bool]$controls['ChkCfgRequirePwChange'].IsChecked
+        }
+
+        if ($controls['CmbUsernameFormat']) {
+            $appConfig.Defaults.UsernameFormat = if ($controls['CmbUsernameFormat'].SelectedIndex -eq 1) { "flast" } else { "first.last" }
+        }
+
+        if ($controls['CmbExportDelimiter']) {
+            $appConfig.Defaults.ExportDelimiter = if ($controls['CmbExportDelimiter'].SelectedIndex -eq 1) { "," } else { ";" }
         }
 
         $saved = Save-AppSettings -Config $appConfig

@@ -17,11 +17,9 @@ if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
 }
 
 # Ensure ValidationService is loaded for LDAP/UAC/FileTime converters
-if (-not (Get-Command ConvertFrom-UACFlags -ErrorAction SilentlyContinue)) {
-    $valServicePath = Join-Path $PSScriptRoot "ValidationService.psm1"
-    if (Test-Path $valServicePath) {
-        Import-Module $valServicePath -Force -ErrorAction SilentlyContinue
-    }
+$valServicePath = Join-Path $PSScriptRoot "ValidationService.psm1"
+if (Test-Path $valServicePath) {
+    Import-Module $valServicePath -Global -Force -ErrorAction SilentlyContinue
 }
 
 #region Helper Functions
@@ -948,6 +946,7 @@ function Invoke-LdapQuery {
     param (
         [string]$Filter = "(objectClass=*)",
         [string]$SearchBase = "",
+        [Alias("SearchScope")]
         [System.DirectoryServices.SearchScope]$Scope = [System.DirectoryServices.SearchScope]::Subtree,
         [string[]]$PropertiesToLoad = @(),
         [int]$PageSize = 1000,
@@ -958,6 +957,7 @@ function Invoke-LdapQuery {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
     $baseDn = $SearchBase
+    $errorMessage = ""
 
     try {
         if ([string]::IsNullOrWhiteSpace($baseDn)) {
@@ -1014,6 +1014,7 @@ function Invoke-LdapQuery {
         }
     }
     catch {
+        $errorMessage = $_.Exception.Message
         Write-Warning "LDAP Search failed: $_"
     }
     finally {
@@ -1021,6 +1022,8 @@ function Invoke-LdapQuery {
     }
 
     return [PSCustomObject]@{
+        Success             = ([string]::IsNullOrEmpty($errorMessage))
+        Error               = $errorMessage
         Results             = $results
         Count               = $results.Count
         ElapsedMilliseconds = $sw.ElapsedMilliseconds
@@ -1250,6 +1253,7 @@ function Invoke-LdapSqlQuery {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias("Query")]
         [string]$SqlQuery,
         [string]$DefaultSearchBase = "",
         [string]$Server = ""
@@ -1363,6 +1367,7 @@ function Invoke-LdifImport {
     param (
         [Parameter(Mandatory = $true)]
         [string]$LdifContent,
+        [Alias("DryRun")]
         [switch]$ValidateOnly,
         [string]$Server = ""
     )
@@ -1520,10 +1525,13 @@ function Invoke-LdifImport {
     [void]$log.Add("=== Execution Summary: $successCount Succeeded, $errorCount Failed ===")
 
     return [PSCustomObject]@{
-        SuccessCount = $successCount
-        ErrorCount   = $errorCount
-        Log          = $log -join "`r`n"
-        Success      = ($errorCount -eq 0)
+        Success        = ($errorCount -eq 0)
+        SuccessCount   = $successCount
+        FailureCount   = $errorCount
+        ErrorCount     = $errorCount
+        TotalProcessed = ($successCount + $errorCount)
+        Log            = @($log)
+        LogText        = ($log -join "`r`n")
     }
 }
 
@@ -1531,8 +1539,10 @@ function Compare-ADObjects {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias("ObjectA")]
         [string]$ObjectADN,
         [Parameter(Mandatory = $true)]
+        [Alias("ObjectB")]
         [string]$ObjectBDN,
         [string]$Server = ""
     )
@@ -1564,19 +1574,19 @@ function Compare-ADObjects {
 
         if ($hasA -and -not $hasB) {
             $status = "OnlyInA"
-            $displayStatus = "⚪ Only in Left"
+            $displayStatus = "Only in Left"
         }
         elseif (-not $hasA -and $hasB) {
             $status = "OnlyInB"
-            $displayStatus = "⚪ Only in Right"
+            $displayStatus = "Only in Right"
         }
         elseif ($valA -eq $valB) {
             $status = "Identical"
-            $displayStatus = "🟢 Identical"
+            $displayStatus = "Identical"
         }
         else {
             $status = "Different"
-            $displayStatus = "🟡 Different"
+            $displayStatus = "Different"
         }
 
         $diffRows.Add([PSCustomObject]@{
@@ -1589,15 +1599,30 @@ function Compare-ADObjects {
         })
     }
 
-    return $diffRows
+    $diffCount = ($diffRows | Where-Object { $_.IsDifferent }).Count
+    return [PSCustomObject]@{
+        Success                 = $true
+        ObjectA                 = $ObjectADN
+        ObjectB                 = $ObjectBDN
+        Comparisons             = $diffRows
+        DifferencesCount        = $diffCount
+        TotalAttributesCompared = $diffRows.Count
+    }
 }
 
 function Get-ADSecurityAuditReport {
     [CmdletBinding()]
     param (
-        [ValidateSet("InactiveUsers", "PasswordNeverExpires", "PasswordExpiringSoon", "PrivilegedAccounts", "EmptyGroups", "UnprotectedOUs", "LockedAccounts", "DisabledAccounts", "ServiceAccounts", "InactiveComputers")]
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("InactiveUsers", "PasswordsNeverExpire", "PasswordNeverExpires", "PasswordExpiringSoon", "PrivilegedAccounts", "EmptyGroups", "UnprotectedOUs", "LockedAccounts", "LockedOutUsers", "DisabledAccounts", "ServiceAccounts", "InactiveComputers")]
+        [Alias("AuditType", "Type")]
         [string]$Category = "InactiveUsers",
+
+        [Parameter(Mandatory = $false)]
+        [Alias("InactiveDays")]
         [int]$Days = 90,
+
+        [Parameter(Mandatory = $false)]
         [string]$Server = ""
     )
 
@@ -1637,7 +1662,7 @@ function Get-ADSecurityAuditReport {
             $summary["Cutoff Threshold"] = "$Days Days"
         }
 
-        "PasswordNeverExpires" {
+        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'userAccountControl', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -1653,7 +1678,7 @@ function Get-ADSecurityAuditReport {
             $summary["Policy Risk"] = "High (Non-compliant with regular rotation)"
         }
 
-        "LockedAccounts" {
+        { $_ -in "LockedAccounts", "LockedOutUsers" } {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'lockoutTime', 'badPwdCount', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -1720,7 +1745,7 @@ function Get-ADSecurityAuditReport {
                         Name              = $ou.Name
                         DistinguishedName = $ou.DistinguishedName
                         Description       = $ou.Description
-                        ProtectionStatus  = "⚠️ Unprotected"
+                        ProtectionStatus  = "Unprotected"
                     })
                 }
             }
@@ -1789,10 +1814,41 @@ function Get-ADSecurityAuditReport {
         }
     }
 
+    $title = switch ($Category) {
+        "InactiveUsers"                                          { "Inactive User Accounts" }
+        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "Accounts with Passwords that Never Expire" }
+        "PasswordExpiringSoon"                                   { "Accounts with Passwords Expiring Soon" }
+        "PrivilegedAccounts"                                     { "Privileged and Administrative Accounts" }
+        "EmptyGroups"                                            { "Empty Security and Distribution Groups" }
+        "UnprotectedOUs"                                         { "Organizational Units Unprotected from Deletion" }
+        { $_ -in "LockedAccounts", "LockedOutUsers" }             { "Locked Out User Accounts" }
+        "DisabledAccounts"                                       { "Disabled User Accounts" }
+        "ServiceAccounts"                                        { "Configured Service Accounts with SPNs" }
+        "InactiveComputers"                                      { "Inactive Domain Computer Objects" }
+        default                                                  { "$Category Audit" }
+    }
+    $desc = switch ($Category) {
+        "InactiveUsers"                                          { "Users who have not logged in within the last $Days days." }
+        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "User accounts configured with DONT_EXPIRE_PASSWORD flag." }
+        "PasswordExpiringSoon"                                   { "Accounts whose password will expire within the next $Days days." }
+        "PrivilegedAccounts"                                     { "Members of high-privilege built-in Active Directory security groups." }
+        "EmptyGroups"                                            { "Groups containing zero members that may be candidates for cleanup." }
+        "UnprotectedOUs"                                         { "Organizational Units without accidental deletion protection enabled." }
+        { $_ -in "LockedAccounts", "LockedOutUsers" }             { "Accounts currently locked out due to invalid logon attempts." }
+        "DisabledAccounts"                                       { "User accounts marked as disabled." }
+        "ServiceAccounts"                                        { "Accounts with registered Service Principal Names (SPNs)." }
+        "InactiveComputers"                                      { "Computers with no logon activity in the last $Days days." }
+        default                                                  { "Security and hygiene audit results for $Category." }
+    }
+
     return [PSCustomObject]@{
         Category     = $Category
+        AuditType    = $Category
+        Title        = $title
+        Description  = $desc
         SummaryStats = $summary
         Results      = $results
+        Findings     = $results
         Count        = $results.Count
     }
 }
@@ -1862,7 +1918,9 @@ function Get-ADSchemaAttributes {
 function Get-ADComputersList {
     [CmdletBinding()]
     param (
+        [Alias("SearchText")]
         [string]$SearchFilter = "*",
+        [int]$Limit = 500,
         [string]$Server = ""
     )
 
@@ -1885,14 +1943,19 @@ function Get-ADComputersList {
             OSVersion         = $r.operatingSystemVersion
             LastLogon         = ConvertFrom-ADLargeInteger -Value $r.lastLogonTimestamp
             Created           = if ($r.whenCreated -is [DateTime]) { $r.whenCreated.ToString("yyyy-MM-dd") } else { "$($r.whenCreated)" }
-            Status            = if ($isDisabled) { "🔴 Disabled" } else { "🟢 Enabled" }
+            Status            = if ($isDisabled) { "Disabled" } else { "Enabled" }
             IsEnabled         = -not $isDisabled
             DistinguishedName = $r.DistinguishedName
             OUPath            = Convert-DNToOUPath -DistinguishedName $r.DistinguishedName
         })
     }
 
-    return $list | Sort-Object Name
+    $sorted = $list | Sort-Object Name
+    if ($Limit -gt 0) {
+        return $sorted | Select-Object -First $Limit
+    } else {
+        return $sorted
+    }
 }
 
 function Test-ADConnectionDiagnostic {
@@ -1938,7 +2001,7 @@ function Test-ADConnectionDiagnostic {
             $tcp.Close()
             $diag['TcpPortOpen'] = $true
         } else {
-            $diag['ErrorMessage'] = "Connection to port $Port timed out ($TimeoutMs ms)."
+            $diag['ErrorMessage'] = "Connection to port $Port timed out (${TimeoutMs} ms)."
         }
 
         $dsePath = if ($targetHost) { "LDAP://$targetHost`:$Port/RootDSE" } else { "LDAP://RootDSE" }
@@ -1956,27 +2019,64 @@ function Test-ADConnectionDiagnostic {
         $diag['LatencyMs'] = $sw.ElapsedMilliseconds
     }
 
-    return [PSCustomObject]$diag
+    $isOpen = [bool]$diag['TcpPortOpen']
+    $hasError = -not [string]::IsNullOrEmpty($diag['ErrorMessage'])
+    return [PSCustomObject]@{
+        Success              = ($isOpen -and -not $hasError)
+        PortOpen             = $isOpen
+        TcpPortOpen          = $isOpen
+        IPAddress            = $diag['IpAddress']
+        DefaultNamingContext = $diag['DomainNamingNC']
+        DomainNamingNC       = $diag['DomainNamingNC']
+        Server               = $diag['Server']
+        Port                 = $diag['Port']
+        DnsResolved          = $diag['DnsResolved']
+        LatencyMs            = $diag['LatencyMs']
+        RootDseQueried       = $diag['RootDseQueried']
+        ErrorMessage         = $diag['ErrorMessage']
+    }
 }
 
 function Invoke-ADBulkUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string[]]$DistinguishedNames,
+        [Alias("Objects", "TargetObjects")]
+        $DistinguishedNames,
         [string]$AttributeName,
         $NewValue,
-        [ValidateSet("SetAttribute", "Enable", "Disable", "Unlock", "RequirePasswordChange", "MoveOU")]
+        [ValidateSet("SetAttribute", "Set Attribute", "Enable", "Disable", "Unlock", "RequirePasswordChange", "MoveOU")]
         [string]$Operation = "SetAttribute",
         [string]$TargetOU = "",
         [string]$Server = ""
     )
 
+    $cleanOp = ($Operation -replace '\s+', '')
+    $dnList = New-Object System.Collections.Generic.List[string]
+
+    if ($DistinguishedNames -is [System.Collections.IEnumerable] -and $DistinguishedNames -isnot [string]) {
+        foreach ($item in $DistinguishedNames) {
+            if ($null -eq $item) { continue }
+            if ($item -is [string]) {
+                if ($item.Trim()) { [void]$dnList.Add($item.Trim()) }
+            } elseif ($item.DistinguishedName) {
+                [void]$dnList.Add("$($item.DistinguishedName)".Trim())
+            } elseif ($item.dn) {
+                [void]$dnList.Add("$($item.dn)".Trim())
+            } else {
+                [void]$dnList.Add("$item".Trim())
+            }
+        }
+    } elseif ($DistinguishedNames -is [string]) {
+        if ($DistinguishedNames.Trim()) { [void]$dnList.Add($DistinguishedNames.Trim()) }
+    }
+
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
+    $log = New-Object System.Collections.Generic.List[string]
     $successCount = 0
     $errorCount = 0
 
-    foreach ($dn in $DistinguishedNames) {
+    foreach ($dn in $dnList) {
         $res = [ordered]@{
             DistinguishedName = $dn
             Success           = $false
@@ -1984,7 +2084,7 @@ function Invoke-ADBulkUpdate {
         }
 
         try {
-            switch ($Operation) {
+            switch ($cleanOp) {
                 "SetAttribute" {
                     $upd = Set-ADObjectRawAttribute -DistinguishedName $dn -AttributeName $AttributeName -NewValue $NewValue -Server $Server
                     $res['Success'] = $upd.Success
@@ -2026,24 +2126,37 @@ function Invoke-ADBulkUpdate {
                     $res['Success'] = $mov.Success
                     $res['Message'] = $mov.Message
                 }
+                default {
+                    throw "Unsupported operation '$Operation'."
+                }
             }
 
-            if ($res['Success']) { $successCount++ } else { $errorCount++ }
+            if ($res['Success']) {
+                $successCount++
+                [void]$log.Add("[SUCCESS] $dn : $($res['Message'])")
+            } else {
+                $errorCount++
+                [void]$log.Add("[FAILED]  $dn : $($res['Message'])")
+            }
         }
         catch {
             $res['Success'] = $false
             $res['Message'] = $_.Exception.Message
             $errorCount++
+            [void]$log.Add("[ERROR]   $dn : $($_.Exception.Message)")
         }
 
         $results.Add([PSCustomObject]$res)
     }
 
     return [PSCustomObject]@{
-        TotalCount   = $DistinguishedNames.Count
+        Total        = $dnList.Count
+        TotalCount   = $dnList.Count
         SuccessCount = $successCount
+        FailureCount = $errorCount
         ErrorCount   = $errorCount
         Details      = $results
+        Log          = @($log)
     }
 }
 #endregion

@@ -168,20 +168,37 @@ function Export-ADDataToJson {
 function Export-ADSecurityAuditToHtml {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$ReportTitle,
+        [Parameter(Mandatory = $false)]
+        $AuditReport = $null,
 
-        [Parameter(Mandatory = $true)]
-        [hashtable]$SummaryStats,
+        [Parameter(Mandatory = $false)]
+        [string]$ReportTitle = "",
 
-        [Parameter(Mandatory = $true)]
-        [System.Collections.IEnumerable]$Data,
+        [Parameter(Mandatory = $false)]
+        [hashtable]$SummaryStats = @{},
+
+        [Parameter(Mandatory = $false)]
+        [System.Collections.IEnumerable]$Data = @(),
 
         [Parameter(Mandatory = $true)]
         [string]$FilePath
     )
 
     try {
+        if ($AuditReport) {
+            if (-not $ReportTitle) {
+                $ReportTitle = if ($AuditReport.Title) { $AuditReport.Title } else { "Active Directory Security Audit Report" }
+            }
+            if ($AuditReport.SummaryStats -and -not $SummaryStats.Count) {
+                $SummaryStats = [hashtable]$AuditReport.SummaryStats
+            } elseif (-not $SummaryStats.Count) {
+                $SummaryStats = [ordered]@{ "Total Findings" = $AuditReport.Count; "Category" = $AuditReport.Category }
+            }
+            if (-not $Data -or $Data.Count -eq 0) {
+                $Data = if ($AuditReport.Findings) { $AuditReport.Findings } else { $AuditReport.Results }
+            }
+        }
+
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
         if (-not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
@@ -239,7 +256,7 @@ function Export-ADSecurityAuditToHtml {
 </head>
 <body>
     <div class="header">
-        <div class="title">🛡️ $ReportTitle</div>
+        <div class="title">&#x1F6E1;&#xFE0F; $ReportTitle</div>
         <div class="meta">Generated: $now | Source: Active Directory Management Studio</div>
     </div>
 

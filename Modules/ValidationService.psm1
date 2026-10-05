@@ -232,11 +232,13 @@ $script:UAC_FLAGS = [ordered]@{
 function ConvertFrom-UACFlags {
     [CmdletBinding()]
     param (
+        [Alias("UACValue")]
         [int64]$UAC
     )
 
     $active = New-Object System.Collections.Generic.List[string]
     $details = [ordered]@{}
+    $allFlags = New-Object System.Collections.Generic.List[PSCustomObject]
 
     foreach ($key in $script:UAC_FLAGS.Keys) {
         $val = $script:UAC_FLAGS[$key]
@@ -245,6 +247,12 @@ function ConvertFrom-UACFlags {
         if ($isSet) {
             $active.Add($key)
         }
+        $allFlags.Add([PSCustomObject]@{
+            Name    = $key
+            Value   = $val
+            Hex     = ("0x{0:X4}" -f $val)
+            Enabled = $isSet
+        })
     }
 
     return [PSCustomObject]@{
@@ -252,6 +260,7 @@ function ConvertFrom-UACFlags {
         ActiveFlags = $active -join ", "
         FlagList    = $active
         Flags       = $details
+        AllFlags    = $allFlags
     }
 }
 
