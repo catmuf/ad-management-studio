@@ -2960,13 +2960,25 @@ function Refresh-Connections {
     if ($controls['CmbActiveProfile']) {
         $controls['CmbActiveProfile'].Items.Clear()
         $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-        [void]$controls['CmbActiveProfile'].Items.Add("Default ($defaultServer)")
+        $defaultLabel = "Default ($defaultServer)"
+        [void]$controls['CmbActiveProfile'].Items.Add($defaultLabel)
         if ($appConfig.Profiles) {
             foreach ($p in $appConfig.Profiles) {
                 [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)")
             }
         }
         $controls['CmbActiveProfile'].SelectedIndex = 0
+        $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile / Server: $defaultLabel"
+
+        if (-not $controls['CmbActiveProfile'].Tag) {
+            $controls['CmbActiveProfile'].Tag = "Initialized"
+            $controls['CmbActiveProfile'].Add_SelectionChanged({
+                if ($controls['CmbActiveProfile'].SelectedItem) {
+                    $sel = [string]$controls['CmbActiveProfile'].SelectedItem
+                    $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile / Server: $sel"
+                }
+            })
+        }
     }
 }
 

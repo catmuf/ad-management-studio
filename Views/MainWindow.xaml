@@ -207,6 +207,7 @@
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
@@ -222,7 +223,7 @@
                                               Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                              Margin="{TemplateBinding Padding}"
+                                              Margin="8,2,24,2"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
                             <TextBox Name="PART_EditableTextBox"
@@ -394,8 +395,8 @@
         <Border Grid.Row="0" Background="#111319" BorderBrush="#252936" BorderThickness="0,0,0,1" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="340"/> <!-- Logo & Profiles -->
-                    <ColumnDefinition Width="*"/>   <!-- Live Connection Telemetry -->
+                    <ColumnDefinition Width="Auto"/> <!-- Logo & Profiles -->
+                    <ColumnDefinition Width="*"/>    <!-- Live Connection Telemetry -->
                     <ColumnDefinition Width="Auto"/> <!-- Quick Actions -->
                 </Grid.ColumnDefinitions>
 
@@ -407,7 +408,7 @@
                         <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="10" Foreground="#60A5FA"/>
                     </StackPanel>
 
-                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" Width="150" Height="28" FontSize="11" Margin="0,0,6,0">
+                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" Width="260" Height="28" FontSize="11" Margin="0,0,16,0" ToolTip="Active Directory Connection Profile / Domain Controller">
                         <ComboBoxItem Content="Default (Auto-Detect)" IsSelected="True"/>
                     </ComboBox>
                 </StackPanel>
@@ -416,9 +417,9 @@
                 <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1B1E28" BorderBrush="#2F3446" BorderThickness="1" CornerRadius="16" Padding="14,4">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Name="StatusDot" Width="8" Height="8" Fill="#107C41" Margin="0,0,8,0"/>
-                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="#E5E7EB"/>
+                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="#E5E7EB" MaxWidth="160" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text=" | DC: " FontSize="12" Foreground="#9CA3AF"/>
-                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="#9CA3AF"/>
+                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="#9CA3AF" MaxWidth="180" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text=" | " FontSize="12" Foreground="#6B7280"/>
                         <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
                     </StackPanel>
