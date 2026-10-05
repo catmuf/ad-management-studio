@@ -1269,10 +1269,100 @@ if ($controls['BtnExportComputers']) {
 #endregion
 
 #region 6. Directory Search (Visual LDAP Filter Builder)
+function Populate-SearchAttributeDropdowns {
+    if ($state.SearchAttributesLoaded) { return }
+
+    # Core high-priority attributes to keep at the top for quick access
+    $priorityAttrs = @(
+        'sAMAccountName', 'userPrincipalName', 'displayName', 'givenName', 'sn', 'cn', 'name', 'mail',
+        'distinguishedName', 'objectClass', 'objectCategory', 'userAccountControl', 'department', 'title',
+        'company', 'manager', 'telephoneNumber', 'mobile', 'memberOf', 'member', 'primaryGroupID',
+        'groupType', 'managedBy', 'pwdLastSet', 'lockoutTime', 'badPwdCount', 'accountExpires', 'adminCount',
+        'description', 'comment', 'whenCreated', 'whenChanged', 'lastLogon', 'lastLogonTimestamp',
+        'operatingSystem', 'operatingSystemVersion', 'operatingSystemServicePack', 'dNSHostName',
+        'servicePrincipalName', 'employeeID', 'employeeNumber', 'employeeType', 'physicalDeliveryOfficeName',
+        'streetAddress', 'l', 'st', 'postalCode', 'c', 'co', 'countryCode', 'postOfficeBox',
+        'proxyAddresses', 'targetAddress', 'mailNickname', 'homeDirectory', 'homeDrive', 'scriptPath',
+        'profilePath', 'userWorkstations', 'logonHours', 'initials', 'middleName', 'directReports',
+        'division', 'organization', 'wWWHomePage', 'url', 'facsimileTelephoneNumber', 'ipPhone',
+        'pager', 'homePhone', 'canonicalName', 'objectGUID', 'objectSid', 'sIDHistory', 'tokenGroups',
+        'msDS-UserPasswordExpiryTimeComputed', 'msDS-User-Account-Control-Computed', 'msDS-ResultantPSO',
+        'ms-Mcs-AdmPwd', 'isCriticalSystemObject', 'showInAdvancedViewOnly', 'uSNCreated', 'uSNChanged'
+    )
+
+    try {
+        $schemaAttrs = Get-ADSchemaAttributes
+        if ($schemaAttrs -and $schemaAttrs.Count -gt 0) {
+            $allAttrNames = [System.Collections.Generic.List[string]]::new()
+            
+            # Add priority ones first
+            foreach ($p in $priorityAttrs) {
+                if (-not $allAttrNames.Contains($p)) { [void]$allAttrNames.Add($p) }
+            }
+
+            # Add all other schema attributes sorted alphabetically
+            $otherAttrs = $schemaAttrs | Select-Object -ExpandProperty Name | Sort-Object
+            foreach ($attr in $otherAttrs) {
+                if (-not $allAttrNames.Contains($attr)) {
+                    [void]$allAttrNames.Add($attr)
+                }
+            }
+
+            if ($controls['CmbFilterAttr']) {
+                $cur = ""
+                if ($controls['CmbFilterAttr'].SelectedItem) {
+                    $cur = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                        $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
+                    } else {
+                        $controls['CmbFilterAttr'].SelectedItem.ToString()
+                    }
+                } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
+                    $cur = $controls['CmbFilterAttr'].Text.Trim()
+                }
+                if ([string]::IsNullOrWhiteSpace($cur)) { $cur = "sAMAccountName" }
+
+                $controls['CmbFilterAttr'].Items.Clear()
+                $controls['CmbFilterAttr'].ItemsSource = @($allAttrNames)
+                $controls['CmbFilterAttr'].SelectedItem = if ($allAttrNames.Contains($cur)) { $cur } else { "sAMAccountName" }
+            }
+
+            if ($controls['CmbRegexTargetAttr']) {
+                $curRegex = ""
+                if ($controls['CmbRegexTargetAttr'].SelectedItem) {
+                    $curRegex = if ($controls['CmbRegexTargetAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                        $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
+                    } else {
+                        $controls['CmbRegexTargetAttr'].SelectedItem.ToString()
+                    }
+                } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbRegexTargetAttr'].Text)) {
+                    $curRegex = $controls['CmbRegexTargetAttr'].Text.Trim()
+                }
+                if ([string]::IsNullOrWhiteSpace($curRegex)) { $curRegex = "Any Attribute" }
+
+                $regexAttrs = [System.Collections.Generic.List[string]]::new()
+                [void]$regexAttrs.Add("Any Attribute")
+                foreach ($a in $allAttrNames) {
+                    [void]$regexAttrs.Add($a)
+                }
+
+                $controls['CmbRegexTargetAttr'].Items.Clear()
+                $controls['CmbRegexTargetAttr'].ItemsSource = @($regexAttrs)
+                $controls['CmbRegexTargetAttr'].SelectedItem = if ($regexAttrs.Contains($curRegex)) { $curRegex } else { "Any Attribute" }
+            }
+
+            $state.SearchAttributesLoaded = $true
+        }
+    }
+    catch {
+        Write-Warning "Could not load schema attributes: $_"
+    }
+}
+
 function Init-DirectorySearch {
     if ($controls['TxtSearchBaseDn'] -and [string]::IsNullOrEmpty($controls['TxtSearchBaseDn'].Text)) {
         $controls['TxtSearchBaseDn'].Text = $adContext.DefaultNamingContext
     }
+    Populate-SearchAttributeDropdowns
 }
 
 if ($controls['CmbSearchPresets']) {
@@ -1299,8 +1389,25 @@ if ($controls['CmbSearchPresets']) {
 
 if ($controls['BtnInsertCondition']) {
     $controls['BtnInsertCondition'].Add_Click({
-        $attr = if ($controls['CmbFilterAttr'].SelectedItem) { $controls['CmbFilterAttr'].SelectedItem.Content.ToString() } else { "sAMAccountName" }
-        $op = if ($controls['CmbFilterOp'].SelectedItem) { $controls['CmbFilterOp'].SelectedItem.Content.ToString() } else { "=" }
+        $attr = ""
+        if ($controls['CmbFilterAttr'].SelectedItem) {
+            $attr = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
+            } else {
+                $controls['CmbFilterAttr'].SelectedItem.ToString()
+            }
+        } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
+            $attr = $controls['CmbFilterAttr'].Text.Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($attr)) { $attr = "sAMAccountName" }
+
+        $op = if ($controls['CmbFilterOp'].SelectedItem) {
+            if ($controls['CmbFilterOp'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                $controls['CmbFilterOp'].SelectedItem.Content.ToString()
+            } else {
+                $controls['CmbFilterOp'].SelectedItem.ToString()
+            }
+        } else { "=" }
         $val = if ($controls['TxtFilterVal']) { $controls['TxtFilterVal'].Text.Trim() } else { "*" }
 
         $condition = switch ($op) {
@@ -1310,6 +1417,8 @@ if ($controls['BtnInsertCondition']) {
             "contains"     { "($attr=*$val*)" }
             "* is present" { "($attr=*)" }
             "!="           { "(!($attr=$val))" }
+            ">="           { "($attr>=$val)" }
+            "<="           { "($attr<=$val)" }
             default        { "($attr=$val)" }
         }
 
@@ -1348,9 +1457,16 @@ function Invoke-LdapSearchUI {
         if ($isRegexEnabled -and -not [string]::IsNullOrEmpty($regexPattern)) {
             $ignoreCase = if ($controls['ChkRegexIgnoreCase']) { [bool]$controls['ChkRegexIgnoreCase'].IsChecked } else { $true }
             $invertMatch = if ($controls['ChkRegexInvert']) { [bool]$controls['ChkRegexInvert'].IsChecked } else { $false }
-            $targetAttr = if ($controls['CmbRegexTargetAttr'] -and $controls['CmbRegexTargetAttr'].SelectedItem) {
-                $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
-            } else { "Any Attribute" }
+            $targetAttr = "Any Attribute"
+            if ($controls['CmbRegexTargetAttr'] -and $controls['CmbRegexTargetAttr'].SelectedItem) {
+                $targetAttr = if ($controls['CmbRegexTargetAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                    $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
+                } else {
+                    $controls['CmbRegexTargetAttr'].SelectedItem.ToString()
+                }
+            } elseif ($controls['CmbRegexTargetAttr'] -and -not [string]::IsNullOrWhiteSpace($controls['CmbRegexTargetAttr'].Text)) {
+                $targetAttr = $controls['CmbRegexTargetAttr'].Text.Trim()
+            }
 
             $regexOptions = [System.Text.RegularExpressions.RegexOptions]::None
             if ($ignoreCase) {

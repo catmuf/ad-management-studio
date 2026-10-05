@@ -225,6 +225,17 @@
                                               Margin="{TemplateBinding Padding}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                            <TextBox Name="PART_EditableTextBox"
+                                     HorizontalAlignment="Stretch"
+                                     VerticalAlignment="Center"
+                                     Margin="8,2,24,2"
+                                     Focusable="True"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     CaretBrush="#FFFFFF"
+                                     Foreground="{TemplateBinding Foreground}"
+                                     Visibility="Hidden"
+                                     IsReadOnly="{TemplateBinding IsReadOnly}"/>
                             <Popup Name="PART_Popup" Placement="Bottom"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
                                    AllowsTransparency="True"
@@ -242,6 +253,11 @@
                             </Popup>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter Property="IsTabStop" Value="False"/>
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
                             <Trigger Property="HasItems" Value="False">
                                 <Setter TargetName="DropDownBorder" Property="MinHeight" Value="40"/>
                             </Trigger>
@@ -1002,20 +1018,97 @@
                             <!-- Row 2: Condition Builder -->
                             <Grid Grid.Row="1" Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="200"/>
                                     <ColumnDefinition Width="130"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <ComboBox Grid.Column="0" Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
-                                    <ComboBoxItem Content="objectClass" IsSelected="True"/>
-                                    <ComboBoxItem Content="sAMAccountName"/>
+                                <ComboBox Grid.Column="0" Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0" IsEditable="True">
+                                    <ComboBoxItem Content="sAMAccountName" IsSelected="True"/>
+                                    <ComboBoxItem Content="userPrincipalName"/>
                                     <ComboBoxItem Content="displayName"/>
+                                    <ComboBoxItem Content="givenName"/>
+                                    <ComboBoxItem Content="sn"/>
+                                    <ComboBoxItem Content="cn"/>
+                                    <ComboBoxItem Content="name"/>
                                     <ComboBoxItem Content="mail"/>
-                                    <ComboBoxItem Content="department"/>
+                                    <ComboBoxItem Content="distinguishedName"/>
+                                    <ComboBoxItem Content="objectClass"/>
+                                    <ComboBoxItem Content="objectCategory"/>
                                     <ComboBoxItem Content="userAccountControl"/>
+                                    <ComboBoxItem Content="department"/>
+                                    <ComboBoxItem Content="title"/>
+                                    <ComboBoxItem Content="company"/>
+                                    <ComboBoxItem Content="manager"/>
+                                    <ComboBoxItem Content="telephoneNumber"/>
+                                    <ComboBoxItem Content="mobile"/>
                                     <ComboBoxItem Content="memberOf"/>
+                                    <ComboBoxItem Content="member"/>
+                                    <ComboBoxItem Content="primaryGroupID"/>
+                                    <ComboBoxItem Content="groupType"/>
+                                    <ComboBoxItem Content="managedBy"/>
+                                    <ComboBoxItem Content="pwdLastSet"/>
+                                    <ComboBoxItem Content="lockoutTime"/>
+                                    <ComboBoxItem Content="badPwdCount"/>
+                                    <ComboBoxItem Content="accountExpires"/>
+                                    <ComboBoxItem Content="adminCount"/>
+                                    <ComboBoxItem Content="description"/>
+                                    <ComboBoxItem Content="comment"/>
+                                    <ComboBoxItem Content="whenCreated"/>
+                                    <ComboBoxItem Content="whenChanged"/>
+                                    <ComboBoxItem Content="lastLogon"/>
+                                    <ComboBoxItem Content="lastLogonTimestamp"/>
+                                    <ComboBoxItem Content="operatingSystem"/>
+                                    <ComboBoxItem Content="operatingSystemVersion"/>
+                                    <ComboBoxItem Content="operatingSystemServicePack"/>
+                                    <ComboBoxItem Content="dNSHostName"/>
+                                    <ComboBoxItem Content="servicePrincipalName"/>
+                                    <ComboBoxItem Content="employeeID"/>
+                                    <ComboBoxItem Content="employeeNumber"/>
+                                    <ComboBoxItem Content="employeeType"/>
+                                    <ComboBoxItem Content="physicalDeliveryOfficeName"/>
+                                    <ComboBoxItem Content="streetAddress"/>
+                                    <ComboBoxItem Content="l"/>
+                                    <ComboBoxItem Content="st"/>
+                                    <ComboBoxItem Content="postalCode"/>
+                                    <ComboBoxItem Content="c"/>
+                                    <ComboBoxItem Content="co"/>
+                                    <ComboBoxItem Content="countryCode"/>
+                                    <ComboBoxItem Content="postOfficeBox"/>
+                                    <ComboBoxItem Content="proxyAddresses"/>
+                                    <ComboBoxItem Content="targetAddress"/>
+                                    <ComboBoxItem Content="mailNickname"/>
+                                    <ComboBoxItem Content="homeDirectory"/>
+                                    <ComboBoxItem Content="homeDrive"/>
+                                    <ComboBoxItem Content="scriptPath"/>
+                                    <ComboBoxItem Content="profilePath"/>
+                                    <ComboBoxItem Content="userWorkstations"/>
+                                    <ComboBoxItem Content="logonHours"/>
+                                    <ComboBoxItem Content="initials"/>
+                                    <ComboBoxItem Content="middleName"/>
+                                    <ComboBoxItem Content="directReports"/>
+                                    <ComboBoxItem Content="division"/>
+                                    <ComboBoxItem Content="organization"/>
+                                    <ComboBoxItem Content="wWWHomePage"/>
+                                    <ComboBoxItem Content="url"/>
+                                    <ComboBoxItem Content="facsimileTelephoneNumber"/>
+                                    <ComboBoxItem Content="ipPhone"/>
+                                    <ComboBoxItem Content="pager"/>
+                                    <ComboBoxItem Content="homePhone"/>
+                                    <ComboBoxItem Content="canonicalName"/>
+                                    <ComboBoxItem Content="objectGUID"/>
+                                    <ComboBoxItem Content="objectSid"/>
+                                    <ComboBoxItem Content="sIDHistory"/>
+                                    <ComboBoxItem Content="tokenGroups"/>
+                                    <ComboBoxItem Content="msDS-UserPasswordExpiryTimeComputed"/>
+                                    <ComboBoxItem Content="msDS-User-Account-Control-Computed"/>
+                                    <ComboBoxItem Content="msDS-ResultantPSO"/>
+                                    <ComboBoxItem Content="ms-Mcs-AdmPwd"/>
+                                    <ComboBoxItem Content="isCriticalSystemObject"/>
+                                    <ComboBoxItem Content="showInAdvancedViewOnly"/>
+                                    <ComboBoxItem Content="uSNCreated"/>
+                                    <ComboBoxItem Content="uSNChanged"/>
                                 </ComboBox>
 
                                 <ComboBox Grid.Column="1" Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
@@ -1025,6 +1118,8 @@
                                     <ComboBoxItem Content="contains"/>
                                     <ComboBoxItem Content="* is present"/>
                                     <ComboBoxItem Content="!="/>
+                                    <ComboBoxItem Content="&gt;="/>
+                                    <ComboBoxItem Content="&lt;="/>
                                 </ComboBox>
 
                                 <TextBox Grid.Column="2" Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Height="28" Text="user" Margin="0,0,8,0"/>
@@ -1046,7 +1141,7 @@
                             <Grid Grid.Row="3" Margin="0,10,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="200"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -1055,16 +1150,92 @@
 
                                 <CheckBox Grid.Column="0" Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="#E5E7EB" FontWeight="SemiBold"/>
 
-                                <ComboBox Grid.Column="1" Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0">
+                                <ComboBox Grid.Column="1" Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Height="28" Margin="0,0,8,0" IsEditable="True">
                                     <ComboBoxItem Content="Any Attribute" IsSelected="True"/>
                                     <ComboBoxItem Content="sAMAccountName"/>
+                                    <ComboBoxItem Content="userPrincipalName"/>
                                     <ComboBoxItem Content="displayName"/>
+                                    <ComboBoxItem Content="givenName"/>
+                                    <ComboBoxItem Content="sn"/>
+                                    <ComboBoxItem Content="cn"/>
+                                    <ComboBoxItem Content="name"/>
                                     <ComboBoxItem Content="mail"/>
                                     <ComboBoxItem Content="distinguishedName"/>
                                     <ComboBoxItem Content="department"/>
                                     <ComboBoxItem Content="title"/>
-                                    <ComboBoxItem Content="description"/>
+                                    <ComboBoxItem Content="company"/>
+                                    <ComboBoxItem Content="manager"/>
                                     <ComboBoxItem Content="telephoneNumber"/>
+                                    <ComboBoxItem Content="mobile"/>
+                                    <ComboBoxItem Content="description"/>
+                                    <ComboBoxItem Content="comment"/>
+                                    <ComboBoxItem Content="objectClass"/>
+                                    <ComboBoxItem Content="objectCategory"/>
+                                    <ComboBoxItem Content="userAccountControl"/>
+                                    <ComboBoxItem Content="memberOf"/>
+                                    <ComboBoxItem Content="member"/>
+                                    <ComboBoxItem Content="primaryGroupID"/>
+                                    <ComboBoxItem Content="groupType"/>
+                                    <ComboBoxItem Content="managedBy"/>
+                                    <ComboBoxItem Content="pwdLastSet"/>
+                                    <ComboBoxItem Content="lockoutTime"/>
+                                    <ComboBoxItem Content="badPwdCount"/>
+                                    <ComboBoxItem Content="accountExpires"/>
+                                    <ComboBoxItem Content="adminCount"/>
+                                    <ComboBoxItem Content="whenCreated"/>
+                                    <ComboBoxItem Content="whenChanged"/>
+                                    <ComboBoxItem Content="lastLogon"/>
+                                    <ComboBoxItem Content="lastLogonTimestamp"/>
+                                    <ComboBoxItem Content="operatingSystem"/>
+                                    <ComboBoxItem Content="operatingSystemVersion"/>
+                                    <ComboBoxItem Content="operatingSystemServicePack"/>
+                                    <ComboBoxItem Content="dNSHostName"/>
+                                    <ComboBoxItem Content="servicePrincipalName"/>
+                                    <ComboBoxItem Content="employeeID"/>
+                                    <ComboBoxItem Content="employeeNumber"/>
+                                    <ComboBoxItem Content="employeeType"/>
+                                    <ComboBoxItem Content="physicalDeliveryOfficeName"/>
+                                    <ComboBoxItem Content="streetAddress"/>
+                                    <ComboBoxItem Content="l"/>
+                                    <ComboBoxItem Content="st"/>
+                                    <ComboBoxItem Content="postalCode"/>
+                                    <ComboBoxItem Content="c"/>
+                                    <ComboBoxItem Content="co"/>
+                                    <ComboBoxItem Content="countryCode"/>
+                                    <ComboBoxItem Content="postOfficeBox"/>
+                                    <ComboBoxItem Content="proxyAddresses"/>
+                                    <ComboBoxItem Content="targetAddress"/>
+                                    <ComboBoxItem Content="mailNickname"/>
+                                    <ComboBoxItem Content="homeDirectory"/>
+                                    <ComboBoxItem Content="homeDrive"/>
+                                    <ComboBoxItem Content="scriptPath"/>
+                                    <ComboBoxItem Content="profilePath"/>
+                                    <ComboBoxItem Content="userWorkstations"/>
+                                    <ComboBoxItem Content="logonHours"/>
+                                    <ComboBoxItem Content="initials"/>
+                                    <ComboBoxItem Content="middleName"/>
+                                    <ComboBoxItem Content="directReports"/>
+                                    <ComboBoxItem Content="division"/>
+                                    <ComboBoxItem Content="organization"/>
+                                    <ComboBoxItem Content="wWWHomePage"/>
+                                    <ComboBoxItem Content="url"/>
+                                    <ComboBoxItem Content="facsimileTelephoneNumber"/>
+                                    <ComboBoxItem Content="ipPhone"/>
+                                    <ComboBoxItem Content="pager"/>
+                                    <ComboBoxItem Content="homePhone"/>
+                                    <ComboBoxItem Content="canonicalName"/>
+                                    <ComboBoxItem Content="objectGUID"/>
+                                    <ComboBoxItem Content="objectSid"/>
+                                    <ComboBoxItem Content="sIDHistory"/>
+                                    <ComboBoxItem Content="tokenGroups"/>
+                                    <ComboBoxItem Content="msDS-UserPasswordExpiryTimeComputed"/>
+                                    <ComboBoxItem Content="msDS-User-Account-Control-Computed"/>
+                                    <ComboBoxItem Content="msDS-ResultantPSO"/>
+                                    <ComboBoxItem Content="ms-Mcs-AdmPwd"/>
+                                    <ComboBoxItem Content="isCriticalSystemObject"/>
+                                    <ComboBoxItem Content="showInAdvancedViewOnly"/>
+                                    <ComboBoxItem Content="uSNCreated"/>
+                                    <ComboBoxItem Content="uSNChanged"/>
                                 </ComboBox>
 
                                 <TextBox Grid.Column="2" Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,0"/>
