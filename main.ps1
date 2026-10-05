@@ -20,7 +20,7 @@ if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Thr
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Drawing, System.Windows.Forms
 
 # Application Root Path
-$appRoot = $PSScriptRoot
+$appRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { $PSScriptRoot } else { (Get-Location).Path }
 $modulesPath = Join-Path $appRoot "Modules"
 $viewsPath   = Join-Path $appRoot "Views"
 
@@ -65,20 +65,23 @@ $reader.Close()
 
 # Global UI State
 $state = [PSCustomObject]@{
-    CachedUsers          = @()
-    CachedGroups         = @()
-    CachedOUs            = @()
-    CachedComputers      = @()
-    CachedSchema         = @()
-    CurrentSearchResults = @()
-    CurrentSqlResults    = @()
-    CurrentRawAttributes = @()
-    CurrentRawDN         = ""
-    CurrentCompare       = $null
-    CurrentAuditReport   = $null
-    SelectedOU           = ""
-    DomainName           = $adContext.DomainName
-    UPNSuffix            = if ($adContext.DomainName) { "@$($adContext.DomainName)" } else { "" }
+    CachedUsers            = @()
+    CachedGroups           = @()
+    CachedOUs              = @()
+    CachedComputers        = @()
+    CachedSchema           = @()
+    CurrentSearchResults   = @()
+    CurrentSqlResults      = @()
+    CurrentRawAttributes   = @()
+    CurrentRawDN           = ""
+    CurrentCompare         = $null
+    CurrentAuditReport     = $null
+    SelectedOU             = ""
+    DomainName             = $adContext.DomainName
+    UPNSuffix              = if ($adContext.DomainName) { "@$($adContext.DomainName)" } else { "" }
+    MasterAttributeList    = [System.Collections.Generic.List[string]]::new()
+    SearchAttributesLoaded = $false
+    IsFilteringAttributes  = $false
 }
 
 # Update Top Header Ribbon
@@ -1290,71 +1293,195 @@ function Populate-SearchAttributeDropdowns {
         'ms-Mcs-AdmPwd', 'isCriticalSystemObject', 'showInAdvancedViewOnly', 'uSNCreated', 'uSNChanged'
     )
 
+    $allAttrNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($p in $priorityAttrs) {
+        if (-not $allAttrNames.Contains($p)) { [void]$allAttrNames.Add($p) }
+    }
+
     try {
         $schemaAttrs = Get-ADSchemaAttributes
         if ($schemaAttrs -and $schemaAttrs.Count -gt 0) {
-            $allAttrNames = [System.Collections.Generic.List[string]]::new()
-            
-            # Add priority ones first
-            foreach ($p in $priorityAttrs) {
-                if (-not $allAttrNames.Contains($p)) { [void]$allAttrNames.Add($p) }
-            }
-
-            # Add all other schema attributes sorted alphabetically
             $otherAttrs = $schemaAttrs | Select-Object -ExpandProperty Name | Sort-Object
             foreach ($attr in $otherAttrs) {
                 if (-not $allAttrNames.Contains($attr)) {
                     [void]$allAttrNames.Add($attr)
                 }
             }
-
-            if ($controls['CmbFilterAttr']) {
-                $cur = ""
-                if ($controls['CmbFilterAttr'].SelectedItem) {
-                    $cur = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-                        $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
-                    } else {
-                        $controls['CmbFilterAttr'].SelectedItem.ToString()
-                    }
-                } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
-                    $cur = $controls['CmbFilterAttr'].Text.Trim()
-                }
-                if ([string]::IsNullOrWhiteSpace($cur)) { $cur = "sAMAccountName" }
-
-                $controls['CmbFilterAttr'].Items.Clear()
-                $controls['CmbFilterAttr'].ItemsSource = @($allAttrNames)
-                $controls['CmbFilterAttr'].SelectedItem = if ($allAttrNames.Contains($cur)) { $cur } else { "sAMAccountName" }
-            }
-
-            if ($controls['CmbRegexTargetAttr']) {
-                $curRegex = ""
-                if ($controls['CmbRegexTargetAttr'].SelectedItem) {
-                    $curRegex = if ($controls['CmbRegexTargetAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-                        $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
-                    } else {
-                        $controls['CmbRegexTargetAttr'].SelectedItem.ToString()
-                    }
-                } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbRegexTargetAttr'].Text)) {
-                    $curRegex = $controls['CmbRegexTargetAttr'].Text.Trim()
-                }
-                if ([string]::IsNullOrWhiteSpace($curRegex)) { $curRegex = "Any Attribute" }
-
-                $regexAttrs = [System.Collections.Generic.List[string]]::new()
-                [void]$regexAttrs.Add("Any Attribute")
-                foreach ($a in $allAttrNames) {
-                    [void]$regexAttrs.Add($a)
-                }
-
-                $controls['CmbRegexTargetAttr'].Items.Clear()
-                $controls['CmbRegexTargetAttr'].ItemsSource = @($regexAttrs)
-                $controls['CmbRegexTargetAttr'].SelectedItem = if ($regexAttrs.Contains($curRegex)) { $curRegex } else { "Any Attribute" }
-            }
-
-            $state.SearchAttributesLoaded = $true
         }
     }
     catch {
         Write-Warning "Could not load schema attributes: $_"
+    }
+
+    $state.MasterAttributeList = $allAttrNames
+    $state.SearchAttributesLoaded = $true
+
+    $state.IsFilteringAttributes = $true
+    try {
+        if ($controls['CmbFilterAttr']) {
+            $cur = ""
+            if ($controls['CmbFilterAttr'].SelectedItem) {
+                $cur = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                    $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
+                } else {
+                    $controls['CmbFilterAttr'].SelectedItem.ToString()
+                }
+            } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
+                $cur = $controls['CmbFilterAttr'].Text.Trim()
+            }
+            if ([string]::IsNullOrWhiteSpace($cur)) { $cur = "sAMAccountName" }
+
+            $controls['CmbFilterAttr'].Items.Clear()
+            $controls['CmbFilterAttr'].ItemsSource = @($allAttrNames)
+            $controls['CmbFilterAttr'].SelectedItem = if ($allAttrNames.Contains($cur)) { $cur } else { "sAMAccountName" }
+        }
+
+        if ($controls['CmbRegexTargetAttr']) {
+            $curRegex = ""
+            if ($controls['CmbRegexTargetAttr'].SelectedItem) {
+                $curRegex = if ($controls['CmbRegexTargetAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                    $controls['CmbRegexTargetAttr'].SelectedItem.Content.ToString()
+                } else {
+                    $controls['CmbRegexTargetAttr'].SelectedItem.ToString()
+                }
+            } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbRegexTargetAttr'].Text)) {
+                $curRegex = $controls['CmbRegexTargetAttr'].Text.Trim()
+            }
+            if ([string]::IsNullOrWhiteSpace($curRegex)) { $curRegex = "Any Attribute" }
+
+            $regexAttrs = [System.Collections.Generic.List[string]]::new()
+            [void]$regexAttrs.Add("Any Attribute")
+            foreach ($a in $allAttrNames) {
+                [void]$regexAttrs.Add($a)
+            }
+
+            $controls['CmbRegexTargetAttr'].Items.Clear()
+            $controls['CmbRegexTargetAttr'].ItemsSource = @($regexAttrs)
+            $controls['CmbRegexTargetAttr'].SelectedItem = if ($regexAttrs.Contains($curRegex)) { $curRegex } else { "Any Attribute" }
+        }
+
+        if ($controls['TxtSearchAttrOutcome']) {
+            $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($allAttrNames.Count) attributes"
+            $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+        }
+        if ($controls['BorderSearchAttrOutcome']) {
+            $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+        }
+    }
+    finally {
+        $state.IsFilteringAttributes = $false
+    }
+}
+
+function Filter-SearchAttributes {
+    if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
+        Populate-SearchAttributeDropdowns
+    }
+
+    $query = ""
+    if ($controls['TxtSearchAttrFilter']) {
+        $query = $controls['TxtSearchAttrFilter'].Text
+        if ($null -eq $query) { $query = "" }
+        $query = $query.Trim()
+    }
+
+    if ($controls['TxtSearchAttrPlaceholder']) {
+        $controls['TxtSearchAttrPlaceholder'].Visibility = if ([string]::IsNullOrEmpty($query)) {
+            [System.Windows.Visibility]::Visible
+        } else {
+            [System.Windows.Visibility]::Collapsed
+        }
+    }
+
+    $state.IsFilteringAttributes = $true
+    try {
+        if ([string]::IsNullOrWhiteSpace($query)) {
+            if ($controls['CmbFilterAttr']) {
+                $cur = $controls['CmbFilterAttr'].SelectedItem
+                $controls['CmbFilterAttr'].ItemsSource = @($state.MasterAttributeList)
+                if ($cur -and $state.MasterAttributeList.Contains($cur)) {
+                    $controls['CmbFilterAttr'].SelectedItem = $cur
+                } else {
+                    $controls['CmbFilterAttr'].SelectedItem = "sAMAccountName"
+                }
+            }
+
+            if ($controls['CmbRegexTargetAttr']) {
+                $regexList = [System.Collections.Generic.List[string]]::new()
+                [void]$regexList.Add("Any Attribute")
+                foreach ($a in $state.MasterAttributeList) { [void]$regexList.Add($a) }
+                $controls['CmbRegexTargetAttr'].ItemsSource = @($regexList)
+                if (-not $controls['CmbRegexTargetAttr'].SelectedItem) {
+                    $controls['CmbRegexTargetAttr'].SelectedItem = "Any Attribute"
+                }
+            }
+
+            if ($controls['TxtSearchAttrOutcome']) {
+                $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($state.MasterAttributeList.Count) attributes"
+                $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
+            if ($controls['BorderSearchAttrOutcome']) {
+                $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+            }
+            return
+        }
+
+        # Filter attributes matching query (case-insensitive substring)
+        $filtered = [System.Collections.Generic.List[string]]::new()
+        foreach ($attr in $state.MasterAttributeList) {
+            if ($attr.IndexOf($query, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                [void]$filtered.Add($attr)
+            }
+        }
+
+        if ($filtered.Count -gt 0) {
+            if ($controls['CmbFilterAttr']) {
+                $controls['CmbFilterAttr'].ItemsSource = @($filtered)
+                $controls['CmbFilterAttr'].SelectedItem = $filtered[0]
+                $controls['CmbFilterAttr'].IsDropDownOpen = $true
+            }
+
+            if ($controls['CmbRegexTargetAttr']) {
+                $regexFiltered = [System.Collections.Generic.List[string]]::new()
+                [void]$regexFiltered.Add("Any Attribute")
+                foreach ($a in $filtered) { [void]$regexFiltered.Add($a) }
+                $controls['CmbRegexTargetAttr'].ItemsSource = @($regexFiltered)
+            }
+
+            if ($controls['TxtSearchAttrOutcome']) {
+                $plural = if ($filtered.Count -eq 1) { "attribute" } else { "attributes" }
+                $preview = if ($filtered.Count -le 3) {
+                    " ($([string]::Join(', ', $filtered)))"
+                } else {
+                    " (e.g. $($filtered[0]), $($filtered[1]), $($filtered[2])...)"
+                }
+                $controls['TxtSearchAttrOutcome'].Text = "Found $($filtered.Count) matching $plural for '$query'$preview"
+                $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+            }
+            if ($controls['BorderSearchAttrOutcome']) {
+                $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#064E3B")
+            }
+        } else {
+            if ($controls['CmbFilterAttr']) {
+                $controls['CmbFilterAttr'].ItemsSource = @()
+                $controls['CmbFilterAttr'].Text = $query
+            }
+
+            if ($controls['CmbRegexTargetAttr']) {
+                $controls['CmbRegexTargetAttr'].ItemsSource = @("Any Attribute")
+            }
+
+            if ($controls['TxtSearchAttrOutcome']) {
+                $controls['TxtSearchAttrOutcome'].Text = "No attributes matched '$query' (custom attribute allowed)"
+                $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24")
+            }
+            if ($controls['BorderSearchAttrOutcome']) {
+                $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#451A03")
+            }
+        }
+    }
+    finally {
+        $state.IsFilteringAttributes = $false
     }
 }
 
@@ -1363,6 +1490,60 @@ function Init-DirectorySearch {
         $controls['TxtSearchBaseDn'].Text = $adContext.DefaultNamingContext
     }
     Populate-SearchAttributeDropdowns
+}
+
+# Live Attribute Search & Outcome Event Listeners
+if ($controls['TxtSearchAttrFilter']) {
+    $controls['TxtSearchAttrFilter'].Add_TextChanged({
+        Filter-SearchAttributes
+    })
+    $controls['TxtSearchAttrFilter'].Add_KeyDown({
+        param($s, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
+            $e.Handled = $true
+            if ($controls['CmbFilterAttr']) {
+                $controls['CmbFilterAttr'].Focus()
+                $controls['CmbFilterAttr'].IsDropDownOpen = $true
+            }
+        } elseif ($e.Key -eq [System.Windows.Input.Key]::Escape) {
+            $e.Handled = $true
+            if ($controls['TxtSearchAttrFilter']) {
+                $controls['TxtSearchAttrFilter'].Text = ""
+            }
+            Filter-SearchAttributes
+        }
+    })
+}
+
+if ($controls['BtnClearAttrFilter']) {
+    $controls['BtnClearAttrFilter'].Add_Click({
+        if ($controls['TxtSearchAttrFilter']) {
+            $controls['TxtSearchAttrFilter'].Text = ""
+            $controls['TxtSearchAttrFilter'].Focus()
+        }
+        Filter-SearchAttributes
+    })
+}
+
+if ($controls['CmbFilterAttr']) {
+    $controls['CmbFilterAttr'].Add_SelectionChanged({
+        if ($state.IsFilteringAttributes) { return }
+        if (-not $controls['CmbFilterAttr'].SelectedItem) { return }
+
+        $sel = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+            $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
+        } else {
+            $controls['CmbFilterAttr'].SelectedItem.ToString()
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($sel) -and $controls['TxtSearchAttrOutcome']) {
+            $controls['TxtSearchAttrOutcome'].Text = "Selected attribute: $sel (Ready to insert condition)"
+            $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            if ($controls['BorderSearchAttrOutcome']) {
+                $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
+            }
+        }
+    })
 }
 
 if ($controls['CmbSearchPresets']) {
