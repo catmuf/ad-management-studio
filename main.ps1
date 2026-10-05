@@ -2049,8 +2049,81 @@ function Invoke-LdapSqlUI {
     $controls['TxtSqlStatus'].Text = "Parsing and executing SQL query..."
     $res = Invoke-LdapSqlQuery -Query $query
     if ($res.Success) {
-        $state.CurrentSqlResults = $res.Results
-        $controls['GridSqlResults'].ItemsSource = $res.Results
+        # Determine column list in the order specified by the user's SELECT statement
+        $cols = [System.Collections.Generic.List[string]]::new()
+        if ($res.PropertiesLoaded -and $res.PropertiesLoaded -ne "*") {
+            foreach ($c in ($res.PropertiesLoaded -split ',')) {
+                $trimmedCol = $c.Trim()
+                if ($trimmedCol -and -not $cols.Contains($trimmedCol)) {
+                    [void]$cols.Add($trimmedCol)
+                }
+            }
+        } else {
+            # Collect all distinct property names across returned items
+            $seenProps = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($r in $res.Results) {
+                foreach ($p in $r.PSObject.Properties) {
+                    if (-not $seenProps.Contains($p.Name)) {
+                        [void]$seenProps.Add($p.Name)
+                        [void]$cols.Add($p.Name)
+                    }
+                }
+            }
+        }
+
+        # Ensure DistinguishedName is included for complete directory object tracking
+        if (-not ($cols | Where-Object { $_ -eq "DistinguishedName" })) {
+            [void]$cols.Add("DistinguishedName")
+        }
+
+        # Build dynamic DataTable for reliable WPF DataGrid binding and row representation
+        $dt = New-Object System.Data.DataTable
+        foreach ($c in $cols) {
+            [void]$dt.Columns.Add($c, [string])
+        }
+
+        $uniformList = New-Object System.Collections.Generic.List[PSCustomObject]
+        foreach ($r in $res.Results) {
+            $row = $dt.NewRow()
+            $h = [ordered]@{}
+            foreach ($c in $cols) {
+                $prop = $r.PSObject.Properties[$c]
+                $valStr = ""
+                if ($null -ne $prop -and $null -ne $prop.Value) {
+                    $val = $prop.Value
+                    if ($val -is [System.Collections.IEnumerable] -and $val -isnot [string]) {
+                        $valStr = ($val -join "; ")
+                    } else {
+                        $valStr = [string]$val
+                    }
+                }
+                $row[$c] = $valStr
+                $h[$c] = $valStr
+            }
+            $dt.Rows.Add($row)
+            $uniformList.Add([PSCustomObject]$h)
+        }
+
+        # Save both uniform list for exports and data table for grid
+        $state.CurrentSqlResults = $uniformList
+
+        if ($controls['GridSqlResults']) {
+            $controls['GridSqlResults'].Columns.Clear()
+            foreach ($col in $dt.Columns) {
+                $dgCol = New-Object System.Windows.Controls.DataGridTextColumn
+                $dgCol.Header = $col.ColumnName
+                $dgCol.Binding = New-Object System.Windows.Data.Binding($col.ColumnName)
+                $dgCol.CanUserSort = $true
+                if ($col.ColumnName -eq "DistinguishedName") {
+                    $dgCol.Width = New-Object System.Windows.Controls.DataGridLength(1, [System.Windows.Controls.DataGridLengthUnitType]::Star)
+                } else {
+                    $dgCol.Width = New-Object System.Windows.Controls.DataGridLength(150, [System.Windows.Controls.DataGridLengthUnitType]::Pixel)
+                }
+                $controls['GridSqlResults'].Columns.Add($dgCol)
+            }
+            $controls['GridSqlResults'].ItemsSource = $dt.DefaultView
+        }
+
         $msg = "SQL query completed in $($res.ElapsedMilliseconds) ms. Returned $($res.Count) record(s)."
         $controls['TxtSqlStatus'].Text = $msg
         Set-Status -Message $msg -Count "$($res.Count) records"
@@ -2687,15 +2760,49 @@ function Refresh-Schema {
     $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
     $filterText = if ($controls['TxtSearchSchema']) { $controls['TxtSearchSchema'].Text.Trim() } else { "" }
 
-    Set-Status -Message "Reading Active Directory Schema definitions..."
-    if ($isClasses) {
-        $items = Get-ADSchemaClasses -FilterText $filterText
+    $rawItems = if ($isClasses) { Get-ADSchemaClasses } else { Get-ADSchemaAttributes }
+    $items = if ([string]::IsNullOrWhiteSpace($filterText)) {
+        $rawItems
     } else {
-        $items = Get-ADSchemaAttributes -FilterText $filterText
+        @($rawItems | Where-Object { $_.Name -match [regex]::Escape($filterText) })
     }
 
     $state.CachedSchema = $items
-    if ($controls['GridSchema']) { $controls['GridSchema'].ItemsSource = $items }
+    if ($controls['GridSchema']) {
+        $controls['GridSchema'].Columns.Clear()
+        if ($isClasses) {
+            $colDefs = @(
+                @{ Header = "Class Name"; Binding = "Name"; Width = 190 },
+                @{ Header = "Subclass Of"; Binding = "SubClassOf"; Width = 140 },
+                @{ Header = "OID (governsID)"; Binding = "OID"; Width = 200 },
+                @{ Header = "Mandatory"; Binding = "MandatoryCount"; Width = 90 },
+                @{ Header = "Optional"; Binding = "OptionalCount"; Width = 90 },
+                @{ Header = "Distinguished Name"; Binding = "DistinguishedName"; Width = 1 }
+            )
+        } else {
+            $colDefs = @(
+                @{ Header = "Attribute Name"; Binding = "Name"; Width = 190 },
+                @{ Header = "OID (attributeID)"; Binding = "OID"; Width = 200 },
+                @{ Header = "Syntax OID"; Binding = "Syntax"; Width = 180 },
+                @{ Header = "Single-Valued"; Binding = "IsSingleValued"; Width = 100 },
+                @{ Header = "In Global Catalog"; Binding = "InGlobalCatalog"; Width = 130 },
+                @{ Header = "Distinguished Name"; Binding = "DistinguishedName"; Width = 1 }
+            )
+        }
+        foreach ($cd in $colDefs) {
+            $col = New-Object System.Windows.Controls.DataGridTextColumn
+            $col.Header = $cd.Header
+            $col.Binding = New-Object System.Windows.Data.Binding($cd.Binding)
+            $col.CanUserSort = $true
+            if ($cd.Width -eq 1) {
+                $col.Width = New-Object System.Windows.Controls.DataGridLength(1, [System.Windows.Controls.DataGridLengthUnitType]::Star)
+            } else {
+                $col.Width = New-Object System.Windows.Controls.DataGridLength($cd.Width, [System.Windows.Controls.DataGridLengthUnitType]::Pixel)
+            }
+            $controls['GridSchema'].Columns.Add($col)
+        }
+        $controls['GridSchema'].ItemsSource = $items
+    }
     Set-Status -Message "Schema loaded: $($items.Count) definition(s) displayed." -Count "$($items.Count) schema items"
 }
 

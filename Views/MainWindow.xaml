@@ -1425,7 +1425,16 @@
                     </Border>
 
                     <!-- Findings DataGrid -->
-                    <DataGrid Grid.Row="2" Name="GridAuditResults" Style="{StaticResource ModernDataGrid}"/>
+                    <DataGrid Grid.Row="2" Name="GridAuditResults" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Account / Object" Binding="{Binding SamAccountName}" Width="150"/>
+                            <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="180"/>
+                            <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="130"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                            <DataGridTextColumn Header="Detail / Finding" Binding="{Binding DaysInactive}" Width="150"/>
+                            <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
 
                 <!-- 12. SCHEMA BROWSER PANEL -->

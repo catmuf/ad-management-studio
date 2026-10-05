@@ -1757,7 +1757,7 @@ function Get-ADSecurityAuditReport {
                         Department        = $u.Department
                         LastLogon         = $u.LastLogon
                         Status            = $u.Status
-                        DaysInactive      = if ($u.LastLogon -eq "Never") { "Never Logged On" } else { "$([int]((Get-Date) - $dt).TotalDays) days" }
+                        DaysInactive      = if ($u.LastLogon -eq "Never" -or -not $dt) { "Never Logged On" } else { "$([int]((Get-Date) - $dt).TotalDays) days" }
                         DistinguishedName = $u.DistinguishedName
                     })
                 }
