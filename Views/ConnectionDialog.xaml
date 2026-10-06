@@ -1,7 +1,8 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Connection Profile &amp; Server Settings" Height="620" Width="600"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Title="Connection Profile &amp; Server Settings" Height="580" Width="600"
+        MinHeight="460" MinWidth="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="#181A20" Foreground="#E5E7EB" FontFamily="Segoe UI">
 
     <Window.Resources>

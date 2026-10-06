@@ -1,6 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Column Chooser - Active Directory Studio" Height="650" Width="560"
+        Title="Column Chooser - Active Directory Studio" Height="600" Width="560"
+        MinHeight="450" MinWidth="460"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="#181A20" Foreground="#E5E7EB" FontFamily="Segoe UI">
 
