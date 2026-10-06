@@ -2137,7 +2137,7 @@ if ($controls['BtnExportComputers']) {
 #endregion
 
 #region 6. Directory Search (Visual LDAP Filter Builder)
-function Filter-ComboAttributes {
+function global:Filter-ComboAttributes {
     param(
         [System.Windows.Controls.ComboBox]$Combo,
         [string]$Query,
@@ -2256,6 +2256,19 @@ function Filter-ComboAttributes {
     }
 }
 
+function script:Filter-ComboAttributes {
+    param(
+        [System.Windows.Controls.ComboBox]$Combo,
+        [string]$Query,
+        [bool]$IncludeAny = $false,
+        [System.Windows.Controls.TextBlock]$OutcomeText = $null,
+        [System.Windows.Controls.Border]$OutcomeBorder = $null,
+        [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
+        [bool]$OpenDropDown = $true
+    )
+    global:Filter-ComboAttributes @PSBoundParameters
+}
+
 function Attach-SearchableAttributeDropdown {
     param(
         [System.Windows.Controls.ComboBox]$Combo,
@@ -2266,6 +2279,9 @@ function Attach-SearchableAttributeDropdown {
     )
 
     if (-not $Combo -or -not $MasterList -or $MasterList.Count -eq 0) { return }
+
+    $filterFunc = ${function:global:Filter-ComboAttributes}
+    if (-not $filterFunc) { $filterFunc = ${function:Filter-ComboAttributes} }
 
     $Combo.IsEditable = $true
     $Combo.IsTextSearchEnabled = $false
@@ -2317,8 +2333,13 @@ function Attach-SearchableAttributeDropdown {
                 $state.IsFilteringAttributes = $false
             }
         } else {
-            Filter-ComboAttributes -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
-                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+            if ($filterFunc) {
+                & $filterFunc -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
+                    -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+            } else {
+                global:Filter-ComboAttributes -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
+                    -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+            }
         }
     }.GetNewClosure())
 
@@ -2366,8 +2387,13 @@ function Attach-SearchableAttributeDropdown {
         } else { "" }
         if ($selectedText -and $editBox.Text -eq $selectedText) { return }
 
-        Filter-ComboAttributes -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
-            -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+        if ($filterFunc) {
+            & $filterFunc -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
+                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+        } else {
+            global:Filter-ComboAttributes -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
+                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+        }
     }.GetNewClosure())
 
     # Selection change: close dropdown and show confirmation badge
