@@ -77,9 +77,26 @@ function Format-ADUserRecord {
 
     $ouPath = Convert-DNToOUPath -DistinguishedName $User.DistinguishedName
 
+    $resolvedDisplayName = if ($User.DisplayName -and -not [string]::IsNullOrWhiteSpace($User.DisplayName)) {
+        $User.DisplayName.Trim()
+    } elseif (-not [string]::IsNullOrWhiteSpace("$($User.GivenName) $($User.Surname)".Trim())) {
+        "$($User.GivenName) $($User.Surname)".Trim()
+    } elseif ($User.Name -and -not [string]::IsNullOrWhiteSpace($User.Name)) {
+        $User.Name.Trim()
+    } else {
+        $User.SamAccountName
+    }
+
+    $userName = if ($User.Name -and -not [string]::IsNullOrWhiteSpace($User.Name)) {
+        $User.Name.Trim()
+    } else {
+        $resolvedDisplayName
+    }
+
     [PSCustomObject]@{
+        Name               = $userName
         SamAccountName     = $User.SamAccountName
-        DisplayName        = if ($User.DisplayName) { $User.DisplayName } else { "$($User.GivenName) $($User.Surname)".Trim() }
+        DisplayName        = $resolvedDisplayName
         GivenName          = $User.GivenName
         Surname            = $User.Surname
         UserPrincipalName  = $User.UserPrincipalName
@@ -671,15 +688,17 @@ function Get-ADGroupMembersList {
         $members = Get-ADGroupMember -Identity $Identity -ErrorAction Stop
         $results = @()
         foreach ($m in $members) {
+            $mName = if ($m.name -and -not [string]::IsNullOrWhiteSpace($m.name)) { $m.name } else { $m.SamAccountName }
             $results += [PSCustomObject]@{
-                Name              = $m.name
+                Name              = $mName
+                DisplayName       = $mName
                 SamAccountName    = $m.SamAccountName
                 ObjectClass       = $m.objectClass
                 DistinguishedName = $m.distinguishedName
-                SID               = $m.SID.Value
+                SID               = if ($m.SID) { $m.SID.Value } else { "" }
             }
         }
-        return $results | Sort-Object Name
+        return @($results | Sort-Object Name)
     }
     catch {
         Write-Error "Failed to get members of group '$Identity': $_"

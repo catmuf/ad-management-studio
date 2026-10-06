@@ -1573,39 +1573,98 @@ function Open-MemberDialog {
     }
     & $ReloadMembers
 
-    $dControls['BtnSearchMembers'].Add_Click({
-        $st = $dControls['TxtMemberSearch'].Text.Trim()
-        if ($st) {
-            $rawUsers = Get-ADUsersList -SearchText $st -Limit 50
-            $foundUsers = @($rawUsers | ForEach-Object { $_ })
+    $SearchUsersAction = {
+        $st = if ($dControls['TxtMemberSearch']) { $dControls['TxtMemberSearch'].Text.Trim() } else { "" }
+        $rawUsers = if ([string]::IsNullOrWhiteSpace($st)) {
+            Get-ADUsersList -Limit 50
+        } else {
+            Get-ADUsersList -SearchText $st -Limit 50
+        }
+        $foundUsers = @($rawUsers | ForEach-Object { $_ })
+        if ($dControls['ListAvailableUsers']) {
             $dControls['ListAvailableUsers'].ItemsSource = $foundUsers
         }
-    })
-
-    $dControls['TxtMemberSearch'].Add_KeyDown({
-        if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
-            $dControls['BtnSearchMembers'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+        if ($dControls['TxtDialogStatus']) {
+            if ($foundUsers.Count -eq 0) {
+                $dControls['TxtDialogStatus'].Text = if ([string]::IsNullOrWhiteSpace($st)) { "No users found." } else { "No users found matching '$st'." }
+            } else {
+                $dControls['TxtDialogStatus'].Text = "Found $($foundUsers.Count) user(s)."
+            }
         }
-    })
+    }
 
-    $dControls['BtnAddMember'].Add_Click({
-        $sel = $dControls['ListAvailableUsers'].SelectedItem
+    if ($dControls['TxtMemberSearch']) {
+        $dControls['TxtMemberSearch'].Add_TextChanged({
+            $q = $dControls['TxtMemberSearch'].Text.Trim()
+            if ($dControls['TxtMemberSearchPlaceholder']) {
+                $dControls['TxtMemberSearchPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($q)) {
+                    [System.Windows.Visibility]::Visible
+                } else {
+                    [System.Windows.Visibility]::Collapsed
+                }
+            }
+            if ($dControls['BtnClearMemberSearch']) {
+                $dControls['BtnClearMemberSearch'].Visibility = if ([string]::IsNullOrWhiteSpace($q)) {
+                    [System.Windows.Visibility]::Collapsed
+                } else {
+                    [System.Windows.Visibility]::Visible
+                }
+            }
+        })
+
+        $dControls['TxtMemberSearch'].Add_KeyDown({
+            if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
+                & $SearchUsersAction
+            }
+        })
+    }
+
+    if ($dControls['BtnClearMemberSearch']) {
+        $dControls['BtnClearMemberSearch'].Add_Click({
+            if ($dControls['TxtMemberSearch']) {
+                $dControls['TxtMemberSearch'].Text = ""
+                $dControls['TxtMemberSearch'].Focus()
+            }
+            if ($dControls['ListAvailableUsers']) {
+                $dControls['ListAvailableUsers'].ItemsSource = @()
+            }
+            if ($dControls['TxtDialogStatus']) {
+                $dControls['TxtDialogStatus'].Text = ""
+            }
+        })
+    }
+
+    if ($dControls['BtnSearchMembers']) {
+        $dControls['BtnSearchMembers'].Add_Click({ & $SearchUsersAction })
+    }
+
+    $AddMemberAction = {
+        $sel = if ($dControls['ListAvailableUsers']) { $dControls['ListAvailableUsers'].SelectedItem } else { $null }
         if ($sel) {
+            $nameToShow = if ($sel.DisplayName) { $sel.DisplayName } else { $sel.SamAccountName }
             $res = Add-ADPrincipalToGroup -GroupIdentity $Group.DistinguishedName -MemberIdentity $sel.SamAccountName
             if ($res.Success) {
-                $dControls['TxtDialogStatus'].Text = "Added '$($sel.DisplayName)'."
+                $dControls['TxtDialogStatus'].Text = "Added '$nameToShow'."
                 & $ReloadMembers
             } else {
                 $dControls['TxtDialogStatus'].Text = $res.Message
             }
         }
-    })
+    }
 
-    $dControls['BtnRemoveMember'].Add_Click({
-        $selMember = $dControls['ListCurrentMembers'].SelectedItem
+    if ($dControls['BtnAddMember']) {
+        $dControls['BtnAddMember'].Add_Click({ & $AddMemberAction })
+    }
+    if ($dControls['ListAvailableUsers']) {
+        $dControls['ListAvailableUsers'].Add_MouseDoubleClick({ & $AddMemberAction })
+    }
+
+    $RemoveMemberAction = {
+        $selMember = if ($dControls['ListCurrentMembers']) { $dControls['ListCurrentMembers'].SelectedItem } else { $null }
         if ($selMember) {
+            $nameToShow = if ($selMember.Name) { $selMember.Name } else { $selMember.SamAccountName }
             $confirm = [System.Windows.MessageBox]::Show(
-                "Remove member '$($selMember.Name)' from group '$($Group.Name)'?",
+                "Remove member '$nameToShow' from group '$($Group.Name)'?",
                 "Confirm Remove Member",
                 [System.Windows.MessageBoxButton]::YesNo,
                 [System.Windows.MessageBoxImage]::Question
@@ -1613,14 +1672,25 @@ function Open-MemberDialog {
             if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
                 $res = Remove-ADPrincipalFromGroup -GroupIdentity $Group.DistinguishedName -MemberIdentity $selMember.DistinguishedName
                 if ($res.Success) {
-                    $dControls['TxtDialogStatus'].Text = "Removed '$($selMember.Name)'."
+                    $dControls['TxtDialogStatus'].Text = "Removed '$nameToShow'."
                     & $ReloadMembers
+                } else {
+                    $dControls['TxtDialogStatus'].Text = $res.Message
                 }
             }
         }
-    })
+    }
 
-    $dControls['BtnClose'].Add_Click({ $dlg.Close() })
+    if ($dControls['BtnRemoveMember']) {
+        $dControls['BtnRemoveMember'].Add_Click({ & $RemoveMemberAction })
+    }
+    if ($dControls['ListCurrentMembers']) {
+        $dControls['ListCurrentMembers'].Add_MouseDoubleClick({ & $RemoveMemberAction })
+    }
+
+    if ($dControls['BtnClose']) {
+        $dControls['BtnClose'].Add_Click({ $dlg.Close() })
+    }
     [void]$dlg.ShowDialog()
 }
 

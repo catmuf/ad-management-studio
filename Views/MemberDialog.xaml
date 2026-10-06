@@ -115,14 +115,40 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Name="TxtMemberSearch" Grid.Column="0" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,6,0"/>
-                            <Button Name="BtnSearchMembers" Grid.Column="1" Style="{StaticResource ModernButton}" Height="30" Padding="8,2">
+                            <Grid Grid.Column="0" Margin="0,0,6,0">
+                                <TextBox Name="TxtMemberSearch" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search users by name, username, email, etc. Live search or press Enter."/>
+                                <TextBlock Name="TxtMemberSearchPlaceholder" Text="🔍 Search users (name, logon...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearMemberSearch" Content="✕" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            </Grid>
+                            <Button Name="BtnSearchMembers" Grid.Column="1" Style="{StaticResource ModernButton}" Height="30" Padding="12,2" ToolTip="Search directory">
                                 <TextBlock Text="Search"/>
                             </Button>
                         </Grid>
                     </StackPanel>
 
-                    <ListBox Name="ListAvailableUsers" Grid.Row="1" Style="{StaticResource ModernListBox}" DisplayMemberPath="DisplayName" Margin="0,0,0,8"/>
+                    <ListBox Name="ListAvailableUsers" Grid.Row="1" Style="{StaticResource ModernListBox}" Margin="0,0,0,8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                            <TextBlock Text="{Binding SamAccountName}" Foreground="#9CA3AF" FontSize="11" FontFamily="Consolas"/>
+                                            <TextBlock Text=" • " Foreground="#4B5563" FontSize="11"/>
+                                            <TextBlock Text="{Binding OUPath}" Foreground="#6B7280" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Background="#1E293B" CornerRadius="3" Padding="6,2" VerticalAlignment="Center" Margin="6,0,0,0">
+                                        <TextBlock Text="{Binding StatusBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{Binding StatusColor}"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
                     <Button Name="BtnAddMember" Grid.Row="2" Style="{StaticResource PrimaryButton}" Height="32">
                         <StackPanel Orientation="Horizontal">
@@ -146,7 +172,25 @@
                         <TextBlock Name="TxtMemberCount" DockPanel.Dock="Right" Text="0 members" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center"/>
                     </DockPanel>
 
-                    <ListBox Name="ListCurrentMembers" Grid.Row="1" Style="{StaticResource ModernListBox}" DisplayMemberPath="Name" Margin="0,0,0,8"/>
+                    <ListBox Name="ListCurrentMembers" Grid.Row="1" Style="{StaticResource ModernListBox}" Margin="0,0,0,8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding SamAccountName}" Foreground="#9CA3AF" FontSize="11" FontFamily="Consolas" Margin="0,1,0,0"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Background="#1E293B" CornerRadius="3" Padding="6,2" VerticalAlignment="Center" Margin="6,0,0,0">
+                                        <TextBlock Text="{Binding ObjectClass}" FontSize="10" FontWeight="SemiBold" Foreground="#60A5FA"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
                     <Button Name="BtnRemoveMember" Grid.Row="2" Style="{StaticResource DangerButton}" Height="32">
                         <StackPanel Orientation="Horizontal">
