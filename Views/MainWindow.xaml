@@ -429,7 +429,7 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🩺" Margin="0,0,5,0"/>
+                            <TextBlock Text="📡" Margin="0,0,5,0"/>
                             <TextBlock Text="Diagnostics"/>
                         </StackPanel>
                     </Button>
@@ -715,7 +715,7 @@
 
                                 <Button Name="BtnDashTestConn" Style="{StaticResource ModernButton}" HorizontalAlignment="Right">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="🩺 "/>
+                                        <TextBlock Text="📡 "/>
                                         <TextBlock Text="Run Diagnostics"/>
                                     </StackPanel>
                                 </Button>
@@ -1453,7 +1453,7 @@
 
                                     <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Button Name="BtnNewProfile" Style="{StaticResource PrimaryButton}" Content="➕ Add Profile" Margin="0,0,6,6"/>
-                                        <Button Name="BtnRunDiagFull" Style="{StaticResource ModernButton}" Content="🩺 Test Connection Diagnostics" Margin="0,0,0,6"/>
+                                        <Button Name="BtnRunDiagFull" Style="{StaticResource ModernButton}" Content="📡 Test Connection Diagnostics" Margin="0,0,0,6"/>
                                     </WrapPanel>
                                 </Grid>
                             </Border>

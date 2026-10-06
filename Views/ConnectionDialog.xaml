@@ -156,7 +156,7 @@
                     <TextBlock Name="TxtDiagDetails" Text="Click 'Test Connection' to verify DNS, port connectivity, and RootDSE latency." FontSize="11" Foreground="#6B7280" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <Button Grid.Column="1" Name="BtnTestConnection" Style="{StaticResource ModernButton}" Content="🩺 Test Connection" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Name="BtnTestConnection" Style="{StaticResource ModernButton}" Content="📡 Test Connection" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
