@@ -200,7 +200,7 @@ function Get-ADUsersList {
             }
         }
 
-        return ,@($results)
+        return @($results)
     }
     catch {
         Write-Warning "Direct AD filter failed, attempting fallback search: $_"
@@ -241,11 +241,11 @@ function Get-ADUsersList {
                     $results.Add($formatted)
                 }
             }
-            return ,@($results)
+            return @($results)
         }
         catch {
             Write-Error "Error querying AD users: $_"
-            return ,@()
+            return @()
         }
     }
 }
@@ -652,11 +652,11 @@ function Get-ADGroupsList {
             }
         }
 
-        return ,@($results)
+        return @($results)
     }
     catch {
         Write-Error "Error querying AD groups: $_"
-        return ,@()
+        return @()
     }
 }
 
@@ -1087,11 +1087,11 @@ function Get-ADObjectsInOU {
             }
         }, Name
 
-        return ,@($sorted)
+        return @($sorted)
     }
     catch {
         Write-Error "Failed to query objects in OU '$SearchBase': $_"
-        return ,@()
+        return @()
     }
 }
 #endregion
@@ -2165,9 +2165,9 @@ function Get-ADComputersList {
 
     $sorted = @($list | Sort-Object Name)
     if ($Limit -gt 0) {
-        return ,@($sorted | Select-Object -First $Limit)
+        return @($sorted | Select-Object -First $Limit)
     } else {
-        return ,@($sorted)
+        return @($sorted)
     }
 }
 

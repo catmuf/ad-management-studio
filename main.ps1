@@ -66,6 +66,7 @@ $reader.Close()
 # Global UI State
 $state = [PSCustomObject]@{
     CachedUsers            = @()
+    AllScopeUsers          = @()
     CachedGroups           = @()
     CachedOUs              = @()
     CachedComputers        = @()
@@ -421,7 +422,7 @@ function Populate-MissingAttributeInItemsSource {
     if (-not $DataGrid -or -not $DataGrid.ItemsSource) { return }
 
     foreach ($item in $DataGrid.ItemsSource) {
-        if ($null -eq $item) { continue }
+        if ($null -eq $item -or $item -isnot [System.Management.Automation.PSCustomObject]) { continue }
         $existingProp = $item.PSObject.Properties[$PropertyKey]
         if (-not $existingProp) {
             $val = ""
@@ -744,14 +745,15 @@ function Refresh-Users {
         }
     }
 
-    $users = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
+    $rawUsers = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
+    $users = @($rawUsers | ForEach-Object { $_ })
     $state.CachedUsers = $users
     if ([string]::IsNullOrWhiteSpace($searchText)) {
         $state.AllScopeUsers = $users
     }
 
     if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = @($users)
+        $controls['GridUsers'].ItemsSource = $users
         Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
     }
 
@@ -777,9 +779,13 @@ function Filter-UsersLive {
     $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
     if ([string]::IsNullOrWhiteSpace($query)) {
         if ($state.AllScopeUsers) {
-            if ($controls['GridUsers']) { $controls['GridUsers'].ItemsSource = @($state.AllScopeUsers) }
+            $allUsers = @($state.AllScopeUsers | ForEach-Object { $_ })
+            if ($controls['GridUsers']) {
+                $controls['GridUsers'].ItemsSource = $allUsers
+                Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
+            }
             if ($controls['TxtUsersCountBadge']) {
-                $controls['TxtUsersCountBadge'].Text = "$($state.AllScopeUsers.Count) users displayed"
+                $controls['TxtUsersCountBadge'].Text = "$($allUsers.Count) users displayed"
                 $controls['TxtUsersCountBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
             }
         }
@@ -787,9 +793,9 @@ function Filter-UsersLive {
     }
 
     $sourceList = if ($state.AllScopeUsers -and $state.AllScopeUsers.Count -gt 0) {
-        $state.AllScopeUsers
+        @($state.AllScopeUsers | ForEach-Object { $_ })
     } elseif ($state.CachedUsers) {
-        $state.CachedUsers
+        @($state.CachedUsers | ForEach-Object { $_ })
     } else {
         @()
     }
@@ -1250,7 +1256,7 @@ function Export-UsersAction {
     $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
     
     if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $usersToExport = if ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { Get-ADUsersList }
+        $usersToExport = if ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { @(Get-ADUsersList | ForEach-Object { $_ }) }
         $res = Export-ADDataToCsv -Data $usersToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter) `
             -PropertiesToExport @('SamAccountName', 'DisplayName', 'UserPrincipalName', 'Mail', 'Title', 'Department', 'Office', 'Company', 'EmployeeID', 'Enabled', 'LockedOut', 'OUPath', 'LastLogonDate', 'DistinguishedName')
 
@@ -1394,10 +1400,11 @@ function Refresh-Groups {
         if ($scopeText -notmatch "All Scopes") { $scopeFilter = $scopeText }
     }
 
-    $groups = @(Get-ADGroupsList -SearchText $searchText -CategoryFilter $catFilter -ScopeFilter $scopeFilter -Limit ($appConfig.UI.PageSize))
+    $rawGroups = Get-ADGroupsList -SearchText $searchText -CategoryFilter $catFilter -ScopeFilter $scopeFilter -Limit ($appConfig.UI.PageSize)
+    $groups = @($rawGroups | ForEach-Object { $_ })
     $state.CachedGroups = $groups
     if ($controls['GridGroups']) {
-        $controls['GridGroups'].ItemsSource = @($groups)
+        $controls['GridGroups'].ItemsSource = $groups
         Sync-DataGridColumnsProperties -DataGrid $controls['GridGroups']
     }
     if ($controls['TxtGroupsCountBadge']) {
@@ -1424,7 +1431,7 @@ function Filter-GroupsLive {
         }
     }
 
-    $sourceList = if ($state.CachedGroups) { @($state.CachedGroups) } else { @() }
+    $sourceList = if ($state.CachedGroups) { @($state.CachedGroups | ForEach-Object { $_ }) } else { @() }
     if ($sourceList.Count -eq 0) { return }
 
     $catFilter = "All"
@@ -1559,7 +1566,8 @@ function Open-MemberDialog {
     $dControls['TxtGroupNameHeader'].Text = "Group: $($Group.Name)"
 
     $ReloadMembers = {
-        $m = Get-ADGroupMembersList -Identity $Group.DistinguishedName
+        $rawM = Get-ADGroupMembersList -Identity $Group.DistinguishedName
+        $m = @($rawM | ForEach-Object { $_ })
         $dControls['ListCurrentMembers'].ItemsSource = $m
         $dControls['TxtMemberCount'].Text = "$($m.Count) members"
     }
@@ -1568,7 +1576,8 @@ function Open-MemberDialog {
     $dControls['BtnSearchMembers'].Add_Click({
         $st = $dControls['TxtMemberSearch'].Text.Trim()
         if ($st) {
-            $foundUsers = Get-ADUsersList -SearchText $st -Limit 50
+            $rawUsers = Get-ADUsersList -SearchText $st -Limit 50
+            $foundUsers = @($rawUsers | ForEach-Object { $_ })
             $dControls['ListAvailableUsers'].ItemsSource = $foundUsers
         }
     })
@@ -1645,7 +1654,7 @@ function Export-GroupsAction {
     $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
     
     if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $groupsToExport = if ($state.CachedGroups.Count -gt 0) { $state.CachedGroups } else { Get-ADGroupsList }
+        $groupsToExport = if ($state.CachedGroups.Count -gt 0) { $state.CachedGroups } else { @(Get-ADGroupsList | ForEach-Object { $_ }) }
         $res = Export-ADDataToCsv -Data $groupsToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter) `
             -PropertiesToExport @('Name', 'SamAccountName', 'GroupCategory', 'GroupScope', 'MemberCount', 'Description', 'OUPath', 'DistinguishedName')
 
@@ -1802,15 +1811,15 @@ function Load-OUObjectsUI {
     try {
         Set-Status -Message "Fetching directory objects in $($selectedNode.Name)..."
         $rawItems = Get-ADObjectsInOU -SearchBase $selectedNode.DistinguishedName -SearchScope $scope
+        $flatItems = @($rawItems | ForEach-Object { $_ })
         if ($controls['GridOUObjects']) {
-            $controls['GridOUObjects'].ItemsSource = @($rawItems)
+            $controls['GridOUObjects'].ItemsSource = $flatItems
             Sync-DataGridColumnsProperties -DataGrid $controls['GridOUObjects']
         }
         if ($controls['TxtSelectedOUObjectsCount']) {
-            $count = if ($rawItems) { $rawItems.Count } else { 0 }
-            $controls['TxtSelectedOUObjectsCount'].Text = "$count object(s)"
+            $controls['TxtSelectedOUObjectsCount'].Text = "$($flatItems.Count) object(s)"
         }
-        Set-Status -Message "Loaded $($rawItems.Count) object(s) in $($selectedNode.Name)."
+        Set-Status -Message "Loaded $($flatItems.Count) object(s) in $($selectedNode.Name)."
     } catch {
         if ($controls['GridOUObjects']) { $controls['GridOUObjects'].ItemsSource = @() }
         if ($controls['TxtSelectedOUObjectsCount']) { $controls['TxtSelectedOUObjectsCount'].Text = "0 objects" }
@@ -1892,10 +1901,11 @@ if ($controls['BtnDeleteOU']) {
 function Refresh-Computers {
     Set-Status -Message "Loading domain computers..."
     $search = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
-    $computers = @(Get-ADComputersList -SearchText $search -Limit ($appConfig.UI.PageSize))
+    $rawComputers = Get-ADComputersList -SearchText $search -Limit ($appConfig.UI.PageSize)
+    $computers = @($rawComputers | ForEach-Object { $_ })
     $state.CachedComputers = $computers
     if ($controls['GridComputers']) {
-        $controls['GridComputers'].ItemsSource = @($computers)
+        $controls['GridComputers'].ItemsSource = $computers
         Sync-DataGridColumnsProperties -DataGrid $controls['GridComputers']
     }
     if ($controls['TxtComputersCountBadge']) {
@@ -1922,7 +1932,7 @@ function Filter-ComputersLive {
         }
     }
 
-    $sourceList = if ($state.CachedComputers) { @($state.CachedComputers) } else { @() }
+    $sourceList = if ($state.CachedComputers) { @($state.CachedComputers | ForEach-Object { $_ }) } else { @() }
     if ($sourceList.Count -eq 0) { return }
 
     if ([string]::IsNullOrWhiteSpace($query)) {
@@ -2010,7 +2020,7 @@ if ($controls['BtnExportComputers']) {
         $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
         
         if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $computersToExport = if ($state.CachedComputers.Count -gt 0) { $state.CachedComputers } else { Get-ADComputersList }
+            $computersToExport = if ($state.CachedComputers.Count -gt 0) { $state.CachedComputers } else { @(Get-ADComputersList | ForEach-Object { $_ }) }
             $res = Export-ADDataToCsv -Data $computersToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter) `
                 -PropertiesToExport @('Name', 'DNSHostName', 'OperatingSystem', 'OSVersion', 'Status', 'LastLogon', 'OUPath', 'DistinguishedName')
 
