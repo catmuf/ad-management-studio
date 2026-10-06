@@ -91,6 +91,14 @@ function Format-ADUserRecord {
         Company            = $User.Company
         EmployeeID         = $User.EmployeeID
         Description        = $User.Description
+        TelephoneNumber    = if ($User.telephoneNumber) { $User.telephoneNumber } else { "" }
+        Mobile             = if ($User.mobile) { $User.mobile } else { "" }
+        Manager            = if ($User.manager) { ($User.manager -replace '^CN=([^,]+).*', '$1') } else { "" }
+        StreetAddress      = if ($User.streetAddress) { $User.streetAddress } else { "" }
+        City               = if ($User.l) { $User.l } else { "" }
+        State              = if ($User.st) { $User.st } else { "" }
+        PostalCode         = if ($User.postalCode) { $User.postalCode } else { "" }
+        Country            = if ($User.co) { $User.co } else { "" }
         Enabled            = $isEnabled
         LockedOut          = $isLocked
         StatusBadge        = $statusBadge
@@ -122,7 +130,8 @@ function Get-ADUsersList {
         'DisplayName', 'GivenName', 'Surname', 'SamAccountName', 'UserPrincipalName',
         'Mail', 'Title', 'Department', 'Office', 'Company', 'EmployeeID',
         'Description', 'Enabled', 'LockedOut', 'DistinguishedName', 'ObjectGUID',
-        'SID', 'LastLogonDate', 'PasswordLastSet', 'WhenCreated', 'WhenChanged'
+        'SID', 'LastLogonDate', 'PasswordLastSet', 'WhenCreated', 'WhenChanged',
+        'telephoneNumber', 'mobile', 'manager', 'streetAddress', 'l', 'st', 'postalCode', 'co'
     )
 
     $filter = "*"
@@ -583,7 +592,7 @@ function Get-ADGroupsList {
         [int]$Limit = 1000
     )
 
-    $props = @('Name', 'SamAccountName', 'GroupCategory', 'GroupScope', 'Description', 'DistinguishedName', 'ObjectGUID', 'Members')
+    $props = @('Name', 'SamAccountName', 'GroupCategory', 'GroupScope', 'Description', 'DistinguishedName', 'ObjectGUID', 'Members', 'mail', 'whenCreated', 'whenChanged', 'SID', 'managedBy', 'info')
 
     $filter = "*"
     if (-not [string]::IsNullOrWhiteSpace($SearchText)) {
@@ -627,20 +636,27 @@ function Get-ADGroupsList {
                     SamAccountName    = $g.SamAccountName
                     GroupCategory     = $g.GroupCategory.ToString()
                     GroupScope        = $g.GroupScope.ToString()
-                    Description       = $g.Description
+                    Description       = if ($g.Description) { $g.Description } else { "" }
                     MemberCount       = $memberCount
+                    Mail              = if ($g.mail) { $g.mail } else { "" }
+                    WhenCreated       = if ($g.whenCreated) { $g.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                    WhenChanged       = if ($g.whenChanged) { $g.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                    SID               = if ($g.SID) { $g.SID.Value } else { "" }
+                    ManagedBy         = if ($g.managedBy) { ($g.managedBy -replace '^CN=([^,]+).*', '$1') } else { "" }
+                    Info              = if ($g.info) { $g.info } else { "" }
                     OUPath            = $ouPath
                     DistinguishedName = $g.DistinguishedName
                     ObjectGUID        = $g.ObjectGUID.ToString()
+                    RawGroup          = $g
                 })
             }
         }
 
-        return $results
+        return ,@($results)
     }
     catch {
         Write-Error "Error querying AD groups: $_"
-        return @()
+        return ,@()
     }
 }
 
@@ -989,7 +1005,7 @@ function Get-ADObjectsInOU {
 
     try {
         $filter = "(|(objectClass=user)(objectClass=group)(objectClass=computer)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=container))"
-        $props = @('objectClass', 'name', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated')
+        $props = @('objectClass', 'name', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated', 'whenChanged')
         
         $searchParams = @{
             LDAPFilter  = $filter
@@ -1050,7 +1066,10 @@ function Get-ADObjectsInOU {
                 Status            = $status
                 DistinguishedName = $obj.DistinguishedName
                 Description       = if ($obj.Description) { $obj.Description } else { "" }
+                Mail              = if ($obj.mail) { $obj.mail } else { "" }
                 WhenCreated       = if ($obj.whenCreated) { $obj.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                WhenChanged       = if ($obj.whenChanged) { $obj.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                RawObject         = $obj
             })
         }
 
@@ -1068,11 +1087,11 @@ function Get-ADObjectsInOU {
             }
         }, Name
 
-        return @($sorted)
+        return ,@($sorted)
     }
     catch {
         Write-Error "Failed to query objects in OU '$SearchBase': $_"
-        return @()
+        return ,@()
     }
 }
 #endregion
@@ -2118,7 +2137,7 @@ function Get-ADComputersList {
         "(objectClass=computer)"
     }
 
-    $query = Invoke-LdapQuery -Filter $queryFilter -PropertiesToLoad @('name', 'dNSHostName', 'operatingSystem', 'operatingSystemVersion', 'lastLogonTimestamp', 'userAccountControl', 'whenCreated', 'distinguishedName') -Server $Server
+    $query = Invoke-LdapQuery -Filter $queryFilter -PropertiesToLoad @('name', 'dNSHostName', 'operatingSystem', 'operatingSystemVersion', 'lastLogonTimestamp', 'userAccountControl', 'whenCreated', 'whenChanged', 'distinguishedName', 'description', 'ipv4Address', 'samAccountName', 'objectGUID') -Server $Server
 
     $list = New-Object System.Collections.Generic.List[PSCustomObject]
     foreach ($r in $query.Results) {
@@ -2126,23 +2145,29 @@ function Get-ADComputersList {
         $isDisabled = (($uac -band 2) -eq 2)
         $list.Add([PSCustomObject]@{
             Name              = $r.name
-            DNSHostName       = $r.dNSHostName
-            OperatingSystem   = $r.operatingSystem
-            OSVersion         = $r.operatingSystemVersion
+            DNSHostName       = if ($r.dNSHostName) { $r.dNSHostName } else { "" }
+            OperatingSystem   = if ($r.operatingSystem) { $r.operatingSystem } else { "" }
+            OSVersion         = if ($r.operatingSystemVersion) { $r.operatingSystemVersion } else { "" }
+            Description       = if ($r.description) { $r.description } else { "" }
+            IPv4Address       = if ($r.ipv4Address) { $r.ipv4Address } else { "" }
+            SamAccountName    = if ($r.samAccountName) { $r.samAccountName } else { "" }
             LastLogon         = ConvertFrom-ADLargeInteger -Value $r.lastLogonTimestamp
-            Created           = if ($r.whenCreated -is [DateTime]) { $r.whenCreated.ToString("yyyy-MM-dd") } else { "$($r.whenCreated)" }
+            Created           = if ($r.whenCreated -is [DateTime]) { $r.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "$($r.whenCreated)" }
+            WhenCreated       = if ($r.whenCreated -is [DateTime]) { $r.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "$($r.whenCreated)" }
+            WhenChanged       = if ($r.whenChanged -is [DateTime]) { $r.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "$($r.whenChanged)" }
             Status            = if ($isDisabled) { "Disabled" } else { "Enabled" }
             IsEnabled         = -not $isDisabled
             DistinguishedName = $r.DistinguishedName
             OUPath            = Convert-DNToOUPath -DistinguishedName $r.DistinguishedName
+            RawComputer       = $r
         })
     }
 
-    $sorted = $list | Sort-Object Name
+    $sorted = @($list | Sort-Object Name)
     if ($Limit -gt 0) {
-        return $sorted | Select-Object -First $Limit
+        return ,@($sorted | Select-Object -First $Limit)
     } else {
-        return $sorted
+        return ,@($sorted)
     }
 }
 

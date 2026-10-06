@@ -262,6 +262,470 @@ if ($controls['BtnGlobalRefresh']) {
 }
 #endregion
 
+#region Dynamic Table Column Customization Engine
+$tableColumnCatalog = @{
+    Users = @{
+        GridControl = 'GridUsers'
+        FriendlyName = 'Users'
+        DefaultColumns = @(
+            @{ Header = "Status"; Property = "StatusBadge"; Width = 90 }
+            @{ Header = "Display Name"; Property = "DisplayName"; Width = 160 }
+            @{ Header = "Username"; Property = "SamAccountName"; Width = 120 }
+            @{ Header = "Email"; Property = "Email"; Width = 180 }
+            @{ Header = "Department"; Property = "Department"; Width = 140 }
+            @{ Header = "Title"; Property = "Title"; Width = 140 }
+            @{ Header = "OU Location"; Property = "OUPath"; Width = "*" }
+        )
+        AvailableAttributes = @(
+            @{ Header = "Status"; PropertyKey = "StatusBadge"; Category = "Status"; Description = "Active, Disabled, or Locked account status" }
+            @{ Header = "Display Name"; PropertyKey = "DisplayName"; Category = "Standard"; Description = "Full display name of user" }
+            @{ Header = "Username"; PropertyKey = "SamAccountName"; Category = "Standard"; Description = "Logon user account name (sAMAccountName)" }
+            @{ Header = "Email"; PropertyKey = "Email"; Category = "Contact"; Description = "Primary email or UPN email address" }
+            @{ Header = "Department"; PropertyKey = "Department"; Category = "Organization"; Description = "Department within organization" }
+            @{ Header = "Title"; PropertyKey = "Title"; Category = "Organization"; Description = "Job or business title" }
+            @{ Header = "OU Location"; PropertyKey = "OUPath"; Category = "Location"; Description = "Canonical Organizational Unit path" }
+            @{ Header = "First Name"; PropertyKey = "GivenName"; Category = "Standard"; Description = "First or given name (givenName)" }
+            @{ Header = "Last Name"; PropertyKey = "Surname"; Category = "Standard"; Description = "Last or surname (sn)" }
+            @{ Header = "User Principal Name"; PropertyKey = "UserPrincipalName"; Category = "Standard"; Description = "UPN (user@domain.com)" }
+            @{ Header = "Telephone"; PropertyKey = "TelephoneNumber"; Category = "Contact"; Description = "Primary telephone number (telephoneNumber)" }
+            @{ Header = "Mobile"; PropertyKey = "Mobile"; Category = "Contact"; Description = "Mobile phone number (mobile)" }
+            @{ Header = "Office"; PropertyKey = "Office"; Category = "Location"; Description = "Office room or building (physicalDeliveryOfficeName)" }
+            @{ Header = "Company"; PropertyKey = "Company"; Category = "Organization"; Description = "Company or business entity (company)" }
+            @{ Header = "Manager"; PropertyKey = "Manager"; Category = "Organization"; Description = "Reporting manager name (manager)" }
+            @{ Header = "Employee ID"; PropertyKey = "EmployeeID"; Category = "Organization"; Description = "Corporate employee number (employeeID)" }
+            @{ Header = "Description"; PropertyKey = "Description"; Category = "Standard"; Description = "Account description" }
+            @{ Header = "Street Address"; PropertyKey = "StreetAddress"; Category = "Location"; Description = "Street address (streetAddress)" }
+            @{ Header = "City"; PropertyKey = "City"; Category = "Location"; Description = "City locality (l)" }
+            @{ Header = "State / Province"; PropertyKey = "State"; Category = "Location"; Description = "State or province (st)" }
+            @{ Header = "Postal Code"; PropertyKey = "PostalCode"; Category = "Location"; Description = "Postal or ZIP code (postalCode)" }
+            @{ Header = "Country"; PropertyKey = "Country"; Category = "Location"; Description = "Country name or code (co)" }
+            @{ Header = "When Created"; PropertyKey = "WhenCreated"; Category = "System"; Description = "Account creation timestamp" }
+            @{ Header = "When Changed"; PropertyKey = "WhenChanged"; Category = "System"; Description = "Last modification timestamp" }
+            @{ Header = "Last Logon"; PropertyKey = "LastLogonDate"; Category = "System"; Description = "Last logon timestamp" }
+            @{ Header = "Password Last Set"; PropertyKey = "PasswordLastSet"; Category = "Security"; Description = "Date password was last changed" }
+            @{ Header = "Object SID"; PropertyKey = "SID"; Category = "Security"; Description = "Security Identifier (objectSid)" }
+            @{ Header = "Object GUID"; PropertyKey = "ObjectGUID"; Category = "System"; Description = "Unique GUID identifier" }
+            @{ Header = "Distinguished Name"; PropertyKey = "DistinguishedName"; Category = "System"; Description = "Full LDAP X.500 distinguished name" }
+        )
+    }
+    Groups = @{
+        GridControl = 'GridGroups'
+        FriendlyName = 'Groups'
+        DefaultColumns = @(
+            @{ Header = "Group Name"; Property = "Name"; Width = 200 }
+            @{ Header = "SamAccountName"; Property = "SamAccountName"; Width = 160 }
+            @{ Header = "Scope"; Property = "GroupScope"; Width = 110 }
+            @{ Header = "Category"; Property = "GroupCategory"; Width = 110 }
+            @{ Header = "OU Location"; Property = "OUPath"; Width = "*" }
+        )
+        AvailableAttributes = @(
+            @{ Header = "Group Name"; PropertyKey = "Name"; Category = "Standard"; Description = "Friendly group display name" }
+            @{ Header = "SamAccountName"; PropertyKey = "SamAccountName"; Category = "Standard"; Description = "Pre-Windows 2000 group logon name" }
+            @{ Header = "Scope"; PropertyKey = "GroupScope"; Category = "Scope"; Description = "Group scope: Global, Universal, or DomainLocal" }
+            @{ Header = "Category"; PropertyKey = "GroupCategory"; Category = "Category"; Description = "Group category: Security or Distribution" }
+            @{ Header = "OU Location"; PropertyKey = "OUPath"; Category = "Location"; Description = "Parent Organizational Unit path" }
+            @{ Header = "Description"; PropertyKey = "Description"; Category = "Standard"; Description = "Group description or purpose" }
+            @{ Header = "Member Count"; PropertyKey = "MemberCount"; Category = "Membership"; Description = "Count of direct members in group" }
+            @{ Header = "E-mail"; PropertyKey = "Mail"; Category = "Contact"; Description = "Group email address (mail)" }
+            @{ Header = "Managed By"; PropertyKey = "ManagedBy"; Category = "Organization"; Description = "Group owner / manager (managedBy)" }
+            @{ Header = "When Created"; PropertyKey = "WhenCreated"; Category = "System"; Description = "Group creation timestamp" }
+            @{ Header = "When Changed"; PropertyKey = "WhenChanged"; Category = "System"; Description = "Group last modified timestamp" }
+            @{ Header = "Object SID"; PropertyKey = "SID"; Category = "Security"; Description = "Security Identifier (objectSid)" }
+            @{ Header = "Object GUID"; PropertyKey = "ObjectGUID"; Category = "System"; Description = "Unique group GUID" }
+            @{ Header = "Notes / Info"; PropertyKey = "Info"; Category = "Standard"; Description = "Administrative notes (info)" }
+            @{ Header = "Distinguished Name"; PropertyKey = "DistinguishedName"; Category = "System"; Description = "Full group LDAP distinguished name" }
+        )
+    }
+    Computers = @{
+        GridControl = 'GridComputers'
+        FriendlyName = 'Computers'
+        DefaultColumns = @(
+            @{ Header = "Computer Name"; Property = "Name"; Width = 150 }
+            @{ Header = "DNS Hostname"; Property = "DNSHostName"; Width = 190 }
+            @{ Header = "Operating System"; Property = "OperatingSystem"; Width = 180 }
+            @{ Header = "Version"; Property = "OSVersion"; Width = 100 }
+            @{ Header = "Status"; Property = "Status"; Width = 90 }
+            @{ Header = "Last Logon"; Property = "LastLogon"; Width = 140 }
+            @{ Header = "OU Location"; Property = "OUPath"; Width = "*" }
+        )
+        AvailableAttributes = @(
+            @{ Header = "Computer Name"; PropertyKey = "Name"; Category = "Standard"; Description = "NetBIOS computer name" }
+            @{ Header = "DNS Hostname"; PropertyKey = "DNSHostName"; Category = "Network"; Description = "Fully qualified DNS host name (dNSHostName)" }
+            @{ Header = "Operating System"; PropertyKey = "OperatingSystem"; Category = "OS"; Description = "Operating System name (operatingSystem)" }
+            @{ Header = "Version"; PropertyKey = "OSVersion"; Category = "OS"; Description = "Operating System build version (operatingSystemVersion)" }
+            @{ Header = "Status"; PropertyKey = "Status"; Category = "Status"; Description = "Computer account enabled or disabled" }
+            @{ Header = "Last Logon"; PropertyKey = "LastLogon"; Category = "System"; Description = "Last computer logon timestamp" }
+            @{ Header = "OU Location"; PropertyKey = "OUPath"; Category = "Location"; Description = "Parent OU path" }
+            @{ Header = "Description"; PropertyKey = "Description"; Category = "Standard"; Description = "Computer description or role" }
+            @{ Header = "IPv4 Address"; PropertyKey = "IPv4Address"; Category = "Network"; Description = "Registered IPv4 address (ipv4Address)" }
+            @{ Header = "SamAccountName"; PropertyKey = "SamAccountName"; Category = "Standard"; Description = "Computer sAMAccountName (e.g. WS01$)" }
+            @{ Header = "When Created"; PropertyKey = "WhenCreated"; Category = "System"; Description = "Domain join creation timestamp" }
+            @{ Header = "When Changed"; PropertyKey = "WhenChanged"; Category = "System"; Description = "Last modification timestamp" }
+            @{ Header = "Distinguished Name"; PropertyKey = "DistinguishedName"; Category = "System"; Description = "Full computer LDAP DN" }
+        )
+    }
+    OUObjects = @{
+        GridControl = 'GridOUObjects'
+        FriendlyName = 'OU Objects'
+        DefaultColumns = @(
+            @{ Header = "Type"; Property = "ObjectClass"; Width = 80 }
+            @{ Header = "Name"; Property = "Name"; Width = 180 }
+            @{ Header = "SamAccountName"; Property = "SamAccountName"; Width = 140 }
+            @{ Header = "Status"; Property = "Status"; Width = 100 }
+            @{ Header = "Distinguished Name"; Property = "DistinguishedName"; Width = "*" }
+        )
+        AvailableAttributes = @(
+            @{ Header = "Type"; PropertyKey = "ObjectClass"; Category = "Standard"; Description = "Object class (User, Group, Computer, OU)" }
+            @{ Header = "Name"; PropertyKey = "Name"; Category = "Standard"; Description = "Object name (cn or ou)" }
+            @{ Header = "SamAccountName"; PropertyKey = "SamAccountName"; Category = "Standard"; Description = "Account logon name (sAMAccountName)" }
+            @{ Header = "Status"; PropertyKey = "Status"; Category = "Status"; Description = "Account or object status" }
+            @{ Header = "Distinguished Name"; PropertyKey = "DistinguishedName"; Category = "System"; Description = "Full LDAP Distinguished Name" }
+            @{ Header = "Description"; PropertyKey = "Description"; Category = "Standard"; Description = "Object description" }
+            @{ Header = "E-mail"; PropertyKey = "Mail"; Category = "Contact"; Description = "Object email address (mail)" }
+            @{ Header = "When Created"; PropertyKey = "WhenCreated"; Category = "System"; Description = "Creation timestamp" }
+            @{ Header = "When Changed"; PropertyKey = "WhenChanged"; Category = "System"; Description = "Last modification timestamp" }
+        )
+    }
+    Search = @{
+        GridControl = 'GridSearchResults'
+        FriendlyName = 'Directory Search'
+        DefaultColumns = @(
+            @{ Header = "Class"; Property = "ObjectClass"; Width = 90 }
+            @{ Header = "SamAccountName"; Property = "SamAccountName"; Width = 150 }
+            @{ Header = "Display Name"; Property = "DisplayName"; Width = 180 }
+            @{ Header = "Distinguished Name"; Property = "DistinguishedName"; Width = "*" }
+        )
+        AvailableAttributes = @(
+            @{ Header = "Class"; PropertyKey = "ObjectClass"; Category = "Standard"; Description = "LDAP Object class" }
+            @{ Header = "SamAccountName"; PropertyKey = "SamAccountName"; Category = "Standard"; Description = "User/Group/Computer logon name" }
+            @{ Header = "Display Name"; PropertyKey = "DisplayName"; Category = "Standard"; Description = "Full display name" }
+            @{ Header = "Distinguished Name"; PropertyKey = "DistinguishedName"; Category = "System"; Description = "Full LDAP Distinguished Name" }
+            @{ Header = "Description"; PropertyKey = "description"; Category = "Standard"; Description = "Object description (description)" }
+            @{ Header = "Email / Mail"; PropertyKey = "mail"; Category = "Contact"; Description = "Email address (mail)" }
+            @{ Header = "Department"; PropertyKey = "department"; Category = "Organization"; Description = "Department (department)" }
+            @{ Header = "Title"; PropertyKey = "title"; Category = "Organization"; Description = "Job title (title)" }
+            @{ Header = "Telephone"; PropertyKey = "telephoneNumber"; Category = "Contact"; Description = "Telephone number (telephoneNumber)" }
+            @{ Header = "When Created"; PropertyKey = "whenCreated"; Category = "System"; Description = "Creation date (whenCreated)" }
+            @{ Header = "When Changed"; PropertyKey = "whenChanged"; Category = "System"; Description = "Modification date (whenChanged)" }
+            @{ Header = "User Account Control"; PropertyKey = "userAccountControl"; Category = "Security"; Description = "UAC bitmask flags (userAccountControl)" }
+            @{ Header = "Object SID"; PropertyKey = "objectsid"; Category = "Security"; Description = "Security Identifier (objectSid)" }
+        )
+    }
+}
+
+function Populate-MissingAttributeInItemsSource {
+    param (
+        [System.Windows.Controls.DataGrid]$DataGrid,
+        [string]$PropertyKey
+    )
+    if (-not $DataGrid -or -not $DataGrid.ItemsSource) { return }
+
+    foreach ($item in $DataGrid.ItemsSource) {
+        if ($null -eq $item) { continue }
+        $existingProp = $item.PSObject.Properties[$PropertyKey]
+        if (-not $existingProp) {
+            $val = ""
+            if ($item.RawUser -and $item.RawUser.$PropertyKey) {
+                $val = $item.RawUser.$PropertyKey.ToString()
+            } elseif ($item.RawGroup -and $item.RawGroup.$PropertyKey) {
+                $val = $item.RawGroup.$PropertyKey.ToString()
+            } elseif ($item.RawComputer -and $item.RawComputer.$PropertyKey) {
+                $val = $item.RawComputer.$PropertyKey.ToString()
+            } elseif ($item.RawObject -and $item.RawObject.$PropertyKey) {
+                $val = $item.RawObject.$PropertyKey.ToString()
+            } elseif ($item.DistinguishedName) {
+                try {
+                    $entry = [System.DirectoryServices.DirectoryEntry]"LDAP://$($item.DistinguishedName)"
+                    if ($entry.Properties.Contains($PropertyKey)) {
+                        $propVals = $entry.Properties[$PropertyKey]
+                        $val = if ($propVals.Count -gt 1) { ($propVals | ForEach-Object { "$_" }) -join "; " } else { "$($propVals.Value)" }
+                    }
+                } catch {}
+            }
+            $item | Add-Member -NotePropertyName $PropertyKey -NotePropertyValue $val -Force
+        }
+    }
+}
+
+function Sync-DataGridColumnsProperties {
+    param (
+        [System.Windows.Controls.DataGrid]$DataGrid
+    )
+    if (-not $DataGrid -or -not $DataGrid.ItemsSource) { return }
+    foreach ($col in $DataGrid.Columns) {
+        if ($col -is [System.Windows.Controls.DataGridBoundColumn] -and $col.Binding -is [System.Windows.Data.Binding]) {
+            $propKey = $col.Binding.Path.Path
+            Populate-MissingAttributeInItemsSource -DataGrid $DataGrid -PropertyKey $propKey
+        }
+    }
+}
+
+function Show-ColumnChooser {
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
+        [string]$TableName
+    )
+
+    $config = $tableColumnCatalog[$TableName]
+    if (-not $config) { return }
+
+    $grid = $controls[$config.GridControl]
+    if (-not $grid) { return }
+
+    $dlgPath = Join-Path $viewsPath "ColumnChooserDialog.xaml"
+    $dlg = Load-XamlWindow -XamlPath $dlgPath
+    $dlg.Owner = $window
+
+    $dControls = @{}
+    $dReader = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw))
+    while ($dReader.Read()) {
+        if ($dReader.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+            $dName = $dReader.GetAttribute("Name")
+            if ($dName) { $dControls[$dName] = $dlg.FindName($dName) }
+        }
+    }
+    $dReader.Close()
+
+    # Title & Subtitle
+    if ($dControls['TxtDialogTitle']) {
+        $dControls['TxtDialogTitle'].Text = "Customize Columns: $($config.FriendlyName)"
+    }
+
+    # Get currently visible columns
+    $currentBindingKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($col in $grid.Columns) {
+        if ($col -is [System.Windows.Controls.DataGridBoundColumn] -and $col.Binding -is [System.Windows.Data.Binding]) {
+            [void]$currentBindingKeys.Add($col.Binding.Path.Path)
+        } else {
+            [void]$currentBindingKeys.Add($col.Header.ToString())
+        }
+    }
+
+    # Build selectable list of attributes
+    $attrObservableList = [System.Collections.ObjectModel.ObservableCollection[PSCustomObject]]::new()
+    $seenKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($attr in $config.AvailableAttributes) {
+        [void]$seenKeys.Add($attr.PropertyKey)
+        $isSelected = $currentBindingKeys.Contains($attr.PropertyKey) -or $currentBindingKeys.Contains($attr.Header)
+        $attrObservableList.Add([PSCustomObject]@{
+            Header      = $attr.Header
+            PropertyKey = $attr.PropertyKey
+            Category    = $attr.Category
+            Description = $attr.Description
+            IsSelected  = [bool]$isSelected
+        })
+    }
+
+    # Include any custom columns currently present on grid
+    foreach ($col in $grid.Columns) {
+        $pKey = if ($col -is [System.Windows.Controls.DataGridBoundColumn] -and $col.Binding -is [System.Windows.Data.Binding]) {
+            $col.Binding.Path.Path
+        } else { $col.Header.ToString() }
+        if (-not $seenKeys.Contains($pKey)) {
+            [void]$seenKeys.Add($pKey)
+            $attrObservableList.Add([PSCustomObject]@{
+                Header      = $col.Header.ToString()
+                PropertyKey = $pKey
+                Category    = "Custom"
+                Description = "Custom column attribute"
+                IsSelected  = $true
+            })
+        }
+    }
+
+    $dControls['LstAttributes'].ItemsSource = $attrObservableList
+
+    $updateCountBadge = {
+        $selectedCount = ($attrObservableList | Where-Object { $_.IsSelected }).Count
+        if ($dControls['TxtActiveColumnsCount']) {
+            $dControls['TxtActiveColumnsCount'].Text = "$selectedCount columns active"
+        }
+    }
+    & $updateCountBadge
+
+    if ($dControls['LstAttributes']) {
+        $dControls['LstAttributes'].Add_PreviewMouseLeftButtonUp({
+            $dlg.Dispatcher.BeginInvoke([System.Action]{
+                & $updateCountBadge
+            })
+        })
+    }
+
+    # Search / Filter
+    $filterAttrs = {
+        $q = if ($dControls['TxtFilterColumns']) { $dControls['TxtFilterColumns'].Text.Trim() } else { "" }
+        if ($dControls['TxtFilterPlaceholder']) {
+            $dControls['TxtFilterPlaceholder'].Visibility = if ([string]::IsNullOrEmpty($q)) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        }
+        if ($dControls['BtnClearFilter']) {
+            $dControls['BtnClearFilter'].Visibility = if ([string]::IsNullOrEmpty($q)) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+        }
+
+        $view = [System.Windows.Data.CollectionViewSource]::GetDefaultView($dControls['LstAttributes'].ItemsSource)
+        if ($view) {
+            if ([string]::IsNullOrWhiteSpace($q)) {
+                $view.Filter = $null
+            } else {
+                $view.Filter = [System.Predicate[object]]{
+                    param($item)
+                    if (-not $item) { return $false }
+                    return ($item.Header -like "*$q*" -or $item.PropertyKey -like "*$q*" -or $item.Description -like "*$q*" -or $item.Category -like "*$q*")
+                }
+            }
+        }
+    }
+
+    if ($dControls['TxtFilterColumns']) {
+        $dControls['TxtFilterColumns'].Add_TextChanged({ & $filterAttrs })
+    }
+    if ($dControls['BtnClearFilter']) {
+        $dControls['BtnClearFilter'].Add_Click({
+            $dControls['TxtFilterColumns'].Text = ""
+            $dControls['TxtFilterColumns'].Focus()
+        })
+    }
+
+    # Select All / Clear All
+    if ($dControls['BtnSelectAll']) {
+        $dControls['BtnSelectAll'].Add_Click({
+            foreach ($item in $attrObservableList) { $item.IsSelected = $true }
+            & $updateCountBadge
+            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+        })
+    }
+    if ($dControls['BtnDeselectAll']) {
+        $dControls['BtnDeselectAll'].Add_Click({
+            foreach ($item in $attrObservableList) { $item.IsSelected = $false }
+            & $updateCountBadge
+            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+        })
+    }
+
+    # Custom Attribute Adder
+    $addCustomAttr = {
+        $customName = if ($dControls['TxtCustomAttribute']) { $dControls['TxtCustomAttribute'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($customName)) { return }
+
+        $existing = $attrObservableList | Where-Object { $_.PropertyKey -ieq $customName -or $_.Header -ieq $customName }
+        if ($existing) {
+            $existing.IsSelected = $true
+        } else {
+            $newItem = [PSCustomObject]@{
+                Header      = $customName
+                PropertyKey = $customName
+                Category    = "Custom"
+                Description = "Custom AD schema attribute: $customName"
+                IsSelected  = $true
+            }
+            $attrObservableList.Add($newItem)
+        }
+        $dControls['TxtCustomAttribute'].Text = ""
+        & $updateCountBadge
+        try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+    }
+
+    if ($dControls['BtnAddCustomAttribute']) {
+        $dControls['BtnAddCustomAttribute'].Add_Click({ & $addCustomAttr })
+    }
+    if ($dControls['TxtCustomAttribute']) {
+        $dControls['TxtCustomAttribute'].Add_KeyDown({
+            if ($_.Key -eq [System.Windows.Input.Key]::Enter) { & $addCustomAttr }
+        })
+    }
+
+    # Reset Defaults inside dialog
+    if ($dControls['BtnResetDefaults']) {
+        $dControls['BtnResetDefaults'].Add_Click({
+            $defaultKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($dc in $config.DefaultColumns) {
+                [void]$defaultKeys.Add($dc.Property)
+                [void]$defaultKeys.Add($dc.Header)
+            }
+            foreach ($item in $attrObservableList) {
+                $item.IsSelected = $defaultKeys.Contains($item.PropertyKey) -or $defaultKeys.Contains($item.Header)
+            }
+            & $updateCountBadge
+            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+        })
+    }
+
+    # Cancel
+    if ($dControls['BtnCancel']) {
+        $dControls['BtnCancel'].Add_Click({ $dlg.Close() })
+    }
+
+    # Apply
+    if ($dControls['BtnApply']) {
+        $dControls['BtnApply'].Add_Click({
+            $selectedItems = @($attrObservableList | Where-Object { $_.IsSelected })
+            if ($selectedItems.Count -eq 0) {
+                [System.Windows.MessageBox]::Show("Please select at least one column to display in the table.", "No Columns Selected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                return
+            }
+
+            $grid.Columns.Clear()
+            foreach ($item in $selectedItems) {
+                $col = New-Object System.Windows.Controls.DataGridTextColumn
+                $col.Header = $item.Header
+                $col.Binding = New-Object System.Windows.Data.Binding($item.PropertyKey)
+                
+                $defMatch = $config.DefaultColumns | Where-Object { $_.Property -ieq $item.PropertyKey -or $_.Header -ieq $item.Header }
+                if ($defMatch) {
+                    if ($defMatch.Width -eq "*") {
+                        $col.Width = New-Object System.Windows.Controls.DataGridLength(1, [System.Windows.Controls.DataGridLengthUnitType]::Star)
+                    } else {
+                        $col.Width = New-Object System.Windows.Controls.DataGridLength([double]$defMatch.Width)
+                    }
+                } else {
+                    $col.Width = New-Object System.Windows.Controls.DataGridLength(140)
+                }
+                [void]$grid.Columns.Add($col)
+            }
+
+            Sync-DataGridColumnsProperties -DataGrid $grid
+            try { $grid.Items.Refresh() } catch {}
+            $dlg.Close()
+            Set-Status -Message "Updated columns for $($config.FriendlyName) table ($($grid.Columns.Count) columns active)."
+        })
+    }
+
+    [void]$dlg.ShowDialog()
+}
+
+function Reset-TableColumns {
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
+        [string]$TableName
+    )
+
+    $config = $tableColumnCatalog[$TableName]
+    if (-not $config) { return }
+
+    $grid = $controls[$config.GridControl]
+    if (-not $grid) { return }
+
+    $grid.Columns.Clear()
+    foreach ($colDef in $config.DefaultColumns) {
+        $col = New-Object System.Windows.Controls.DataGridTextColumn
+        $col.Header = $colDef.Header
+        $col.Binding = New-Object System.Windows.Data.Binding($colDef.Property)
+        if ($colDef.Width -eq "*") {
+            $col.Width = New-Object System.Windows.Controls.DataGridLength(1, [System.Windows.Controls.DataGridLengthUnitType]::Star)
+        } else {
+            $col.Width = New-Object System.Windows.Controls.DataGridLength([double]$colDef.Width)
+        }
+        [void]$grid.Columns.Add($col)
+    }
+
+    Sync-DataGridColumnsProperties -DataGrid $grid
+    try { $grid.Items.Refresh() } catch {}
+    Set-Status -Message "Reset $($config.FriendlyName) table columns to defaults."
+}
+#endregion
+
 #region 2. Users Management Logic
 function Refresh-Users {
     Set-Status -Message "Loading users from Active Directory..."
@@ -288,6 +752,7 @@ function Refresh-Users {
 
     if ($controls['GridUsers']) {
         $controls['GridUsers'].ItemsSource = @($users)
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
     }
 
     $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
@@ -871,6 +1336,8 @@ if ($controls['BtnMoveUser']) {
 }
 if ($controls['BtnDeleteUser']) { $controls['BtnDeleteUser'].Add_Click({ Delete-UserAction }) }
 if ($controls['BtnExportUsers']) { $controls['BtnExportUsers'].Add_Click({ Export-UsersAction }) }
+if ($controls['BtnUserAddColumn']) { $controls['BtnUserAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Users" }) }
+if ($controls['BtnUserResetColumns']) { $controls['BtnUserResetColumns'].Add_Click({ Reset-TableColumns -TableName "Users" }) }
 
 # User Cross-Links to Softerra Tools
 if ($controls['BtnUserRawAttributes']) {
@@ -915,22 +1382,96 @@ function Refresh-Groups {
     
     $catFilter = "All"
     if ($controls['CmbGroupCategoryFilter'] -and $controls['CmbGroupCategoryFilter'].SelectedItem) {
-        $catText = $controls['CmbGroupCategoryFilter'].SelectedItem.Content.ToString()
+        $catItem = $controls['CmbGroupCategoryFilter'].SelectedItem
+        $catText = if ($catItem -is [System.Windows.Controls.ComboBoxItem]) { $catItem.Content.ToString() } else { "$catItem" }
         if ($catText -match "Security|Distribution") { $catFilter = $catText }
     }
 
     $scopeFilter = "All"
     if ($controls['CmbGroupScopeFilter'] -and $controls['CmbGroupScopeFilter'].SelectedItem) {
-        $scopeText = $controls['CmbGroupScopeFilter'].SelectedItem.Content.ToString()
+        $scopeItem = $controls['CmbGroupScopeFilter'].SelectedItem
+        $scopeText = if ($scopeItem -is [System.Windows.Controls.ComboBoxItem]) { $scopeItem.Content.ToString() } else { "$scopeItem" }
         if ($scopeText -notmatch "All Scopes") { $scopeFilter = $scopeText }
     }
 
-    $groups = Get-ADGroupsList -SearchText $searchText -CategoryFilter $catFilter -ScopeFilter $scopeFilter -Limit ($appConfig.UI.PageSize)
+    $groups = @(Get-ADGroupsList -SearchText $searchText -CategoryFilter $catFilter -ScopeFilter $scopeFilter -Limit ($appConfig.UI.PageSize))
     $state.CachedGroups = $groups
     if ($controls['GridGroups']) {
-        $controls['GridGroups'].ItemsSource = $groups
+        $controls['GridGroups'].ItemsSource = @($groups)
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridGroups']
+    }
+    if ($controls['TxtGroupsCountBadge']) {
+        $controls['TxtGroupsCountBadge'].Text = "$($groups.Count) groups displayed"
     }
     Set-Status -Message "Loaded $($groups.Count) group(s)." -Count "$($groups.Count) groups displayed"
+}
+
+function Filter-GroupsLive {
+    $query = if ($controls['TxtSearchGroups']) { $controls['TxtSearchGroups'].Text.Trim() } else { "" }
+    
+    if ($controls['TxtSearchGroupsPlaceholder']) {
+        $controls['TxtSearchGroupsPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
+            [System.Windows.Visibility]::Visible
+        } else {
+            [System.Windows.Visibility]::Collapsed
+        }
+    }
+    if ($controls['BtnClearSearchGroups']) {
+        $controls['BtnClearSearchGroups'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
+            [System.Windows.Visibility]::Collapsed
+        } else {
+            [System.Windows.Visibility]::Visible
+        }
+    }
+
+    $sourceList = if ($state.CachedGroups) { @($state.CachedGroups) } else { @() }
+    if ($sourceList.Count -eq 0) { return }
+
+    $catFilter = "All"
+    if ($controls['CmbGroupCategoryFilter'] -and $controls['CmbGroupCategoryFilter'].SelectedItem) {
+        $catItem = $controls['CmbGroupCategoryFilter'].SelectedItem
+        $catText = if ($catItem -is [System.Windows.Controls.ComboBoxItem]) { $catItem.Content.ToString() } else { "$catItem" }
+        if ($catText -match "Security|Distribution") { $catFilter = $catText }
+    }
+
+    $scopeFilter = "All"
+    if ($controls['CmbGroupScopeFilter'] -and $controls['CmbGroupScopeFilter'].SelectedItem) {
+        $scopeItem = $controls['CmbGroupScopeFilter'].SelectedItem
+        $scopeText = if ($scopeItem -is [System.Windows.Controls.ComboBoxItem]) { $scopeItem.Content.ToString() } else { "$scopeItem" }
+        if ($scopeText -notmatch "All Scopes") { $scopeFilter = $scopeText }
+    }
+
+    $filtered = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $cleanAscii = Remove-DiacriticsText $query
+
+    foreach ($g in $sourceList) {
+        $include = $true
+        if ($catFilter -ne "All" -and $g.GroupCategory -ne $catFilter) {
+            $include = $false
+        }
+        if ($scopeFilter -ne "All" -and $g.GroupScope -ne $scopeFilter) {
+            $include = $false
+        }
+        if ($include -and -not [string]::IsNullOrWhiteSpace($query)) {
+            $comp = "$($g.Name) $($g.SamAccountName) $($g.Description) $($g.OUPath)"
+            $asciiComp = Remove-DiacriticsText $comp
+            if ($comp -notmatch [regex]::Escape($query) -and $asciiComp -notmatch [regex]::Escape($cleanAscii)) {
+                $include = $false
+            }
+        }
+        if ($include) {
+            $filtered.Add($g)
+        }
+    }
+
+    $finalArr = @($filtered)
+    if ($controls['GridGroups']) {
+        $controls['GridGroups'].ItemsSource = $finalArr
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridGroups']
+    }
+    if ($controls['TxtGroupsCountBadge']) {
+        $controls['TxtGroupsCountBadge'].Text = "$($finalArr.Count) groups displayed"
+    }
 }
 
 function Open-GroupDialog {
@@ -1116,8 +1657,17 @@ function Export-GroupsAction {
 
 if ($controls['BtnSearchGroups']) { $controls['BtnSearchGroups'].Add_Click({ Refresh-Groups }) }
 if ($controls['TxtSearchGroups']) {
+    $controls['TxtSearchGroups'].Add_TextChanged({ Filter-GroupsLive })
     $controls['TxtSearchGroups'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-Groups }
+    })
+}
+if ($controls['BtnClearSearchGroups']) {
+    $controls['BtnClearSearchGroups'].Add_Click({
+        if ($controls['TxtSearchGroups']) {
+            $controls['TxtSearchGroups'].Text = ""
+            $controls['TxtSearchGroups'].Focus()
+        }
     })
 }
 if ($controls['CmbGroupScopeFilter'])    { $controls['CmbGroupScopeFilter'].Add_SelectionChanged({ Refresh-Groups }) }
@@ -1126,6 +1676,8 @@ if ($controls['CmbGroupCategoryFilter']) { $controls['CmbGroupCategoryFilter'].A
 if ($controls['BtnNewGroup'])      { $controls['BtnNewGroup'].Add_Click({ Open-GroupDialog }) }
 if ($controls['BtnDeleteGroup'])   { $controls['BtnDeleteGroup'].Add_Click({ Delete-GroupAction }) }
 if ($controls['BtnExportGroups'])  { $controls['BtnExportGroups'].Add_Click({ Export-GroupsAction }) }
+if ($controls['BtnGroupAddColumn']) { $controls['BtnGroupAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Groups" }) }
+if ($controls['BtnGroupResetColumns']) { $controls['BtnGroupResetColumns'].Add_Click({ Reset-TableColumns -TableName "Groups" }) }
 if ($controls['BtnManageMembers']) {
     $controls['BtnManageMembers'].Add_Click({
         $g = $controls['GridGroups'].SelectedItem
@@ -1251,7 +1803,8 @@ function Load-OUObjectsUI {
         Set-Status -Message "Fetching directory objects in $($selectedNode.Name)..."
         $rawItems = Get-ADObjectsInOU -SearchBase $selectedNode.DistinguishedName -SearchScope $scope
         if ($controls['GridOUObjects']) {
-            $controls['GridOUObjects'].ItemsSource = $rawItems
+            $controls['GridOUObjects'].ItemsSource = @($rawItems)
+            Sync-DataGridColumnsProperties -DataGrid $controls['GridOUObjects']
         }
         if ($controls['TxtSelectedOUObjectsCount']) {
             $count = if ($rawItems) { $rawItems.Count } else { 0 }
@@ -1303,6 +1856,9 @@ if ($controls['BtnOURawAttributes']) {
     })
 }
 
+if ($controls['BtnOUAddColumn']) { $controls['BtnOUAddColumn'].Add_Click({ Show-ColumnChooser -TableName "OUObjects" }) }
+if ($controls['BtnOUResetColumns']) { $controls['BtnOUResetColumns'].Add_Click({ Reset-TableColumns -TableName "OUObjects" }) }
+
 if ($controls['BtnDeleteOU']) {
     $controls['BtnDeleteOU'].Add_Click({
         $selectedNode = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
@@ -1336,20 +1892,88 @@ if ($controls['BtnDeleteOU']) {
 function Refresh-Computers {
     Set-Status -Message "Loading domain computers..."
     $search = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
-    $computers = Get-ADComputersList -SearchText $search -Limit ($appConfig.UI.PageSize)
+    $computers = @(Get-ADComputersList -SearchText $search -Limit ($appConfig.UI.PageSize))
     $state.CachedComputers = $computers
     if ($controls['GridComputers']) {
-        $controls['GridComputers'].ItemsSource = $computers
+        $controls['GridComputers'].ItemsSource = @($computers)
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridComputers']
+    }
+    if ($controls['TxtComputersCountBadge']) {
+        $controls['TxtComputersCountBadge'].Text = "$($computers.Count) computers displayed"
     }
     Set-Status -Message "Loaded $($computers.Count) computer(s)." -Count "$($computers.Count) computers displayed"
 }
 
+function Filter-ComputersLive {
+    $query = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
+
+    if ($controls['TxtSearchComputersPlaceholder']) {
+        $controls['TxtSearchComputersPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
+            [System.Windows.Visibility]::Visible
+        } else {
+            [System.Windows.Visibility]::Collapsed
+        }
+    }
+    if ($controls['BtnClearSearchComputers']) {
+        $controls['BtnClearSearchComputers'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
+            [System.Windows.Visibility]::Collapsed
+        } else {
+            [System.Windows.Visibility]::Visible
+        }
+    }
+
+    $sourceList = if ($state.CachedComputers) { @($state.CachedComputers) } else { @() }
+    if ($sourceList.Count -eq 0) { return }
+
+    if ([string]::IsNullOrWhiteSpace($query)) {
+        if ($controls['GridComputers']) {
+            $controls['GridComputers'].ItemsSource = $sourceList
+            Sync-DataGridColumnsProperties -DataGrid $controls['GridComputers']
+        }
+        if ($controls['TxtComputersCountBadge']) {
+            $controls['TxtComputersCountBadge'].Text = "$($sourceList.Count) computers displayed"
+        }
+        return
+    }
+
+    $filtered = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $cleanAscii = Remove-DiacriticsText $query
+
+    foreach ($c in $sourceList) {
+        $comp = "$($c.Name) $($c.DNSHostName) $($c.OperatingSystem) $($c.Description) $($c.OUPath) $($c.SamAccountName)"
+        $asciiComp = Remove-DiacriticsText $comp
+        if ($comp -match [regex]::Escape($query) -or $asciiComp -match [regex]::Escape($cleanAscii)) {
+            $filtered.Add($c)
+        }
+    }
+
+    $finalArr = @($filtered)
+    if ($controls['GridComputers']) {
+        $controls['GridComputers'].ItemsSource = $finalArr
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridComputers']
+    }
+    if ($controls['TxtComputersCountBadge']) {
+        $controls['TxtComputersCountBadge'].Text = "$($finalArr.Count) computers displayed"
+    }
+}
+
 if ($controls['BtnSearchComputers']) { $controls['BtnSearchComputers'].Add_Click({ Refresh-Computers }) }
 if ($controls['TxtSearchComputers']) {
+    $controls['TxtSearchComputers'].Add_TextChanged({ Filter-ComputersLive })
     $controls['TxtSearchComputers'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-Computers }
     })
 }
+if ($controls['BtnClearSearchComputers']) {
+    $controls['BtnClearSearchComputers'].Add_Click({
+        if ($controls['TxtSearchComputers']) {
+            $controls['TxtSearchComputers'].Text = ""
+            $controls['TxtSearchComputers'].Focus()
+        }
+    })
+}
+if ($controls['BtnComputerAddColumn']) { $controls['BtnComputerAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Computers" }) }
+if ($controls['BtnComputerResetColumns']) { $controls['BtnComputerResetColumns'].Add_Click({ Reset-TableColumns -TableName "Computers" }) }
 
 if ($controls['BtnComputerRawAttributes']) {
     $controls['BtnComputerRawAttributes'].Add_Click({
@@ -2010,6 +2634,7 @@ function Invoke-LdapSearchUI {
 
         $state.CurrentSearchResults = $finalResults
         $controls['GridSearchResults'].ItemsSource = $finalResults
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridSearchResults']
     } else {
         $controls['TxtSearchStatus'].Text = "Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP Search Failed: `n$($res.Error)", "Search Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
@@ -2139,6 +2764,9 @@ if ($controls['BtnSearchExportJson']) {
         }
     })
 }
+
+if ($controls['BtnSearchAddColumn']) { $controls['BtnSearchAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Search" }) }
+if ($controls['BtnSearchResetColumns']) { $controls['BtnSearchResetColumns'].Add_Click({ Reset-TableColumns -TableName "Search" }) }
 #endregion
 
 #region 7. LDAP-SQL Console Logic

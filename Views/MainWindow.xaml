@@ -792,7 +792,9 @@
                         <Button Name="BtnUserRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
                         <Button Name="BtnUserCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,0"/>
                         <Button Name="BtnDeleteUser" Style="{StaticResource DangerButton}" Content="🗑️ Delete" Margin="0,0,6,0"/>
-                        <Button Name="BtnExportUsers" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                        <Button Name="BtnExportUsers" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
+                        <Button Name="BtnUserAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,0" ToolTip="Add or choose attribute columns in the Users table"/>
+                        <Button Name="BtnUserResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" ToolTip="Reset Users table columns to default"/>
                     </StackPanel>
 
                     <!-- DataGrid -->
@@ -820,16 +822,39 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="280"/>
                                 <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBox Grid.Column="0" Name="TxtSearchGroups" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
-                            <ComboBox Grid.Column="1" Name="CmbGroupScopeFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
-                            <ComboBox Grid.Column="2" Name="CmbGroupCategoryFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0"/>
-                            <Button Grid.Column="3" Name="BtnSearchGroups" Style="{StaticResource PrimaryButton}" Height="30" Content="Search"/>
+                            <Grid Grid.Column="0" Margin="0,0,10,0">
+                                <TextBox Name="TxtSearchGroups" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search groups by Name, SamAccountName, or Description. Live search or press Enter."/>
+                                <TextBlock Name="TxtSearchGroupsPlaceholder" Text="🔍 Search groups (name, desc...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchGroups" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            </Grid>
+
+                            <ComboBox Grid.Column="1" Name="CmbGroupScopeFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0" ToolTip="Filter by Group Scope (Global, Universal, DomainLocal)">
+                                <ComboBoxItem Content="All Scopes" IsSelected="True"/>
+                                <ComboBoxItem Content="Global"/>
+                                <ComboBoxItem Content="Universal"/>
+                                <ComboBoxItem Content="DomainLocal"/>
+                            </ComboBox>
+
+                            <ComboBox Grid.Column="2" Name="CmbGroupCategoryFilter" Style="{StaticResource ModernComboBox}" Height="30" Margin="0,0,10,0" ToolTip="Filter by Group Category (Security, Distribution)">
+                                <ComboBoxItem Content="All Categories" IsSelected="True"/>
+                                <ComboBoxItem Content="Security"/>
+                                <ComboBoxItem Content="Distribution"/>
+                            </ComboBox>
+
+                            <Button Grid.Column="3" Name="BtnSearchGroups" Style="{StaticResource PrimaryButton}" Height="30" Content="Search" Margin="0,0,10,0"/>
+
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4">
+                                    <TextBlock Name="TxtGroupsCountBadge" Text="0 groups displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -838,7 +863,9 @@
                         <Button Name="BtnManageMembers" Style="{StaticResource ModernButton}" Content="👥 Manage Members" Margin="0,0,6,0"/>
                         <Button Name="BtnGroupRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
                         <Button Name="BtnDeleteGroup" Style="{StaticResource DangerButton}" Content="🗑️ Delete Group" Margin="0,0,6,0"/>
-                        <Button Name="BtnExportGroups" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                        <Button Name="BtnExportGroups" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
+                        <Button Name="BtnGroupAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,0" ToolTip="Add or choose attribute columns in the Groups table"/>
+                        <Button Name="BtnGroupResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" ToolTip="Reset Groups table columns to default"/>
                     </StackPanel>
 
                     <DataGrid Grid.Row="2" Name="GridGroups" Style="{StaticResource ModernDataGrid}">
@@ -914,6 +941,8 @@
                                 </ComboBox>
                                 <Button Name="BtnRefreshOUObjects" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Refresh" Margin="0,0,8,0"/>
                                 <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Height="28" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
+                                <Button Name="BtnOUAddColumn" Style="{StaticResource ModernButton}" Height="28" Content="➕ Add Column" Margin="0,0,6,0" ToolTip="Add attribute column to OU Objects table"/>
+                                <Button Name="BtnOUResetColumns" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Reset Columns" Margin="0,0,6,0" ToolTip="Reset OU Objects table columns to default"/>
                             </StackPanel>
 
                             <!-- Contained Objects DataGrid -->
@@ -946,15 +975,28 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBox Grid.Column="0" Name="TxtSearchComputers" Style="{StaticResource ModernTextBox}" Height="30" Margin="0,0,10,0"/>
-                            <Button Grid.Column="1" Name="BtnSearchComputers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search Computers"/>
+                            <Grid Grid.Column="0" Margin="0,0,10,0">
+                                <TextBox Name="TxtSearchComputers" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search computers by Name or Operating System. Live search or press Enter."/>
+                                <TextBlock Name="TxtSearchComputersPlaceholder" Text="🔍 Search computers (name, OS...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchComputers" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            </Grid>
+
+                            <Button Grid.Column="1" Name="BtnSearchComputers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search Computers" Margin="0,0,10,0"/>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4">
+                                    <TextBlock Name="TxtComputersCountBadge" Text="0 computers displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
                         <Button Name="BtnComputerRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,0"/>
                         <Button Name="BtnComputerCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,0"/>
-                        <Button Name="BtnExportComputers" Style="{StaticResource ModernButton}" Content="📤 Export CSV"/>
+                        <Button Name="BtnExportComputers" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
+                        <Button Name="BtnComputerAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,0" ToolTip="Add attribute column to Computers table"/>
+                        <Button Name="BtnComputerResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" ToolTip="Reset Computers table columns to default"/>
                     </StackPanel>
 
                     <DataGrid Grid.Row="2" Name="GridComputers" Style="{StaticResource ModernDataGrid}">
@@ -1132,7 +1174,9 @@
                                 <Button Name="BtnSearchInspectAttr" Style="{StaticResource ModernButton}" Content="🏷️ Inspect Attributes" Margin="0,0,6,0"/>
                                 <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,0"/>
                                 <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,0"/>
-                                <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON"/>
+                                <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,0"/>
+                                <Button Name="BtnSearchAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,0" ToolTip="Add attribute column to Search Results table"/>
+                                <Button Name="BtnSearchResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" ToolTip="Reset Search Results table columns to default"/>
                             </StackPanel>
                         </Grid>
                     </Border>
