@@ -1375,6 +1375,20 @@ if ($controls['BtnUserCompare']) {
 
 if ($controls['GridUsers']) {
     $controls['GridUsers'].Add_MouseDoubleClick({
+        if ($_.OriginalSource) {
+            try {
+                $dep = $_.OriginalSource
+                while ($dep -and $dep -isnot [System.Windows.Controls.DataGridRow] -and $dep -isnot [System.Windows.Controls.Primitives.DataGridColumnHeader]) {
+                    if ($dep -is [System.Windows.Controls.Primitives.ScrollBar] -or $dep -is [System.Windows.Controls.Primitives.Thumb]) { return }
+                    if ($dep -is [System.Windows.Media.Visual] -or $dep -is [System.Windows.Media.Media3D.Visual3D]) {
+                        $dep = [System.Windows.Media.VisualTreeHelper]::GetParent($dep)
+                    } else {
+                        $dep = [System.Windows.LogicalTreeHelper]::GetParent($dep)
+                    }
+                }
+                if ($dep -is [System.Windows.Controls.Primitives.DataGridColumnHeader]) { return }
+            } catch {}
+        }
         $u = $controls['GridUsers'].SelectedItem
         if ($u) { Open-UserDetailDialog -User $u }
     })
@@ -1759,6 +1773,26 @@ if ($controls['BtnGroupAddColumn']) { $controls['BtnGroupAddColumn'].Add_Click({
 if ($controls['BtnGroupResetColumns']) { $controls['BtnGroupResetColumns'].Add_Click({ Reset-TableColumns -TableName "Groups" }) }
 if ($controls['BtnManageMembers']) {
     $controls['BtnManageMembers'].Add_Click({
+        $g = $controls['GridGroups'].SelectedItem
+        if ($g) { Open-MemberDialog -Group $g }
+    })
+}
+if ($controls['GridGroups']) {
+    $controls['GridGroups'].Add_MouseDoubleClick({
+        if ($_.OriginalSource) {
+            try {
+                $dep = $_.OriginalSource
+                while ($dep -and $dep -isnot [System.Windows.Controls.DataGridRow] -and $dep -isnot [System.Windows.Controls.Primitives.DataGridColumnHeader]) {
+                    if ($dep -is [System.Windows.Controls.Primitives.ScrollBar] -or $dep -is [System.Windows.Controls.Primitives.Thumb]) { return }
+                    if ($dep -is [System.Windows.Media.Visual] -or $dep -is [System.Windows.Media.Media3D.Visual3D]) {
+                        $dep = [System.Windows.Media.VisualTreeHelper]::GetParent($dep)
+                    } else {
+                        $dep = [System.Windows.LogicalTreeHelper]::GetParent($dep)
+                    }
+                }
+                if ($dep -is [System.Windows.Controls.Primitives.DataGridColumnHeader]) { return }
+            } catch {}
+        }
         $g = $controls['GridGroups'].SelectedItem
         if ($g) { Open-MemberDialog -Group $g }
     })
