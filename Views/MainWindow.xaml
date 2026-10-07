@@ -35,14 +35,17 @@
             <Setter Property="Foreground" Value="#FFFFFF"/>
             <Setter Property="BorderBrush" Value="#2F3446"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -69,7 +72,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -96,7 +99,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -941,15 +944,15 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,6">
                                     <TextBlock Text="Scope:" VerticalAlignment="Center" Foreground="#9CA3AF" Margin="0,0,6,0"/>
-                                    <ComboBox Name="CmbOUSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="28">
+                                    <ComboBox Name="CmbOUSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="30">
                                         <ComboBoxItem Content="OneLevel" IsSelected="True"/>
                                         <ComboBoxItem Content="Subtree"/>
                                     </ComboBox>
                                 </StackPanel>
-                                <Button Name="BtnRefreshOUObjects" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Refresh" Margin="0,0,6,6"/>
-                                <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Height="28" Content="🏷️ Raw Attributes" Margin="0,0,6,6"/>
-                                <Button Name="BtnOUAddColumn" Style="{StaticResource ModernButton}" Height="28" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to OU Objects table"/>
-                                <Button Name="BtnOUResetColumns" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset OU Objects table columns to default"/>
+                                <Button Name="BtnRefreshOUObjects" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Refresh" Margin="0,0,6,6"/>
+                                <Button Name="BtnOURawAttributes" Style="{StaticResource ModernButton}" Height="30" Content="🏷️ Raw Attributes" Margin="0,0,6,6"/>
+                                <Button Name="BtnOUAddColumn" Style="{StaticResource ModernButton}" Height="30" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to OU Objects table"/>
+                                <Button Name="BtnOUResetColumns" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset OU Objects table columns to default"/>
                             </WrapPanel>
 
                             <!-- Contained Objects DataGrid -->
@@ -1034,12 +1037,12 @@
                             <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
                                 <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Search Base (DN):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Width="300" Height="28"/>
+                                    <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Width="300" Height="30"/>
                                 </StackPanel>
 
                                 <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Scope:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <ComboBox Name="CmbSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="28">
+                                    <ComboBox Name="CmbSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="30">
                                         <ComboBoxItem Content="Subtree" IsSelected="True"/>
                                         <ComboBoxItem Content="OneLevel"/>
                                         <ComboBoxItem Content="Base"/>
@@ -1048,7 +1051,7 @@
 
                                 <StackPanel Margin="0,0,0,6">
                                     <TextBlock Text="Search Presets:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <ComboBox Name="CmbSearchPresets" Style="{StaticResource ModernComboBox}" Width="220" Height="28">
+                                    <ComboBox Name="CmbSearchPresets" Style="{StaticResource ModernComboBox}" Width="220" Height="30">
                                         <ComboBoxItem Content="Custom Filter..." IsSelected="True"/>
                                         <ComboBoxItem Content="All Users"/>
                                         <ComboBoxItem Content="Locked Out Accounts"/>
@@ -1066,10 +1069,10 @@
                             <!-- Row 2: Live Attribute Search & Outcome Display -->
                             <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                                 <Grid Width="220" Margin="0,0,8,6">
-                                    <TextBox Name="TxtSearchAttrFilter" Style="{StaticResource ModernTextBox}" Height="28"/>
+                                    <TextBox Name="TxtSearchAttrFilter" Style="{StaticResource ModernTextBox}" Height="30"/>
                                     <TextBlock Name="TxtSearchAttrPlaceholder" Text="🔍 Quick filter attributes..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                                 </Grid>
-                                <Button Name="BtnClearAttrFilter" Style="{StaticResource ModernButton}" Height="28" Padding="10,2" Content="Clear" Margin="0,0,10,6"/>
+                                <Button Name="BtnClearAttrFilter" Style="{StaticResource ModernButton}" Height="30" Padding="10,3" Content="Clear" Margin="0,0,10,6"/>
 
                                 <Border Name="BorderSearchAttrOutcome" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4" VerticalAlignment="Center" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
@@ -1081,11 +1084,11 @@
 
                             <!-- Row 3: Condition Builder & Visual Filter Blocks -->
                             <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
-                                <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="28" Margin="0,0,8,6"
+                                <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="30" Margin="0,0,8,6"
                                           IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
                                           ToolTip="Type here to search attributes in real time, or click arrow to browse all attributes"/>
 
-                                <ComboBox Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Width="120" Height="28" Margin="0,0,8,6">
+                                <ComboBox Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Width="120" Height="30" Margin="0,0,8,6">
                                     <ComboBoxItem Content="=" IsSelected="True"/>
                                     <ComboBoxItem Content="starts with"/>
                                     <ComboBoxItem Content="ends with"/>
@@ -1096,12 +1099,12 @@
                                     <ComboBoxItem Content="&lt;="/>
                                 </ComboBox>
 
-                                <TextBox Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Width="180" Height="28" Text="user" Margin="0,0,8,6"/>
-                                <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="28" Content="➕ Add Condition" Margin="0,0,6,6"/>
-                                <Button Name="BtnFilterGroupAnd" Style="{StaticResource ModernButton}" Height="28" Content="&amp; Group (AND)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP AND (&amp;) block"/>
-                                <Button Name="BtnFilterGroupOr" Style="{StaticResource ModernButton}" Height="28" Content="| Group (OR)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP OR (|) block"/>
-                                <Button Name="BtnFilterGroupNot" Style="{StaticResource ModernButton}" Height="28" Content="! Group (NOT)" Margin="0,0,6,6" ToolTip="Negate current filter using LDAP NOT (!) block"/>
-                                <Button Name="BtnFilterClear" Style="{StaticResource ModernButton}" Height="28" Content="Clear Filter" Margin="0,0,6,6" ToolTip="Reset filter to (objectClass=*)"/>
+                                <TextBox Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Width="180" Height="30" Text="user" Margin="0,0,8,6"/>
+                                <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="30" Padding="12,3" Content="➕ Add Condition" Margin="0,0,6,6"/>
+                                <Button Name="BtnFilterGroupAnd" Style="{StaticResource ModernButton}" Height="30" Padding="12,3" Content="&amp; Group (AND)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP AND (&amp;) block"/>
+                                <Button Name="BtnFilterGroupOr" Style="{StaticResource ModernButton}" Height="30" Padding="12,3" Content="| Group (OR)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP OR (|) block"/>
+                                <Button Name="BtnFilterGroupNot" Style="{StaticResource ModernButton}" Height="30" Padding="12,3" Content="! Group (NOT)" Margin="0,0,6,6" ToolTip="Negate current filter using LDAP NOT (!) block"/>
+                                <Button Name="BtnFilterClear" Style="{StaticResource ModernButton}" Height="30" Padding="12,3" Content="Clear Filter" Margin="0,0,6,6" ToolTip="Reset filter to (objectClass=*)"/>
                             </WrapPanel>
 
                             <!-- Row 4: Raw LDAP Filter & Execute -->
@@ -1111,19 +1114,19 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,10,0"/>
-                                <Button Grid.Column="1" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="30" Width="130" Content="🔍 Run Search"/>
+                                <TextBox Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="32" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,10,0"/>
+                                <Button Grid.Column="1" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="32" Width="130" Padding="14,3" Content="🔍 Run Search"/>
                             </Grid>
 
                             <!-- Row 5: Advanced Regular Expression Filter (Softerra LDAP Administrator 2026 Parity) -->
                             <WrapPanel Grid.Row="4" Orientation="Horizontal">
                                 <CheckBox Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#E5E7EB" FontWeight="SemiBold"/>
 
-                                <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="28" Margin="0,0,8,6"
+                                <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="30" Margin="0,0,8,6"
                                           IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
                                           ToolTip="Type here to search regex target attributes in real time"/>
 
-                                <TextBox Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Width="220" Height="28" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,6"/>
+                                <TextBox Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Width="220" Height="30" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,6"/>
 
                                 <CheckBox Name="ChkRegexIgnoreCase" Content="Ignore Case" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#9CA3AF"/>
 
@@ -1173,7 +1176,7 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
                         <WrapPanel Orientation="Horizontal">
                             <TextBlock Text="SQL Query Template:" VerticalAlignment="Center" Margin="0,0,10,6" Foreground="#9CA3AF"/>
-                            <ComboBox Name="CmbSqlTemplates" Style="{StaticResource ModernComboBox}" Width="260" Height="28" Margin="0,0,10,6">
+                            <ComboBox Name="CmbSqlTemplates" Style="{StaticResource ModernComboBox}" Width="260" Height="30" Margin="0,0,10,6">
                                 <ComboBoxItem Content="Select All Users" IsSelected="True"/>
                                 <ComboBoxItem Content="Select Users with Email"/>
                                 <ComboBoxItem Content="Select Disabled Accounts"/>
@@ -1181,8 +1184,8 @@
                                 <ComboBoxItem Content="Select Groups"/>
                             </ComboBox>
 
-                            <Button Name="BtnClearSql" Style="{StaticResource ModernButton}" Height="28" Content="Clear" Margin="0,0,6,6"/>
-                            <Button Name="BtnExecuteSql" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Execute SQL (F5)" Margin="0,0,6,6"/>
+                            <Button Name="BtnClearSql" Style="{StaticResource ModernButton}" Height="30" Content="Clear" Margin="0,0,6,6"/>
+                            <Button Name="BtnExecuteSql" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Execute SQL (F5)" Margin="0,0,6,6"/>
                         </WrapPanel>
                     </Border>
 
@@ -1224,17 +1227,17 @@
 
                             <StackPanel Grid.Column="0" Margin="0,0,10,0">
                                 <TextBlock Text="Target Object Distinguished Name (DN) or SamAccountName:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                <TextBox Name="TxtAttrEditorDN" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                                <TextBox Name="TxtAttrEditorDN" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas"/>
                             </StackPanel>
 
-                            <Button Grid.Column="1" Name="BtnLoadRawAttributes" Style="{StaticResource PrimaryButton}" Height="28" Width="140" Content="🏷️ Load Attributes" VerticalAlignment="Bottom"/>
+                            <Button Grid.Column="1" Name="BtnLoadRawAttributes" Style="{StaticResource PrimaryButton}" Height="30" Width="140" Content="🏷️ Load Attributes" VerticalAlignment="Bottom"/>
                         </Grid>
                     </Border>
 
                     <!-- Filter Bar & Attribute Actions -->
                     <Border Grid.Row="1" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal">
-                            <TextBox Name="TxtSearchAttributes" Style="{StaticResource ModernTextBox}" Width="200" Height="28" Margin="0,0,10,6"/>
+                            <TextBox Name="TxtSearchAttributes" Style="{StaticResource ModernTextBox}" Width="200" Height="30" Margin="0,0,10,6"/>
                             <CheckBox Name="ChkShowOperationalAttributes" Content="Show Operational (+)" IsChecked="False" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#38BDF8" FontWeight="SemiBold" ToolTip="Query and include operational / directory metadata attributes (e.g. whenCreated, whenChanged, canonicalName, msDS-UserPasswordExpiryTimeComputed)"/>
                             <TextBlock Name="TxtAttrCount" Text="0 attributes loaded" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,14,6"/>
                             <Button Name="BtnEditAttrValue" Style="{StaticResource PrimaryButton}" Content="✏️ Edit Value" Margin="0,0,6,6"/>
@@ -1275,17 +1278,17 @@
 
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                 <TextBlock Text="Object A (Left):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                <TextBox Name="TxtCompareObjectA" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                                <TextBox Name="TxtCompareObjectA" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas"/>
                             </StackPanel>
 
                             <TextBlock Grid.Column="1" Text="VS" FontWeight="Bold" FontSize="14" Foreground="#60A5FA" VerticalAlignment="Center" Margin="6,16,14,0"/>
 
                             <StackPanel Grid.Column="2" Margin="0,0,10,0">
                                 <TextBlock Text="Object B (Right):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                <TextBox Name="TxtCompareObjectB" Style="{StaticResource ModernTextBox}" Height="28" FontFamily="Consolas"/>
+                                <TextBox Name="TxtCompareObjectB" Style="{StaticResource ModernTextBox}" Height="30" FontFamily="Consolas"/>
                             </StackPanel>
 
-                            <Button Grid.Column="3" Name="BtnExecuteCompare" Style="{StaticResource PrimaryButton}" Height="28" Width="140" Content="⚖️ Compare" VerticalAlignment="Bottom"/>
+                            <Button Grid.Column="3" Name="BtnExecuteCompare" Style="{StaticResource PrimaryButton}" Height="30" Width="140" Content="⚖️ Compare" VerticalAlignment="Bottom"/>
                         </Grid>
                     </Border>
 
@@ -1321,15 +1324,15 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
                         <WrapPanel Orientation="Horizontal">
                             <TextBlock Text="LDIF Template:" VerticalAlignment="Center" Margin="0,0,10,6" Foreground="#9CA3AF"/>
-                            <ComboBox Name="CmbLdifTemplates" Style="{StaticResource ModernComboBox}" Width="220" Height="28" Margin="0,0,10,6">
+                            <ComboBox Name="CmbLdifTemplates" Style="{StaticResource ModernComboBox}" Width="220" Height="30" Margin="0,0,10,6">
                                 <ComboBoxItem Content="Template: Modify Attribute" IsSelected="True"/>
                                 <ComboBoxItem Content="Template: Add New User"/>
                                 <ComboBoxItem Content="Template: Delete Object"/>
                             </ComboBox>
 
-                            <Button Name="BtnLdifValidate" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Validate / Dry-Run" Margin="0,0,6,6"/>
-                            <Button Name="BtnLdifExecute" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Execute LDIF Live" Margin="0,0,6,6"/>
-                            <Button Name="BtnLdifExport" Style="{StaticResource ModernButton}" Height="28" Content="💾 Save File" Margin="0,0,6,6"/>
+                            <Button Name="BtnLdifValidate" Style="{StaticResource ModernButton}" Height="30" Content="🔍 Validate / Dry-Run" Margin="0,0,6,6"/>
+                            <Button Name="BtnLdifExecute" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Execute LDIF Live" Margin="0,0,6,6"/>
+                            <Button Name="BtnLdifExport" Style="{StaticResource ModernButton}" Height="30" Content="💾 Save File" Margin="0,0,6,6"/>
                         </WrapPanel>
                     </Border>
 
