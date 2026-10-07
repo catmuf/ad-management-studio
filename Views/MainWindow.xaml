@@ -1558,7 +1558,7 @@
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <Button Name="BtnSearchPagePrev" Style="{StaticResource ModernButton}" Height="26" Width="28" Padding="0" Content="◀" ToolTip="Previous Page" IsEnabled="False" Margin="0,0,6,0"/>
-                                <TextBlock Name="TxtSearchPageInfo" Text="Page 1 of 1 (0 items)" FontSize="11" Foreground="#9CA3AF" verticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Name="TxtSearchPageInfo" Text="Page 1 of 1 (0 items)" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <Button Name="BtnSearchPageNext" Style="{StaticResource ModernButton}" Height="26" Width="28" Padding="0" Content="▶" ToolTip="Next Page" IsEnabled="False"/>
                             </StackPanel>
                         </Grid>
