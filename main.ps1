@@ -63,6 +63,12 @@ while ($reader.Read()) {
 }
 $reader.Close()
 
+# Initialize External Tools collection safely
+$initialTools = [System.Collections.ArrayList]::new()
+if ($appConfig.ExternalTools) {
+    foreach ($t in $appConfig.ExternalTools) { [void]$initialTools.Add($t) }
+}
+
 # Global UI State
 $state = [PSCustomObject]@{
     CachedUsers            = @()
@@ -91,7 +97,7 @@ $state = [PSCustomObject]@{
     IsReadOnlyProfile      = $false
     Bookmarks              = [System.Collections.Generic.List[string]]::new()
     CachedRecycleBin       = @()
-    ExternalTools          = [System.Collections.Generic.List[psobject]]::new(@(if ($appConfig.ExternalTools) { $appConfig.ExternalTools } else { @() }))
+    ExternalTools          = $initialTools
     CachedPartitions       = @()
 }
 
