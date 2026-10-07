@@ -4161,10 +4161,11 @@ if ($controls['MenuCtxSearchAttrValue']) {
         if ($sel -and $sel.Value) {
             $controls['NavDirectorySearch'].IsChecked = $true
             Show-Panel "DirectorySearch"
-            $escapedVal = "$($sel.Value)" -replace '\*', '\*'
-            if ($controls['TxtCustomFilter']) { $controls['TxtCustomFilter'].Text = "($($sel.Name)=$escapedVal)" }
-            if ($controls['RadioCustomFilter']) { $controls['RadioCustomFilter'].IsChecked = $true }
-            if ($controls['BtnExecuteSearch']) { $controls['BtnExecuteSearch'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+            Init-DirectorySearch
+            $rawVal = "$($sel.Value)".Trim()
+            $escapedVal = $rawVal -replace '\\', '\5c' -replace '\*', '\2a' -replace '\(', '\28' -replace '\)', '\29' -replace '\0', '\00'
+            if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text = "($($sel.Name)=$escapedVal)" }
+            if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
         }
     })
 }
@@ -5747,25 +5748,45 @@ if ($controls['CtxGroupCompare']) {
     })
 }
 
-# OUs ContextMenu
-if ($controls['CtxOuBookmark']) {
-    $controls['CtxOuBookmark'].Add_Click({
-        if ($state.SelectedOU) { Add-DirectoryBookmark -DN $state.SelectedOU }
+# OUs TreeView ContextMenu
+if ($controls['CtxOUTreeNewOU']) {
+    $controls['CtxOUTreeNewOU'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $parentDN = if ($node) { $node.DistinguishedName } else { $null }
+        Open-OUDialog -ParentDN $parentDN
     })
 }
-if ($controls['CtxOuInspectAttr']) {
-    $controls['CtxOuInspectAttr'].Add_Click({
-        if ($state.SelectedOU) {
-            $controls['NavAttributeEditor'].IsChecked = $true
-            Show-Panel "AttributeEditor"
-            $controls['TxtAttrEditorDN'].Text = $state.SelectedOU
-            Load-RawAttributesUI -TargetDN $state.SelectedOU
+if ($controls['CtxOUTreeDeleteOU']) {
+    $controls['CtxOUTreeDeleteOU'].Add_Click({
+        if ($controls['BtnDeleteOU']) {
+            $controls['BtnDeleteOU'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
         }
     })
 }
-if ($controls['CtxOuCopyDN']) {
-    $controls['CtxOuCopyDN'].Add_Click({
-        if ($state.SelectedOU) { [System.Windows.Clipboard]::SetText($state.SelectedOU); Set-Status -Message "Copied OU DN: $($state.SelectedOU)" }
+if ($controls['CtxOUTreeBookmark']) {
+    $controls['CtxOUTreeBookmark'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        if ($dn) { Add-DirectoryBookmark -DN $dn }
+    })
+}
+if ($controls['CtxOUTreeInspectAttr']) {
+    $controls['CtxOUTreeInspectAttr'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        if ($dn) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $dn
+            Load-RawAttributesUI -TargetDN $dn
+        }
+    })
+}
+if ($controls['CtxOUTreeCopyDN']) {
+    $controls['CtxOUTreeCopyDN'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        if ($dn) { [System.Windows.Clipboard]::SetText($dn); Set-Status -Message "Copied OU DN: $dn" }
     })
 }
 
