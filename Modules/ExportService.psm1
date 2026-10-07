@@ -299,5 +299,344 @@ function Export-ADSecurityAuditToHtml {
     }
 }
 
-Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml
+function Export-ADObjectToHtml {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        $ObjectDetail,
+
+        [Parameter(Mandatory = $false)]
+        [System.Collections.IEnumerable]$Attributes = @(),
+
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Title = ""
+    )
+
+    try {
+        $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
+        if ($targetDir -and -not (Test-Path $targetDir)) {
+            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        }
+
+        # Resolve primary attributes
+        $dn = ""
+        $sam = ""
+        $dispName = ""
+        $objClass = "user"
+        $status = "Active"
+        $mail = ""
+        $title = ""
+        $dept = ""
+        $office = ""
+        $phone = ""
+        $manager = ""
+        $created = ""
+        $changed = ""
+        $lastLogon = ""
+        $groups = @()
+
+        if ($ObjectDetail -is [System.Collections.IDictionary] -or $ObjectDetail.PSObject) {
+            if ($ObjectDetail.DistinguishedName) { $dn = $ObjectDetail.DistinguishedName }
+            elseif ($ObjectDetail.DN) { $dn = $ObjectDetail.DN }
+
+            if ($ObjectDetail.SamAccountName) { $sam = $ObjectDetail.SamAccountName }
+            if ($ObjectDetail.DisplayName) { $dispName = $ObjectDetail.DisplayName }
+            if ($ObjectDetail.ObjectClass) { $objClass = $ObjectDetail.ObjectClass }
+            if ($ObjectDetail.Status) { $status = $ObjectDetail.Status }
+            if ($ObjectDetail.Mail) { $mail = $ObjectDetail.Mail }
+            if ($ObjectDetail.Title) { $title = $ObjectDetail.Title }
+            if ($ObjectDetail.Department) { $dept = $ObjectDetail.Department }
+            if ($ObjectDetail.Office) { $office = $ObjectDetail.Office }
+            if ($ObjectDetail.TelephoneNumber) { $phone = $ObjectDetail.TelephoneNumber }
+            if ($ObjectDetail.Manager) { $manager = $ObjectDetail.Manager }
+            if ($ObjectDetail.WhenCreated) { $created = "$($ObjectDetail.WhenCreated)" }
+            if ($ObjectDetail.WhenChanged) { $changed = "$($ObjectDetail.WhenChanged)" }
+            if ($ObjectDetail.LastLogon) { $lastLogon = "$($ObjectDetail.LastLogon)" }
+            if ($ObjectDetail.MemberOf) { $groups = @($ObjectDetail.MemberOf) }
+        }
+
+        # Fallback from attributes list if fields are blank
+        if ($Attributes -and $Attributes.Count -gt 0) {
+            foreach ($attr in $Attributes) {
+                $n = $attr.Name
+                $v = "$($attr.Value)"
+                if (-not $dn -and $n -ieq 'distinguishedName') { $dn = $v }
+                if (-not $sam -and $n -ieq 'sAMAccountName') { $sam = $v }
+                if (-not $dispName -and $n -ieq 'displayName') { $dispName = $v }
+                if (-not $mail -and $n -ieq 'mail') { $mail = $v }
+                if (-not $title -and $n -ieq 'title') { $title = $v }
+                if (-not $dept -and $n -ieq 'department') { $dept = $v }
+                if (-not $office -and $n -ieq 'physicalDeliveryOfficeName') { $office = $v }
+                if (-not $phone -and $n -ieq 'telephoneNumber') { $phone = $v }
+                if (-not $manager -and $n -ieq 'manager') { $manager = $v }
+                if (-not $created -and $n -ieq 'whenCreated') { $created = $v }
+                if (-not $changed -and $n -ieq 'whenChanged') { $changed = $v }
+                if (-not $lastLogon -and $n -ieq 'lastLogonTimestamp') { $lastLogon = $v }
+                if ($groups.Count -eq 0 -and $n -ieq 'memberOf') {
+                    $groups = $v -split ';\s*'
+                }
+            }
+        }
+
+        if (-not $dispName) { $dispName = if ($sam) { $sam } else { $dn } }
+        if (-not $Title) { $Title = "Directory Object Dossier: $dispName" }
+        $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+        # Status badge color
+        $statusColor = switch -Wildcard ($status) {
+            "*Active*"   { "#10B981" }
+            "*Disabled*" { "#EF4444" }
+            "*Locked*"   { "#F59E0B" }
+            default      { "#3B82F6" }
+        }
+
+        # Groups list HTML
+        $groupsHtml = if ($groups.Count -gt 0) {
+            ($groups | ForEach-Object {
+                $grpName = if ($_ -match '^CN=([^,]+)') { $matches[1] } else { $_ }
+                "<span class='badge group-badge'>$([System.Web.HttpUtility]::HtmlEncode($grpName))</span>"
+            }) -join " "
+        } else {
+            "<span style='color:#6B7280; font-style:italic;'>No group memberships recorded or domain primary group only.</span>"
+        }
+
+        # Attributes Table HTML
+        $attrRowsHtml = ""
+        if ($Attributes -and $Attributes.Count -gt 0) {
+            foreach ($attr in $Attributes) {
+                $an = [System.Web.HttpUtility]::HtmlEncode("$($attr.Name)")
+                $av = [System.Web.HttpUtility]::HtmlEncode("$($attr.Value)")
+                $at = [System.Web.HttpUtility]::HtmlEncode("$($attr.Type)")
+                $opBadge = if ($attr.IsOperational) { "<span class='badge' style='background:#0369A1;'>Op</span>" } else { "" }
+                $attrRowsHtml += "<tr><td class='attr-name'><b>$an</b> $opBadge</td><td class='attr-val'>$av</td><td class='attr-type'>$at</td></tr>`n"
+            }
+        }
+
+        $html = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>$Title - Active Directory Management Studio</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0E1017; color: #E2E8F0; margin: 0; padding: 24px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #232736; padding-bottom: 16px; margin-bottom: 24px; }
+    .title-group h1 { margin: 0; font-size: 24px; color: #60A5FA; }
+    .title-group p { margin: 4px 0 0 0; font-size: 13px; color: #94A3B8; }
+    .btn-bar button { background: #2563EB; color: #FFFFFF; border: none; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer; font-size: 13px; margin-left: 8px; }
+    .btn-bar button:hover { background: #1D4ED8; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .group-badge { background: #1E293B; color: #93C5FD; border: 1px solid #3B82F6; margin: 3px 4px 3px 0; text-transform: none; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .panel-card { background: #161922; border: 1px solid #262B3D; border-radius: 8px; padding: 18px; }
+    .panel-card h3 { margin-top: 0; margin-bottom: 14px; font-size: 15px; color: #38BDF8; border-bottom: 1px solid #232736; padding-bottom: 8px; }
+    .field-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1E2230; font-size: 13px; }
+    .field-label { color: #94A3B8; font-weight: 500; min-width: 130px; }
+    .field-val { color: #F1F5F9; font-weight: 600; text-align: right; word-break: break-all; font-family: Consolas, monospace; }
+    .section-title { font-size: 16px; font-weight: bold; color: #F8FAFC; margin: 28px 0 12px 0; display: flex; align-items: center; }
+    .attr-table { width: 100%; border-collapse: collapse; background: #141720; border-radius: 8px; overflow: hidden; border: 1px solid #232736; margin-top: 10px; }
+    .attr-table th { background: #1B202E; color: #E2E8F0; text-align: left; padding: 10px 14px; font-size: 12px; text-transform: uppercase; }
+    .attr-table td { padding: 8px 14px; border-bottom: 1px solid #1F2433; font-size: 12px; }
+    .attr-name { width: 220px; color: #60A5FA; font-family: Consolas, monospace; }
+    .attr-val { color: #CBD5E1; word-break: break-all; font-family: Consolas, monospace; }
+    .attr-type { width: 140px; color: #94A3B8; }
+    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: #64748B; border-top: 1px solid #1E2230; padding-top: 16px; }
+    @media print {
+        body { background-color: #FFFFFF; color: #000000; padding: 0; }
+        .btn-bar { display: none; }
+        .panel-card, .attr-table { border: 1px solid #CCCCCC; background: #FAFAFA; color: #000000; }
+        .field-val, .field-label, .attr-table td, .attr-table th { color: #000000 !important; }
+        .group-badge { background: #EEEEEE; color: #000000; border: 1px solid #999999; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div class="title-group">
+            <h1>&#x1F4C4; $dispName</h1>
+            <p>Active Directory Object Report Card &bull; Generated $now</p>
+        </div>
+        <div class="btn-bar">
+            <span class="badge" style="background: $statusColor; color: #FFFFFF; margin-right: 12px;">$status</span>
+            <button onclick="window.print()">&#x1F5B6;&#xFE0F; Print Dossier</button>
+        </div>
+    </div>
+
+    <div class="cards-grid">
+        <!-- Identity & Object Details -->
+        <div class="panel-card">
+            <h3>&#x1F194; Identity &amp; Naming</h3>
+            <div class="field-row"><span class="field-label">Display Name:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($dispName))</span></div>
+            <div class="field-row"><span class="field-label">Username (sAM):</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($sam))</span></div>
+            <div class="field-row"><span class="field-label">Object Class:</span><span class="field-val">$objClass</span></div>
+            <div class="field-row"><span class="field-label">Status:</span><span class="field-val" style="color: $statusColor;">$status</span></div>
+            <div class="field-row"><span class="field-label">Distinguished Name:</span><span class="field-val" style="font-size:11px;">$([System.Web.HttpUtility]::HtmlEncode($dn))</span></div>
+        </div>
+
+        <!-- Organization & Contact -->
+        <div class="panel-card">
+            <h3>&#x1F4BC; Organization &amp; Contact</h3>
+            <div class="field-row"><span class="field-label">Job Title:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($title))</span></div>
+            <div class="field-row"><span class="field-label">Department:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($dept))</span></div>
+            <div class="field-row"><span class="field-label">Office:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($office))</span></div>
+            <div class="field-row"><span class="field-label">Email:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($mail))</span></div>
+            <div class="field-row"><span class="field-label">Phone:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($phone))</span></div>
+            <div class="field-row"><span class="field-label">Manager:</span><span class="field-val" style="font-size:11px;">$([System.Web.HttpUtility]::HtmlEncode($manager))</span></div>
+        </div>
+
+        <!-- Lifecycle & Telemetry -->
+        <div class="panel-card">
+            <h3>&#x23F3; Lifecycle &amp; Telemetry</h3>
+            <div class="field-row"><span class="field-label">When Created:</span><span class="field-val">$created</span></div>
+            <div class="field-row"><span class="field-label">When Changed:</span><span class="field-val">$changed</span></div>
+            <div class="field-row"><span class="field-label">Last Logon:</span><span class="field-val">$lastLogon</span></div>
+        </div>
+    </div>
+
+    <!-- Group Memberships -->
+    <div class="panel-card" style="margin-bottom: 24px;">
+        <h3>&#x1F465; Direct Group Memberships</h3>
+        <div style="padding-top: 6px;">
+            $groupsHtml
+        </div>
+    </div>
+
+    <!-- Complete Attribute Table -->
+    <div class="section-title">&#x1F3F7;&#xFE0F; Complete Active Directory Attributes ($($Attributes.Count))</div>
+    <table class="attr-table">
+        <thead>
+            <tr>
+                <th>Attribute Name</th>
+                <th>Decoded Value</th>
+                <th>Syntax / Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            $attrRowsHtml
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Active Directory Management Studio &bull; Enterprise LDAP & Directory Inspection Suite
+    </div>
+</div>
+</body>
+</html>
+"@
+
+        [System.IO.File]::WriteAllText($FilePath, $html, [System.Text.Encoding]::UTF8)
+
+        return [PSCustomObject]@{
+            Success  = $true
+            FilePath = $FilePath
+            Message  = "HTML Object Dossier generated successfully."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success  = $false
+            FilePath = $FilePath
+            Message  = "Failed to generate HTML dossier: $_"
+        }
+    }
+}
+
+function Export-ADDataToDsml {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IEnumerable]$Data,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [ValidateSet("searchResponse", "batchResponse", "batchRequest")]
+        [string]$DocumentType = "batchResponse"
+    )
+
+    try {
+        $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
+        if ($targetDir -and -not (Test-Path $targetDir)) {
+            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        }
+
+        $sb = New-Object System.Text.StringBuilder
+        [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
+        [void]$sb.AppendLine('<batchResponse xmlns="urn:oasis:names:tc:DSML:2:0:core">')
+        [void]$sb.AppendLine('  <searchResponse>')
+
+        $count = 0
+        foreach ($item in $Data) {
+            $dn = $item.DistinguishedName
+            if (-not $dn -and $item.PSObject.Properties['DN']) { $dn = $item.DN }
+            if (-not $dn -and $item.PSObject.Properties['distinguishedName']) { $dn = $item.distinguishedName }
+            if (-not $dn) { continue }
+
+            $escapedDn = [System.Security.SecurityElement]::Escape("$dn")
+            [void]$sb.AppendLine("    <searchResultEntry dn=`"$escapedDn`">")
+
+            foreach ($prop in $item.PSObject.Properties) {
+                $name = $prop.Name
+                $val = $prop.Value
+                if ($name -match '^(DistinguishedName|DN|distinguishedName|RawValue|FlagList)$' -or $null -eq $val) {
+                    continue
+                }
+
+                $escapedName = [System.Security.SecurityElement]::Escape("$name")
+                [void]$sb.AppendLine("      <attr name=`"$escapedName`">")
+
+                if ($val -is [System.Collections.IEnumerable] -and $val -isnot [string]) {
+                    foreach ($subVal in $val) {
+                        if ($subVal) {
+                            $escapedVal = [System.Security.SecurityElement]::Escape("$subVal")
+                            [void]$sb.AppendLine("        <value>$escapedVal</value>")
+                        }
+                    }
+                }
+                else {
+                    $strVal = $val.ToString()
+                    if ($strVal) {
+                        $escapedVal = [System.Security.SecurityElement]::Escape("$strVal")
+                        [void]$sb.AppendLine("        <value>$escapedVal</value>")
+                    }
+                }
+                [void]$sb.AppendLine("      </attr>")
+            }
+
+            [void]$sb.AppendLine("    </searchResultEntry>")
+            $count++
+        }
+
+        [void]$sb.AppendLine('    <searchResultDone>')
+        [void]$sb.AppendLine('      <resultCode code="0" descr="success"/>')
+        [void]$sb.AppendLine('    </searchResultDone>')
+        [void]$sb.AppendLine('  </searchResponse>')
+        [void]$sb.AppendLine('</batchResponse>')
+
+        [System.IO.File]::WriteAllText($FilePath, $sb.ToString(), [System.Text.Encoding]::UTF8)
+
+        return [PSCustomObject]@{
+            Success  = $true
+            FilePath = $FilePath
+            Count    = $count
+            Message  = "DSML v2 XML export completed successfully ($count entries)."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success  = $false
+            FilePath = $FilePath
+            Count    = 0
+            Message  = "DSML export failed: $_"
+        }
+    }
+}
+
+Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml
+
 

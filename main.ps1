@@ -91,6 +91,8 @@ $state = [PSCustomObject]@{
     IsReadOnlyProfile      = $false
     Bookmarks              = [System.Collections.Generic.List[string]]::new()
     CachedRecycleBin       = @()
+    ExternalTools          = [System.Collections.Generic.List[psobject]]::new(@(if ($appConfig.ExternalTools) { $appConfig.ExternalTools } else { @() }))
+    CachedPartitions       = @()
 }
 
 function Test-CanModifyDirectory {
@@ -104,6 +106,133 @@ function Test-CanModifyDirectory {
         return $false
     }
     return $true
+}
+
+function Invoke-ExternalTool {
+    param (
+        [Parameter(Mandatory = $true)]
+        $Tool,
+        [Parameter(Mandatory = $true)]
+        $TargetObject
+    )
+
+    try {
+        $cmd = $Tool.Command
+        $argsPattern = $Tool.Arguments
+
+        $sam = ""
+        $hostName = ""
+        $dn = ""
+        $upn = ""
+        $mail = ""
+        $dispName = ""
+        $server = if ($state.Config -and $state.Config.Domain -and $state.Config.Domain.DomainController) { $state.Config.Domain.DomainController } else { $state.DomainName }
+
+        if ($TargetObject.SamAccountName) { $sam = $TargetObject.SamAccountName }
+        elseif ($TargetObject.sAMAccountName) { $sam = $TargetObject.sAMAccountName }
+        elseif ($TargetObject.Name) { $sam = $TargetObject.Name }
+
+        if ($TargetObject.DNSHostName) { $hostName = $TargetObject.DNSHostName }
+        elseif ($TargetObject.dNSHostName) { $hostName = $TargetObject.dNSHostName }
+        elseif ($sam -match '\$$') { $hostName = $sam.TrimEnd('$') }
+        elseif ($TargetObject.Name) { $hostName = $TargetObject.Name }
+
+        if ($TargetObject.DistinguishedName) { $dn = $TargetObject.DistinguishedName }
+        elseif ($TargetObject.DN) { $dn = $TargetObject.DN }
+
+        if ($TargetObject.UserPrincipalName) { $upn = $TargetObject.UserPrincipalName }
+        elseif ($TargetObject.Email) { $upn = $TargetObject.Email }
+
+        if ($TargetObject.Email) { $mail = $TargetObject.Email }
+        elseif ($TargetObject.Mail) { $mail = $TargetObject.Mail }
+
+        if ($TargetObject.DisplayName) { $dispName = $TargetObject.DisplayName }
+        elseif ($TargetObject.Name) { $dispName = $TargetObject.Name }
+        else { $dispName = $sam }
+
+        $evaluatedArgs = "$argsPattern"
+        $evaluatedArgs = $evaluatedArgs -ireplace '%sAMAccountName%', $sam
+        $evaluatedArgs = $evaluatedArgs -ireplace '%username%', $sam
+        $evaluatedArgs = $evaluatedArgs -ireplace '%dNSHostName%', $hostName
+        $evaluatedArgs = $evaluatedArgs -ireplace '%host%', $hostName
+        $evaluatedArgs = $evaluatedArgs -ireplace '%distinguishedName%', $dn
+        $evaluatedArgs = $evaluatedArgs -ireplace '%dn%', $dn
+        $evaluatedArgs = $evaluatedArgs -ireplace '%userPrincipalName%', $upn
+        $evaluatedArgs = $evaluatedArgs -ireplace '%upn%', $upn
+        $evaluatedArgs = $evaluatedArgs -ireplace '%mail%', $mail
+        $evaluatedArgs = $evaluatedArgs -ireplace '%email%', $mail
+        $evaluatedArgs = $evaluatedArgs -ireplace '%cn%', $dispName
+        $evaluatedArgs = $evaluatedArgs -ireplace '%name%', $dispName
+        $evaluatedArgs = $evaluatedArgs -ireplace '%server%', $server
+
+        Set-Status -Message "Launching external tool '$($Tool.Name)': $cmd $evaluatedArgs..."
+        Start-Process -FilePath $cmd -ArgumentList $evaluatedArgs
+        Log-LdapRequest -Operation "EXTERNAL_TOOL" -TargetDN $dn -FilterOrPayload "$cmd $evaluatedArgs" -DurationMs 0 -Status "SUCCESS" -Details "Launched external tool: $($Tool.Name)"
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Failed to launch external tool '$($Tool.Name)': $_", "Tool Execution Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        Set-Status -Message "Failed to execute external tool: $_"
+    }
+}
+
+function Show-ObjectHtmlDossier {
+    param (
+        $TargetObject,
+        [string]$TargetDN = ""
+    )
+
+    try {
+        $dn = $TargetDN
+        if (-not $dn -and $TargetObject) {
+            $dn = if ($TargetObject.DistinguishedName) { $TargetObject.DistinguishedName } else { $TargetObject.DN }
+        }
+
+        if (-not $dn) {
+            [System.Windows.MessageBox]::Show("No distinguished name available for selected object.", "Cannot Generate Dossier", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+
+        Set-Status -Message "Generating HTML Dossier Report Card for $dn..."
+        $attrs = Get-ADObjectRawAttributes -DistinguishedName $dn -IncludeOperational:$true
+        $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "AD_Dossier_$([System.IO.Path]::GetRandomFileName()).html")
+
+        $res = Export-ADObjectToHtml -ObjectDetail $TargetObject -Attributes $attrs -FilePath $tempPath
+        if ($res.Success) {
+            Start-Process $tempPath
+            Set-Status -Message "HTML Dossier opened in default browser."
+        } else {
+            [System.Windows.MessageBox]::Show("Failed to generate HTML report: $($res.Message)", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        }
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Error displaying HTML dossier: $_", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+}
+
+function Populate-ExternalToolsMenu ($parentMenuItem, [scriptblock]$getTargetObjectScript) {
+    if (-not $parentMenuItem) { return }
+    $parentMenuItem.Items.Clear()
+    foreach ($tool in $state.ExternalTools) {
+        $item = [System.Windows.Controls.MenuItem]::new()
+        $item.Header = "▶ $($tool.Name)"
+        $capturedTool = $tool
+        $item.Add_Click({
+            $target = & $getTargetObjectScript
+            if ($target) {
+                Invoke-ExternalTool -Tool $capturedTool -TargetObject $target
+            } else {
+                [System.Windows.MessageBox]::Show("Please select an object in the table first.", "No Object Selected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            }
+        })
+        [void]$parentMenuItem.Items.Add($item)
+    }
+}
+
+function Populate-AllExternalToolsMenus {
+    Populate-ExternalToolsMenu $controls['CtxUserExternalTools'] { if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null } }
+    Populate-ExternalToolsMenu $controls['CtxCompExternalTools'] { if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null } }
+    Populate-ExternalToolsMenu $controls['CtxOUObjExternalTools'] { if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null } }
+    Populate-ExternalToolsMenu $controls['CtxSearchExternalTools'] { if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null } }
 }
 
 # Update Top Header Ribbon
@@ -3942,6 +4071,116 @@ if ($controls['BtnExportObjectLdif']) {
         }
     })
 }
+
+if ($controls['BtnExportObjectDsml']) {
+    $controls['BtnExportObjectDsml'].Add_Click({
+        if (-not $state.CurrentRawAttributes -or $state.CurrentRawAttributes.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Please load an object's attributes first.", "No Attributes", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDlg.FileName = "AD_Object_$(Get-Date -Format 'yyyyMMdd_HHmm').dsml"
+        $saveDlg.Filter = "DSML XML files (*.dsml;*.xml)|*.dsml;*.xml|All files (*.*)|*.*"
+        if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            # Convert attributes list into a single PSCustomObject for DSML export
+            $objProp = [ordered]@{ DistinguishedName = $state.CurrentRawDN }
+            foreach ($attr in $state.CurrentRawAttributes) {
+                if (-not $attr.IsOperational) {
+                    $objProp[$attr.Name] = $attr.Value
+                }
+            }
+            $expObj = [PSCustomObject]$objProp
+            $res = Export-ADDataToDsml -Data @($expObj) -FilePath $saveDlg.FileName
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show("Object exported to DSML v2 XML format successfully:`n$($saveDlg.FileName)", "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            } else {
+                [System.Windows.MessageBox]::Show("Failed to export DSML: $($res.Message)", "Export Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
+}
+
+if ($controls['BtnViewHtmlProfile']) {
+    $controls['BtnViewHtmlProfile'].Add_Click({
+        $dn = if ($controls['TxtAttrEditorDN']) { $controls['TxtAttrEditorDN'].Text.Trim() } else { $state.CurrentRawDN }
+        if (-not $dn) {
+            [System.Windows.MessageBox]::Show("Please enter or load a target object DN first.", "No Object Loaded", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        Show-ObjectHtmlDossier -TargetDN $dn
+    })
+}
+
+# GridRawAttributes Context Menu
+if ($controls['MenuCtxCopyAttrValue']) {
+    $controls['MenuCtxCopyAttrValue'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel) {
+            [System.Windows.Clipboard]::SetText("$($sel.Value)")
+            Set-Status -Message "Copied attribute value for '$($sel.Name)'."
+        }
+    })
+}
+
+if ($controls['MenuCtxCopyAttrName']) {
+    $controls['MenuCtxCopyAttrName'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel) {
+            [System.Windows.Clipboard]::SetText("$($sel.Name)")
+            Set-Status -Message "Copied attribute name: $($sel.Name)"
+        }
+    })
+}
+
+if ($controls['MenuCtxCopyAttrLdif']) {
+    $controls['MenuCtxCopyAttrLdif'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel) {
+            $ldifLine = "$($sel.Name): $($sel.Value)"
+            [System.Windows.Clipboard]::SetText($ldifLine)
+            Set-Status -Message "Copied LDIF line: $ldifLine"
+        }
+    })
+}
+
+if ($controls['MenuCtxEditAttrValue']) {
+    $controls['MenuCtxEditAttrValue'].Add_Click({
+        if ($controls['BtnEditAttrValue']) { $controls['BtnEditAttrValue'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+    })
+}
+
+if ($controls['MenuCtxClearAttrValue']) {
+    $controls['MenuCtxClearAttrValue'].Add_Click({
+        if ($controls['BtnClearAttrValue']) { $controls['BtnClearAttrValue'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+    })
+}
+
+if ($controls['MenuCtxSearchAttrValue']) {
+    $controls['MenuCtxSearchAttrValue'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel -and $sel.Value) {
+            $controls['NavDirectorySearch'].IsChecked = $true
+            Show-Panel "DirectorySearch"
+            $escapedVal = "$($sel.Value)" -replace '\*', '\*'
+            if ($controls['TxtCustomFilter']) { $controls['TxtCustomFilter'].Text = "($($sel.Name)=$escapedVal)" }
+            if ($controls['RadioCustomFilter']) { $controls['RadioCustomFilter'].IsChecked = $true }
+            if ($controls['BtnExecuteSearch']) { $controls['BtnExecuteSearch'].RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))) }
+        }
+    })
+}
+
+if ($controls['MenuCtxViewAttrSchema']) {
+    $controls['MenuCtxViewAttrSchema'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel) {
+            $controls['NavSchemaBrowser'].IsChecked = $true
+            Show-Panel "SchemaBrowser"
+            if ($controls['RadioSchemaAttributes']) { $controls['RadioSchemaAttributes'].IsChecked = $true }
+            if ($controls['TxtSearchSchema']) { $controls['TxtSearchSchema'].Text = "$($sel.Name)" }
+            Refresh-Schema
+        }
+    })
+}
 #endregion
 
 #region 9. Object Compare & Diff Logic
@@ -4066,6 +4305,50 @@ dn: CN=Temp Account,OU=Staging,$domainNC
 changetype: delete
 "@
             }
+            "Template: DSML v2 Search Response" {
+@"
+<?xml version="1.0" encoding="UTF-8"?>
+<batchResponse xmlns="urn:oasis:names:tc:DSML:2:0:core">
+  <searchResponse>
+    <searchResultEntry dn="CN=Jane Doe,OU=Users,$domainNC">
+      <attr name="objectClass">
+        <value>top</value>
+        <value>person</value>
+        <value>organizationalPerson</value>
+        <value>user</value>
+      </attr>
+      <attr name="sAMAccountName">
+        <value>jane.doe</value>
+      </attr>
+      <attr name="userPrincipalName">
+        <value>jane.doe@$($adContext.DomainName)</value>
+      </attr>
+      <attr name="mail">
+        <value>jane.doe@$($adContext.DomainName)</value>
+      </attr>
+    </searchResultEntry>
+    <searchResultDone>
+      <resultCode code="0" descr="success"/>
+    </searchResultDone>
+  </searchResponse>
+</batchResponse>
+"@
+            }
+            "Template: DSML v2 Modify Request" {
+@"
+<?xml version="1.0" encoding="UTF-8"?>
+<batchRequest xmlns="urn:oasis:names:tc:DSML:2:0:core">
+  <modifyRequest dn="CN=Jane Doe,OU=Users,$domainNC">
+    <modification name="department" operation="replace">
+      <value>Information Security</value>
+    </modification>
+    <modification name="title" operation="replace">
+      <value>Lead Security Architect</value>
+    </modification>
+  </modifyRequest>
+</batchRequest>
+"@
+            }
             default { "" }
         }
         if ($ldif -and $controls['TxtLdifEditor']) {
@@ -4134,6 +4417,22 @@ $($res.Log -join "`r`n")
     }
 }
 
+if ($controls['BtnLdifOpenFile']) {
+    $controls['BtnLdifOpenFile'].Add_Click({
+        $ofd = New-Object Microsoft.Win32.OpenFileDialog
+        $ofd.Filter = "Directory Files (*.ldif;*.dsml;*.xml;*.txt)|*.ldif;*.dsml;*.xml;*.txt|All Files (*.*)|*.*"
+        if ($ofd.ShowDialog()) {
+            try {
+                $fileText = [System.IO.File]::ReadAllText($ofd.FileName, [System.Text.Encoding]::UTF8)
+                if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text = $fileText }
+                Set-Status -Message "Loaded directory script from: $($ofd.FileName)"
+            } catch {
+                [System.Windows.MessageBox]::Show("Failed to open file: $_", "File Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
+}
+
 if ($controls['BtnLdifValidate']) { $controls['BtnLdifValidate'].Add_Click({ Validate-LdifUI }) }
 if ($controls['BtnLdifExecute'])  { $controls['BtnLdifExecute'].Add_Click({ Execute-LdifUI }) }
 
@@ -4150,6 +4449,20 @@ if ($controls['BtnLdifExport']) {
         }
     })
 }
+
+if ($controls['BtnExportDsml']) {
+    $controls['BtnExportDsml'].Add_Click({
+        $content = if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text } else { "" }
+        if ([string]::IsNullOrWhiteSpace($content)) { return }
+        $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDlg.FileName = "Directory_Batch_$(Get-Date -Format 'yyyyMMdd_HHmm').dsml"
+        $saveDlg.Filter = "DSML XML files (*.dsml;*.xml)|*.dsml;*.xml|All files (*.*)|*.*"
+        if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            [System.IO.File]::WriteAllText($saveDlg.FileName, $content, [System.Text.Encoding]::UTF8)
+            [System.Windows.MessageBox]::Show("Saved DSML XML file to $($saveDlg.FileName).", "File Saved", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
 #endregion
 
 #region 11. Security & Audit Reports Logic
@@ -4160,12 +4473,19 @@ function Run-AuditReportsUI {
     $auditType = switch -Wildcard ($catItem) {
         "*Inactive Users*"          { "InactiveUsers" }
         "*Passwords Never Expire*"  { "PasswordsNeverExpire" }
+        "*Expiring Soon*"           { "PasswordExpiringSoon" }
+        "*Not Required*"            { "PasswordNotRequired" }
         "*Locked Out*"              { "LockedOutUsers" }
         "*Privileged*"              { "PrivilegedAccounts" }
         "*Empty Groups*"            { "EmptyGroups" }
         "*Unprotected OUs*"         { "UnprotectedOUs" }
         "*Service Accounts*"        { "ServiceAccounts" }
         "*Inactive Computers*"      { "InactiveComputers" }
+        "*Recently Created*"        { "RecentlyCreated" }
+        "*Incomplete*"              { "IncompleteProfiles" }
+        "*AdminCount*"              { "AdminCountAccounts" }
+        "*Password Settings*"       { "PasswordSettingsObjects" }
+        "*PSO*"                     { "PasswordSettingsObjects" }
         default                     { "InactiveUsers" }
     }
 
@@ -4181,6 +4501,46 @@ function Run-AuditReportsUI {
 }
 
 if ($controls['BtnRunAudit']) { $controls['BtnRunAudit'].Add_Click({ Run-AuditReportsUI }) }
+
+if ($controls['BtnCalcEffectivePolicy']) {
+    $controls['BtnCalcEffectivePolicy'].Add_Click({
+        $username = if ($controls['TxtEffectivePolicyUser']) { $controls['TxtEffectivePolicyUser'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($username)) {
+            [System.Windows.MessageBox]::Show("Please enter a username (sAMAccountName or DN) to calculate their resultant password policy.", "Username Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+
+        Set-Status -Message "Calculating effective password policy for user: $username..."
+        $eff = Get-ADUserEffectivePasswordPolicy -UserIdentity $username
+        if (-not $eff.UserFound) {
+            [System.Windows.MessageBox]::Show("$($eff.Message)", "User Not Found", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            Set-Status -Message "Calculation failed: user not found."
+            return
+        }
+
+        $msg = @"
+RESULTANT PASSWORD POLICY REPORT
+User: $($eff.SamAccountName)
+DN: $($eff.DistinguishedName)
+============================================================
+Policy Source:        $($eff.PolicySource)
+Policy / PSO Name:    $($eff.PolicyName)
+Precedence:           $($eff.Precedence)
+
+ENFORCED SECURITY SETTINGS:
+------------------------------------------------------------
+Minimum Password Length:       $($eff.MinPasswordLength) characters
+Password Complexity:          $($eff.ComplexityEnabled)
+Password History Length:      $($eff.HistoryLength) passwords remembered
+Maximum Password Age:         $($eff.MaxPasswordAge)
+Minimum Password Age:         $($eff.MinPasswordAge)
+Account Lockout Threshold:    $($eff.LockoutThreshold) invalid attempts
+Lockout Duration:             $($eff.LockoutDuration)
+"@
+        [System.Windows.MessageBox]::Show($msg, "Resultant Password Policy: $($eff.SamAccountName)", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        Set-Status -Message "Calculated effective policy for $($eff.SamAccountName): $($eff.PolicyName)"
+    })
+}
 
 if ($controls['BtnExportAuditHtml']) {
     $controls['BtnExportAuditHtml'].Add_Click({
@@ -5073,6 +5433,46 @@ function Refresh-ServerMonitor {
 
     Set-Status -Message "Server Monitor updated for $server." -Count "$($telem.SupportedControls.Count) LDAP Controls | $($telem.NamingContexts.Count) Partitions"
     Log-LdapRequest -Operation "SERVER_MONITOR" -TargetDN "RootDSE" -FilterOrPayload "Telemetry" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details "Telemetry updated: DC=$($telem.DnsHostName), Skew=$($telem.TimeSkewMs)ms"
+    Refresh-PartitionsUI
+}
+
+function Refresh-PartitionsUI {
+    $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+    $parts = Get-ADDirectoryPartitions -Server $server
+    $state.CachedPartitions = $parts
+    if ($controls['GridPartitions']) {
+        $controls['GridPartitions'].ItemsSource = $parts
+    }
+}
+
+if ($controls['BtnRefreshPartitions']) { $controls['BtnRefreshPartitions'].Add_Click({ Refresh-PartitionsUI }) }
+
+if ($controls['BtnNewAppPartition']) {
+    $controls['BtnNewAppPartition'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
+        $domainNC = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "DC=corp,DC=example,DC=com" }
+        $defaultNewDN = "DC=AppPart01,$domainNC"
+
+        [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+        $inputDN = [Microsoft.VisualBasic.Interaction]::InputBox(
+            "Enter the Distinguished Name (DN) for the new Application Directory Partition (NDNC):`r`n`r`nExample: DC=MyAppPartition,$domainNC",
+            "Create New Application Directory Partition",
+            $defaultNewDN
+        )
+
+        if (-not [string]::IsNullOrWhiteSpace($inputDN)) {
+            $inputDN = $inputDN.Trim()
+            Set-Status -Message "Creating application directory partition '$inputDN'..."
+            $res = New-ADDirectoryPartition -PartitionDN $inputDN
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show("$($res.Message)", "Partition Created", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                Refresh-PartitionsUI
+                Refresh-ServerMonitor
+            } else {
+                [System.Windows.MessageBox]::Show("Failed to create application partition:`r`n$($res.Message)", "Creation Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
 }
 
 if ($controls['BtnRefreshServerMonitor']) { $controls['BtnRefreshServerMonitor'].Add_Click({ Refresh-ServerMonitor }) }
@@ -5281,6 +5681,12 @@ if ($controls['CtxUserViewDetails']) {
         if ($u) { Show-UserDetails -User $u }
     })
 }
+if ($controls['CtxUserViewHtml']) {
+    $controls['CtxUserViewHtml'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Show-ObjectHtmlDossier -TargetObject $u }
+    })
+}
 
 # Groups Grid ContextMenu
 if ($controls['CtxGroupManageMembers']) {
@@ -5408,6 +5814,12 @@ if ($controls['CtxOuObjCompare']) {
         }
     })
 }
+if ($controls['CtxOUObjViewHtml']) {
+    $controls['CtxOUObjViewHtml'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) { Show-ObjectHtmlDossier -TargetObject $obj }
+    })
+}
 
 # Computers ContextMenu
 if ($controls['CtxCompRdp']) {
@@ -5481,6 +5893,12 @@ if ($controls['CtxCompCompare']) {
         }
     })
 }
+if ($controls['CtxCompViewHtml']) {
+    $controls['CtxCompViewHtml'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { Show-ObjectHtmlDossier -TargetObject $c }
+    })
+}
 
 # Search ContextMenu
 if ($controls['CtxSearchInspectAttr']) {
@@ -5506,6 +5924,40 @@ if ($controls['CtxSearchCopyDN']) {
         if ($s) { [System.Windows.Clipboard]::SetText($s.DistinguishedName); Set-Status -Message "Copied DN: $($s.DistinguishedName)" }
     })
 }
+if ($controls['CtxSearchCopySam']) {
+    $controls['CtxSearchCopySam'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) {
+            $sam = if ($s.SamAccountName) { $s.SamAccountName } else { $s.Name }
+            [System.Windows.Clipboard]::SetText($sam); Set-Status -Message "Copied Username/RDN: $sam"
+        }
+    })
+}
+if ($controls['CtxSearchCopyUrl']) {
+    $controls['CtxSearchCopyUrl'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) {
+            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            $ldapUrl = "ldap://$server/$($s.DistinguishedName)"
+            [System.Windows.Clipboard]::SetText($ldapUrl)
+            Set-Status -Message "Copied LDAP URL: $ldapUrl"
+        }
+    })
+}
+if ($controls['CtxSearchCopyLdif']) {
+    $controls['CtxSearchCopyLdif'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) {
+            $attrs = Get-ADObjectRawAttributes -DistinguishedName $s.DistinguishedName
+            $ldifBlock = "dn: $($s.DistinguishedName)`r`nchangetype: add`r`nobjectClass: $(if ($s.ObjectClass) { $s.ObjectClass } else { 'top' })`r`n"
+            foreach ($a in $attrs) {
+                if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+            }
+            [System.Windows.Clipboard]::SetText($ldifBlock)
+            Set-Status -Message "Copied LDIF record to clipboard for $($s.DistinguishedName)."
+        }
+    })
+}
 if ($controls['CtxSearchCompare']) {
     $controls['CtxSearchCompare'].Add_Click({
         $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
@@ -5515,6 +5967,12 @@ if ($controls['CtxSearchCompare']) {
             if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $s.DistinguishedName }
             else { $controls['TxtCompareObjectB'].Text = $s.DistinguishedName }
         }
+    })
+}
+if ($controls['CtxSearchViewHtml']) {
+    $controls['CtxSearchViewHtml'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) { Show-ObjectHtmlDossier -TargetObject $s }
     })
 }
 
@@ -5569,6 +6027,108 @@ function Load-SettingsPanel {
         $delim = if ($appConfig.Defaults.ExportDelimiter) { $appConfig.Defaults.ExportDelimiter } else { ";" }
         $controls['CmbExportDelimiter'].SelectedIndex = if ($delim -eq ",") { 1 } else { 0 }
     }
+    if ($controls['GridExternalTools']) {
+        $controls['GridExternalTools'].ItemsSource = $null
+        $controls['GridExternalTools'].ItemsSource = $state.ExternalTools
+    }
+}
+
+if ($controls['BtnAddExternalTool']) {
+    $controls['BtnAddExternalTool'].Add_Click({
+        $name = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Tool Name (e.g. Ping Host, PowerShell Query):", "Add External Tool", "Custom Tool")
+        if (-not $name) { return }
+        $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Executable or Command (e.g. ping.exe, mstsc.exe, powershell.exe):", "Tool Executable", "powershell.exe")
+        if (-not $cmd) { return }
+        $args = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Arguments with Tokens (%sAMAccountName%, %dNSHostName%, %distinguishedName%, %mail%):", "Tool Arguments", "-NoExit -Command Write-Host 'Inspecting %sAMAccountName%'")
+
+        if (-not $state.ExternalTools) { $state.ExternalTools = [System.Collections.ArrayList]::new() }
+        $toolObj = [PSCustomObject]@{
+            Name = $name
+            Command = $cmd
+            Arguments = $args
+        }
+        [void]$state.ExternalTools.Add($toolObj)
+        $controls['GridExternalTools'].ItemsSource = $null
+        $controls['GridExternalTools'].ItemsSource = $state.ExternalTools
+        Populate-AllExternalToolsMenus
+        Set-Status -Message "Added external tool: $name"
+    })
+}
+
+if ($controls['BtnEditExternalTool']) {
+    $controls['BtnEditExternalTool'].Add_Click({
+        $sel = if ($controls['GridExternalTools']) { $controls['GridExternalTools'].SelectedItem } else { $null }
+        if (-not $sel) {
+            [System.Windows.MessageBox]::Show("Please select an external tool to edit.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $name = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Tool Name:", "Edit Tool", $sel.Name)
+        if (-not $name) { return }
+        $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Executable:", "Edit Executable", $sel.Command)
+        if (-not $cmd) { return }
+        $args = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Arguments:", "Edit Arguments", $sel.Arguments)
+        $sel.Name = $name
+        $sel.Command = $cmd
+        $sel.Arguments = $args
+        $controls['GridExternalTools'].Items.Refresh()
+        Populate-AllExternalToolsMenus
+        Set-Status -Message "Updated external tool: $name"
+    })
+}
+
+if ($controls['BtnDeleteExternalTool']) {
+    $controls['BtnDeleteExternalTool'].Add_Click({
+        $sel = if ($controls['GridExternalTools']) { $controls['GridExternalTools'].SelectedItem } else { $null }
+        if (-not $sel) {
+            [System.Windows.MessageBox]::Show("Please select an external tool to delete.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to delete '$($sel.Name)'?", "Confirm Delete", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            [void]$state.ExternalTools.Remove($sel)
+            $controls['GridExternalTools'].ItemsSource = $null
+            $controls['GridExternalTools'].ItemsSource = $state.ExternalTools
+            Populate-AllExternalToolsMenus
+            Set-Status -Message "Deleted tool: $($sel.Name)"
+        }
+    })
+}
+
+if ($controls['BtnResetDefaultTools']) {
+    $controls['BtnResetDefaultTools'].Add_Click({
+        $defaultTools = @(
+            [PSCustomObject]@{ Name = "Ping Hostname"; Command = "ping.exe"; Arguments = "%dNSHostName% -t" },
+            [PSCustomObject]@{ Name = "Remote Desktop (RDP)"; Command = "mstsc.exe"; Arguments = "/v:%dNSHostName%" },
+            [PSCustomObject]@{ Name = "PowerShell AD Inspector"; Command = "powershell.exe"; Arguments = "-NoExit -Command `"Get-ADObject -Identity '%distinguishedName%' -Properties * | Format-List`"" },
+            [PSCustomObject]@{ Name = "Test LDAP Port 389"; Command = "powershell.exe"; Arguments = "-NoExit -Command `"Test-NetConnection '%dNSHostName%' -Port 389`"" },
+            [PSCustomObject]@{ Name = "DNS Lookup (nslookup)"; Command = "cmd.exe"; Arguments = "/k nslookup %dNSHostName%" },
+            [PSCustomObject]@{ Name = "Computer Management"; Command = "mmc.exe"; Arguments = "compmgmt.msc /computer=%dNSHostName%" },
+            [PSCustomObject]@{ Name = "Event Viewer"; Command = "mmc.exe"; Arguments = "eventvwr.msc %dNSHostName%" }
+        )
+        $state.ExternalTools = [System.Collections.ArrayList]::new($defaultTools)
+        $controls['GridExternalTools'].ItemsSource = $null
+        $controls['GridExternalTools'].ItemsSource = $state.ExternalTools
+        Populate-AllExternalToolsMenus
+        Set-Status -Message "Restored default external tools."
+    })
+}
+
+if ($controls['BtnTestExternalTool']) {
+    $controls['BtnTestExternalTool'].Add_Click({
+        $sel = if ($controls['GridExternalTools']) { $controls['GridExternalTools'].SelectedItem } else { $null }
+        if (-not $sel) {
+            [System.Windows.MessageBox]::Show("Please select an external tool from the table to test.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $dummy = [PSCustomObject]@{
+            dNSHostName = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "127.0.0.1" }
+            sAMAccountName = "Administrator"
+            distinguishedName = if ($state.DefaultNamingContext) { "CN=Administrator,CN=Users,$($state.DefaultNamingContext)" } else { "CN=Administrator,DC=domain,DC=local" }
+            mail = "admin@domain.local"
+            cn = "Administrator"
+        }
+        Invoke-ExternalTool -Tool $sel -TargetObject $dummy
+    })
 }
 
 if ($controls['BtnSaveSettings']) {
@@ -5592,6 +6152,8 @@ if ($controls['BtnSaveSettings']) {
             $appConfig.Defaults.ExportDelimiter = if ($controls['CmbExportDelimiter'].SelectedIndex -eq 1) { "," } else { ";" }
         }
 
+        $appConfig.ExternalTools = @($state.ExternalTools)
+
         $saved = Save-AppSettings -Config $appConfig
         if ($saved) {
             [System.Windows.MessageBox]::Show("Settings saved successfully.", "Settings Saved", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -5614,6 +6176,7 @@ $window.Add_Loaded({
     Refresh-All
     Refresh-Connections
     Populate-SearchAttributeDropdowns
+    Populate-AllExternalToolsMenus
 })
 
 # Show Main Window

@@ -2260,6 +2260,25 @@ function Get-ADSecurityAuditReport {
             $summary["Criteria"] = "Active users missing Mail, Department, Phone or Title"
         }
 
+        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } {
+            $psos = Get-ADPasswordSettingsObjects -Server $Server
+            foreach ($p in $psos) {
+                $results.Add([PSCustomObject]@{
+                    Name              = $p.Name
+                    Precedence        = $p.Precedence
+                    MinPasswordLength = $p.MinPasswordLength
+                    Complexity        = if ($p.ComplexityEnabled) { "Required" } else { "None" }
+                    MaxPasswordAge    = $p.MaxPasswordAge
+                    LockoutThreshold  = if ($p.LockoutThreshold -eq 0) { "No Lockout" } else { "$($p.LockoutThreshold) attempts" }
+                    LockoutDuration   = $p.LockoutDuration
+                    AppliesToCount    = $p.AppliesToCount
+                    DistinguishedName = $p.DistinguishedName
+                })
+            }
+            $summary["Total PSOs"] = $psos.Count
+            $summary["Status"] = if ($psos.Count -gt 0) { "Active Fine-Grained Policies Found" } else { "No Custom PSOs (Domain Default Policy Active)" }
+        }
+
         Default {
             $users = Get-ADUsersList -FilterStatus "Disabled"
             foreach ($u in $users) {
@@ -2283,6 +2302,7 @@ function Get-ADSecurityAuditReport {
         { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "Accounts with Password Not Required (PASSWD_NOTREQD)" }
         "RecentlyCreated"                                        { "Recently Created Active Directory Accounts" }
         "IncompleteProfiles"                                     { "User Accounts with Incomplete Directory Profiles" }
+        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } { "Fine-Grained Password Policies (Password Settings Objects - PSO)" }
         "PrivilegedAccounts"                                     { "Privileged and Administrative Accounts" }
         "EmptyGroups"                                            { "Empty Security and Distribution Groups" }
         "UnprotectedOUs"                                         { "Organizational Units Unprotected from Deletion" }
@@ -2300,6 +2320,7 @@ function Get-ADSecurityAuditReport {
         { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "High-risk accounts where blank or empty passwords are permitted by policy." }
         "RecentlyCreated"                                        { "User accounts provisioned within the past $Days days." }
         "IncompleteProfiles"                                     { "Active user accounts missing essential organizational attributes." }
+        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } { "Fine-Grained Password Policies configured in the domain with precedence and lockout thresholds." }
         "PrivilegedAccounts"                                     { "Members of high-privilege built-in Active Directory security groups." }
         "EmptyGroups"                                            { "Groups containing zero members that may be candidates for cleanup." }
         "UnprotectedOUs"                                         { "Organizational Units without accidental deletion protection enabled." }
@@ -2934,6 +2955,286 @@ function Get-ADServerTelemetry {
 }
 #endregion
 
+#region 17. Fine-Grained Password Policies (PSO) & Partitions Engine
+function Get-ADPasswordSettingsObjects {
+    [CmdletBinding()]
+    param (
+        [string]$Server = ""
+    )
+
+    $results = New-Object System.Collections.Generic.List[PSCustomObject]
+    try {
+        $rootDse = if ($Server) { [System.DirectoryServices.DirectoryEntry]"LDAP://$Server/RootDSE" } else { [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE" }
+        $defaultNC = "$($rootDse.defaultNamingContext)"
+        $psoContainer = "CN=Password Settings Container,CN=System,$defaultNC"
+
+        $query = Invoke-LdapQuery -Filter "(objectClass=msDS-PasswordSettings)" -SearchBase $psoContainer -Scope Subtree `
+            -PropertiesToLoad @(
+                'cn', 'msDS-PasswordSettingsPrecedence', 'msDS-PasswordComplexityEnabled',
+                'msDS-PasswordReversibleEncryptionEnabled', 'msDS-PasswordHistoryLength',
+                'msDS-MinimumPasswordLength', 'msDS-MinimumPasswordAge', 'msDS-MaximumPasswordAge',
+                'msDS-LockoutThreshold', 'msDS-LockoutObservationWindow', 'msDS-LockoutDuration',
+                'msDS-PSOAppliesTo', 'distinguishedName'
+            ) -Server $Server
+
+        foreach ($r in $query.Results) {
+            $maxAgeDays = "Never"
+            if ($r.'msDS-MaximumPasswordAge') {
+                $ticks = [Math]::Abs([int64]$r.'msDS-MaximumPasswordAge')
+                $maxAgeDays = "$([Math]::Round($ticks / (10000000 * 86400), 1)) days"
+            }
+            $minAgeDays = "0 days"
+            if ($r.'msDS-MinimumPasswordAge') {
+                $ticks = [Math]::Abs([int64]$r.'msDS-MinimumPasswordAge')
+                $minAgeDays = "$([Math]::Round($ticks / (10000000 * 86400), 1)) days"
+            }
+            $lockoutDur = "30 mins"
+            if ($r.'msDS-LockoutDuration') {
+                $ticks = [Math]::Abs([int64]$r.'msDS-LockoutDuration')
+                $lockoutDur = "$([Math]::Round($ticks / (10000000 * 60), 0)) mins"
+            }
+
+            $appliesTo = @()
+            if ($r.'msDS-PSOAppliesTo') {
+                if ($r.'msDS-PSOAppliesTo' -is [System.Collections.IEnumerable] -and $r.'msDS-PSOAppliesTo' -isnot [string]) {
+                    $appliesTo = @($r.'msDS-PSOAppliesTo')
+                } else {
+                    $appliesTo = @("$($r.'msDS-PSOAppliesTo')")
+                }
+            }
+
+            $results.Add([PSCustomObject]@{
+                Name                  = "$($r.cn)"
+                Precedence            = [int]$r.'msDS-PasswordSettingsPrecedence'
+                ComplexityEnabled     = [bool]$r.'msDS-PasswordComplexityEnabled'
+                ReversibleEncryption  = [bool]$r.'msDS-PasswordReversibleEncryptionEnabled'
+                MinPasswordLength     = [int]$r.'msDS-MinimumPasswordLength'
+                PasswordHistoryLength = [int]$r.'msDS-PasswordHistoryLength'
+                MaxPasswordAge        = $maxAgeDays
+                MinPasswordAge        = $minAgeDays
+                LockoutThreshold      = [int]$r.'msDS-LockoutThreshold'
+                LockoutDuration       = $lockoutDur
+                AppliesTo             = $appliesTo
+                AppliesToCount        = $appliesTo.Count
+                DistinguishedName     = "$($r.DistinguishedName)"
+            })
+        }
+    }
+    catch {
+        Write-Warning "Could not query Password Settings Objects: $_"
+    }
+
+    return @($results | Sort-Object Precedence)
+}
+
+function Get-ADUserEffectivePasswordPolicy {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$UserIdentity,
+        [string]$Server = ""
+    )
+
+    try {
+        $filter = if ($UserIdentity -match '^CN=' -or $UserIdentity -match '^cn=') {
+            "(distinguishedName=$UserIdentity)"
+        } else {
+            "(sAMAccountName=$UserIdentity)"
+        }
+
+        $userQuery = Invoke-LdapQuery -Filter $filter -PropertiesToLoad @('sAMAccountName', 'distinguishedName', 'msDS-ResultantPSO', 'userAccountControl') -Server $Server
+        $userObj = $userQuery.Results | Select-Object -First 1
+
+        if (-not $userObj) {
+            return [PSCustomObject]@{
+                UserFound = $false
+                Message   = "User '$UserIdentity' was not found in directory."
+            }
+        }
+
+        $resultantPSO = "$($userObj.'msDS-ResultantPSO')"
+
+        if (-not [string]::IsNullOrWhiteSpace($resultantPSO)) {
+            $psos = Get-ADPasswordSettingsObjects -Server $Server
+            $matchedPso = $psos | Where-Object { $_.DistinguishedName -ieq $resultantPSO } | Select-Object -First 1
+            if ($matchedPso) {
+                return [PSCustomObject]@{
+                    UserFound         = $true
+                    SamAccountName    = $userObj.sAMAccountName
+                    DistinguishedName = $userObj.DistinguishedName
+                    PolicySource      = "Fine-Grained Password Settings Object (PSO)"
+                    PolicyName        = $matchedPso.Name
+                    Precedence        = $matchedPso.Precedence
+                    MinPasswordLength = $matchedPso.MinPasswordLength
+                    ComplexityEnabled = $matchedPso.ComplexityEnabled
+                    HistoryLength     = $matchedPso.PasswordHistoryLength
+                    MaxPasswordAge    = $matchedPso.MaxPasswordAge
+                    MinPasswordAge    = $matchedPso.MinPasswordAge
+                    LockoutThreshold  = $matchedPso.LockoutThreshold
+                    LockoutDuration   = $matchedPso.LockoutDuration
+                    PSOName           = $matchedPso.Name
+                    PSODN             = $resultantPSO
+                }
+            }
+        }
+
+        $rootDse = if ($Server) { [System.DirectoryServices.DirectoryEntry]"LDAP://$Server/RootDSE" } else { [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE" }
+        $defaultNC = "$($rootDse.defaultNamingContext)"
+        $domainEntry = [System.DirectoryServices.DirectoryEntry]"LDAP://$defaultNC"
+
+        $minLen = if ($domainEntry.Properties['minPwdLength'].Value) { [int]$domainEntry.Properties['minPwdLength'].Value } else { 7 }
+        $histLen = if ($domainEntry.Properties['pwdHistoryLength'].Value) { [int]$domainEntry.Properties['pwdHistoryLength'].Value } else { 24 }
+        $lockThresh = if ($domainEntry.Properties['lockoutThreshold'].Value) { [int]$domainEntry.Properties['lockoutThreshold'].Value } else { 0 }
+
+        $maxAgeDays = "42 days"
+        if ($domainEntry.Properties['maxPwdAge'].Value) {
+            $ticks = [Math]::Abs([int64]$domainEntry.Properties['maxPwdAge'].Value)
+            $maxAgeDays = "$([Math]::Round($ticks / (10000000 * 86400), 1)) days"
+        }
+
+        $lockDur = "30 mins"
+        if ($domainEntry.Properties['lockoutDuration'].Value) {
+            $ticks = [Math]::Abs([int64]$domainEntry.Properties['lockoutDuration'].Value)
+            $lockDur = "$([Math]::Round($ticks / (10000000 * 60), 0)) mins"
+        }
+
+        return [PSCustomObject]@{
+            UserFound         = $true
+            SamAccountName    = $userObj.sAMAccountName
+            DistinguishedName = $userObj.DistinguishedName
+            PolicySource      = "Default Domain Password Policy"
+            PolicyName        = "Domain Default Policy ($defaultNC)"
+            Precedence        = "N/A (Domain-wide)"
+            MinPasswordLength = $minLen
+            ComplexityEnabled = $true
+            HistoryLength     = $histLen
+            MaxPasswordAge    = $maxAgeDays
+            MinPasswordAge    = "1 days"
+            LockoutThreshold  = $lockThresh
+            LockoutDuration   = $lockDur
+            PSOName           = "None (Default Domain Policy)"
+            PSODN             = ""
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            UserFound = $false
+            Message   = "Failed to calculate effective password policy: $_"
+        }
+    }
+}
+
+function Get-ADDirectoryPartitions {
+    [CmdletBinding()]
+    param (
+        [string]$Server = ""
+    )
+
+    $partitions = New-Object System.Collections.Generic.List[PSCustomObject]
+    try {
+        $rootDse = if ($Server) { [System.DirectoryServices.DirectoryEntry]"LDAP://$Server/RootDSE" } else { [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE" }
+        $configNC = "$($rootDse.configurationNamingContext)"
+        $defaultNC = "$($rootDse.defaultNamingContext)"
+        $schemaNC = "$($rootDse.schemaNamingContext)"
+
+        $partitionsContainer = "CN=Partitions,$configNC"
+        $query = Invoke-LdapQuery -Filter "(objectClass=crossRef)" -SearchBase $partitionsContainer -Scope OneLevel `
+            -PropertiesToLoad @('cn', 'nCName', 'dnsRoot', 'systemFlags', 'msDS-NC-Replica-Locations', 'distinguishedName') -Server $Server
+
+        foreach ($r in $query.Results) {
+            $ncName = "$($r.nCName)"
+            $sysFlags = if ($r.systemFlags) { [int]$r.systemFlags } else { 0 }
+
+            $pType = "Application Partition (NDNC)"
+            if ($ncName -ieq $defaultNC) {
+                $pType = "Domain Naming Context"
+            } elseif ($ncName -ieq $configNC) {
+                $pType = "Configuration Naming Context"
+            } elseif ($ncName -ieq $schemaNC) {
+                $pType = "Schema Naming Context"
+            } elseif ($ncName -match 'ForestDnsZones') {
+                $pType = "Forest DNS Application Partition"
+            } elseif ($ncName -match 'DomainDnsZones') {
+                $pType = "Domain DNS Application Partition"
+            }
+
+            $replicas = @()
+            if ($r.'msDS-NC-Replica-Locations') {
+                if ($r.'msDS-NC-Replica-Locations' -is [System.Collections.IEnumerable] -and $r.'msDS-NC-Replica-Locations' -isnot [string]) {
+                    $replicas = @($r.'msDS-NC-Replica-Locations')
+                } else {
+                    $replicas = @("$($r.'msDS-NC-Replica-Locations')")
+                }
+            }
+
+            $partitions.Add([PSCustomObject]@{
+                Name              = "$($r.cn)"
+                PartitionType     = $pType
+                NamingContextDN   = $ncName
+                DnsRoot           = "$($r.dnsRoot)"
+                SystemFlags       = $sysFlags
+                ReplicaCount      = $replicas.Count
+                Replicas          = ($replicas | ForEach-Object { if ($_ -match '^CN=([^,]+)') { $matches[1] } else { $_ } }) -join ", "
+                DistinguishedName = "$($r.DistinguishedName)"
+            })
+        }
+    }
+    catch {
+        Write-Warning "Could not enumerate directory partitions: $_"
+    }
+
+    return @($partitions)
+}
+
+function New-ADDirectoryPartition {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$PartitionDN,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Server = ""
+    )
+
+    try {
+        if (Get-Command New-ADDirectoryServerPartition -ErrorAction SilentlyContinue) {
+            $params = @{ DistinguishedName = $PartitionDN }
+            if ($Server) { $params['Server'] = $Server }
+            New-ADDirectoryServerPartition @params
+            return [PSCustomObject]@{
+                Success = $true
+                DN      = $PartitionDN
+                Message = "Application directory partition '$PartitionDN' created successfully via RSAT."
+            }
+        }
+
+        $rootDse = if ($Server) { [System.DirectoryServices.DirectoryEntry]"LDAP://$Server/RootDSE" } else { [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE" }
+        $configNC = "$($rootDse.configurationNamingContext)"
+        $partitionsContainer = [System.DirectoryServices.DirectoryEntry]"LDAP://CN=Partitions,$configNC"
+
+        $cn = ($PartitionDN -split ',')[0] -replace '^DC=', ''
+        $newCrossRef = $partitionsContainer.Children.Add("CN=$cn", "crossRef")
+        $newCrossRef.Properties['nCName'].Value = $PartitionDN
+        $newCrossRef.Properties['dnsRoot'].Value = "$cn.$($rootDse.dnsHostName)"
+        $newCrossRef.Properties['systemFlags'].Value = 5
+        $newCrossRef.CommitChanges()
+
+        return [PSCustomObject]@{
+            Success = $true
+            DN      = $PartitionDN
+            Message = "Application directory partition crossRef created successfully at 'CN=$cn,CN=Partitions,$configNC'."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success = $false
+            DN      = $PartitionDN
+            Message = "Failed to create application partition: $_"
+        }
+    }
+}
+#endregion
+
 Export-ModuleMember -Function `
     Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
@@ -2946,6 +3247,9 @@ Export-ModuleMember -Function `
     Remove-ADObjectRawAttributeValue, Clear-ADObjectRawAttribute, Invoke-LdapSqlQuery, Invoke-LdifImport, `
     Compare-ADObjects, Get-ADSecurityAuditReport, Get-ADSchemaClasses, Get-ADSchemaAttributes, `
     Get-ADComputersList, Test-ADConnectionDiagnostic, Invoke-ADBulkUpdate, `
-    Get-ADDeletedObjects, Restore-ADDeletedObject, Get-ADServerTelemetry
+    Get-ADDeletedObjects, Restore-ADDeletedObject, Get-ADServerTelemetry, `
+    Get-ADPasswordSettingsObjects, Get-ADUserEffectivePasswordPolicy, `
+    Get-ADDirectoryPartitions, New-ADDirectoryPartition
+
 
 

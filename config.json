@@ -35,5 +35,43 @@
     "UsernameFormat": "first.last",
     "ExportDelimiter": ";",
     "ExportPath": ""
-  }
+  },
+  "ExternalTools": [
+    {
+      "Name": "Ping Hostname",
+      "Command": "ping.exe",
+      "Arguments": "%dNSHostName% -t"
+    },
+    {
+      "Name": "Remote Desktop (RDP)",
+      "Command": "mstsc.exe",
+      "Arguments": "/v:%dNSHostName%"
+    },
+    {
+      "Name": "PowerShell AD Inspector",
+      "Command": "powershell.exe",
+      "Arguments": "-NoExit -Command \"Get-ADObject -Identity '%distinguishedName%' -Properties * | Format-List\""
+    },
+    {
+      "Name": "Test LDAP Port 389",
+      "Command": "powershell.exe",
+      "Arguments": "-NoExit -Command \"Test-NetConnection '%dNSHostName%' -Port 389\""
+    },
+    {
+      "Name": "DNS Lookup (nslookup)",
+      "Command": "cmd.exe",
+      "Arguments": "/k nslookup %dNSHostName%"
+    },
+    {
+      "Name": "Computer Management",
+      "Command": "mmc.exe",
+      "Arguments": "compmgmt.msc /computer=%dNSHostName%"
+    },
+    {
+      "Name": "Event Viewer",
+      "Command": "mmc.exe",
+      "Arguments": "eventvwr.msc %dNSHostName%"
+    }
+  ]
 }
+
