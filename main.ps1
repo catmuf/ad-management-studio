@@ -88,6 +88,22 @@ $state = [PSCustomObject]@{
     IsNavigatingHistory    = $false
     BasketItems            = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
     RequestLogs            = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
+    IsReadOnlyProfile      = $false
+    Bookmarks              = [System.Collections.Generic.List[string]]::new()
+    CachedRecycleBin       = @()
+}
+
+function Test-CanModifyDirectory {
+    if ($state.IsReadOnlyProfile) {
+        [System.Windows.MessageBox]::Show(
+            "This operation is blocked because the active server connection profile is configured as READ-ONLY.`r`n`r`nTo modify directory objects, switch to a read-write profile or uncheck 'Read-Only Server Profile' in Connection Settings.",
+            "🔒 Protected Read-Only Profile",
+            [System.Windows.MessageBoxButton]::OK,
+            [System.Windows.MessageBoxImage]::Warning
+        )
+        return $false
+    }
+    return $true
 }
 
 # Update Top Header Ribbon
@@ -192,6 +208,7 @@ function Show-Panel {
         'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelObjectCompare',
         'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
         'PanelBasket', 'PanelRequestLog',
+        'PanelRecycleBin', 'PanelServerMonitor',
         'PanelConnections', 'PanelSettings'
     )
     $targetName = "Panel$PanelName"
@@ -256,6 +273,8 @@ if ($controls['NavSchemaBrowser'])   { $controls['NavSchemaBrowser'].Add_Checked
 if ($controls['NavBulkEditor'])      { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
 if ($controls['NavBasket'])          { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
 if ($controls['NavRequestLog'])      { $controls['NavRequestLog'].Add_Checked({ Show-Panel "RequestLog" }) }
+if ($controls['NavRecycleBin'])      { $controls['NavRecycleBin'].Add_Checked({ Show-Panel "RecycleBin"; Refresh-RecycleBin }) }
+if ($controls['NavServerMonitor'])   { $controls['NavServerMonitor'].Add_Checked({ Show-Panel "ServerMonitor"; Refresh-ServerMonitor }) }
 if ($controls['NavConnections'])     { $controls['NavConnections'].Add_Checked({ Show-Panel "Connections"; Refresh-Connections }) }
 if ($controls['NavSettings'])        { $controls['NavSettings'].Add_Checked({ Show-Panel "Settings"; Load-SettingsPanel }) }
 #endregion
@@ -1024,6 +1043,41 @@ function Open-UserDialog {
         $dControls['TxtPassword'].Text = $pw
     })
 
+    # Template Blueprints (Softerra Parity)
+    if ($dControls['CmbUserTemplate']) {
+        $dControls['CmbUserTemplate'].Add_SelectionChanged({
+            if (-not $dControls['CmbUserTemplate'].SelectedItem) { return }
+            $tpl = [string]$dControls['CmbUserTemplate'].SelectedItem.Content
+            switch -Wildcard ($tpl) {
+                "*Standard Employee*" {
+                    if (-not $dControls['TxtDepartment'].Text) { $dControls['TxtDepartment'].Text = "Operations" }
+                    if (-not $dControls['TxtCompany'].Text) { $dControls['TxtCompany'].Text = $appConfig.Defaults.Company }
+                    if ($dControls['ChkMustChangePwd']) { $dControls['ChkMustChangePwd'].IsChecked = $true }
+                    if ($dControls['ChkPasswordNeverExpires']) { $dControls['ChkPasswordNeverExpires'].IsChecked = $false }
+                }
+                "*Contractor*" {
+                    $dControls['TxtDepartment'].Text = "External Contractors"
+                    $dControls['TxtCompany'].Text = "Vendor / Contractor"
+                    $dControls['TxtDescription'].Text = "Contractor Account (90-day validity)"
+                    if ($dControls['ChkMustChangePwd']) { $dControls['ChkMustChangePwd'].IsChecked = $true }
+                    if ($dControls['ChkPasswordNeverExpires']) { $dControls['ChkPasswordNeverExpires'].IsChecked = $false }
+                }
+                "*Domain Admin*" {
+                    $dControls['TxtDepartment'].Text = "IT Infrastructure"
+                    $dControls['TxtJobTitle'].Text = "System Administrator"
+                    $dControls['TxtDescription'].Text = "Privileged Directory Administrator"
+                }
+                "*Service Account*" {
+                    $dControls['TxtDepartment'].Text = "Service Accounts"
+                    $dControls['TxtDescription'].Text = "Automated Service / Integration Identity"
+                    if ($dControls['ChkPasswordNeverExpires']) { $dControls['ChkPasswordNeverExpires'].IsChecked = $true }
+                    if ($dControls['ChkMustChangePwd']) { $dControls['ChkMustChangePwd'].IsChecked = $false }
+                    if ($dControls['ChkCannotChangePwd']) { $dControls['ChkCannotChangePwd'].IsChecked = $true }
+                }
+            }
+        })
+    }
+
     if ($Mode -eq "Edit" -and $UserToEdit) {
         $dlg.Title = "Edit User - $($UserToEdit.DisplayName)"
         $dControls['TxtDialogTitle'].Text = "Edit User: $($UserToEdit.DisplayName)"
@@ -1052,6 +1106,7 @@ function Open-UserDialog {
     $dControls['BtnCancel'].Add_Click({ $dlg.Close() })
 
     $dControls['BtnSaveUser'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
         $fn  = $dControls['TxtFirstName'].Text.Trim()
         $ln  = $dControls['TxtLastName'].Text.Trim()
         $dn  = $dControls['TxtDisplayName'].Text.Trim()
@@ -3384,9 +3439,11 @@ function Open-AttributeEditDialog {
     $isCert  = ($selAttr.Name -in @('userCertificate', 'cACertificate', 'userSMIMECertificate') -or ($selAttr.Name -match 'cert' -and ($selAttr.RawValue -is [byte[]] -or $selAttr.Type -match 'Binary|OctetString')))
     $isHex   = (-not $isPhoto -and -not $isCert -and ($selAttr.RawValue -is [byte[]] -or $selAttr.Type -match 'Binary|OctetString'))
     $isMulti = ($selAttr.IsMultiValued -or $selAttr.Count -gt 1 -or $selAttr.Type -match "MultiValued")
+    $isDate  = (-not $isHex -and ($selAttr.Name -in @('accountExpires', 'pwdLastSet', 'lockoutTime', 'lastLogon', 'lastLogonTimestamp', 'whenCreated', 'whenChanged', 'badPasswordTime') -or $selAttr.Type -match 'FileTime|GeneralizedTime|Timestamp'))
+    $isPwd   = ($selAttr.Name -in @('userPassword', 'unicodePwd'))
 
     # Hide all mode panels first
-    foreach ($m in @('ModeStringEditor', 'ModeMultiValueEditor', 'ModeUacEditor', 'ModePhotoEditor', 'ModeCertificateEditor', 'ModeHexEditor')) {
+    foreach ($m in @('ModeStringEditor', 'ModeMultiValueEditor', 'ModeUacEditor', 'ModePhotoEditor', 'ModeCertificateEditor', 'ModeHexEditor', 'ModeDateTimeEditor', 'ModePasswordHashEditor')) {
         if ($dControls[$m]) { $dControls[$m].Visibility = [System.Windows.Visibility]::Collapsed }
     }
 
@@ -3663,6 +3720,96 @@ function Open-AttributeEditDialog {
             }
         })
 
+    } elseif ($isDate) {
+        $dControls['ModeDateTimeEditor'].Visibility = [System.Windows.Visibility]::Visible
+        $script:stagedTimestampMode = if ($selAttr.Name -in @('whenCreated', 'whenChanged') -or $selAttr.Type -match 'GeneralizedTime') { "GeneralizedTime" } else { "FileTime" }
+
+        $UpdateCalculatedTimestamps = {
+            param([DateTime]$dt, [bool]$isZero = $false)
+            if ($isZero) {
+                $dControls['TxtConvertedFileTime'].Text = "0 (Never / Infinite)"
+                $dControls['TxtConvertedGeneralized'].Text = "0 (Never)"
+                return
+            }
+            $fileTimeVal = $dt.ToFileTimeUtc()
+            $genTimeVal = $dt.ToUniversalTime().ToString("yyyyMMddHHmmss.0Z")
+            $dControls['TxtConvertedFileTime'].Text = "$fileTimeVal"
+            $dControls['TxtConvertedGeneralized'].Text = "$genTimeVal"
+        }
+
+        $now = Get-Date
+        if ($dControls['PickerDate']) { $dControls['PickerDate'].SelectedDate = $now.Date }
+        if ($dControls['TxtDateTimePart']) { $dControls['TxtDateTimePart'].Text = $now.ToString("HH:mm:ss") }
+        & $UpdateCalculatedTimestamps -dt $now
+
+        $dControls['BtnDateSetNow'].Add_Click({
+            $cur = Get-Date
+            $dControls['PickerDate'].SelectedDate = $cur.Date
+            $dControls['TxtDateTimePart'].Text = $cur.ToString("HH:mm:ss")
+            & $UpdateCalculatedTimestamps -dt $cur
+        })
+
+        $dControls['BtnDateSetNever'].Add_Click({
+            $dControls['PickerDate'].SelectedDate = $null
+            $dControls['TxtDateTimePart'].Text = "00:00:00"
+            & $UpdateCalculatedTimestamps -dt (Get-Date) -isZero $true
+        })
+
+        $dControls['BtnDateClear'].Add_Click({
+            $dControls['PickerDate'].SelectedDate = $null
+            $dControls['TxtDateTimePart'].Text = ""
+            $dControls['TxtConvertedFileTime'].Text = "0"
+            $dControls['TxtConvertedGeneralized'].Text = ""
+        })
+
+    } elseif ($isPwd) {
+        $dControls['ModePasswordHashEditor'].Visibility = [System.Windows.Visibility]::Visible
+        $dControls['BtnCalculateHash'].Add_Click({
+            $plain = $dControls['TxtHashPlainPassword'].Text
+            $scheme = if ($dControls['CmbHashAlgorithm'].SelectedItem) {
+                [string]$dControls['CmbHashAlgorithm'].SelectedItem.Content
+            } else { "{SSHA}" }
+
+            $plainBytes = [System.Text.Encoding]::UTF8.GetBytes($plain)
+            $hashResult = ""
+
+            if ($scheme -match 'SSHA') {
+                $salt = New-Object byte[] 4
+                [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($salt)
+                $hasher = [System.Security.Cryptography.SHA1]::Create()
+                $combined = $plainBytes + $salt
+                $hash = $hasher.ComputeHash($combined)
+                $b64 = [Convert]::ToBase64String($hash + $salt)
+                $hashResult = "{SSHA}$b64"
+            }
+            elseif ($scheme -match 'SHA256') {
+                $hasher = [System.Security.Cryptography.SHA256]::Create()
+                $hashResult = "{SHA256}" + [Convert]::ToBase64String($hasher.ComputeHash($plainBytes))
+            }
+            elseif ($scheme -match 'SHA512') {
+                $hasher = [System.Security.Cryptography.SHA512]::Create()
+                $hashResult = "{SHA512}" + [Convert]::ToBase64String($hasher.ComputeHash($plainBytes))
+            }
+            elseif ($scheme -match 'MD5') {
+                $hasher = [System.Security.Cryptography.MD5]::Create()
+                $hashResult = "{MD5}" + [Convert]::ToBase64String($hasher.ComputeHash($plainBytes))
+            }
+            elseif ($scheme -match 'SHA') {
+                $hasher = [System.Security.Cryptography.SHA1]::Create()
+                $hashResult = "{SHA}" + [Convert]::ToBase64String($hasher.ComputeHash($plainBytes))
+            }
+            else {
+                $hashResult = $plain
+            }
+
+            $dControls['TxtGeneratedHashOutput'].Text = $hashResult
+        })
+
+        $dControls['BtnClearHash'].Add_Click({
+            $dControls['TxtHashPlainPassword'].Text = ""
+            $dControls['TxtGeneratedHashOutput'].Text = ""
+        })
+
     } else {
         $dControls['ModeStringEditor'].Visibility = [System.Windows.Visibility]::Visible
 
@@ -3687,6 +3834,7 @@ function Open-AttributeEditDialog {
     $dControls['BtnCancel'].Add_Click({ $dlg.Close() })
 
     $dControls['BtnSaveAttribute'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
         try {
             if ($isUac) {
                 $newUac = & $ComputeUac
@@ -3700,6 +3848,19 @@ function Open-AttributeEditDialog {
             } elseif ($isMulti) {
                 $newVals = @($multiItems)
                 $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $newVals
+            } elseif ($isDate) {
+                $valToSave = if ($dControls['TxtConvertedFileTime'].Text -match '^0\b') {
+                    "0"
+                } elseif ($script:stagedTimestampMode -eq "GeneralizedTime") {
+                    $dControls['TxtConvertedGeneralized'].Text
+                } else {
+                    $dControls['TxtConvertedFileTime'].Text
+                }
+                $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $valToSave
+            } elseif ($isPwd) {
+                $valToSave = $dControls['TxtGeneratedHashOutput'].Text
+                if (-not $valToSave) { $valToSave = $dControls['TxtHashPlainPassword'].Text }
+                $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $valToSave
             } else {
                 $newStr = $dControls['TxtStringValue'].Text
                 $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $newStr
@@ -3730,6 +3891,7 @@ if ($controls['GridRawAttributes']) {
 
 if ($controls['BtnClearAttrValue']) {
     $controls['BtnClearAttrValue'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
         $selAttr = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
         if (-not $selAttr) { return }
 
@@ -4592,13 +4754,15 @@ function Open-ConnectionDialog {
         [void][int]::TryParse($dControls['TxtPort'].Text.Trim(), [ref]$portNum)
         $useSsl = [bool]$dControls['ChkUseSSL'].IsChecked
         $searchBase = $dControls['TxtSearchBase'].Text.Trim()
+        $isReadOnly = if ($dControls['ChkReadOnlyProfile']) { [bool]$dControls['ChkReadOnlyProfile'].IsChecked } else { $false }
 
         $newProf = @{
-            Name = $pName
-            Server = $hostName
-            Port = $portNum
-            UseSSL = $useSsl
+            Name       = $pName
+            Server     = $hostName
+            Port       = $portNum
+            UseSSL     = $useSsl
             SearchBase = $searchBase
+            ReadOnly   = $isReadOnly
         }
 
         if (-not $appConfig.Profiles) {
@@ -4625,7 +4789,8 @@ function Refresh-Connections {
             $controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
         } else {
             foreach ($p in $profiles) {
-                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($p.Server):$($p.Port)]")
+                $roTag = if ($p.ReadOnly) { " 🔒 [READ-ONLY]" } else { "" }
+                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($p.Server):$($p.Port)]$roTag")
             }
         }
     }
@@ -4637,7 +4802,8 @@ function Refresh-Connections {
         [void]$controls['CmbActiveProfile'].Items.Add($defaultLabel)
         if ($appConfig.Profiles) {
             foreach ($p in $appConfig.Profiles) {
-                [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)")
+                $roLabel = if ($p.ReadOnly) { " 🔒" } else { "" }
+                [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)$roLabel")
             }
         }
         $controls['CmbActiveProfile'].SelectedIndex = 0
@@ -4648,7 +4814,16 @@ function Refresh-Connections {
             $controls['CmbActiveProfile'].Add_SelectionChanged({
                 if ($controls['CmbActiveProfile'].SelectedItem) {
                     $sel = [string]$controls['CmbActiveProfile'].SelectedItem
-                    $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile / Server: $sel"
+                    $cleanName = ($sel -replace '\s*🔒.*$', '').Trim()
+                    $matched = $null
+                    if ($appConfig.Profiles) {
+                        $matched = $appConfig.Profiles | Where-Object { $_.Name -eq $cleanName } | Select-Object -First 1
+                    }
+                    $state.IsReadOnlyProfile = [bool]($matched -and $matched.ReadOnly)
+                    if ($controls['BorderReadOnlyBadge']) {
+                        $controls['BorderReadOnlyBadge'].Visibility = if ($state.IsReadOnlyProfile) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+                    }
+                    $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile: $sel"
                 }
             })
         }
@@ -4693,6 +4868,689 @@ if ($controls['BtnDeleteProfile']) {
             Save-AppSettings -Config $appConfig
             Refresh-Connections
         }
+    })
+}
+#region 17. Active Directory Recycle Bin & Tombstone Reanimation Logic
+function Refresh-RecycleBin {
+    Set-Status -Message "Querying Active Directory Recycle Bin & Tombstones..."
+    $search = if ($controls['TxtSearchRecycleBin']) { $controls['TxtSearchRecycleBin'].Text.Trim() } else { "" }
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $items = Get-ADDeletedObjects -SearchFilter $search -Limit 500
+    $sw.Stop()
+
+    $state.CachedRecycleBin = $items
+    if ($controls['GridRecycleBin']) {
+        $controls['GridRecycleBin'].ItemsSource = @($items)
+    }
+
+    $msg = "Recycle Bin: $($items.Count) deleted/tombstone object(s) loaded ($($sw.ElapsedMilliseconds) ms)."
+    Set-Status -Message $msg -Count "$($items.Count) deleted objects"
+    Log-LdapRequest -Operation "RECYCLE_BIN/LIST" -TargetDN "CN=Deleted Objects" -FilterOrPayload "isDeleted=TRUE; Filter=$search" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details $msg
+}
+
+function Quick-RestoreRecycleItem {
+    if (-not (Test-CanModifyDirectory)) { return }
+    $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+    if (-not $sel) {
+        [System.Windows.MessageBox]::Show("Please select a deleted object from the Recycle Bin table first.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    $confirm = [System.Windows.MessageBox]::Show(
+        "Are you sure you want to restore deleted object '$($sel.Name)' to its original container: `r`n`r`n$($sel.LastKnownParent)?",
+        "Confirm Tombstone Reanimation",
+        [System.Windows.MessageBoxButton]::YesNo,
+        [System.Windows.MessageBoxImage]::Question
+    )
+    if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+    Set-Status -Message "Restoring $($sel.Name)..."
+    $res = Restore-ADDeletedObject -Identity $sel.DistinguishedName
+    if ($res.Success) {
+        [System.Windows.MessageBox]::Show($res.Message, "Object Restored", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        Log-LdapRequest -Operation "RESTORE_OBJECT" -TargetDN $sel.DistinguishedName -FilterOrPayload "QuickRestore" -Status "SUCCESS" -Details $res.Message
+        Refresh-RecycleBin
+        Refresh-All
+    } else {
+        [System.Windows.MessageBox]::Show($res.Message, "Restore Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        Log-LdapRequest -Operation "RESTORE_OBJECT" -TargetDN $sel.DistinguishedName -FilterOrPayload "QuickRestore" -Status "ERROR" -Details $res.Message
+    }
+}
+
+function Restore-RecycleItemToOU {
+    if (-not (Test-CanModifyDirectory)) { return }
+    $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+    if (-not $sel) {
+        [System.Windows.MessageBox]::Show("Please select a deleted object from the Recycle Bin table first.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    $ouList = @($state.CachedOUs | ForEach-Object { $_.DistinguishedName })
+    if ($ouList.Count -eq 0) {
+        $ouList = @($adContext.DefaultNamingContext)
+    }
+
+    $promptInput = [Microsoft.VisualBasic.Interaction]::InputBox(
+        "Enter target destination Organizational Unit Distinguished Name (DN):",
+        "Restore Object to Custom OU",
+        $ouList[0]
+    )
+
+    if ([string]::IsNullOrWhiteSpace($promptInput)) { return }
+
+    Set-Status -Message "Restoring $($sel.Name) to $promptInput..."
+    $res = Restore-ADDeletedObject -Identity $sel.DistinguishedName -TargetOU $promptInput.Trim()
+    if ($res.Success) {
+        [System.Windows.MessageBox]::Show($res.Message, "Object Restored to Custom OU", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        Log-LdapRequest -Operation "RESTORE_OBJECT" -TargetDN $sel.DistinguishedName -FilterOrPayload "TargetOU=$promptInput" -Status "SUCCESS" -Details $res.Message
+        Refresh-RecycleBin
+        Refresh-All
+    } else {
+        [System.Windows.MessageBox]::Show($res.Message, "Restore Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        Log-LdapRequest -Operation "RESTORE_OBJECT" -TargetDN $sel.DistinguishedName -FilterOrPayload "TargetOU=$promptInput" -Status "ERROR" -Details $res.Message
+    }
+}
+
+function Inspect-RecycleItemAttributes {
+    $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+    if (-not $sel) { return }
+    $controls['NavAttributeEditor'].IsChecked = $true
+    Show-Panel "AttributeEditor"
+    $controls['TxtAttrEditorDN'].Text = $sel.DistinguishedName
+    Load-RawAttributesUI -TargetDN $sel.DistinguishedName
+}
+
+# Wire Recycle Bin controls
+if ($controls['BtnRefreshRecycleBin'])   { $controls['BtnRefreshRecycleBin'].Add_Click({ Refresh-RecycleBin }) }
+if ($controls['BtnQuickRestore'])        { $controls['BtnQuickRestore'].Add_Click({ Quick-RestoreRecycleItem }) }
+if ($controls['BtnRestoreToOU'])         { $controls['BtnRestoreToOU'].Add_Click({ Restore-RecycleItemToOU }) }
+if ($controls['BtnRecycleInspectAttr'])  { $controls['BtnRecycleInspectAttr'].Add_Click({ Inspect-RecycleItemAttributes }) }
+
+if ($controls['TxtSearchRecycleBin']) {
+    $controls['TxtSearchRecycleBin'].Add_TextChanged({
+        $q = $controls['TxtSearchRecycleBin'].Text.Trim()
+        if ($controls['TxtSearchRecycleBinPlaceholder']) {
+            $controls['TxtSearchRecycleBinPlaceholder'].Visibility = if ($q.Length -gt 0) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+        }
+        if ([string]::IsNullOrWhiteSpace($q)) {
+            $controls['GridRecycleBin'].ItemsSource = @($state.CachedRecycleBin)
+        } else {
+            $filtered = @($state.CachedRecycleBin | Where-Object {
+                $_.Name -match [regex]::Escape($q) -or $_.SamAccountName -match [regex]::Escape($q) -or $_.DistinguishedName -match [regex]::Escape($q)
+            })
+            $controls['GridRecycleBin'].ItemsSource = $filtered
+        }
+    })
+    $controls['TxtSearchRecycleBin'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-RecycleBin }
+    })
+}
+
+if ($controls['BtnExportRecycleBin']) {
+    $controls['BtnExportRecycleBin'].Add_Click({
+        if (-not $state.CachedRecycleBin -or $state.CachedRecycleBin.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No Recycle Bin items to export.", "Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $sfd = New-Object System.Windows.Forms.SaveFileDialog
+        $sfd.FileName = "AD_RecycleBin_$(Get-Date -Format 'yyyyMMdd_HHmm').csv"
+        $sfd.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+        if ($sfd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $res = Export-ADDataToCsv -Data $state.CachedRecycleBin -FilePath $sfd.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter)
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        }
+    })
+}
+
+# ContextMenu items on GridRecycleBin
+if ($controls['CtxRecycleQuickRestore']) { $controls['CtxRecycleQuickRestore'].Add_Click({ Quick-RestoreRecycleItem }) }
+if ($controls['CtxRecycleRestoreToOU'])  { $controls['CtxRecycleRestoreToOU'].Add_Click({ Restore-RecycleItemToOU }) }
+if ($controls['CtxRecycleInspectAttr'])  { $controls['CtxRecycleInspectAttr'].Add_Click({ Inspect-RecycleItemAttributes }) }
+if ($controls['CtxRecycleCopyDN']) {
+    $controls['CtxRecycleCopyDN'].Add_Click({
+        $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+        if ($sel) {
+            [System.Windows.Clipboard]::SetText($sel.DistinguishedName)
+            Set-Status -Message "Copied Tombstone DN: $($sel.DistinguishedName)"
+        }
+    })
+}
+if ($controls['CtxRecycleCopyLdif']) {
+    $controls['CtxRecycleCopyLdif'].Add_Click({
+        $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+        if ($sel) {
+            $attrs = Get-ADObjectRawAttributes -DistinguishedName $sel.DistinguishedName
+            $ldifBlock = "dn: $($sel.DistinguishedName)`r`nobjectClass: $($sel.ObjectClass)`r`n"
+            foreach ($a in $attrs) {
+                if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+            }
+            [System.Windows.Clipboard]::SetText($ldifBlock)
+            Set-Status -Message "Copied LDIF record to clipboard for $($sel.Name)."
+        }
+    })
+}
+#endregion
+
+#region 18. LDAP Server Monitor & RootDSE Telemetry Logic
+function Refresh-ServerMonitor {
+    Set-Status -Message "Querying RootDSE telemetry, functional levels and server controls..."
+    $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $telem = Get-ADServerTelemetry -Server $server
+    $sw.Stop()
+
+    if ($controls['TxtMonDnsHost'])      { $controls['TxtMonDnsHost'].Text      = if ($telem.DnsHostName) { $telem.DnsHostName } else { "$server" } }
+    if ($controls['TxtMonServiceName'])  { $controls['TxtMonServiceName'].Text  = if ($telem.LdapServiceName) { $telem.LdapServiceName } else { "ldap/$server" } }
+    if ($controls['TxtMonDomainLevel'])  { $controls['TxtMonDomainLevel'].Text  = $telem.DomainFunctionalLevel }
+    if ($controls['TxtMonForestLevel'])  { $controls['TxtMonForestLevel'].Text  = $telem.ForestFunctionalLevel }
+    if ($controls['TxtMonIsGC'])         { $controls['TxtMonIsGC'].Text         = $telem.IsGlobalCatalog }
+
+    if ($controls['TxtMonServerTime'])   { $controls['TxtMonServerTime'].Text   = $telem.ServerTimeUtc }
+    if ($controls['TxtMonLocalTime'])    { $controls['TxtMonLocalTime'].Text    = $telem.LocalTimeUtc }
+    if ($controls['TxtMonTimeSkew']) {
+        $absSkew = [Math]::Abs($telem.TimeSkewMs)
+        $controls['TxtMonTimeSkew'].Text = "$($telem.TimeSkewMs) ms ($([Math]::Round($absSkew / 1000, 2))s)"
+        if ($absSkew -lt 5000) {
+            $controls['TxtMonTimeSkew'].Foreground = [System.Windows.Media.Brushes]::LimeGreen
+        } elseif ($absSkew -lt 60000) {
+            $controls['TxtMonTimeSkew'].Foreground = [System.Windows.Media.Brushes]::Yellow
+        } else {
+            $controls['TxtMonTimeSkew'].Foreground = [System.Windows.Media.Brushes]::Red
+        }
+    }
+
+    if ($controls['TxtMonNamingContexts']) {
+        $controls['TxtMonNamingContexts'].Text = ($telem.NamingContexts -join "`r`n")
+    }
+    if ($controls['TxtMonSaslMechanisms']) {
+        $controls['TxtMonSaslMechanisms'].Text = ($telem.SupportedSASLMechanisms -join "`r`n")
+    }
+    if ($controls['TxtMonSupportedControls']) {
+        $controls['TxtMonSupportedControls'].Text = ($telem.SupportedControls -join "`r`n")
+    }
+
+    Set-Status -Message "Server Monitor updated for $server." -Count "$($telem.SupportedControls.Count) LDAP Controls | $($telem.NamingContexts.Count) Partitions"
+    Log-LdapRequest -Operation "SERVER_MONITOR" -TargetDN "RootDSE" -FilterOrPayload "Telemetry" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details "Telemetry updated: DC=$($telem.DnsHostName), Skew=$($telem.TimeSkewMs)ms"
+}
+
+if ($controls['BtnRefreshServerMonitor']) { $controls['BtnRefreshServerMonitor'].Add_Click({ Refresh-ServerMonitor }) }
+if ($controls['BtnExportServerMonitor']) {
+    $controls['BtnExportServerMonitor'].Add_Click({
+        $sfd = New-Object System.Windows.Forms.SaveFileDialog
+        $sfd.FileName = "Directory_Telemetry_$(Get-Date -Format 'yyyyMMdd_HHmm').txt"
+        $sfd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+        if ($sfd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $sb = New-Object System.Text.StringBuilder
+            [void]$sb.AppendLine("=== Active Directory Server Monitor & RootDSE Report ===")
+            [void]$sb.AppendLine("DNS Host: $($controls['TxtMonDnsHost'].Text)")
+            [void]$sb.AppendLine("LDAP Service: $($controls['TxtMonServiceName'].Text)")
+            [void]$sb.AppendLine("Domain Level: $($controls['TxtMonDomainLevel'].Text)")
+            [void]$sb.AppendLine("Forest Level: $($controls['TxtMonForestLevel'].Text)")
+            [void]$sb.AppendLine("Time Skew: $($controls['TxtMonTimeSkew'].Text)")
+            [void]$sb.AppendLine("`r`n--- Naming Contexts ---`r`n$($controls['TxtMonNamingContexts'].Text)")
+            [void]$sb.AppendLine("`r`n--- Supported Controls ---`r`n$($controls['TxtMonSupportedControls'].Text)")
+            [System.IO.File]::WriteAllText($sfd.FileName, $sb.ToString(), [System.Text.Encoding]::UTF8)
+            [System.Windows.MessageBox]::Show("Telemetry report saved to $($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+#endregion
+
+#region 19. Bookmarks & Favorites Engine (Softerra Parity)
+function Add-DirectoryBookmark {
+    param ([string]$DN = "")
+    if (-not $DN) {
+        if ($controls['TxtAttrEditorDN'] -and $controls['TxtAttrEditorDN'].Text) {
+            $DN = $controls['TxtAttrEditorDN'].Text.Trim()
+        } elseif ($state.SelectedOU) {
+            $DN = $state.SelectedOU
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($DN)) {
+        [System.Windows.MessageBox]::Show("Please select an OU or load an object in the Raw Attribute Editor to bookmark.", "No Object Selected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    if (-not $state.Bookmarks.Contains($DN)) {
+        [void]$state.Bookmarks.Add($DN)
+        Refresh-BookmarksUI
+        Set-Status -Message "Bookmarked: $DN"
+    } else {
+        Set-Status -Message "Object is already in Favorites: $DN"
+    }
+}
+
+function Refresh-BookmarksUI {
+    if ($controls['CmbBookmarks']) {
+        $controls['CmbBookmarks'].Items.Clear()
+        $hdr = New-Object System.Windows.Controls.ComboBoxItem
+        $hdr.Content = "⭐ Favorites ($($state.Bookmarks.Count))..."
+        $hdr.IsEnabled = $false
+        [void]$controls['CmbBookmarks'].Items.Add($hdr)
+
+        foreach ($bm in $state.Bookmarks) {
+            $item = New-Object System.Windows.Controls.ComboBoxItem
+            $shortName = ($bm -split ',')[0] -replace '^(CN|OU|DC)=', ''
+            $item.Content = "⭐ $shortName ($bm)"
+            $item.Tag = $bm
+            [void]$controls['CmbBookmarks'].Items.Add($item)
+        }
+        $controls['CmbBookmarks'].SelectedIndex = 0
+    }
+}
+
+if ($controls['BtnAddBookmark']) { $controls['BtnAddBookmark'].Add_Click({ Add-DirectoryBookmark }) }
+if ($controls['CmbBookmarks']) {
+    $controls['CmbBookmarks'].Add_SelectionChanged({
+        if ($controls['CmbBookmarks'].SelectedItem -and $controls['CmbBookmarks'].SelectedIndex -gt 0) {
+            $targetDn = $controls['CmbBookmarks'].SelectedItem.Tag
+            if ($targetDn) {
+                if ($targetDn -match '^(?i)OU=') {
+                    $controls['NavOUs'].IsChecked = $true
+                    Show-Panel "OUs"
+                    Select-OUByDistinguishedName -TargetDN $targetDn
+                } else {
+                    $controls['NavAttributeEditor'].IsChecked = $true
+                    Show-Panel "AttributeEditor"
+                    $controls['TxtAttrEditorDN'].Text = $targetDn
+                    Load-RawAttributesUI -TargetDN $targetDn
+                }
+            }
+        }
+    })
+}
+#endregion
+
+#region 20. ContextMenu Handlers Across All DataGrids
+# Users Grid ContextMenu
+if ($controls['CtxUserEdit']) {
+    $controls['CtxUserEdit'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Open-UserDialog -Mode "Edit" -UserToEdit $u }
+    })
+}
+if ($controls['CtxUserResetPwd']) {
+    $controls['CtxUserResetPwd'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Open-ResetPasswordDialog -User $u }
+    })
+}
+if ($controls['CtxUserUnlock']) {
+    $controls['CtxUserUnlock'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $res = Unlock-ADUserAccount -Identity $u.SamAccountName
+            Set-Status -Message $res.Message
+            Refresh-Users
+        }
+    })
+}
+if ($controls['CtxUserToggleStatus']) {
+    $controls['CtxUserToggleStatus'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $newStatus = if ($u.Enabled) { $false } else { $true }
+            $res = Set-ADUserStatus -Identity $u.SamAccountName -Enabled $newStatus
+            Set-Status -Message $res.Message
+            Refresh-Users
+        }
+    })
+}
+if ($controls['CtxUserMoveOU']) {
+    $controls['CtxUserMoveOU'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Open-MoveOUDialog -ObjectDN $u.DistinguishedName }
+    })
+}
+if ($controls['CtxUserCopyDN']) {
+    $controls['CtxUserCopyDN'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { [System.Windows.Clipboard]::SetText($u.DistinguishedName); Set-Status -Message "Copied DN: $($u.DistinguishedName)" }
+    })
+}
+if ($controls['CtxUserCopySam']) {
+    $controls['CtxUserCopySam'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { [System.Windows.Clipboard]::SetText($u.SamAccountName); Set-Status -Message "Copied SamAccountName: $($u.SamAccountName)" }
+    })
+}
+if ($controls['CtxUserCopyUrl']) {
+    $controls['CtxUserCopyUrl'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            $ldapUrl = "ldap://$server/$($u.DistinguishedName)"
+            [System.Windows.Clipboard]::SetText($ldapUrl)
+            Set-Status -Message "Copied LDAP URL: $ldapUrl"
+        }
+    })
+}
+if ($controls['CtxUserCopyLdif']) {
+    $controls['CtxUserCopyLdif'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $attrs = Get-ADObjectRawAttributes -DistinguishedName $u.DistinguishedName
+            $ldifBlock = "dn: $($u.DistinguishedName)`r`nchangetype: add`r`nobjectClass: user`r`nsAMAccountName: $($u.SamAccountName)`r`n"
+            foreach ($a in $attrs) {
+                if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+            }
+            [System.Windows.Clipboard]::SetText($ldifBlock)
+            Set-Status -Message "Copied LDIF record to clipboard for $($u.SamAccountName)."
+        }
+    })
+}
+if ($controls['CtxUserAddToBasket']) {
+    $controls['CtxUserAddToBasket'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Add-ObjectToBasket -DN $u.DistinguishedName -Name $u.DisplayName -ObjectClass "user" }
+    })
+}
+if ($controls['CtxUserInspectAttr']) {
+    $controls['CtxUserInspectAttr'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $u.DistinguishedName
+            Load-RawAttributesUI -TargetDN $u.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxUserCompare']) {
+    $controls['CtxUserCompare'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) {
+                $controls['TxtCompareObjectA'].Text = $u.DistinguishedName
+            } else {
+                $controls['TxtCompareObjectB'].Text = $u.DistinguishedName
+            }
+        }
+    })
+}
+if ($controls['CtxUserViewDetails']) {
+    $controls['CtxUserViewDetails'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Show-UserDetails -User $u }
+    })
+}
+
+# Groups Grid ContextMenu
+if ($controls['CtxGroupManageMembers']) {
+    $controls['CtxGroupManageMembers'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Open-GroupMembersDialog -Group $g }
+    })
+}
+if ($controls['CtxGroupDelete']) {
+    $controls['CtxGroupDelete'].Add_Click({
+        if (-not (Test-CanModifyDirectory)) { return }
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Delete-SelectedGroup -Group $g }
+    })
+}
+if ($controls['CtxGroupCopyDN']) {
+    $controls['CtxGroupCopyDN'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { [System.Windows.Clipboard]::SetText($g.DistinguishedName); Set-Status -Message "Copied Group DN: $($g.DistinguishedName)" }
+    })
+}
+if ($controls['CtxGroupCopyUrl']) {
+    $controls['CtxGroupCopyUrl'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) {
+            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            [System.Windows.Clipboard]::SetText("ldap://$server/$($g.DistinguishedName)")
+            Set-Status -Message "Copied LDAP URL for group $($g.Name)"
+        }
+    })
+}
+if ($controls['CtxGroupAddToBasket']) {
+    $controls['CtxGroupAddToBasket'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Add-ObjectToBasket -DN $g.DistinguishedName -Name $g.Name -ObjectClass "group" }
+    })
+}
+if ($controls['CtxGroupInspectAttr']) {
+    $controls['CtxGroupInspectAttr'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $g.DistinguishedName
+            Load-RawAttributesUI -TargetDN $g.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxGroupCompare']) {
+    $controls['CtxGroupCompare'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $g.DistinguishedName }
+            else { $controls['TxtCompareObjectB'].Text = $g.DistinguishedName }
+        }
+    })
+}
+
+# OUs ContextMenu
+if ($controls['CtxOuBookmark']) {
+    $controls['CtxOuBookmark'].Add_Click({
+        if ($state.SelectedOU) { Add-DirectoryBookmark -DN $state.SelectedOU }
+    })
+}
+if ($controls['CtxOuInspectAttr']) {
+    $controls['CtxOuInspectAttr'].Add_Click({
+        if ($state.SelectedOU) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $state.SelectedOU
+            Load-RawAttributesUI -TargetDN $state.SelectedOU
+        }
+    })
+}
+if ($controls['CtxOuCopyDN']) {
+    $controls['CtxOuCopyDN'].Add_Click({
+        if ($state.SelectedOU) { [System.Windows.Clipboard]::SetText($state.SelectedOU); Set-Status -Message "Copied OU DN: $($state.SelectedOU)" }
+    })
+}
+
+# OU Objects ContextMenu
+if ($controls['CtxOuObjInspectAttr']) {
+    $controls['CtxOuObjInspectAttr'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $obj.DistinguishedName
+            Load-RawAttributesUI -TargetDN $obj.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxOuObjAddToBasket']) {
+    $controls['CtxOuObjAddToBasket'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) { Add-ObjectToBasket -DN $obj.DistinguishedName -Name $obj.Name -ObjectClass $obj.ObjectClass }
+    })
+}
+if ($controls['CtxOuObjCopyDN']) {
+    $controls['CtxOuObjCopyDN'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) { [System.Windows.Clipboard]::SetText($obj.DistinguishedName); Set-Status -Message "Copied DN: $($obj.DistinguishedName)" }
+    })
+}
+if ($controls['CtxOuObjCopyUrl']) {
+    $controls['CtxOuObjCopyUrl'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) {
+            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            [System.Windows.Clipboard]::SetText("ldap://$server/$($obj.DistinguishedName)")
+            Set-Status -Message "Copied LDAP URL: $($obj.Name)"
+        }
+    })
+}
+if ($controls['CtxOuObjCompare']) {
+    $controls['CtxOuObjCompare'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $obj.DistinguishedName }
+            else { $controls['TxtCompareObjectB'].Text = $obj.DistinguishedName }
+        }
+    })
+}
+
+# Computers ContextMenu
+if ($controls['CtxCompRdp']) {
+    $controls['CtxCompRdp'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $target = if ($c.DNSHostName) { $c.DNSHostName } elseif ($c.IPv4Address) { $c.IPv4Address } else { $c.Name }
+            Set-Status -Message "Launching Remote Desktop Connection to $target..."
+            Start-Process "mstsc.exe" -ArgumentList "/v:$target"
+        }
+    })
+}
+if ($controls['CtxCompPing']) {
+    $controls['CtxCompPing'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $target = if ($c.DNSHostName) { $c.DNSHostName } else { $c.Name }
+            Set-Status -Message "Pinging $target..."
+            try {
+                $ping = Test-Connection -ComputerName $target -Count 1 -Quiet -ErrorAction SilentlyContinue
+                if ($ping) {
+                    Set-Status -Message "Host '$target' is ONLINE and reachable."
+                    [System.Windows.MessageBox]::Show("Host '$target' is reachable over network (ICMP ping reply received).", "Host Online", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                } else {
+                    Set-Status -Message "Host '$target' did not respond to ping."
+                    [System.Windows.MessageBox]::Show("Host '$target' did not respond (offline or ICMP blocked by firewall).", "Ping Timed Out", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                }
+            } catch {
+                Set-Status -Message "Ping error: $_"
+            }
+        }
+    })
+}
+if ($controls['CtxCompCopyDN']) {
+    $controls['CtxCompCopyDN'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { [System.Windows.Clipboard]::SetText($c.DistinguishedName); Set-Status -Message "Copied Computer DN: $($c.DistinguishedName)" }
+    })
+}
+if ($controls['CtxCompCopyName']) {
+    $controls['CtxCompCopyName'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { [System.Windows.Clipboard]::SetText($c.Name); Set-Status -Message "Copied Name: $($c.Name)" }
+    })
+}
+if ($controls['CtxCompAddToBasket']) {
+    $controls['CtxCompAddToBasket'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { Add-ObjectToBasket -DN $c.DistinguishedName -Name $c.Name -ObjectClass "computer" }
+    })
+}
+if ($controls['CtxCompInspectAttr']) {
+    $controls['CtxCompInspectAttr'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $c.DistinguishedName
+            Load-RawAttributesUI -TargetDN $c.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxCompCompare']) {
+    $controls['CtxCompCompare'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $c.DistinguishedName }
+            else { $controls['TxtCompareObjectB'].Text = $c.DistinguishedName }
+        }
+    })
+}
+
+# Search ContextMenu
+if ($controls['CtxSearchInspectAttr']) {
+    $controls['CtxSearchInspectAttr'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $s.DistinguishedName
+            Load-RawAttributesUI -TargetDN $s.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxSearchAddToBasket']) {
+    $controls['CtxSearchAddToBasket'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) { Add-ObjectToBasket -DN $s.DistinguishedName -Name ($s.DisplayName -or $s.Name -or $s.SamAccountName) -ObjectClass $s.ObjectClass }
+    })
+}
+if ($controls['CtxSearchCopyDN']) {
+    $controls['CtxSearchCopyDN'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) { [System.Windows.Clipboard]::SetText($s.DistinguishedName); Set-Status -Message "Copied DN: $($s.DistinguishedName)" }
+    })
+}
+if ($controls['CtxSearchCompare']) {
+    $controls['CtxSearchCompare'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $s.DistinguishedName }
+            else { $controls['TxtCompareObjectB'].Text = $s.DistinguishedName }
+        }
+    })
+}
+
+# Basket ContextMenu
+if ($controls['CtxBasketInspectAttr']) {
+    $controls['CtxBasketInspectAttr'].Add_Click({
+        $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
+        if ($b) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $b.DistinguishedName
+            Load-RawAttributesUI -TargetDN $b.DistinguishedName
+        }
+    })
+}
+if ($controls['CtxBasketCompare']) {
+    $controls['CtxBasketCompare'].Add_Click({
+        $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
+        if ($b) {
+            $controls['NavObjectCompare'].IsChecked = $true
+            Show-Panel "ObjectCompare"
+            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $b.DistinguishedName }
+            else { $controls['TxtCompareObjectB'].Text = $b.DistinguishedName }
+        }
+    })
+}
+if ($controls['CtxBasketRemove']) {
+    $controls['CtxBasketRemove'].Add_Click({
+        $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
+        if ($b) { [void]$state.BasketItems.Remove($b); Refresh-BasketUI }
+    })
+}
+if ($controls['CtxBasketCopyDN']) {
+    $controls['CtxBasketCopyDN'].Add_Click({
+        $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
+        if ($b) { [System.Windows.Clipboard]::SetText($b.DistinguishedName); Set-Status -Message "Copied DN: $($b.DistinguishedName)" }
     })
 }
 #endregion

@@ -1511,8 +1511,148 @@ function Invoke-LdapSqlQuery {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $cleanQuery = $SqlQuery.Trim() -replace '\s+', ' '
 
+    # Helper: Convert SQL WHERE string to LDAP filter
+    $convertWhereToLdap = {
+        param([string]$wherePart)
+        if (-not $wherePart) { return "(objectClass=*)" }
+        if ($wherePart.StartsWith('(')) { return $wherePart }
+
+        $conditions = $wherePart -split '(?i)\s+AND\s+'
+        $filterItems = @()
+        foreach ($cond in $conditions) {
+            $cond = $cond.Trim()
+            if ($cond -match '(?i)BITWISE_AND\((\w+),\s*(\d+)\)\s*=\s*\d+') {
+                $filterItems += "($($matches[1]):1.2.840.113556.1.4.803:=$($matches[2]))"
+            }
+            elseif ($cond -match '(?i)BITWISE_OR\((\w+),\s*(\d+)\)\s*=\s*\d+') {
+                $filterItems += "($($matches[1]):1.2.840.113556.1.4.804:=$($matches[2]))"
+            }
+            elseif ($cond -match "^(\w+)\s*=\s*'?(.*?)'?$") {
+                $filterItems += "($($matches[1])=$($matches[2]))"
+            }
+            elseif ($cond -match "^(\w+)\s*!=\s*'?(.*?)'?$") {
+                $filterItems += "(!($($matches[1])=$($matches[2])))"
+            }
+            elseif ($cond -match "^(\w+)\s+IS\s+NOT\s+NULL$") {
+                $filterItems += "($($matches[1])=*)"
+            }
+            elseif ($cond -match "^(\w+)\s+IS\s+NULL$") {
+                $filterItems += "(!($($matches[1])=*))"
+            }
+            elseif ($cond -match "^(\w+)\s+LIKE\s+'?(.*?)'?$") {
+                $pattern = $matches[2] -replace '%', '*'
+                $filterItems += "($($matches[1])=$pattern)"
+            }
+            else {
+                $filterItems += "($cond)"
+            }
+        }
+
+        if ($filterItems.Count -gt 1) {
+            return "(&" + ($filterItems -join "") + ")"
+        }
+        elseif ($filterItems.Count -eq 1) {
+            return $filterItems[0]
+        }
+        return "(objectClass=*)"
+    }
+
+    # 1. UPDATE Statement
+    if ($cleanQuery -match '(?i)^UPDATE\s+(.+?)\s+SET\s+(.+?)(?:\s+WHERE\s+(.+?))?$') {
+        $fromPart  = $matches[1].Trim().Trim("'", '"')
+        $setPart   = $matches[2].Trim()
+        $wherePart = if ($matches[3]) { $matches[3].Trim() } else { "" }
+
+        $baseDn = if ($fromPart -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $fromPart) { $DefaultSearchBase } else { $fromPart }
+        $ldapFilter = & $convertWhereToLdap $wherePart
+
+        $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @('distinguishedName') -Server $Server
+        $targets = $queryResult.Results
+
+        # Parse SET clauses (e.g. attr1='val1', attr2='val2')
+        $setPairs = @{}
+        $setClauses = $setPart -split ',\s*(?=[a-zA-Z0-9_\-]+(\s*)=)'
+        foreach ($clause in $setClauses) {
+            if ($clause -match "^\s*([a-zA-Z0-9_\-]+)\s*=\s*'?(.*?)'?\s*$") {
+                $setPairs[$matches[1]] = $matches[2]
+            }
+        }
+
+        $updatedCount = 0
+        $updateLogs = New-Object System.Collections.Generic.List[string]
+        foreach ($t in $targets) {
+            $dn = $t.DistinguishedName
+            $allOk = $true
+            foreach ($attr in $setPairs.Keys) {
+                $upd = Set-ADObjectRawAttribute -DistinguishedName $dn -AttributeName $attr -NewValue $setPairs[$attr] -Server $Server
+                if (-not $upd.Success) {
+                    $allOk = $false
+                    $updateLogs.Add("[FAIL] $dn ($attr): $($upd.Message)")
+                }
+            }
+            if ($allOk) {
+                $updatedCount++
+                $updateLogs.Add("[SUCCESS] $dn updated")
+            }
+        }
+
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success             = $true
+            Operation           = "UPDATE"
+            RowsAffected        = $updatedCount
+            Count               = $updatedCount
+            Results             = $updateLogs
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Filter              = $ldapFilter
+            SearchBase          = $baseDn
+            Message             = "UPDATE executed successfully: $updatedCount object(s) updated."
+        }
+    }
+
+    # 2. DELETE Statement
+    if ($cleanQuery -match '(?i)^DELETE\s+FROM\s+(.+?)(?:\s+WHERE\s+(.+?))?$') {
+        $fromPart  = $matches[1].Trim().Trim("'", '"')
+        $wherePart = if ($matches[2]) { $matches[2].Trim() } else { "" }
+
+        $baseDn = if ($fromPart -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $fromPart) { $DefaultSearchBase } else { $fromPart }
+        $ldapFilter = & $convertWhereToLdap $wherePart
+
+        $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @('distinguishedName') -Server $Server
+        $targets = $queryResult.Results
+
+        $deletedCount = 0
+        $deleteLogs = New-Object System.Collections.Generic.List[string]
+        foreach ($t in $targets) {
+            $dn = $t.DistinguishedName
+            try {
+                $ldapPath = if ($Server) { "LDAP://$Server/$dn" } else { "LDAP://$dn" }
+                $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+                $entry.DeleteObject(0)
+                $deletedCount++
+                $deleteLogs.Add("[SUCCESS] $dn deleted")
+            }
+            catch {
+                $deleteLogs.Add("[FAIL] $($dn): $($_.Exception.Message)")
+            }
+        }
+
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success             = $true
+            Operation           = "DELETE"
+            RowsAffected        = $deletedCount
+            Count               = $deletedCount
+            Results             = $deleteLogs
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Filter              = $ldapFilter
+            SearchBase          = $baseDn
+            Message             = "DELETE executed: $deletedCount object(s) removed."
+        }
+    }
+
+    # 3. SELECT Statement
     $selectPattern = '(?i)^SELECT\s+(.+?)\s+FROM\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?$'
-    
     if (-not ($cleanQuery -match $selectPattern)) {
         if ($cleanQuery.StartsWith('(')) {
             return Invoke-LdapQuery -Filter $cleanQuery -SearchBase $DefaultSearchBase -Server $Server
@@ -1552,45 +1692,7 @@ function Invoke-LdapSqlQuery {
         $baseDn = $fromPart
     }
 
-    $ldapFilter = "(objectClass=*)"
-    if ($wherePart) {
-        if ($wherePart.StartsWith('(')) {
-            $ldapFilter = $wherePart
-        }
-        else {
-            $conditions = $wherePart -split '(?i)\s+AND\s+'
-            $filterItems = @()
-            foreach ($cond in $conditions) {
-                if ($cond -match "^(\w+)\s*=\s*'?(.*?)'?$") {
-                    $filterItems += "($($matches[1])=$($matches[2]))"
-                }
-                elseif ($cond -match "^(\w+)\s*!=\s*'?(.*?)'?$") {
-                    $filterItems += "(!($($matches[1])=$($matches[2])))"
-                }
-                elseif ($cond -match "^(\w+)\s+IS\s+NOT\s+NULL$") {
-                    $filterItems += "($($matches[1])=*)"
-                }
-                elseif ($cond -match "^(\w+)\s+IS\s+NULL$") {
-                    $filterItems += "(!($($matches[1])=*))"
-                }
-                elseif ($cond -match "^(\w+)\s+LIKE\s+'?(.*?)'?$") {
-                    $pattern = $matches[2] -replace '%', '*'
-                    $filterItems += "($($matches[1])=$pattern)"
-                }
-                else {
-                    $filterItems += "($cond)"
-                }
-            }
-
-            if ($filterItems.Count -gt 1) {
-                $ldapFilter = "(&" + ($filterItems -join "") + ")"
-            }
-            elseif ($filterItems.Count -eq 1) {
-                $ldapFilter = $filterItems[0]
-            }
-        }
-    }
-
+    $ldapFilter = & $convertWhereToLdap $wherePart
     $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -Scope $scope -PropertiesToLoad $propsToLoad -Server $Server
 
     $finalResults = $queryResult.Results
@@ -2062,6 +2164,102 @@ function Get-ADSecurityAuditReport {
             $summary["SDProp Flag"] = "adminCount=1 (Protected by AdminSDHolder)"
         }
 
+        "PasswordExpiringSoon" {
+            $defaultMaxAgeDays = 90
+            try {
+                $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
+                $domainEntry = [System.DirectoryServices.DirectoryEntry]"LDAP://$($rootDse.defaultNamingContext)"
+                $maxPwdAgeTicks = [int64]$domainEntry.Properties['maxPwdAge'].Value
+                if ($maxPwdAgeTicks -lt 0) {
+                    $ts = [TimeSpan]::FromTicks(-$maxPwdAgeTicks)
+                    if ($ts.TotalDays -gt 0) { $defaultMaxAgeDays = [int]$ts.TotalDays }
+                }
+            } catch {}
+
+            $cutoffExpiry = (Get-Date).AddDays($Days)
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(pwdLastSet>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                $lastSetStr = ConvertFrom-ADLargeInteger -Value $r.pwdLastSet
+                $lastSetDate = $null
+                if ([DateTime]::TryParse($lastSetStr, [ref]$lastSetDate)) {
+                    $expiryDate = $lastSetDate.AddDays($defaultMaxAgeDays)
+                    $remaining = [int]($expiryDate - (Get-Date)).TotalDays
+                    if ($expiryDate -le $cutoffExpiry) {
+                        $results.Add([PSCustomObject]@{
+                            SamAccountName    = $r.sAMAccountName
+                            DisplayName       = $r.displayName
+                            Email             = $r.mail
+                            PasswordLastSet   = $lastSetDate.ToString("yyyy-MM-dd HH:mm")
+                            ExpiresOn         = $expiryDate.ToString("yyyy-MM-dd")
+                            DaysRemaining     = if ($remaining -lt 0) { "EXPIRED ($([Math]::Abs($remaining)) days ago)" } else { "$remaining days" }
+                            DistinguishedName = $r.DistinguishedName
+                        })
+                    }
+                }
+            }
+            $summary["Policy Max Age"] = "$defaultMaxAgeDays Days"
+            $summary["Accounts Expiring Soon"] = $results.Count
+            $summary["Expiring Within"] = "$Days Days"
+        }
+
+        { $_ -in "PasswordNotRequired", "PasswordNotReqd" } {
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=32))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'userAccountControl', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                $results.Add([PSCustomObject]@{
+                    SamAccountName    = $r.sAMAccountName
+                    DisplayName       = $r.displayName
+                    Email             = $r.mail
+                    UAC               = $r.userAccountControl
+                    PolicyRisk        = "Critical (PASSWD_NOTREQD set)"
+                    DistinguishedName = $r.DistinguishedName
+                })
+            }
+            $summary["Total Affected"] = $results.Count
+            $summary["Risk Rating"] = "CRITICAL (Vulnerable to blank passwords)"
+        }
+
+        "RecentlyCreated" {
+            $cutoff = (Get-Date).AddDays(-$Days)
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'whenCreated', 'department', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                if ($r.whenCreated -is [DateTime] -and $r.whenCreated -ge $cutoff) {
+                    $results.Add([PSCustomObject]@{
+                        SamAccountName    = $r.sAMAccountName
+                        DisplayName       = $r.displayName
+                        Email             = $r.mail
+                        Department        = $r.department
+                        CreatedDate       = $r.whenCreated.ToString("yyyy-MM-dd HH:mm")
+                        AgeInDays         = [int]((Get-Date) - $r.whenCreated).TotalDays
+                        DistinguishedName = $r.DistinguishedName
+                    })
+                }
+            }
+            $summary["Recently Created Users"] = $results.Count
+            $summary["Period Window"] = "Past $Days Days"
+        }
+
+        "IncompleteProfiles" {
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'department', 'telephoneNumber', 'title', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                $missing = @()
+                if (-not $r.mail) { $missing += "Email" }
+                if (-not $r.department) { $missing += "Department" }
+                if (-not $r.telephoneNumber) { $missing += "Phone" }
+                if (-not $r.title) { $missing += "Title" }
+                if ($missing.Count -gt 0) {
+                    $results.Add([PSCustomObject]@{
+                        SamAccountName    = $r.sAMAccountName
+                        DisplayName       = $r.displayName
+                        MissingFields     = $missing -join ", "
+                        MissingCount      = $missing.Count
+                        DistinguishedName = $r.DistinguishedName
+                    })
+                }
+            }
+            $summary["Incomplete Profiles"] = $results.Count
+            $summary["Criteria"] = "Active users missing Mail, Department, Phone or Title"
+        }
+
         Default {
             $users = Get-ADUsersList -FilterStatus "Disabled"
             foreach ($u in $users) {
@@ -2082,6 +2280,9 @@ function Get-ADSecurityAuditReport {
         "InactiveUsers"                                          { "Inactive User Accounts" }
         { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "Accounts with Passwords that Never Expire" }
         "PasswordExpiringSoon"                                   { "Accounts with Passwords Expiring Soon" }
+        { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "Accounts with Password Not Required (PASSWD_NOTREQD)" }
+        "RecentlyCreated"                                        { "Recently Created Active Directory Accounts" }
+        "IncompleteProfiles"                                     { "User Accounts with Incomplete Directory Profiles" }
         "PrivilegedAccounts"                                     { "Privileged and Administrative Accounts" }
         "EmptyGroups"                                            { "Empty Security and Distribution Groups" }
         "UnprotectedOUs"                                         { "Organizational Units Unprotected from Deletion" }
@@ -2096,6 +2297,9 @@ function Get-ADSecurityAuditReport {
         "InactiveUsers"                                          { "Users who have not logged in within the last $Days days." }
         { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "User accounts configured with DONT_EXPIRE_PASSWORD flag." }
         "PasswordExpiringSoon"                                   { "Accounts whose password will expire within the next $Days days." }
+        { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "High-risk accounts where blank or empty passwords are permitted by policy." }
+        "RecentlyCreated"                                        { "User accounts provisioned within the past $Days days." }
+        "IncompleteProfiles"                                     { "Active user accounts missing essential organizational attributes." }
         "PrivilegedAccounts"                                     { "Members of high-privilege built-in Active Directory security groups." }
         "EmptyGroups"                                            { "Groups containing zero members that may be candidates for cleanup." }
         "UnprotectedOUs"                                         { "Organizational Units without accidental deletion protection enabled." }
@@ -2161,6 +2365,26 @@ function Get-ADSchemaAttributes {
         [string]$Server = ""
     )
 
+    $syntaxMap = @{
+        "2.5.5.1"  = "DN / Distinguished Name"
+        "2.5.5.2"  = "OID / Object Identifier"
+        "2.5.5.3"  = "Case Exact String"
+        "2.5.5.4"  = "Case Ignore String / Teletex"
+        "2.5.5.5"  = "Printable String"
+        "2.5.5.6"  = "Numeric String"
+        "2.5.5.7"  = "DN with Binary (OR-Name)"
+        "2.5.5.8"  = "Boolean"
+        "2.5.5.9"  = "Integer"
+        "2.5.5.10" = "Octet String / Binary"
+        "2.5.5.11" = "GeneralizedTime"
+        "2.5.5.12" = "Unicode String (DirectoryString)"
+        "2.5.5.13" = "Presentation Address"
+        "2.5.5.14" = "DN with String"
+        "2.5.5.15" = "NT Security Descriptor (Binary)"
+        "2.5.5.16" = "LargeInteger / FileTime (64-bit)"
+        "2.5.5.17" = "Security Identifier (SID)"
+    }
+
     $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
     $schemaNC = $rootDse.schemaNamingContext
 
@@ -2168,10 +2392,14 @@ function Get-ADSchemaAttributes {
 
     $attrs = New-Object System.Collections.Generic.List[PSCustomObject]
     foreach ($r in $query.Results) {
+        $synOid = "$($r.attributeSyntax)"
+        $synDesc = if ($syntaxMap.ContainsKey($synOid)) { $syntaxMap[$synOid] } else { $synOid }
+
         $attrs.Add([PSCustomObject]@{
             Name              = $r.ldapDisplayName
             OID               = $r.attributeID
-            Syntax            = $r.attributeSyntax
+            Syntax            = $synOid
+            SyntaxName        = $synDesc
             IsSingleValued    = [bool]$r.isSingleValued
             InGlobalCatalog   = [bool]$r.isMemberOfPartialAttributeSet
             DistinguishedName = $r.DistinguishedName
@@ -2358,9 +2586,24 @@ function Invoke-ADBulkUpdate {
         try {
             switch ($cleanOp) {
                 "SetAttribute" {
-                    $upd = Set-ADObjectRawAttribute -DistinguishedName $dn -AttributeName $AttributeName -NewValue $NewValue -Server $Server
+                    $targetVal = $NewValue
+                    if ($targetVal -is [string] -and $targetVal -match '%(\w+)%') {
+                        try {
+                            $ldapObjPath = if ($Server) { "LDAP://$Server/$dn" } else { "LDAP://$dn" }
+                            $objEntry = New-Object System.DirectoryServices.DirectoryEntry($ldapObjPath)
+                            $targetVal = [regex]::Replace($targetVal, '%(\w+)%', {
+                                param($m)
+                                $prop = $m.Groups[1].Value
+                                if ($objEntry.Properties[$prop].Value) {
+                                    return "$($objEntry.Properties[$prop].Value)"
+                                }
+                                return ""
+                            })
+                        } catch {}
+                    }
+                    $upd = Set-ADObjectRawAttribute -DistinguishedName $dn -AttributeName $AttributeName -NewValue $targetVal -Server $Server
                     $res['Success'] = $upd.Success
-                    $res['Message'] = $upd.Message
+                    $res['Message'] = if ($targetVal -ne $NewValue) { "$($upd.Message) [Resolved: '$targetVal']" } else { $upd.Message }
                 }
                 "Enable" {
                     $entry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$dn")
@@ -2433,6 +2676,264 @@ function Invoke-ADBulkUpdate {
 }
 #endregion
 
+#region Active Directory Recycle Bin & Server Telemetry
+function Get-ADDeletedObjects {
+    [CmdletBinding()]
+    param (
+        [string]$SearchFilter = "*",
+        [int]$Limit = 300,
+        [string]$Server = ""
+    )
+
+    $results = New-Object System.Collections.Generic.List[PSCustomObject]
+
+    try {
+        if (Get-Command Get-ADObject -ErrorAction SilentlyContinue) {
+            $adParams = @{
+                Filter = "isDeleted -eq `$true"
+                IncludeDeletedObjects = $true
+                Properties = @('isDeleted', 'lastKnownParent', 'whenChanged', 'objectClass', 'sAMAccountName', 'distinguishedName', 'name')
+                ErrorAction = 'Stop'
+            }
+            if ($Server) { $adParams['Server'] = $Server }
+
+            $adObjects = Get-ADObject @adParams
+            foreach ($o in $adObjects) {
+                if ($SearchFilter -and $SearchFilter -ne "*") {
+                    $matchText = "$($o.Name) $($o.sAMAccountName) $($o.objectClass) $($o.DistinguishedName)"
+                    if ($matchText -notmatch [regex]::Escape($SearchFilter)) { continue }
+                }
+                $results.Add([PSCustomObject]@{
+                    ObjectClass       = $o.ObjectClass
+                    Name              = $o.Name
+                    SamAccountName    = if ($o.sAMAccountName) { $o.sAMAccountName } else { "" }
+                    WhenChanged       = if ($o.whenChanged -is [DateTime]) { $o.whenChanged.ToString("yyyy-MM-dd HH:mm:ss") } else { "$($o.whenChanged)" }
+                    LastKnownParent   = if ($o.lastKnownParent) { $o.lastKnownParent } else { "Unknown" }
+                    DistinguishedName = $o.DistinguishedName
+                    IsRecycled        = [bool]$o.isDeleted
+                })
+                if ($Limit -gt 0 -and $results.Count -ge $Limit) { break }
+            }
+            return @($results)
+        }
+    } catch {}
+
+    # Fallback to ADSI with Tombstone enabled
+    try {
+        $rootDse = if ($Server) {
+            New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Server/RootDSE")
+        } else {
+            New-Object System.DirectoryServices.DirectoryEntry("LDAP://RootDSE")
+        }
+        $defaultNC = $rootDse.defaultNamingContext
+        $deletedDn = "CN=Deleted Objects,$defaultNC"
+        $delEntry = if ($Server) {
+            New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Server/$deletedDn")
+        } else {
+            New-Object System.DirectoryServices.DirectoryEntry("LDAP://$deletedDn")
+        }
+
+        $searcher = New-Object System.DirectoryServices.DirectorySearcher($delEntry)
+        $searcher.Tombstone = $true
+        $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+        $searcher.PageSize = 250
+        $searcher.PropertiesToLoad.AddRange(@('name', 'sAMAccountName', 'objectClass', 'lastKnownParent', 'whenChanged', 'distinguishedName', 'isDeleted'))
+
+        if ($SearchFilter -and $SearchFilter -ne "*") {
+            $searcher.Filter = "(&(isDeleted=TRUE)(|(name=*$SearchFilter*)(sAMAccountName=*$SearchFilter*)))"
+        } else {
+            $searcher.Filter = "(isDeleted=TRUE)"
+        }
+
+        $found = $searcher.FindAll()
+        foreach ($sr in $found) {
+            $p = $sr.Properties
+            $name = if ($p['name'].Count -gt 0) { $p['name'][0] } else { "" }
+            $sam = if ($p['samaccountname'].Count -gt 0) { $p['samaccountname'][0] } else { "" }
+            $cls = if ($p['objectclass'].Count -gt 0) { $p['objectclass'][$p['objectclass'].Count - 1] } else { "" }
+            $lkp = if ($p['lastknownparent'].Count -gt 0) { $p['lastknownparent'][0] } else { "" }
+            $wc = if ($p['whenchanged'].Count -gt 0) { 
+                $dtVal = $p['whenchanged'][0]
+                if ($dtVal -is [DateTime]) { $dtVal.ToString("yyyy-MM-dd HH:mm:ss") } else { "$dtVal" }
+            } else { "" }
+            $dn = if ($p['distinguishedname'].Count -gt 0) { $p['distinguishedname'][0] } else { $sr.Path -replace '^LDAP://[^/]+/', '' }
+
+            $results.Add([PSCustomObject]@{
+                ObjectClass       = $cls
+                Name              = $name
+                SamAccountName    = $sam
+                WhenChanged       = $wc
+                LastKnownParent   = if ($lkp) { $lkp } else { "Unknown" }
+                DistinguishedName = $dn
+                IsRecycled        = $true
+            })
+            if ($Limit -gt 0 -and $results.Count -ge $Limit) { break }
+        }
+    } catch {
+        Write-Warning "Failed to query AD Recycle Bin / Deleted Objects: $_"
+    }
+
+    return @($results)
+}
+
+function Restore-ADDeletedObject {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Identity,
+        [string]$TargetOU = "",
+        [string]$Server = ""
+    )
+
+    try {
+        if (Get-Command Restore-ADObject -ErrorAction SilentlyContinue) {
+            $params = @{
+                Identity    = $Identity
+                ErrorAction = 'Stop'
+            }
+            if ($Server) { $params['Server'] = $Server }
+            if ($TargetOU) { $params['TargetPath'] = $TargetOU }
+
+            Restore-ADObject @params
+            return [PSCustomObject]@{
+                Success = $true
+                Message = "Object successfully restored from Active Directory Recycle Bin."
+            }
+        }
+    } catch {
+        return [PSCustomObject]@{
+            Success = $false
+            Message = "Restore failed via RSAT: $($_.Exception.Message)"
+        }
+    }
+
+    # ADSI fallback
+    try {
+        $ldapPath = if ($Server) { "LDAP://$Server/$Identity" } else { "LDAP://$Identity" }
+        $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+        
+        $destOU = $TargetOU
+        if (-not $destOU) {
+            $destOU = "$($entry.Properties['lastKnownParent'].Value)"
+        }
+        if (-not $destOU) {
+            return [PSCustomObject]@{
+                Success = $false
+                Message = "Cannot determine target container. Please specify TargetOU."
+            }
+        }
+
+        # Clean RDN from 0x0ADEL:guid
+        $currentName = "$($entry.Properties['name'].Value)"
+        $cleanName = ($currentName -replace '(?i)\x0ADEL:.*$', '') -replace '(?i)\nDEL:.*$', ''
+        if (-not $cleanName) { $cleanName = $currentName }
+
+        $parentPath = if ($Server) { "LDAP://$Server/$destOU" } else { "LDAP://$destOU" }
+        $targetParent = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
+        
+        $entry.MoveTo($targetParent, "CN=$cleanName")
+        return [PSCustomObject]@{
+            Success = $true
+            Message = "Object reanimated and moved to $destOU."
+        }
+    } catch {
+        return [PSCustomObject]@{
+            Success = $false
+            Message = "ADSI reanimation failed: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Get-ADServerTelemetry {
+    [CmdletBinding()]
+    param (
+        [string]$Server = ""
+    )
+
+    $dsePath = if ($Server) { "LDAP://$Server/RootDSE" } else { "LDAP://RootDSE" }
+    $entry = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
+
+    $rfcControlsMap = @{
+        "1.2.840.113556.1.4.319"  = "LDAP_PAGED_RESULT_OID_STRING (RFC 2696 - Paged Results)"
+        "1.2.840.113556.1.4.473"  = "LDAP_SERVER_RESP_SORT_OID (RFC 2891 - Server-Side Sort)"
+        "1.2.840.113556.1.4.474"  = "LDAP_SERVER_SORT_OID (RFC 2891 - Sort Request)"
+        "1.2.840.113556.1.4.417"  = "LDAP_SERVER_SHOW_DELETED_OID (Show Deleted Objects / Tombstones)"
+        "1.2.840.113556.1.4.2064" = "LDAP_SERVER_SHOW_RECYCLED_OID (Show Recycled Objects in Bin)"
+        "1.2.840.113556.1.4.2065" = "LDAP_SERVER_DONT_ENFORCE_LIMITS_OID (Bypass Search Limits)"
+        "2.16.840.1.113730.3.4.9"  = "LDAP_CONTROL_VLVREQUEST (RFC 2891 - Virtual List View)"
+        "1.2.840.113556.1.4.1413" = "LDAP_SERVER_PERMISSIVE_MODIFY_OID (Permissive Modify)"
+        "1.2.840.113556.1.4.841"  = "LDAP_SERVER_DIRSYNC_OID (Directory Synchronization / Incremental)"
+        "1.2.840.113556.1.4.529"  = "LDAP_SERVER_EXTENDED_DN_OID (Extended GUID/SID DN)"
+        "1.2.840.113556.1.4.801"  = "LDAP_SERVER_SD_FLAGS_OID (Security Descriptor Flags)"
+        "1.2.840.113556.1.4.1338" = "LDAP_SERVER_VERIFY_NAME_OID (Cross-Domain Name Verification)"
+        "1.2.840.113556.1.4.1339" = "LDAP_SERVER_DOMAIN_SCOPE_OID (Disable Referral Generation)"
+        "1.2.840.113556.1.4.1340" = "LDAP_SERVER_SEARCH_OPTIONS_OID (Phantoms & Tombstone Flags)"
+    }
+
+    $funcLevelMap = @{
+        0 = "Windows 2000"
+        1 = "Windows Server 2003 Mixed"
+        2 = "Windows Server 2003"
+        3 = "Windows Server 2008"
+        4 = "Windows Server 2008 R2"
+        5 = "Windows Server 2012"
+        6 = "Windows Server 2012 R2"
+        7 = "Windows Server 2016 / 2019 / 2022 / 2025"
+    }
+
+    $dnsHost = "$($entry.Properties['dnsHostName'].Value)"
+    $serviceName = "$($entry.Properties['ldapServiceName'].Value)"
+    $isGC = "$($entry.Properties['isGlobalCatalogReady'].Value)"
+    $dfLevel = $entry.Properties['domainControllerFunctionality'].Value
+    $ffLevel = $entry.Properties['forestFunctionality'].Value
+
+    $domainLevelStr = if ($funcLevelMap.ContainsKey([int]$dfLevel)) { $funcLevelMap[[int]$dfLevel] } else { "Level $dfLevel" }
+    $forestLevelStr = if ($funcLevelMap.ContainsKey([int]$ffLevel)) { $funcLevelMap[[int]$ffLevel] } else { "Level $ffLevel" }
+
+    # Server Time & Skew
+    $serverTimeStr = "$($entry.Properties['currentTime'].Value)"
+    $localUtc = [DateTime]::UtcNow
+    $skewMs = 0
+    $parsedServerUtc = $null
+
+    if ($serverTimeStr -match '^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})') {
+        $yr = [int]$matches[1]; $mo = [int]$matches[2]; $dy = [int]$matches[3]
+        $hr = [int]$matches[4]; $mn = [int]$matches[5]; $sc = [int]$matches[6]
+        $parsedServerUtc = New-Object DateTime($yr, $mo, $dy, $hr, $mn, $sc, [DateTimeKind]::Utc)
+        $skewMs = [int]($localUtc - $parsedServerUtc).TotalMilliseconds
+    }
+
+    $namingContexts = @($entry.Properties['namingContexts'])
+    $saslMechanisms = @($entry.Properties['supportedSASLMechanisms'])
+    $supportedControlsRaw = @($entry.Properties['supportedControl'])
+
+    $annotatedControls = New-Object System.Collections.Generic.List[string]
+    foreach ($ctrl in $supportedControlsRaw) {
+        $oid = "$ctrl".Trim()
+        if ($rfcControlsMap.ContainsKey($oid)) {
+            $annotatedControls.Add("$oid - $($rfcControlsMap[$oid])")
+        } else {
+            $annotatedControls.Add("$oid")
+        }
+    }
+
+    return [PSCustomObject]@{
+        DnsHostName             = $dnsHost
+        LdapServiceName         = $serviceName
+        DomainFunctionalLevel   = $domainLevelStr
+        ForestFunctionalLevel   = $forestLevelStr
+        IsGlobalCatalog         = if ($isGC -eq "TRUE") { "Yes (GC Operational)" } else { "No / Standard DC" }
+        ServerTimeUtc           = if ($parsedServerUtc) { $parsedServerUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") } else { $serverTimeStr }
+        LocalTimeUtc            = $localUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")
+        TimeSkewMs              = $skewMs
+        NamingContexts          = $namingContexts
+        SupportedSASLMechanisms = $saslMechanisms
+        SupportedControls       = @($annotatedControls)
+        DefaultNamingContext    = "$($entry.Properties['defaultNamingContext'].Value)"
+    }
+}
+#endregion
+
 Export-ModuleMember -Function `
     Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
@@ -2444,5 +2945,7 @@ Export-ModuleMember -Function `
     Invoke-LdapQuery, Get-ADObjectRawAttributes, Set-ADObjectRawAttribute, Add-ADObjectRawAttributeValue, `
     Remove-ADObjectRawAttributeValue, Clear-ADObjectRawAttribute, Invoke-LdapSqlQuery, Invoke-LdifImport, `
     Compare-ADObjects, Get-ADSecurityAuditReport, Get-ADSchemaClasses, Get-ADSchemaAttributes, `
-    Get-ADComputersList, Test-ADConnectionDiagnostic, Invoke-ADBulkUpdate
+    Get-ADComputersList, Test-ADConnectionDiagnostic, Invoke-ADBulkUpdate, `
+    Get-ADDeletedObjects, Restore-ADDeletedObject, Get-ADServerTelemetry
+
 

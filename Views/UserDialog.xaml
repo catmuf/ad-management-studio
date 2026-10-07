@@ -227,10 +227,26 @@
 
         <!-- Header -->
         <Border Grid.Row="0" Margin="0,0,0,16" Padding="0,0,0,10" BorderBrush="#2D313F" BorderThickness="0,0,0,1">
-            <StackPanel>
-                <TextBlock Name="TxtDialogTitle" Text="Create New Active Directory User" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
-                <TextBlock Name="TxtDialogSubtitle" Text="Enter account information, organizational details, and security policies." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Name="TxtDialogTitle" Text="Create New Active Directory User" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Name="TxtDialogSubtitle" Text="Enter account information, organizational details, and security policies." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="📋 Template Blueprint:" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                    <ComboBox Name="CmbUserTemplate" Width="180" Height="30" Background="#1A1C23" Foreground="#FFFFFF" BorderBrush="#373B4D">
+                        <ComboBoxItem Content="Custom / Blank" IsSelected="True"/>
+                        <ComboBoxItem Content="Standard Employee"/>
+                        <ComboBoxItem Content="Contractor (Expires 90d)"/>
+                        <ComboBoxItem Content="Domain Admin Template"/>
+                        <ComboBoxItem Content="Service Account (No Expire)"/>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Tabs Content -->

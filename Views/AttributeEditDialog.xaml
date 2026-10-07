@@ -304,6 +304,119 @@
                     <Button Name="BtnClearBinary" Style="{StaticResource DangerButton}" Content="🗑️ Clear Data"/>
                 </StackPanel>
             </Grid>
+
+            <!-- Mode 7: Date and Time Editor (FileTime / GeneralizedTime) -->
+            <Grid Name="ModeDateTimeEditor" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="LDAP Date &amp; Time Editor (Timestamp Converter):" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                <Border Grid.Row="1" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Target Date / Time:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <DatePicker Grid.Column="1" Name="PickerDate" Background="#2B2F3E" Foreground="#FFFFFF" BorderBrush="#373B4D" Padding="6,4"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Time (HH:mm:ss):" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <TextBox Grid.Column="1" Name="TxtDateTimePart" Style="{StaticResource ModernTextBox}" Text="00:00:00"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Timezone Mode:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <RadioButton Name="RadTimeUtc" Content="UTC" Foreground="#FFFFFF" IsChecked="True" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                <RadioButton Name="RadTimeLocal" Content="Local Machine Time" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Background="#161821" BorderBrush="#2D313F" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,6,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Windows FileTime:" Foreground="#9CA3AF" Margin="0,2"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Name="TxtConvertedFileTime" Text="--" Foreground="#60A5FA" FontFamily="Consolas" Margin="0,2"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="GeneralizedTime (LDAP):" Foreground="#9CA3AF" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Name="TxtConvertedGeneralized" Text="--" Foreground="#60A5FA" FontFamily="Consolas" Margin="0,2"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Name="BtnDateSetNow" Style="{StaticResource ModernButton}" Content="⏱️ Current Date &amp; Time" Margin="0,0,8,0"/>
+                    <Button Name="BtnDateSetNever" Style="{StaticResource ModernButton}" Content="∞ Never / Infinite (0)" Margin="0,0,8,0"/>
+                    <Button Name="BtnDateClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Timestamp"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Mode 8: Password Hash Generator (userPassword / OpenLDAP / Directory hashes) -->
+            <Grid Name="ModePasswordHashEditor" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="LDAP Password Hash Generator (RFC 2307 userPassword):" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                <Border Grid.Row="1" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Plain Text Password:" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <TextBox Name="TxtHashPlainPassword" Style="{StaticResource ModernTextBox}" Margin="0,0,0,14"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Hash Scheme:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <ComboBox Grid.Column="1" Name="CmbHashAlgorithm" Height="34" Background="#2B2F3E" Foreground="#FFFFFF" BorderBrush="#373B4D" Padding="8,4">
+                                <ComboBoxItem Content="{}{SSHA} Salted SHA-1 (Recommended for RFC 2307)" IsSelected="True"/>
+                                <ComboBoxItem Content="{}{SHA256} SHA-256"/>
+                                <ComboBoxItem Content="{}{SHA512} SHA-512"/>
+                                <ComboBoxItem Content="{}{SHA} Standard SHA-1"/>
+                                <ComboBoxItem Content="{}{MD5} MD5"/>
+                                <ComboBoxItem Content="{}{CLEARTEXT} Plain Text"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <TextBlock Text="Calculated LDAP Hash (userPassword syntax):" FontWeight="SemiBold" Margin="0,6,0,6"/>
+                        <TextBox Name="TxtGeneratedHashOutput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,0,0,6"/>
+                        <TextBlock Text="Format: {SCHEME}base64-encoded-hash" FontSize="11" Foreground="#9CA3AF"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Name="BtnCalculateHash" Style="{StaticResource PrimaryButton}" Content="⚡ Generate Hash" Margin="0,0,8,0"/>
+                    <Button Name="BtnClearHash" Style="{StaticResource DangerButton}" Content="🗑️ Clear userPassword"/>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- Footer / Actions -->

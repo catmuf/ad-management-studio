@@ -385,6 +385,67 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Modern ContextMenu Styles (Softerra & Apache Studio Parity) -->
+        <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#181A22"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,4"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernMenuItem" TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border Name="itemBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}" Margin="2,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="22"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="#6B7280" FontSize="11" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="itemBorder" Property="Background" Value="#252936"/>
+                                <Setter Property="Foreground" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#4B5563"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernMenuSeparator" TargetType="Separator">
+            <Setter Property="Background" Value="#2F3446"/>
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="4,3"/>
+        </Style>
     </Window.Resources>
 
     <Grid Background="#14161C">
@@ -398,7 +459,7 @@
         <Border Grid.Row="0" Background="#111319" BorderBrush="#252936" BorderThickness="0,0,0,1" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/> <!-- Logo & Profiles -->
+                    <ColumnDefinition Width="Auto"/> <!-- Logo, Profiles & Bookmarks -->
                     <ColumnDefinition Width="*"/>    <!-- Live Connection Telemetry -->
                     <ColumnDefinition Width="Auto"/> <!-- Quick Actions -->
                 </Grid.ColumnDefinitions>
@@ -413,9 +474,15 @@
                         <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="10" Foreground="#60A5FA"/>
                     </StackPanel>
 
-                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" MinWidth="160" MaxWidth="240" Height="28" FontSize="11" Margin="0,0,12,0" ToolTip="Active Directory Connection Profile / Domain Controller">
+                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" MinWidth="150" MaxWidth="220" Height="28" FontSize="11" Margin="0,0,8,0" ToolTip="Active Directory Connection Profile / Domain Controller">
                         <ComboBoxItem Content="Default (Auto-Detect)" IsSelected="True"/>
                     </ComboBox>
+
+                    <!-- Bookmarks / Favorites Dropdown (Apache Studio & Softerra Favorites Parity) -->
+                    <ComboBox Name="CmbBookmarks" Style="{StaticResource ModernComboBox}" MinWidth="130" MaxWidth="190" Height="28" FontSize="11" Margin="0,0,4,0" ToolTip="Directory Favorites &amp; Bookmarks">
+                        <ComboBoxItem Content="⭐ Favorites..." IsSelected="True"/>
+                    </ComboBox>
+                    <Button Name="BtnAddBookmark" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="⭐" Margin="0,0,10,0" ToolTip="Bookmark Current Selection (Ctrl+D)"/>
                 </StackPanel>
 
                 <!-- Center: Connection Telemetry Badge -->
@@ -427,6 +494,11 @@
                         <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="#9CA3AF" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text=" | " FontSize="12" Foreground="#6B7280"/>
                         <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+
+                        <!-- Read-Only Profile Mode Badge (Softerra Parity) -->
+                        <Border Name="BorderReadOnlyBadge" Background="#D97706" CornerRadius="10" Padding="8,1" Margin="8,0,0,0" Visibility="Collapsed" ToolTip="Directory modifications are locked for this server profile">
+                            <TextBlock Text="🔒 READ-ONLY" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -490,6 +562,12 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="💻" Margin="0,0,8,0"/>
                                 <TextBlock Text="Computers"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavRecycleBin" Style="{StaticResource NavTabButton}" ToolTip="View and restore deleted directory objects (Tombstone Reanimation)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="♻️" Margin="0,0,8,0"/>
+                                <TextBlock Text="AD Recycle Bin"/>
                             </StackPanel>
                         </RadioButton>
 
@@ -562,6 +640,12 @@
                         <Separator Background="#252936" Margin="12,8"/>
                         <TextBlock Text="SYSTEM" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="14,4,14,4"/>
 
+                        <RadioButton Name="NavServerMonitor" Style="{StaticResource NavTabButton}" ToolTip="RootDSE metadata, active connections &amp; server telemetry">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🖥️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Server Monitor"/>
+                            </StackPanel>
+                        </RadioButton>
                         <RadioButton Name="NavConnections" Style="{StaticResource NavTabButton}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="🌐" Margin="0,0,8,0"/>
@@ -794,8 +878,27 @@
                         <Button Name="BtnUserResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Users table columns to default"/>
                     </WrapPanel>
 
-                    <!-- DataGrid -->
+                    <!-- DataGrid with ContextMenu -->
                     <DataGrid Grid.Row="2" Name="GridUsers" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxUserEdit" Style="{StaticResource ModernMenuItem}" Header="✏️ Edit User Properties..."/>
+                                <MenuItem Name="CtxUserResetPwd" Style="{StaticResource ModernMenuItem}" Header="🔑 Reset Password..."/>
+                                <MenuItem Name="CtxUserUnlock" Style="{StaticResource ModernMenuItem}" Header="🔓 Unlock Account"/>
+                                <MenuItem Name="CtxUserToggleStatus" Style="{StaticResource ModernMenuItem}" Header="⚡ Toggle Enable / Disable"/>
+                                <MenuItem Name="CtxUserMoveOU" Style="{StaticResource ModernMenuItem}" Header="📂 Move to Another OU..."/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxUserCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxUserCopySam" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Username (sAMAccountName)"/>
+                                <MenuItem Name="CtxUserCopyUrl" Style="{StaticResource ModernMenuItem}" Header="🌐 Copy LDAP URL"/>
+                                <MenuItem Name="CtxUserCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxUserAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxUserInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxUserCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                                <MenuItem Name="CtxUserViewDetails" Style="{StaticResource ModernMenuItem}" Header="👁️ View Details &amp; Groups"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
                             <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="160"/>
@@ -857,6 +960,21 @@
                     </WrapPanel>
 
                     <DataGrid Grid.Row="2" Name="GridGroups" Style="{StaticResource ModernDataGrid}" ToolTip="Double-click a group to manage its members">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxGroupManageMembers" Style="{StaticResource ModernMenuItem}" Header="👥 Manage Members &amp; Rosters..."/>
+                                <MenuItem Name="CtxGroupMoveOU" Style="{StaticResource ModernMenuItem}" Header="📂 Move to Another OU..."/>
+                                <MenuItem Name="CtxGroupDelete" Style="{StaticResource ModernMenuItem}" Header="🗑️ Delete Group"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxGroupCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxGroupCopyUrl" Style="{StaticResource ModernMenuItem}" Header="🌐 Copy LDAP URL"/>
+                                <MenuItem Name="CtxGroupCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxGroupAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxGroupInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxGroupCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Group Name" Binding="{Binding Name}" Width="200"/>
                             <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="160"/>
@@ -886,6 +1004,16 @@
 
                             <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Margin="0,0,0,8"/>
                             <TreeView Grid.Row="1" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF">
+                                <TreeView.ContextMenu>
+                                    <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                        <MenuItem Name="CtxOUTreeNewOU" Style="{StaticResource ModernMenuItem}" Header="📁 New Child Organizational Unit..."/>
+                                        <MenuItem Name="CtxOUTreeDeleteOU" Style="{StaticResource ModernMenuItem}" Header="🗑️ Delete OU..."/>
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                        <MenuItem Name="CtxOUTreeCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                        <MenuItem Name="CtxOUTreeInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect in Attribute Editor"/>
+                                        <MenuItem Name="CtxOUTreeBookmark" Style="{StaticResource ModernMenuItem}" Header="⭐ Bookmark this OU"/>
+                                    </ContextMenu>
+                                </TreeView.ContextMenu>
                                 <TreeView.ItemContainerStyle>
                                     <Style TargetType="TreeViewItem">
                                         <Setter Property="Foreground" Value="#E5E7EB"/>
@@ -955,8 +1083,21 @@
                                 <Button Name="BtnOUResetColumns" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset OU Objects table columns to default"/>
                             </WrapPanel>
 
-                            <!-- Contained Objects DataGrid -->
+                            <!-- Contained Objects DataGrid with ContextMenu -->
                             <DataGrid Grid.Row="2" Name="GridOUObjects" Style="{StaticResource ModernDataGrid}">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                        <MenuItem Name="CtxOUObjInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                        <MenuItem Name="CtxOUObjAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                        <MenuItem Name="CtxOUObjMoveOU" Style="{StaticResource ModernMenuItem}" Header="📂 Move Object..."/>
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                        <MenuItem Name="CtxOUObjCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                        <MenuItem Name="CtxOUObjCopyUrl" Style="{StaticResource ModernMenuItem}" Header="🌐 Copy LDAP URL"/>
+                                        <MenuItem Name="CtxOUObjCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                        <MenuItem Name="CtxOUObjCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Type" Binding="{Binding ObjectClass}" Width="80"/>
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180"/>
@@ -1003,6 +1144,20 @@
                     </WrapPanel>
 
                     <DataGrid Grid.Row="2" Name="GridComputers" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxCompRdp" Style="{StaticResource ModernMenuItem}" Header="💻 Remote Desktop (mstsc.exe)"/>
+                                <MenuItem Name="CtxCompPing" Style="{StaticResource ModernMenuItem}" Header="📡 Ping Host (Test Connectivity)"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxCompCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxCompCopyName" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Computer Name"/>
+                                <MenuItem Name="CtxCompCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxCompAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxCompInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxCompCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Computer Name" Binding="{Binding Name}" Width="150"/>
                             <DataGridTextColumn Header="DNS Hostname" Binding="{Binding DNSHostName}" Width="190"/>
@@ -1153,8 +1308,21 @@
                         </WrapPanel>
                     </Border>
 
-                    <!-- Results DataGrid -->
+                    <!-- Results DataGrid with ContextMenu -->
                     <DataGrid Grid.Row="2" Name="GridSearchResults" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxSearchInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxSearchAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxSearchCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxSearchCopySam" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Username / RDN"/>
+                                <MenuItem Name="CtxSearchCopyUrl" Style="{StaticResource ModernMenuItem}" Header="🌐 Copy LDAP URL"/>
+                                <MenuItem Name="CtxSearchCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxSearchCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Class" Binding="{Binding ObjectClass}" Width="90"/>
                             <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="150"/>
@@ -1511,8 +1679,18 @@
                         <Button Name="BtnBasketClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Basket" Margin="0,0,6,6" ToolTip="Empty all objects from the basket"/>
                     </WrapPanel>
 
-                    <!-- Basket DataGrid -->
+                    <!-- Basket DataGrid with ContextMenu -->
                     <DataGrid Grid.Row="2" Name="GridBasket" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxBasketInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxBasketCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                                <MenuItem Name="CtxBasketRemove" Style="{StaticResource ModernMenuItem}" Header="✖ Remove from Basket"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxBasketCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxBasketCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Type" Binding="{Binding Class}" Width="90"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180"/>
@@ -1744,6 +1922,185 @@
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
+                </Grid>
+
+                <!-- 16. AD RECYCLE BIN & TOMBSTONE MANAGER (SOFTERRA CH08S14 PARITY) -->
+                <Grid Name="PanelRecycleBin" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="Auto"/> <!-- Actions Ribbon -->
+                        <RowDefinition Height="*"/>    <!-- DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="♻️ Active Directory Recycle Bin &amp; Tombstone Manager" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="View and reanimate accidentally deleted Active Directory users, groups, and computers from the CN=Deleted Objects container." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="12,6" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Deleted Objects: " FontSize="12" Foreground="#9CA3AF" FontWeight="Bold"/>
+                                    <TextBlock Name="TxtRecycleBinCountBadge" Text="0 objects" FontSize="12" Foreground="#F59E0B" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Actions & Search Bar -->
+                    <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Grid Width="260" Margin="0,0,8,6">
+                            <TextBox Name="TxtSearchRecycleBin" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5"/>
+                            <TextBlock Name="TxtSearchRecycleBinPlaceholder" Text="🔍 Search deleted objects..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                        </Grid>
+                        <Button Name="BtnRefreshRecycleBin" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Refresh" Margin="0,0,6,6"/>
+                        <Button Name="BtnQuickRestore" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Quick Restore (Original OU)" Margin="0,0,6,6" ToolTip="Restore deleted object back to its last known parent OU"/>
+                        <Button Name="BtnRestoreToOU" Style="{StaticResource ModernButton}" Height="30" Content="📂 Restore To Custom OU..." Margin="0,0,6,6" ToolTip="Select a destination Organizational Unit for the restored object"/>
+                        <Button Name="BtnRecycleInspectAttr" Style="{StaticResource ModernButton}" Height="30" Content="🏷️ Inspect Attributes" Margin="0,0,6,6"/>
+                        <Button Name="BtnExportRecycleBin" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export CSV" Margin="0,0,6,6"/>
+                    </WrapPanel>
+
+                    <!-- Deleted Objects DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridRecycleBin" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                <MenuItem Name="CtxRecycleQuickRestore" Style="{StaticResource ModernMenuItem}" Header="⚡ Quick Restore (Original OU)"/>
+                                <MenuItem Name="CtxRecycleRestoreToOU" Style="{StaticResource ModernMenuItem}" Header="📂 Restore To Custom OU..."/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxRecycleInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
+                                <MenuItem Name="CtxRecycleCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
+                                <MenuItem Name="CtxRecycleCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Class" Binding="{Binding ObjectClass}" Width="90"/>
+                            <DataGridTextColumn Header="Object Name" Binding="{Binding Name}" Width="180"/>
+                            <DataGridTextColumn Header="SamAccountName" Binding="{Binding SamAccountName}" Width="150"/>
+                            <DataGridTextColumn Header="Deletion Timestamp" Binding="{Binding WhenChanged}" Width="150"/>
+                            <DataGridTextColumn Header="Last Known Parent" Binding="{Binding LastKnownParent}" Width="220"/>
+                            <DataGridTextColumn Header="Tombstone DN" Binding="{Binding DistinguishedName}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 17. SERVER MONITOR & ROOTDSE TELEMETRY (SOFTERRA CH06S04 PARITY) -->
+                <Grid Name="PanelServerMonitor" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="*"/>    <!-- Telemetry Cards -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🖥️ LDAP Server Monitor &amp; RootDSE Telemetry" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Real-time directory controller capabilities, supported LDAP RFC controls, functional levels, naming contexts, and time skew diagnostics." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Name="BtnRefreshServerMonitor" Style="{StaticResource PrimaryButton}" Height="30" Content="🔄 Refresh Telemetry" Margin="0,0,6,0"/>
+                                <Button Name="BtnExportServerMonitor" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export Specs"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="0,0,8,16">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Card 1: Domain Controller & OS Specs -->
+                            <Border Grid.Row="0" Grid.Column="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,8,12">
+                                <StackPanel>
+                                    <TextBlock Text="Domain Controller &amp; Functional Level" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Host Name (DNS):" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonDnsHost" Text="Detecting..." HorizontalAlignment="Right" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="LDAP Service Name:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonServiceName" Text="Detecting..." HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Domain Functional Level:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonDomainLevel" Text="Detecting..." HorizontalAlignment="Right" Foreground="#10B981" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Forest Functional Level:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonForestLevel" Text="Detecting..." HorizontalAlignment="Right" Foreground="#10B981" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="Global Catalog Server:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonIsGC" Text="Yes (Port 3268/3269)" HorizontalAlignment="Right" Foreground="#FFFFFF"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 2: Clock Skew & Kerberos Time Sync -->
+                            <Border Grid.Row="0" Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="8,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Kerberos Clock Synchronization &amp; Time Skew" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Server Current Time:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonServerTime" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Workstation Local Time:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonLocalTime" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Calculated Time Skew:" Foreground="#9CA3AF"/>
+                                        <TextBlock Name="TxtMonTimeSkew" Text="-- ms" HorizontalAlignment="Right" Foreground="#38BDF8" FontWeight="Bold"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="Kerberos Max Tolerance:" Foreground="#9CA3AF"/>
+                                        <TextBlock Text="300 seconds (5 min)" HorizontalAlignment="Right" Foreground="#6B7280"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 3: Directory Partitions & Naming Contexts -->
+                            <Border Grid.Row="1" Grid.Column="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,8,12">
+                                <StackPanel>
+                                    <TextBlock Text="Active Directory Naming Contexts" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,10"/>
+                                    <TextBlock Text="All active directory partitions hosted on this Domain Controller:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,8"/>
+                                    <TextBox Name="TxtMonNamingContexts" Style="{StaticResource ModernTextBox}" Height="120" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 4: Supported Authentication / SASL -->
+                            <Border Grid.Row="1" Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="8,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Supported SASL Authentication Mechanisms" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,10"/>
+                                    <TextBlock Text="Security binding mechanisms advertised by RootDSE:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,8"/>
+                                    <TextBox Name="TxtMonSaslMechanisms" Style="{StaticResource ModernTextBox}" Height="120" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 5: Supported LDAP Controls (RFC) -->
+                            <Border Grid.Row="2" Grid.ColumnSpan="2" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Supported LDAP Controls &amp; Capabilities (RFC Standard OIDs)" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,10"/>
+                                    <TextBlock Text="Directory controls supported by this directory server (Paged Results, Server-Side Sort, Show Deleted, VLV, Permissive Modify):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,8"/>
+                                    <TextBox Name="TxtMonSupportedControls" Style="{StaticResource ModernTextBox}" Height="100" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </ScrollViewer>
                 </Grid>
 
             </Grid>
