@@ -58,6 +58,14 @@ function Get-AppSettings {
             [PSCustomObject]@{ Name = "Computer Management"; Command = "mmc.exe"; Arguments = "compmgmt.msc /computer=%dNSHostName%" },
             [PSCustomObject]@{ Name = "Event Viewer"; Command = "mmc.exe"; Arguments = "eventvwr.msc %dNSHostName%" }
         )
+        CustomReports = @(
+            [PSCustomObject]@{
+                Name        = "Active Administrators"
+                Description = "All enabled administrative accounts in the domain"
+                Filter      = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(adminCount=1))"
+                ObjectClass = "User"
+            }
+        )
     }
 
     if (Test-Path $ConfigPath) {
@@ -65,6 +73,9 @@ function Get-AppSettings {
             $jsonContent = Get-Content -Path $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
             if (-not $jsonContent.ExternalTools) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "ExternalTools" -Value $defaultConfig.ExternalTools -Force
+            }
+            if (-not $jsonContent.CustomReports) {
+                $jsonContent | Add-Member -MemberType NoteProperty -Name "CustomReports" -Value $defaultConfig.CustomReports -Force
             }
             return $jsonContent
         }

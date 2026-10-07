@@ -169,3 +169,103 @@ All 11 XAML interface files verified via `[xml]`:
 | `ConnectionDialog.xaml` | Valid XML | **PASS** |
 | `AttributeEditDialog.xaml` | Valid XML | **PASS** |
 | `ColumnChooserDialog.xaml` | Valid XML | **PASS** |
+
+---
+
+## 3. Softerra Screenshots Gallery Benchmark Parity (Phase 2)
+
+Based on a systematic audit of the [Softerra LDAP Administrator Screenshots Gallery](https://www.ldapadministrator.com/info/screenshots.htm) across all 20 functional screenshot sections, the following five major capabilities were implemented and validated:
+
+### A. Global Quick Search Omnibar (Header)
+* **Competitor Benchmark**: Screenshot 08 (`08_QuickSearch.png`).
+* **Implementation**:
+  - Implemented `Find-ADObjectsQuickSearch` in [Modules/ADService.psm1](./Modules/ADService.psm1): performs rapid multi-attribute lookup (`sAMAccountName`, `displayName`, `mail`, `name`, `ou`) across Users, Groups, Computers, and OUs.
+  - Added `TxtGlobalSearch`, `PopupGlobalSearch`, `ListGlobalSearchResults`, and `TxtGlobalSearchStatus` in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
+  - Wired in [main.ps1](./main.ps1) with real-time popup suggestions on `>= 2` keystrokes and automatic navigation jumping to the corresponding tab (Users, Groups, Computers, OUs, or Attribute Editor) upon selection.
+
+### B. Object RDN Rename & Extended Clipboard Actions
+* **Competitor Benchmark**: Screenshot 01 (`01_DirectoryBrowsing.png`).
+* **Implementation**:
+  - Implemented `Rename-ADDirectoryObject` in [Modules/ADService.psm1](./Modules/ADService.psm1): supports native RSAT `Rename-ADObject` and ADSI fallback with new DN calculation.
+  - Added `Show-RenameDialog` modal and `Handle-ObjectRename` helper in [main.ps1](./main.ps1).
+  - Added context menu items (`Ctx*Rename` / F2 key shortcut, `Ctx*CopyRdn`, `Ctx*CopyCanonical`) across `GridUsers`, `GridGroups`, `GridOUObjects`, `GridComputers`, and `TreeOUs`.
+  - Implemented `Get-ObjectRDN` and `Get-ObjectCanonicalName` parsing DN hierarchy into canonical paths (e.g. `domain.com/OU1/OU2/Object`).
+
+### C. LDIF Document Record Outline Pane
+* **Competitor Benchmark**: Screenshot 26 (`26_LDIFEditor.png`).
+* **Implementation**:
+  - Upgraded `PanelLdifStudio` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) into a 2-column layout with a left outline sidebar (`ListLdifRecords`), search filter (`TxtFilterLdifRecords`), and grid splitter.
+  - Implemented `Update-LdifOutline` in [main.ps1](./main.ps1): parses RFC 2849 `dn:` and `changetype:` directives in real time.
+  - Clicking any entry in the outline immediately scrolls and focuses `TxtLdifEditor` to the exact line of that record.
+
+### D. Enhanced Schema Viewer with Class Hierarchy & Must/May Attributes
+* **Competitor Benchmark**: Screenshot 12 (`12_SchemaViewer.png`).
+* **Implementation**:
+  - Implemented `Get-ADSchemaClassDetail` in [Modules/ADService.psm1](./Modules/ADService.psm1): queries Schema NC for `governsID` OID, `objectClassCategory` (Structural, Abstract, Auxiliary), `subClassOf`, `mustContain`, `systemMustContain`, `mayContain`, and `systemMayContain`.
+  - Upgraded `PanelSchemaBrowser` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) into a 2-column view with a dedicated Schema Class Inspector card (`TxtSchemaDetailName`, `TxtSchemaDetailOID`, `TxtSchemaDetailCategory`, `TxtSchemaDetailInheritance`, `ListSchemaMust`, `ListSchemaMay`).
+  - Wired `GridSchema.SelectionChanged` in [main.ps1](./main.ps1) to dynamically update the inspector upon selecting any class or attribute.
+
+### E. Custom Saved Reports Creator & Persistence
+* **Competitor Benchmark**: Screenshot 10 (`10_Reports.png`).
+* **Implementation**:
+  - Added `CustomReports` array persistence in [Modules/ConfigService.psm1](./Modules/ConfigService.psm1).
+  - Added custom reports toolbar to `PanelAuditReports` in [Views/MainWindow.xaml](./Views/MainWindow.xaml): `CmbCustomReports`, `BtnRunCustomReport`, `BtnNewCustomReport`, `BtnDeleteCustomReport`.
+  - Implemented modal report builder (`Show-NewCustomReportDialog`) in [main.ps1](./main.ps1) allowing administrators to save arbitrary LDAP filters and target attributes.
+  - Implemented `Run-SelectedCustomReport` executing saved queries and displaying findings in `GridAuditResults`.
+
+---
+
+## 4. End-to-End Verification Across All 19 Navigation Tabs
+
+The automated STA UI test harness was executed simulating full user interaction:
+
+```
+=== SIMULATING WINDOW LOADED ===
+Initial Loaded complete. Errors: 0
+--> Testing Nav Tab: NavDashboard
+--> Testing Nav Tab: NavUsers
+--> Testing Nav Tab: NavGroups
+--> Testing Nav Tab: NavOUs
+--> Testing Nav Tab: NavComputers
+--> Testing Nav Tab: NavRecycleBin
+--> Testing Nav Tab: NavDirectorySearch
+--> Testing Nav Tab: NavLdapSql
+--> Testing Nav Tab: NavAttributeEditor
+--> Testing Nav Tab: NavObjectCompare
+--> Testing Nav Tab: NavLdifStudio
+--> Testing Nav Tab: NavAuditReports
+--> Testing Nav Tab: NavSchemaBrowser
+--> Testing Nav Tab: NavBulkEditor
+--> Testing Nav Tab: NavBasket
+--> Testing Nav Tab: NavRequestLog
+--> Testing Nav Tab: NavServerMonitor
+--> Testing Nav Tab: NavConnections
+--> Testing Nav Tab: NavSettings
+
+=== TESTING SEARCH ACTIONS ===
+Filter RFC4515 valid: True
+
+=== TESTING USER INSPECTOR TOGGLE ===
+User Inspector opened: Visible
+User Inspector closed: Collapsed
+
+=== TESTING OU TREE FILTER & BREADCRUMBS ===
+=== TESTING QUICK SEARCH OMNIBAR ===
+Quick search popup status: Found 15 object(s)
+
+=== TESTING LDIF OUTLINE ENGINE ===
+LDIF outline parsed records count: 2
+
+=== TESTING CUSTOM SAVED REPORTS ===
+Custom reports dropdown items count: 1
+
+=== TESTING RDN & CANONICAL NAME HELPERS ===
+DN: CN=John Doe,OU=Sales,OU=Corp,DC=contoso,DC=com
+RDN: CN=John Doe
+Canonical: contoso.com/Corp/Sales/John Doe
+
+=================================================
+TOTAL ERRORS ENCOUNTERED ACROSS ALL 19 TABS: 0
+=================================================
+```
+

@@ -410,7 +410,7 @@ if ($controls['NavLdapSql'])         { $controls['NavLdapSql'].Add_Checked({ Sho
 if ($controls['NavAttributeEditor']) { $controls['NavAttributeEditor'].Add_Checked({ Show-Panel "AttributeEditor" }) }
 if ($controls['NavObjectCompare'])   { $controls['NavObjectCompare'].Add_Checked({ Show-Panel "ObjectCompare" }) }
 if ($controls['NavLdifStudio'])      { $controls['NavLdifStudio'].Add_Checked({ Show-Panel "LdifStudio"; Init-LdifStudio }) }
-if ($controls['NavAuditReports'])    { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports" }) }
+if ($controls['NavAuditReports'])    { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports"; Refresh-CustomReportsDropdown }) }
 if ($controls['NavSchemaBrowser'])   { $controls['NavSchemaBrowser'].Add_Checked({ Show-Panel "SchemaBrowser"; Refresh-Schema }) }
 if ($controls['NavBulkEditor'])      { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
 if ($controls['NavBasket'])          { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
@@ -534,6 +534,101 @@ if ($controls['BtnDiagnostics']) {
 
 if ($controls['BtnGlobalRefresh']) {
     $controls['BtnGlobalRefresh'].Add_Click({ Refresh-All })
+}
+#endregion
+
+#region Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity)
+if ($controls['TxtGlobalSearch']) {
+    $controls['TxtGlobalSearch'].Add_TextChanged({
+        $q = $controls['TxtGlobalSearch'].Text.Trim()
+        if ($q.Length -ge 2) {
+            $results = Find-ADObjectsQuickSearch -Query $q -MaxResults 15
+            if ($controls['ListGlobalSearchResults']) {
+                $controls['ListGlobalSearchResults'].ItemsSource = $results
+            }
+            if ($controls['TxtGlobalSearchStatus']) {
+                $controls['TxtGlobalSearchStatus'].Text = "Found $($results.Count) object(s)"
+            }
+            if ($controls['PopupGlobalSearch']) {
+                $controls['PopupGlobalSearch'].IsOpen = ($results.Count -gt 0)
+            }
+        } else {
+            if ($controls['PopupGlobalSearch']) {
+                $controls['PopupGlobalSearch'].IsOpen = $false
+            }
+        }
+    })
+
+    $controls['TxtGlobalSearch'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::Escape) {
+            if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
+        } elseif ($_.Key -eq [System.Windows.Input.Key]::Down) {
+            if ($controls['ListGlobalSearchResults'] -and $controls['ListGlobalSearchResults'].Items.Count -gt 0) {
+                $controls['ListGlobalSearchResults'].Focus()
+                $controls['ListGlobalSearchResults'].SelectedIndex = 0
+            }
+        }
+    })
+}
+
+if ($controls['ListGlobalSearchResults']) {
+    $controls['ListGlobalSearchResults'].Add_SelectionChanged({
+        $sel = $controls['ListGlobalSearchResults'].SelectedItem
+        if ($sel) {
+            if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
+            $dn = $sel.DistinguishedName
+            $type = $sel.Type
+
+            switch ($type) {
+                "User" {
+                    if ($controls['NavUsers']) {
+                        $controls['NavUsers'].IsChecked = $true
+                        Show-Panel "Users"
+                        if ($controls['TxtSearchUser']) {
+                            $controls['TxtSearchUser'].Text = $sel.SamAccountName
+                            Refresh-Users
+                        }
+                    }
+                }
+                "Group" {
+                    if ($controls['NavGroups']) {
+                        $controls['NavGroups'].IsChecked = $true
+                        Show-Panel "Groups"
+                        if ($controls['TxtSearchGroup']) {
+                            $controls['TxtSearchGroup'].Text = $sel.Name
+                            Refresh-Groups
+                        }
+                    }
+                }
+                "Computer" {
+                    if ($controls['NavComputers']) {
+                        $controls['NavComputers'].IsChecked = $true
+                        Show-Panel "Computers"
+                        if ($controls['TxtSearchComputers']) {
+                            $controls['TxtSearchComputers'].Text = $sel.Name
+                            Refresh-Computers
+                        }
+                    }
+                }
+                "OrganizationalUnit" {
+                    if ($controls['NavOUs']) {
+                        $controls['NavOUs'].IsChecked = $true
+                        Show-Panel "OUs"
+                        Refresh-OUs
+                    }
+                }
+                default {
+                    if ($controls['NavAttributeEditor']) {
+                        $controls['NavAttributeEditor'].IsChecked = $true
+                        Show-Panel "AttributeEditor"
+                        $controls['TxtAttrEditorDN'].Text = $dn
+                        Load-RawAttributesUI -TargetDN $dn
+                    }
+                }
+            }
+            $controls['ListGlobalSearchResults'].SelectedItem = $null
+        }
+    })
 }
 #endregion
 
@@ -4942,6 +5037,7 @@ title: Senior Systems Administrator
 -
 "@
     }
+    Update-LdifOutline
 }
 
 if ($controls['CmbLdifTemplates']) {
@@ -5186,6 +5282,82 @@ if ($controls['BtnExportDsml']) {
         }
     })
 }
+
+# LDIF Document Record Outline Logic (Softerra Ch07 / Screenshot 26 Parity)
+function Update-LdifOutline {
+    if (-not $controls['TxtLdifEditor'] -or -not $controls['ListLdifRecords']) { return }
+    $text = $controls['TxtLdifEditor'].Text
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        $controls['ListLdifRecords'].ItemsSource = $null
+        return
+    }
+
+    $lines = $text -split "`r?`n"
+    $records = New-Object System.Collections.Generic.List[PSObject]
+    $curDn = ""
+    $curChange = "ADD"
+    $filter = if ($controls['TxtFilterLdifRecords']) { $controls['TxtFilterLdifRecords'].Text.Trim() } else { "" }
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -match '^dn:\s*(.+)$') {
+            $curDn = $matches[1].Trim()
+            $curChange = "ADD"
+        } elseif ($line -match '^changetype:\s*(.+)$') {
+            $curChange = $matches[1].Trim().ToUpperInvariant()
+        } elseif ([string]::IsNullOrWhiteSpace($line)) {
+            if ($curDn) {
+                if ([string]::IsNullOrWhiteSpace($filter) -or $curDn -match [regex]::Escape($filter) -or $curChange -match [regex]::Escape($filter)) {
+                    $records.Add([PSCustomObject]@{
+                        DN         = $curDn
+                        ChangeType = $curChange
+                    })
+                }
+                $curDn = ""
+            }
+        }
+    }
+    if ($curDn) {
+        if ([string]::IsNullOrWhiteSpace($filter) -or $curDn -match [regex]::Escape($filter) -or $curChange -match [regex]::Escape($filter)) {
+            $records.Add([PSCustomObject]@{
+                DN         = $curDn
+                ChangeType = $curChange
+            })
+        }
+    }
+
+    $controls['ListLdifRecords'].ItemsSource = @($records)
+}
+
+if ($controls['TxtLdifEditor']) {
+    $controls['TxtLdifEditor'].Add_TextChanged({
+        Update-LdifOutline
+    })
+}
+
+if ($controls['TxtFilterLdifRecords']) {
+    $controls['TxtFilterLdifRecords'].Add_TextChanged({
+        Update-LdifOutline
+    })
+}
+
+if ($controls['ListLdifRecords']) {
+    $controls['ListLdifRecords'].Add_SelectionChanged({
+        $sel = $controls['ListLdifRecords'].SelectedItem
+        if ($sel -and $controls['TxtLdifEditor']) {
+            $target = "dn: $($sel.DN)"
+            $idx = $controls['TxtLdifEditor'].Text.IndexOf($target, [System.StringComparison]::OrdinalIgnoreCase)
+            if ($idx -ge 0) {
+                $controls['TxtLdifEditor'].Focus()
+                $controls['TxtLdifEditor'].Select($idx, $target.Length)
+                $lineIdx = $controls['TxtLdifEditor'].GetLineIndexFromCharacterIndex($idx)
+                if ($lineIdx -ge 0) {
+                    $controls['TxtLdifEditor'].ScrollToLine($lineIdx)
+                }
+            }
+        }
+    })
+}
 #endregion
 
 #region 11. Security & Audit Reports Logic
@@ -5302,6 +5474,187 @@ if ($controls['BtnExportAuditCsv']) {
             if ($res.Success) {
                 [System.Windows.MessageBox]::Show($res.Message, "CSV Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             }
+        }
+    })
+}
+
+# Custom Saved Reports Logic (Softerra Ch08 / Screenshot 10 Parity)
+function Refresh-CustomReportsDropdown {
+    if (-not $controls['CmbCustomReports']) { return }
+    $controls['CmbCustomReports'].Items.Clear()
+
+    if (-not $appConfig.CustomReports -or $appConfig.CustomReports.Count -eq 0) {
+        $appConfig.CustomReports = @(
+            @{
+                Name        = "Managers & Team Leads"
+                Description = "Users having direct reports or manager titles"
+                Filter      = "(&(objectCategory=person)(objectClass=user)(|(title=*Manager*)(title=*Supervisor*)(title=*Lead*)(directReports=*)))"
+                Attributes  = @("sAMAccountName", "displayName", "title", "department", "mail", "distinguishedName")
+            },
+            @{
+                Name        = "Accounts Without Manager"
+                Description = "Active user accounts missing a defined manager attribute"
+                Filter      = "(&(objectCategory=person)(objectClass=user)(!manager=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+                Attributes  = @("sAMAccountName", "displayName", "mail", "department", "distinguishedName")
+            },
+            @{
+                Name        = "Accounts with SPN (Kerberoasting Targets)"
+                Description = "User accounts with registered ServicePrincipalNames"
+                Filter      = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))"
+                Attributes  = @("sAMAccountName", "displayName", "servicePrincipalName", "distinguishedName")
+            }
+        )
+        Set-AppSettings -Settings $appConfig
+    }
+
+    foreach ($cr in $appConfig.CustomReports) {
+        $item = New-Object System.Windows.Controls.ComboBoxItem
+        $item.Content = $cr.Name
+        $item.Tag = $cr
+        [void]$controls['CmbCustomReports'].Items.Add($item)
+    }
+
+    if ($controls['CmbCustomReports'].Items.Count -gt 0) {
+        $controls['CmbCustomReports'].SelectedIndex = 0
+    }
+}
+
+function Run-SelectedCustomReport {
+    $selItem = if ($controls['CmbCustomReports']) { $controls['CmbCustomReports'].SelectedItem } else { $null }
+    if (-not $selItem -or -not $selItem.Tag) {
+        [System.Windows.MessageBox]::Show("Please select a custom report to run.", "No Report Selected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    $rep = $selItem.Tag
+    Set-Status -Message "Executing custom report '$($rep.Name)'..."
+    try {
+        $filter = $rep.Filter
+        $attrs = if ($rep.Attributes) { @($rep.Attributes) } else { @('sAMAccountName', 'displayName', 'mail', 'department', 'distinguishedName') }
+        if (-not ($attrs -contains 'distinguishedName')) { $attrs += 'distinguishedName' }
+
+        $ldapRes = Invoke-LdapQuery -Filter $filter -PropertiesToLoad $attrs -PageSize 500
+        $findings = New-Object System.Collections.Generic.List[PSCustomObject]
+        foreach ($r in $ldapRes.Results) {
+            $findings.Add([PSCustomObject]@{
+                SamAccountName    = "$($r.sAMAccountName)"
+                DisplayName       = if ($r.displayName) { "$($r.displayName)" } else { "$($r.Name)" }
+                Department        = "$($r.department)"
+                Status            = "Active"
+                DaysInactive      = "$($rep.Name)"
+                DistinguishedName = "$($r.DistinguishedName)"
+            })
+        }
+
+        $reportObj = [PSCustomObject]@{
+            AuditType   = "Custom_$($rep.Name)"
+            Title       = "$($rep.Name)"
+            Description = "$($rep.Description) [Filter: $filter]"
+            Count       = $findings.Count
+            Findings    = @($findings)
+        }
+        $state.CurrentAuditReport = $reportObj
+
+        if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($reportObj.Title) - $($reportObj.Description)" }
+        if ($controls['TxtAuditCount']) { $controls['TxtAuditCount'].Text = "$($reportObj.Count) Findings" }
+        if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = $reportObj.Findings }
+
+        Set-Status -Message "Custom report '$($rep.Name)' finished. Found $($findings.Count) item(s)." -Count "$($findings.Count) findings"
+    } catch {
+        Set-Status -Message "Custom report execution failed: $_"
+        [System.Windows.MessageBox]::Show("Failed to execute custom report:`n$_", "Report Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+}
+
+function Show-NewCustomReportDialog {
+    $xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="New Custom Saved Report" Width="520" Height="380" WindowStartupLocation="CenterOwner"
+        Background="#1A1D27" Foreground="#FFFFFF" ResizeMode="NoResize" WindowStyle="ToolWindow">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Create Custom Directory Report" FontSize="15" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="1" Text="Define an LDAP filter and attributes for a reusable saved report." FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,12"/>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,8">
+            <TextBlock Text="REPORT NAME:" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+            <TextBox Name="TxtRepName" Background="#111319" Foreground="#FFFFFF" BorderBrush="#292E3E" Height="28" Padding="6,2" FontSize="12"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Margin="0,0,0,8">
+            <TextBlock Text="DESCRIPTION:" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+            <TextBox Name="TxtRepDesc" Background="#111319" Foreground="#FFFFFF" BorderBrush="#292E3E" Height="28" Padding="6,2" FontSize="12"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Margin="0,0,0,8">
+            <TextBlock Text="LDAP FILTER:" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+            <TextBox Name="TxtRepFilter" Background="#111319" Foreground="#38BDF8" BorderBrush="#292E3E" Height="48" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" Padding="6,4" FontSize="12" Text="(&(objectCategory=person)(objectClass=user))"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,12,0,0">
+            <Button Name="BtnCancel" Content="Cancel" Width="85" Height="28" Background="#252936" Foreground="#FFFFFF" BorderBrush="#3B4254" Margin="0,0,8,0"/>
+            <Button Name="BtnSave" Content="Save Report" Width="95" Height="28" Background="#0078D4" Foreground="#FFFFFF" BorderThickness="0" FontWeight="SemiBold"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+    $win = [System.Windows.Markup.XamlReader]::Parse($xaml)
+    $win.Owner = $mainWindow
+    $txtN = $win.FindName("TxtRepName")
+    $txtD = $win.FindName("TxtRepDesc")
+    $txtF = $win.FindName("TxtRepFilter")
+    $btnS = $win.FindName("BtnSave")
+    $btnC = $win.FindName("BtnCancel")
+
+    $btnS.Add_Click({
+        $name = $txtN.Text.Trim()
+        $filter = $txtF.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($filter)) {
+            [System.Windows.MessageBox]::Show("Please provide both a Report Name and LDAP Filter.", "Validation Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $newRep = @{
+            Name        = $name
+            Description = $txtD.Text.Trim()
+            Filter      = $filter
+            Attributes  = @('sAMAccountName', 'displayName', 'mail', 'department', 'distinguishedName')
+        }
+        $list = if ($appConfig.CustomReports) { [System.Collections.ArrayList]@($appConfig.CustomReports) } else { [System.Collections.ArrayList]@() }
+        [void]$list.Add($newRep)
+        $appConfig.CustomReports = @($list)
+        Set-AppSettings -Settings $appConfig
+        Refresh-CustomReportsDropdown
+        $win.DialogResult = $true
+        $win.Close()
+        Set-Status -Message "Saved custom report: $name"
+    })
+    $btnC.Add_Click({
+        $win.DialogResult = $false
+        $win.Close()
+    })
+    [void]$win.ShowDialog()
+}
+
+if ($controls['BtnRunCustomReport'])    { $controls['BtnRunCustomReport'].Add_Click({ Run-SelectedCustomReport }) }
+if ($controls['BtnNewCustomReport'])    { $controls['BtnNewCustomReport'].Add_Click({ Show-NewCustomReportDialog }) }
+if ($controls['BtnDeleteCustomReport']) {
+    $controls['BtnDeleteCustomReport'].Add_Click({
+        $selItem = if ($controls['CmbCustomReports']) { $controls['CmbCustomReports'].SelectedItem } else { $null }
+        if (-not $selItem -or -not $selItem.Tag) { return }
+        $rep = $selItem.Tag
+        $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to delete custom report '$($rep.Name)'?", "Confirm Delete", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            $appConfig.CustomReports = @($appConfig.CustomReports | Where-Object { $_.Name -ne $rep.Name })
+            Set-AppSettings -Settings $appConfig
+            Refresh-CustomReportsDropdown
+            Set-Status -Message "Deleted custom report '$($rep.Name)'"
         }
     })
 }
@@ -5444,6 +5797,39 @@ if ($controls['BtnExportSchemaLdif'])     { $controls['BtnExportSchemaLdif'].Add
 if ($controls['TxtSearchSchema']) {
     $controls['TxtSearchSchema'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-Schema }
+    })
+}
+
+# Schema Class Inspector Selection Changed Handler (Softerra Ch10 / Screenshot 12 Parity)
+if ($controls['GridSchema']) {
+    $controls['GridSchema'].Add_SelectionChanged({
+        $sel = $controls['GridSchema'].SelectedItem
+        if ($sel) {
+            $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
+            if ($isClasses) {
+                $detail = Get-ADSchemaClassDetail -ClassName $sel.Name
+                if ($controls['TxtSchemaDetailName']) { $controls['TxtSchemaDetailName'].Text = if ($detail.Name) { $detail.Name } else { "$($sel.Name)" } }
+                if ($controls['TxtSchemaDetailOID']) { $controls['TxtSchemaDetailOID'].Text = if ($detail.OID) { $detail.OID } else { "$($sel.OID)" } }
+                if ($controls['TxtSchemaDetailCategory']) { $controls['TxtSchemaDetailCategory'].Text = if ($detail.ClassType) { $detail.ClassType } else { "Structural Class" } }
+                if ($controls['TxtSchemaDetailInheritance']) {
+                    $chain = if ($detail.InheritanceChain) { $detail.InheritanceChain } elseif ($sel.SubClassOf) { "$($sel.SubClassOf) ➔ $($sel.Name)" } else { "top" }
+                    $controls['TxtSchemaDetailInheritance'].Text = $chain
+                }
+                if ($controls['ListSchemaMust']) { $controls['ListSchemaMust'].ItemsSource = $detail.MustContain }
+                if ($controls['ListSchemaMay']) { $controls['ListSchemaMay'].ItemsSource = $detail.MayContain }
+            } else {
+                if ($controls['TxtSchemaDetailName']) { $controls['TxtSchemaDetailName'].Text = "$($sel.Name)" }
+                if ($controls['TxtSchemaDetailOID']) { $controls['TxtSchemaDetailOID'].Text = "$($sel.OID)" }
+                if ($controls['TxtSchemaDetailCategory']) { $controls['TxtSchemaDetailCategory'].Text = "Attribute Type" }
+                if ($controls['TxtSchemaDetailInheritance']) { $controls['TxtSchemaDetailInheritance'].Text = "Syntax: $($sel.Syntax)" }
+                if ($controls['ListSchemaMust']) {
+                    $controls['ListSchemaMust'].ItemsSource = @("Single-Valued: $($sel.IsSingleValued)", "Global Catalog: $($sel.InGlobalCatalog)")
+                }
+                if ($controls['ListSchemaMay']) {
+                    $controls['ListSchemaMay'].ItemsSource = @("Distinguished Name: $($sel.DistinguishedName)")
+                }
+            }
+        }
     })
 }
 #endregion
@@ -6414,6 +6800,112 @@ if ($controls['CmbBookmarks']) {
 #endregion
 
 #region 20. ContextMenu Handlers Across All DataGrids
+
+# Directory Object RDN & Canonical Name Helpers (Softerra Ch03 / Screenshot 01 Parity)
+function Get-ObjectRDN {
+    param([string]$DN)
+    if ([string]::IsNullOrWhiteSpace($DN)) { return "" }
+    $parts = $DN -split '(?<!\\),'
+    if ($parts.Count -gt 0) { return $parts[0] }
+    return $DN
+}
+
+function Get-ObjectCanonicalName {
+    param([string]$DN)
+    if ([string]::IsNullOrWhiteSpace($DN)) { return "" }
+    $parts = $DN -split '(?<!\\),'
+    $domainParts = New-Object System.Collections.Generic.List[string]
+    $ouParts = New-Object System.Collections.Generic.List[string]
+    $leaf = ""
+    foreach ($p in $parts) {
+        $kv = $p -split '=', 2
+        if ($kv.Count -eq 2) {
+            $k = $kv[0].Trim().ToUpperInvariant()
+            $v = $kv[1].Trim()
+            if ($k -eq 'DC') {
+                $domainParts.Add($v)
+            } elseif ($k -eq 'OU' -or $k -eq 'CN') {
+                if (-not $leaf) { $leaf = $v }
+                else { $ouParts.Add($v) }
+            }
+        }
+    }
+    $ouParts.Reverse()
+    $domain = ($domainParts -join ".")
+    $path = ($ouParts -join "/")
+    if ($domain -and $path -and $leaf) { return "$domain/$path/$leaf" }
+    if ($domain -and $leaf) { return "$domain/$leaf" }
+    return $DN
+}
+
+function Show-RenameDialog {
+    param([string]$TargetDN, [string]$CurrentName)
+    $curRdn = Get-ObjectRDN -DN $TargetDN
+    $curVal = if ($curRdn -match '^[^=]+=(.*)$') { $matches[1] } else { $curRdn }
+
+    $xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Rename Object (RDN)" Width="460" Height="220" WindowStartupLocation="CenterOwner"
+        Background="#1A1D27" Foreground="#FFFFFF" ResizeMode="NoResize" WindowStyle="ToolWindow">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Rename Directory Object" FontSize="15" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,6"/>
+        <TextBlock Grid.Row="1" Text="Enter the new Relative Distinguished Name (RDN) value:" FontSize="12" Foreground="#9CA3AF" Margin="0,0,0,10"/>
+        <TextBox Name="TxtNewName" Background="#111319" Foreground="#FFFFFF" BorderBrush="#292E3E" Height="30" FontSize="13" Padding="6,4" Text="$curVal"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,12,0,0">
+            <Button Name="BtnCancel" Content="Cancel" Width="85" Height="28" Background="#252936" Foreground="#FFFFFF" BorderBrush="#3B4254" Margin="0,0,8,0"/>
+            <Button Name="BtnOK" Content="Rename" Width="85" Height="28" Background="#0078D4" Foreground="#FFFFFF" BorderThickness="0" FontWeight="SemiBold"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+    $win = [System.Windows.Markup.XamlReader]::Parse($xaml)
+    $win.Owner = $mainWindow
+    $txt = $win.FindName("TxtNewName")
+    $btnOk = $win.FindName("BtnOK")
+    $btnCancel = $win.FindName("BtnCancel")
+    $result = $null
+
+    $btnOk.Add_Click({
+        $result = $txt.Text.Trim()
+        $win.DialogResult = $true
+        $win.Close()
+    })
+    $btnCancel.Add_Click({
+        $win.DialogResult = $false
+        $win.Close()
+    })
+    $dialogRes = $win.ShowDialog()
+    if ($dialogRes -and -not [string]::IsNullOrWhiteSpace($result) -and $result -ne $curVal) {
+        $prefix = if ($curRdn -match '^([^=]+=)') { $matches[1] } else { "CN=" }
+        return "$prefix$result"
+    }
+    return $null
+}
+
+function Handle-ObjectRename {
+    param([string]$DN, [string]$CurrentName, [scriptblock]$RefreshAction)
+    if (-not (Test-CanModifyDirectory)) { return }
+    if ([string]::IsNullOrWhiteSpace($DN)) { return }
+    $newRdn = Show-RenameDialog -TargetDN $DN -CurrentName $CurrentName
+    if ($newRdn) {
+        $res = Rename-ADDirectoryObject -DistinguishedName $DN -NewRDN $newRdn
+        if ($res.Success) {
+            Set-Status -Message "Renamed object to: $($res.NewDN)"
+            [System.Windows.MessageBox]::Show("Object successfully renamed to:`n$($res.NewDN)", "Rename Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            if ($RefreshAction) { & $RefreshAction }
+        } else {
+            Set-Status -Message "Rename failed: $($res.Error)"
+            [System.Windows.MessageBox]::Show("Failed to rename object:`n$($res.Error)", "Rename Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        }
+    }
+}
+
 # Users Grid ContextMenu
 if ($controls['CtxUserEdit']) {
     $controls['CtxUserEdit'].Add_Click({
@@ -6457,6 +6949,12 @@ if ($controls['CtxUserMoveOU']) {
         if ($u) { Open-MoveOUDialog -ObjectDN $u.DistinguishedName }
     })
 }
+if ($controls['CtxUserRename']) {
+    $controls['CtxUserRename'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Handle-ObjectRename -DN $u.DistinguishedName -CurrentName $u.DisplayName -RefreshAction { Refresh-Users } }
+    })
+}
 if ($controls['CtxUserCopyDN']) {
     $controls['CtxUserCopyDN'].Add_Click({
         $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
@@ -6477,6 +6975,26 @@ if ($controls['CtxUserCopyUrl']) {
             $ldapUrl = "ldap://$server/$($u.DistinguishedName)"
             [System.Windows.Clipboard]::SetText($ldapUrl)
             Set-Status -Message "Copied LDAP URL: $ldapUrl"
+        }
+    })
+}
+if ($controls['CtxUserCopyRdn']) {
+    $controls['CtxUserCopyRdn'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $rdn = Get-ObjectRDN -DN $u.DistinguishedName
+            [System.Windows.Clipboard]::SetText($rdn)
+            Set-Status -Message "Copied RDN: $rdn"
+        }
+    })
+}
+if ($controls['CtxUserCopyCanonical']) {
+    $controls['CtxUserCopyCanonical'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $can = Get-ObjectCanonicalName -DN $u.DistinguishedName
+            [System.Windows.Clipboard]::SetText($can)
+            Set-Status -Message "Copied Canonical Name: $can"
         }
     })
 }
@@ -6552,6 +7070,12 @@ if ($controls['CtxGroupDelete']) {
         if ($g) { Delete-SelectedGroup -Group $g }
     })
 }
+if ($controls['CtxGroupRename']) {
+    $controls['CtxGroupRename'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Handle-ObjectRename -DN $g.DistinguishedName -CurrentName $g.Name -RefreshAction { Refresh-Groups } }
+    })
+}
 if ($controls['CtxGroupCopyDN']) {
     $controls['CtxGroupCopyDN'].Add_Click({
         $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
@@ -6565,6 +7089,26 @@ if ($controls['CtxGroupCopyUrl']) {
             $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
             [System.Windows.Clipboard]::SetText("ldap://$server/$($g.DistinguishedName)")
             Set-Status -Message "Copied LDAP URL for group $($g.Name)"
+        }
+    })
+}
+if ($controls['CtxGroupCopyRdn']) {
+    $controls['CtxGroupCopyRdn'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) {
+            $rdn = Get-ObjectRDN -DN $g.DistinguishedName
+            [System.Windows.Clipboard]::SetText($rdn)
+            Set-Status -Message "Copied Group RDN: $rdn"
+        }
+    })
+}
+if ($controls['CtxGroupCopyCanonical']) {
+    $controls['CtxGroupCopyCanonical'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) {
+            $can = Get-ObjectCanonicalName -DN $g.DistinguishedName
+            [System.Windows.Clipboard]::SetText($can)
+            Set-Status -Message "Copied Group Canonical Name: $can"
         }
     })
 }
@@ -6626,6 +7170,14 @@ if ($controls['CtxOUTreeDeleteOU']) {
         }
     })
 }
+if ($controls['CtxOUTreeRename']) {
+    $controls['CtxOUTreeRename'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        $name = if ($node) { $node.Name } else { "" }
+        if ($dn) { Handle-ObjectRename -DN $dn -CurrentName $name -RefreshAction { Refresh-OUs } }
+    })
+}
 if ($controls['CtxOUTreeBookmark']) {
     $controls['CtxOUTreeBookmark'].Add_Click({
         $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
@@ -6652,6 +7204,28 @@ if ($controls['CtxOUTreeCopyDN']) {
         if ($dn) { [System.Windows.Clipboard]::SetText($dn); Set-Status -Message "Copied OU DN: $dn" }
     })
 }
+if ($controls['CtxOUTreeCopyRdn']) {
+    $controls['CtxOUTreeCopyRdn'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        if ($dn) {
+            $rdn = Get-ObjectRDN -DN $dn
+            [System.Windows.Clipboard]::SetText($rdn)
+            Set-Status -Message "Copied OU RDN: $rdn"
+        }
+    })
+}
+if ($controls['CtxOUTreeCopyCanonical']) {
+    $controls['CtxOUTreeCopyCanonical'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        if ($dn) {
+            $can = Get-ObjectCanonicalName -DN $dn
+            [System.Windows.Clipboard]::SetText($can)
+            Set-Status -Message "Copied OU Canonical Name: $can"
+        }
+    })
+}
 
 # OU Objects ContextMenu
 if ($controls['CtxOuObjInspectAttr']) {
@@ -6671,6 +7245,12 @@ if ($controls['CtxOuObjAddToBasket']) {
         if ($obj) { Add-ObjectToBasket -DN $obj.DistinguishedName -Name $obj.Name -ObjectClass $obj.ObjectClass }
     })
 }
+if ($controls['CtxOuObjRename']) {
+    $controls['CtxOuObjRename'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) { Handle-ObjectRename -DN $obj.DistinguishedName -CurrentName $obj.Name -RefreshAction { Load-OUObjectsUI } }
+    })
+}
 if ($controls['CtxOuObjCopyDN']) {
     $controls['CtxOuObjCopyDN'].Add_Click({
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
@@ -6684,6 +7264,26 @@ if ($controls['CtxOuObjCopyUrl']) {
             $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
             [System.Windows.Clipboard]::SetText("ldap://$server/$($obj.DistinguishedName)")
             Set-Status -Message "Copied LDAP URL: $($obj.Name)"
+        }
+    })
+}
+if ($controls['CtxOuObjCopyRdn']) {
+    $controls['CtxOuObjCopyRdn'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) {
+            $rdn = Get-ObjectRDN -DN $obj.DistinguishedName
+            [System.Windows.Clipboard]::SetText($rdn)
+            Set-Status -Message "Copied RDN: $rdn"
+        }
+    })
+}
+if ($controls['CtxOuObjCopyCanonical']) {
+    $controls['CtxOuObjCopyCanonical'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) {
+            $can = Get-ObjectCanonicalName -DN $obj.DistinguishedName
+            [System.Windows.Clipboard]::SetText($can)
+            Set-Status -Message "Copied Canonical Name: $can"
         }
     })
 }
@@ -6737,6 +7337,12 @@ if ($controls['CtxCompPing']) {
         }
     })
 }
+if ($controls['CtxCompRename']) {
+    $controls['CtxCompRename'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { Handle-ObjectRename -DN $c.DistinguishedName -CurrentName $c.Name -RefreshAction { Refresh-Computers } }
+    })
+}
 if ($controls['CtxCompCopyDN']) {
     $controls['CtxCompCopyDN'].Add_Click({
         $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
@@ -6747,6 +7353,26 @@ if ($controls['CtxCompCopyName']) {
     $controls['CtxCompCopyName'].Add_Click({
         $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
         if ($c) { [System.Windows.Clipboard]::SetText($c.Name); Set-Status -Message "Copied Name: $($c.Name)" }
+    })
+}
+if ($controls['CtxCompCopyRdn']) {
+    $controls['CtxCompCopyRdn'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $rdn = Get-ObjectRDN -DN $c.DistinguishedName
+            [System.Windows.Clipboard]::SetText($rdn)
+            Set-Status -Message "Copied Computer RDN: $rdn"
+        }
+    })
+}
+if ($controls['CtxCompCopyCanonical']) {
+    $controls['CtxCompCopyCanonical'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) {
+            $can = Get-ObjectCanonicalName -DN $c.DistinguishedName
+            [System.Windows.Clipboard]::SetText($can)
+            Set-Status -Message "Copied Computer Canonical Name: $can"
+        }
     })
 }
 if ($controls['CtxCompAddToBasket']) {
@@ -6893,6 +7519,48 @@ if ($controls['CtxBasketCopyDN']) {
     $controls['CtxBasketCopyDN'].Add_Click({
         $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
         if ($b) { [System.Windows.Clipboard]::SetText($b.DistinguishedName); Set-Status -Message "Copied DN: $($b.DistinguishedName)" }
+    })
+}
+
+# F2 Keyboard Shortcut for In-Place / Dialog Rename (Softerra Ch03 Parity)
+if ($controls['GridUsers']) {
+    $controls['GridUsers'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::F2) {
+            $u = $controls['GridUsers'].SelectedItem
+            if ($u) { Handle-ObjectRename -DN $u.DistinguishedName -CurrentName $u.DisplayName -RefreshAction { Refresh-Users } }
+        }
+    })
+}
+if ($controls['GridGroups']) {
+    $controls['GridGroups'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::F2) {
+            $g = $controls['GridGroups'].SelectedItem
+            if ($g) { Handle-ObjectRename -DN $g.DistinguishedName -CurrentName $g.Name -RefreshAction { Refresh-Groups } }
+        }
+    })
+}
+if ($controls['GridOUObjects']) {
+    $controls['GridOUObjects'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::F2) {
+            $obj = $controls['GridOUObjects'].SelectedItem
+            if ($obj) { Handle-ObjectRename -DN $obj.DistinguishedName -CurrentName $obj.Name -RefreshAction { Load-OUObjectsUI } }
+        }
+    })
+}
+if ($controls['GridComputers']) {
+    $controls['GridComputers'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::F2) {
+            $c = $controls['GridComputers'].SelectedItem
+            if ($c) { Handle-ObjectRename -DN $c.DistinguishedName -CurrentName $c.Name -RefreshAction { Refresh-Computers } }
+        }
+    })
+}
+if ($controls['TreeOUs']) {
+    $controls['TreeOUs'].Add_KeyDown({
+        if ($_.Key -eq [System.Windows.Input.Key]::F2) {
+            $node = $controls['TreeOUs'].SelectedItem
+            if ($node) { Handle-ObjectRename -DN $node.DistinguishedName -CurrentName $node.Name -RefreshAction { Refresh-OUs } }
+        }
     })
 }
 #endregion

@@ -3624,6 +3624,211 @@ function New-ADDirectoryPartition {
         }
     }
 }
+
+function Rename-ADDirectoryObject {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Identity,
+
+        [Parameter(Mandatory = $true)]
+        [string]$NewName,
+
+        [string]$Server = ""
+    )
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($Identity) -or [string]::IsNullOrWhiteSpace($NewName)) {
+            return [PSCustomObject]@{
+                Success = $false
+                Message = "Object DN and New Name cannot be empty."
+            }
+        }
+
+        $cleanName = $NewName -replace '^(CN|OU|DC)=', ''
+
+        if (Get-Command Rename-ADObject -ErrorAction SilentlyContinue) {
+            $params = @{ Identity = $Identity; NewName = $cleanName }
+            if ($Server) { $params['Server'] = $Server }
+            Rename-ADObject @params -ErrorAction Stop
+
+            $dnParts = $Identity -split '(?<!\\),'
+            $prefix = if ($dnParts[0] -match '^OU=' -or $dnParts[0] -match '^ou=') { "OU=" } else { "CN=" }
+            $dnParts[0] = "$prefix$cleanName"
+            $newDN = $dnParts -join ','
+
+            return [PSCustomObject]@{
+                Success = $true
+                NewDN   = $newDN
+                Message = "Object successfully renamed to '$cleanName'."
+            }
+        }
+
+        $entryPath = if ($Server) { "LDAP://$Server/$Identity" } else { "LDAP://$Identity" }
+        $entry = [System.DirectoryServices.DirectoryEntry]$entryPath
+        $prefix = if ($Identity -match '^OU=' -or $Identity -match '^ou=') { "OU=" } else { "CN=" }
+        $rdnWithPrefix = if ($NewName -match '^(CN|OU|DC)=') { $NewName } else { "$prefix$cleanName" }
+
+        $entry.Rename($rdnWithPrefix)
+        $entry.CommitChanges()
+
+        $dnParts = $Identity -split '(?<!\\),'
+        $dnParts[0] = $rdnWithPrefix
+        $newDN = $dnParts -join ','
+
+        return [PSCustomObject]@{
+            Success = $true
+            NewDN   = $newDN
+            Message = "Object successfully renamed to '$cleanName' via ADSI."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success = $false
+            Message = "Failed to rename object: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Find-ADObjectsQuickSearch {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Query,
+
+        [int]$MaxResults = 15,
+        [string]$Server = ""
+    )
+
+    $results = New-Object System.Collections.Generic.List[PSCustomObject]
+    if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Trim().Length -lt 2) {
+        return @($results)
+    }
+
+    $q = $Query.Trim().Replace('*', '')
+    $filter = "(|(sAMAccountName=$q*)(displayName=*$q*)(name=*$q*)(mail=$q*)(ou=*$q*))"
+
+    try {
+        $props = @('objectClass', 'name', 'sAMAccountName', 'displayName', 'mail', 'distinguishedName', 'userAccountControl', 'ou')
+        $ldapRes = Invoke-LdapQuery -Filter $filter -PropertiesToLoad $props -PageSize $MaxResults -Server $Server
+        
+        $count = 0
+        foreach ($r in $ldapRes.Results) {
+            if ($count -ge $MaxResults) { break }
+            $dn = "$($r.DistinguishedName)"
+            if ([string]::IsNullOrWhiteSpace($dn)) { continue }
+
+            $objClass = "Object"
+            $ocRaw = @($r.objectClass)
+            if ($ocRaw -contains 'user' -and $ocRaw -notcontains 'computer') {
+                $objClass = "User"
+            } elseif ($ocRaw -contains 'group') {
+                $objClass = "Group"
+            } elseif ($ocRaw -contains 'computer') {
+                $objClass = "Computer"
+            } elseif ($ocRaw -contains 'organizationalUnit') {
+                $objClass = "OrganizationalUnit"
+            }
+
+            $dispName = if ($r.displayName) { "$($r.displayName)" } elseif ($r.name) { "$($r.name)" } elseif ($r.ou) { "$($r.ou)" } else { "$($r.sAMAccountName)" }
+            $parentOU = if ($dn -match ',(.+)$') { $matches[1] } else { "" }
+
+            $results.Add([PSCustomObject]@{
+                Type              = $objClass
+                Name              = $dispName
+                SamAccountName    = "$($r.sAMAccountName)"
+                Email             = "$($r.mail)"
+                DistinguishedName = $dn
+                ParentOU          = $parentOU
+            })
+            $count++
+        }
+    }
+    catch {
+        Write-Warning "Quick search query failed: $_"
+    }
+
+    return @($results)
+}
+
+function Get-ADSchemaClassDetail {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$ClassName,
+        [string]$Server = ""
+    )
+
+    try {
+        $rootDse = if ($Server) { [System.DirectoryServices.DirectoryEntry]"LDAP://$Server/RootDSE" } else { [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE" }
+        $schemaNC = "$($rootDse.schemaNamingContext)"
+        
+        $filter = "(&(objectCategory=classSchema)(lDAPDisplayName=$ClassName))"
+        $props = @(
+            'lDAPDisplayName', 'governsID', 'objectClassCategory', 'subClassOf',
+            'mustContain', 'systemMustContain', 'mayContain', 'systemMayContain',
+            'possSuperiors', 'systemPossSuperiors', 'description', 'defaultHidingValue'
+        )
+
+        $query = Invoke-LdapQuery -Filter $filter -SearchBase $schemaNC -Scope OneLevel -PropertiesToLoad $props -Server $Server
+        $classObj = $query.Results | Select-Object -First 1
+
+        if (-not $classObj) {
+            return [PSCustomObject]@{
+                Found   = $false
+                Message = "Schema class '$ClassName' was not found."
+            }
+        }
+
+        $catNum = if ($classObj.objectClassCategory) { [int]$classObj.objectClassCategory } else { 1 }
+        $catName = switch ($catNum) {
+            1 { "Structural Class" }
+            2 { "Abstract Class" }
+            3 { "Auxiliary Class" }
+            default { "88 Class" }
+        }
+
+        $mustList = New-Object System.Collections.Generic.List[string]
+        if ($classObj.mustContain) {
+            foreach ($m in @($classObj.mustContain)) { if ($m) { [void]$mustList.Add("$m") } }
+        }
+        if ($classObj.systemMustContain) {
+            foreach ($m in @($classObj.systemMustContain)) { if ($m -and -not $mustList.Contains("$m")) { [void]$mustList.Add("$m") } }
+        }
+
+        $mayList = New-Object System.Collections.Generic.List[string]
+        if ($classObj.mayContain) {
+            foreach ($m in @($classObj.mayContain)) { if ($m) { [void]$mayList.Add("$m") } }
+        }
+        if ($classObj.systemMayContain) {
+            foreach ($m in @($classObj.systemMayContain)) { if ($m -and -not $mayList.Contains("$m")) { [void]$mayList.Add("$m") } }
+        }
+
+        $chain = New-Object System.Collections.Generic.List[string]
+        $curr = "$($classObj.subClassOf)"
+        if ($curr) { [void]$chain.Add($curr) }
+
+        return [PSCustomObject]@{
+            Found             = $true
+            Name              = "$($classObj.lDAPDisplayName)"
+            OID               = "$($classObj.governsID)"
+            ClassType         = $catName
+            SubClassOf        = "$($classObj.subClassOf)"
+            InheritanceChain  = ($chain -join " -> ")
+            Description       = "$($classObj.description)"
+            MustContain       = @($mustList | Sort-Object)
+            MayContain        = @($mayList | Sort-Object)
+            MustCount         = $mustList.Count
+            MayCount          = $mayList.Count
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Found   = $false
+            Message = "Failed to query schema class details: $($_.Exception.Message)"
+        }
+    }
+}
 #endregion
 
 Export-ModuleMember -Function `
@@ -3641,7 +3846,8 @@ Export-ModuleMember -Function `
     Get-ADDeletedObjects, Restore-ADDeletedObject, Get-ADServerTelemetry, `
     Get-ADPasswordSettingsObjects, Get-ADUserEffectivePasswordPolicy, `
     Get-ADDirectoryPartitions, New-ADDirectoryPartition, `
-    Get-ADTransitiveGroupMembers, Find-ADDomainControllersViaDns
+    Get-ADTransitiveGroupMembers, Find-ADDomainControllersViaDns, `
+    Rename-ADDirectoryObject, Find-ADObjectsQuickSearch, Get-ADSchemaClassDetail
 
 
 
