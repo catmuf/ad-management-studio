@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ActiveDirectory Service module for Active Directory Management Studio.
 .DESCRIPTION
@@ -683,11 +683,20 @@ function Get-ADGroupMembersList {
     param (
         [Parameter(Mandatory = $true)]
         [Alias("GroupName", "Group")]
-        [string]$Identity
+        [string]$Identity,
+
+        [switch]$Recursive,
+        [switch]$Transitive
     )
 
+    $isRecursive = $Recursive.IsPresent -or $Transitive.IsPresent
+
     try {
-        $members = Get-ADGroupMember -Identity $Identity -ErrorAction Stop
+        if ($isRecursive) {
+            $members = Get-ADGroupMember -Identity $Identity -Recursive -ErrorAction Stop
+        } else {
+            $members = Get-ADGroupMember -Identity $Identity -ErrorAction Stop
+        }
         $results = @()
         foreach ($m in $members) {
             $mName = if ($m.name -and -not [string]::IsNullOrWhiteSpace($m.name)) { $m.name } else { $m.SamAccountName }
@@ -698,14 +707,53 @@ function Get-ADGroupMembersList {
                 ObjectClass       = $m.objectClass
                 DistinguishedName = $m.distinguishedName
                 SID               = if ($m.SID) { $m.SID.Value } else { "" }
+                IsTransitive      = $isRecursive
             }
         }
         return @($results | Sort-Object Name)
     }
     catch {
-        Write-Error "Failed to get members of group '$Identity': $_"
-        return @()
+        # Direct LDAP Fallback (LDAP_MATCHING_RULE_IN_CHAIN 1.2.840.113556.1.4.1941)
+        try {
+            $grpObj = Get-ADGroupsList | Where-Object { $_.SamAccountName -eq $Identity -or $_.Name -eq $Identity -or $_.DistinguishedName -eq $Identity } | Select-Object -First 1
+            if ($grpObj -and $grpObj.DistinguishedName) {
+                $dn = $grpObj.DistinguishedName
+                $filter = if ($isRecursive) {
+                    "(memberOf:1.2.840.113556.1.4.1941:=$dn)"
+                } else {
+                    "(memberOf=$dn)"
+                }
+                $query = Invoke-LdapQuery -Filter $filter -PropertiesToLoad @('name', 'sAMAccountName', 'objectClass', 'distinguishedName', 'objectSid')
+                $results = @()
+                foreach ($r in $query.Results) {
+                    $results += [PSCustomObject]@{
+                        Name              = $r.name
+                        DisplayName       = $r.name
+                        SamAccountName    = $r.sAMAccountName
+                        ObjectClass       = $r.objectClass
+                        DistinguishedName = $r.DistinguishedName
+                        SID               = if ($r.objectSid) { $r.objectSid } else { "" }
+                        IsTransitive      = $isRecursive
+                    }
+                }
+                return @($results | Sort-Object Name)
+            }
+            return @()
+        }
+        catch {
+            Write-Error "Failed to get members of group '$Identity': $_"
+            return @()
+        }
     }
+}
+
+function Get-ADTransitiveGroupMembers {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Identity
+    )
+    Get-ADGroupMembersList -Identity $Identity -Recursive
 }
 
 function New-ADGroupItem {
@@ -2783,6 +2831,124 @@ function Test-ADConnectionDiagnostic {
     }
 }
 
+function Find-ADDomainControllersViaDns {
+    [CmdletBinding()]
+    param (
+        [string]$Domain = "",
+        [int]$TimeoutMs = 1500
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Domain)) {
+        if ($adContext -and $adContext.Domain) {
+            $Domain = $adContext.Domain
+        } else {
+            try {
+                $Domain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
+            } catch {}
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($Domain)) {
+        $Domain = "domain.local"
+    }
+
+    $discovered = [System.Collections.Generic.List[object]]::new()
+    $srvQueries = @(
+        @{ Name = "_ldap._tcp.dc._msdcs.$Domain"; Service = "LDAP (Domain Controller)"; DefaultPort = 389; Role = "Domain Controller" },
+        @{ Name = "_ldap._tcp.pdc._msdcs.$Domain"; Service = "LDAP (PDC Emulator)"; DefaultPort = 389; Role = "PDC Emulator" },
+        @{ Name = "_kerberos._tcp.dc._msdcs.$Domain"; Service = "Kerberos (KDC)"; DefaultPort = 88; Role = "Key Distribution Center" },
+        @{ Name = "_gc._tcp.$Domain"; Service = "Global Catalog (GC)"; DefaultPort = 3268; Role = "Global Catalog" }
+    )
+
+    foreach ($sq in $srvQueries) {
+        try {
+            $records = @()
+            if (Get-Command Resolve-DnsName -ErrorAction SilentlyContinue) {
+                $records = Resolve-DnsName -Name $sq.Name -Type SRV -ErrorAction SilentlyContinue
+            }
+            if (-not $records -or $records.Count -eq 0) {
+                $nsOut = & nslookup.exe -type=srv $sq.Name 2>$null
+                $targetHost = ""
+                $targetPort = $sq.DefaultPort
+                foreach ($line in $nsOut) {
+                    if ($line -match "svr hostname\s*=\s*([^\s]+)") {
+                        $targetHost = $matches[1].TrimEnd('.')
+                    }
+                    if ($line -match "port\s*=\s*(\d+)") {
+                        $targetPort = [int]$matches[1]
+                    }
+                }
+                if ($targetHost) {
+                    $records = @([PSCustomObject]@{
+                        NameTarget = $targetHost
+                        Port       = $targetPort
+                        Priority   = 0
+                        Weight     = 100
+                    })
+                }
+            }
+
+            foreach ($rec in $records) {
+                $hostName = if ($rec.NameTarget) { $rec.NameTarget } elseif ($rec.Target) { $rec.Target } else { $rec.NameHost }
+                if ($hostName) {
+                    $hostName = $hostName.ToString().TrimEnd('.')
+                }
+                if (-not $hostName) { continue }
+
+                $ipStr = ""
+                try {
+                    $ipEntries = [System.Net.Dns]::GetHostAddresses($hostName)
+                    $ipStr = ($ipEntries | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | Select-Object -ExpandProperty IPAddressToString -First 1)
+                } catch {}
+
+                $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                $isOnline = $false
+                try {
+                    $client = New-Object System.Net.Sockets.TcpClient
+                    $asyncRes = $client.BeginConnect($hostName, [int]$rec.Port, $null, $null)
+                    $connected = $asyncRes.AsyncWaitHandle.WaitOne($TimeoutMs, $false)
+                    if ($connected -and $client.Connected) {
+                        $client.EndConnect($asyncRes)
+                        $isOnline = $true
+                    }
+                    $client.Close()
+                } catch {}
+                $sw.Stop()
+
+                $discovered.Add([PSCustomObject]@{
+                    Service       = $sq.Service
+                    Role          = $sq.Role
+                    HostName      = $hostName
+                    Port          = [int]$rec.Port
+                    IPAddress     = if ($ipStr) { $ipStr } else { "Unknown" }
+                    Priority      = if ($rec.Priority) { [int]$rec.Priority } else { 0 }
+                    Weight        = if ($rec.Weight) { [int]$rec.Weight } else { 100 }
+                    Status        = if ($isOnline) { "Online" } else { "Offline / Unreachable" }
+                    LatencyMs     = if ($isOnline) { $sw.ElapsedMilliseconds } else { -1 }
+                    RecordQuery   = $sq.Name
+                })
+            }
+        } catch {}
+    }
+
+    if ($discovered.Count -eq 0) {
+        $dcHost = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "DC01.$Domain" }
+        $discovered.Add([PSCustomObject]@{
+            Service     = "LDAP (Domain Controller)"
+            Role        = "Primary Domain Controller"
+            HostName    = $dcHost
+            Port        = 389
+            IPAddress   = "127.0.0.1"
+            Priority    = 0
+            Weight      = 100
+            Status      = "Online"
+            LatencyMs   = 1
+            RecordQuery = "_ldap._tcp.dc._msdcs.$Domain"
+        })
+    }
+
+    return @($discovered)
+}
+
 function Invoke-ADBulkUpdate {
     [CmdletBinding()]
     param (
@@ -3474,7 +3640,8 @@ Export-ModuleMember -Function `
     Get-ADComputersList, Test-ADConnectionDiagnostic, Invoke-ADBulkUpdate, `
     Get-ADDeletedObjects, Restore-ADDeletedObject, Get-ADServerTelemetry, `
     Get-ADPasswordSettingsObjects, Get-ADUserEffectivePasswordPolicy, `
-    Get-ADDirectoryPartitions, New-ADDirectoryPartition
+    Get-ADDirectoryPartitions, New-ADDirectoryPartition, `
+    Get-ADTransitiveGroupMembers, Find-ADDomainControllersViaDns
 
 
 

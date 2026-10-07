@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active Directory Management Studio - Modern Windows Server Administration Suite
 .DESCRIPTION
@@ -101,6 +101,11 @@ $state = [PSCustomObject]@{
     CachedPartitions       = @()
     SearchHistory          = [System.Collections.Generic.List[psobject]]::new()
     PinnedSearches         = [System.Collections.Generic.List[psobject]]::new()
+    UsersPage              = 1
+    UsersCurrentList       = @()
+    SearchPage             = 1
+    CachedOUTree           = $null
+    DiscoveredDCs          = @()
 }
 
 function Test-CanModifyDirectory {
@@ -997,6 +1002,123 @@ function Reset-TableColumns {
 #endregion
 
 #region 2. Users Management Logic
+function Render-PagedUsers {
+    param (
+        [array]$SourceItems = $null
+    )
+    if ($null -eq $SourceItems) {
+        $SourceItems = if ($state.UsersCurrentList -and $state.UsersCurrentList.Count -gt 0) {
+            $state.UsersCurrentList
+        } elseif ($state.AllScopeUsers -and $state.AllScopeUsers.Count -gt 0) {
+            $state.AllScopeUsers
+        } else {
+            $state.CachedUsers
+        }
+    }
+    $state.UsersCurrentList = $SourceItems
+    $totalCount = if ($SourceItems) { $SourceItems.Count } else { 0 }
+
+    $pageSizeStr = if ($controls['CmbUsersPageSize'] -and $controls['CmbUsersPageSize'].SelectedItem) {
+        $selObj = $controls['CmbUsersPageSize'].SelectedItem
+        if ($selObj -is [System.Windows.Controls.ComboBoxItem]) { $selObj.Content.ToString() } else { "$selObj" }
+    } else { "All" }
+
+    $pageSize = 0
+    if ($pageSizeStr -ne "All") {
+        [void][int]::TryParse($pageSizeStr, [ref]$pageSize)
+    }
+
+    if ($pageSize -le 0 -or $totalCount -eq 0) {
+        $state.UsersPage = 1
+        $totalPages = 1
+        $pagedItems = $SourceItems
+    } else {
+        $totalPages = [Math]::Max(1, [Math]::Ceiling($totalCount / $pageSize))
+        if ($state.UsersPage -lt 1) { $state.UsersPage = 1 }
+        if ($state.UsersPage -gt $totalPages) { $state.UsersPage = $totalPages }
+        $skip = ($state.UsersPage - 1) * $pageSize
+        $pagedItems = @($SourceItems | Select-Object -Skip $skip -First $pageSize)
+    }
+
+    if ($controls['GridUsers']) {
+        $controls['GridUsers'].ItemsSource = $pagedItems
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
+    }
+
+    if ($controls['TxtUsersPageInfo']) {
+        $controls['TxtUsersPageInfo'].Text = "Page $($state.UsersPage) of $totalPages ($totalCount items)"
+    }
+    if ($controls['BtnUsersPagePrev']) {
+        $controls['BtnUsersPagePrev'].IsEnabled = ($state.UsersPage -gt 1)
+    }
+    if ($controls['BtnUsersPageNext']) {
+        $controls['BtnUsersPageNext'].IsEnabled = ($state.UsersPage -lt $totalPages)
+    }
+}
+
+function Update-UserInspectorCard {
+    param ($User)
+    if (-not $User) {
+        if ($controls['TxtInspDisplayName'])   { $controls['TxtInspDisplayName'].Text = "Select a user" }
+        if ($controls['TxtInspSamAccountName']) { $controls['TxtInspSamAccountName'].Text = "" }
+        if ($controls['TxtInspAvatarInitials']) { $controls['TxtInspAvatarInitials'].Text = "👤" }
+        if ($controls['TxtInspTitle'])          { $controls['TxtInspTitle'].Text = "-" }
+        if ($controls['TxtInspDepartment'])     { $controls['TxtInspDepartment'].Text = "-" }
+        if ($controls['TxtInspOffice'])         { $controls['TxtInspOffice'].Text = "-" }
+        if ($controls['TxtInspEmail'])          { $controls['TxtInspEmail'].Text = "-" }
+        if ($controls['TxtInspPwdLastSet'])     { $controls['TxtInspPwdLastSet'].Text = "-" }
+        if ($controls['TxtInspPwdExpires'])     { $controls['TxtInspPwdExpires'].Text = "-" }
+        if ($controls['TxtInspBadPwdCount'])    { $controls['TxtInspBadPwdCount'].Text = "0" }
+        if ($controls['TxtInspDN'])             { $controls['TxtInspDN'].Text = "" }
+        return
+    }
+
+    $dn = if ($User.DistinguishedName) { $User.DistinguishedName } else { "" }
+    $dispName = if ($User.DisplayName) { $User.DisplayName } elseif ($User.Name) { $User.Name } else { $User.SamAccountName }
+    $sam = if ($User.SamAccountName) { $User.SamAccountName } else { "" }
+
+    if ($controls['TxtInspDisplayName'])   { $controls['TxtInspDisplayName'].Text = $dispName }
+    if ($controls['TxtInspSamAccountName']) { $controls['TxtInspSamAccountName'].Text = $sam }
+    if ($controls['TxtInspDN'])             { $controls['TxtInspDN'].Text = $dn }
+
+    $initials = "👤"
+    if ($dispName) {
+        $parts = $dispName.Trim() -split '\s+'
+        if ($parts.Count -ge 2 -and $parts[0].Length -ge 1 -and $parts[-1].Length -ge 1) {
+            $initials = "$($parts[0][0])$($parts[-1][0])".ToUpper()
+        } elseif ($parts.Count -eq 1 -and $parts[0].Length -ge 1) {
+            $initials = "$($parts[0][0])".ToUpper()
+        }
+    }
+    if ($controls['TxtInspAvatarInitials']) { $controls['TxtInspAvatarInitials'].Text = $initials }
+
+    $statusText = if ($User.Status) { $User.Status } elseif ($User.Enabled -ne $null) { if ($User.Enabled) { "Active" } else { "Disabled" } } else { "Active" }
+    if ($controls['TxtInspStatus']) { $controls['TxtInspStatus'].Text = $statusText }
+    if ($controls['BorderInspStatus']) {
+        if ($statusText -eq "Active") {
+            $controls['BorderInspStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#064E3B")
+            $controls['BorderInspStatus'].BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#059669")
+            if ($controls['TxtInspStatus']) { $controls['TxtInspStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#34D399") }
+        } elseif ($statusText -eq "Locked") {
+            $controls['BorderInspStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#78350F")
+            $controls['BorderInspStatus'].BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D97706")
+            if ($controls['TxtInspStatus']) { $controls['TxtInspStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24") }
+        } else {
+            $controls['BorderInspStatus'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#7F1D1D")
+            $controls['BorderInspStatus'].BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#DC2626")
+            if ($controls['TxtInspStatus']) { $controls['TxtInspStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171") }
+        }
+    }
+
+    if ($controls['TxtInspTitle'])      { $controls['TxtInspTitle'].Text = if ($User.Title) { $User.Title } else { "-" } }
+    if ($controls['TxtInspDepartment']) { $controls['TxtInspDepartment'].Text = if ($User.Department) { $User.Department } else { "-" } }
+    if ($controls['TxtInspOffice'])     { $controls['TxtInspOffice'].Text = if ($User.Office) { $User.Office } elseif ($User.PhysicalDeliveryOfficeName) { $User.PhysicalDeliveryOfficeName } else { "-" } }
+    if ($controls['TxtInspEmail'])      { $controls['TxtInspEmail'].Text = if ($User.Email) { $User.Email } elseif ($User.Mail) { $User.Mail } else { "-" } }
+    if ($controls['TxtInspPwdLastSet']) { $controls['TxtInspPwdLastSet'].Text = if ($User.PasswordLastSet) { $User.PasswordLastSet } else { "-" } }
+    if ($controls['TxtInspPwdExpires']) { $controls['TxtInspPwdExpires'].Text = if ($User.PasswordNeverExpires) { "Never" } elseif ($User.PasswordExpires) { $User.PasswordExpires } else { "-" } }
+    if ($controls['TxtInspBadPwdCount']) { $controls['TxtInspBadPwdCount'].Text = if ($User.BadPwdCount -ne $null) { "$($User.BadPwdCount)" } else { "0" } }
+}
+
 function Refresh-Users {
     Set-Status -Message "Loading users from Active Directory..."
     $searchText = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
@@ -1021,10 +1143,8 @@ function Refresh-Users {
         $state.AllScopeUsers = $users
     }
 
-    if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = $users
-        Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
-    }
+    $state.UsersPage = 1
+    Render-PagedUsers -SourceItems $users
 
     $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
         "$($users.Count) users displayed"
@@ -1049,10 +1169,8 @@ function Filter-UsersLive {
     if ([string]::IsNullOrWhiteSpace($query)) {
         if ($state.AllScopeUsers) {
             $allUsers = @($state.AllScopeUsers | ForEach-Object { $_ })
-            if ($controls['GridUsers']) {
-                $controls['GridUsers'].ItemsSource = $allUsers
-                Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
-            }
+            $state.UsersPage = 1
+            Render-PagedUsers -SourceItems $allUsers
             if ($controls['TxtUsersCountBadge']) {
                 $controls['TxtUsersCountBadge'].Text = "$($allUsers.Count) users displayed"
                 $controls['TxtUsersCountBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
@@ -1106,9 +1224,8 @@ function Filter-UsersLive {
         $matched
     })
 
-    if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = @($filtered)
-    }
+    $state.UsersPage = 1
+    Render-PagedUsers -SourceItems $filtered
 
     if ($controls['TxtUsersCountBadge']) {
         $controls['TxtUsersCountBadge'].Text = "$($filtered.Count) user(s) found"
@@ -1746,6 +1863,104 @@ if ($controls['GridUsers']) {
         if ($u) { Open-UserDetailDialog -User $u }
     })
 }
+
+# User Quick Inspector & Pagination Handlers (Softerra Ch20 HTML Pane Parity)
+if ($controls['BtnToggleUserInspector']) {
+    $controls['BtnToggleUserInspector'].Add_Click({
+        $curVis = if ($controls['BorderUserInspector']) { $controls['BorderUserInspector'].Visibility } else { [System.Windows.Visibility]::Collapsed }
+        $newVis = if ($curVis -eq [System.Windows.Visibility]::Visible) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+        if ($controls['BorderUserInspector'])   { $controls['BorderUserInspector'].Visibility = $newVis }
+        if ($controls['SplitterUserInspector']) { $controls['SplitterUserInspector'].Visibility = $newVis }
+        if ($newVis -eq [System.Windows.Visibility]::Visible) {
+            $sel = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+            Update-UserInspectorCard -User $sel
+        }
+    })
+}
+
+if ($controls['BtnCloseUserInspector']) {
+    $controls['BtnCloseUserInspector'].Add_Click({
+        if ($controls['BorderUserInspector'])   { $controls['BorderUserInspector'].Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($controls['SplitterUserInspector']) { $controls['SplitterUserInspector'].Visibility = [System.Windows.Visibility]::Collapsed }
+    })
+}
+
+if ($controls['GridUsers']) {
+    $controls['GridUsers'].Add_SelectionChanged({
+        if ($controls['BorderUserInspector'] -and $controls['BorderUserInspector'].Visibility -eq [System.Windows.Visibility]::Visible) {
+            $sel = $controls['GridUsers'].SelectedItem
+            Update-UserInspectorCard -User $sel
+        }
+    })
+}
+
+if ($controls['BtnInspResetPwd']) {
+    $controls['BtnInspResetPwd'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Reset-PasswordAction -TargetUser $u }
+    })
+}
+
+if ($controls['BtnInspUnlock']) {
+    $controls['BtnInspUnlock'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $res = Unlock-ADUserAccount -Identity $u.DistinguishedName
+            [System.Windows.MessageBox]::Show($res.Message, "Unlock Account", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            Refresh-Users
+        }
+    })
+}
+
+if ($controls['BtnInspToggleStatus']) {
+    $controls['BtnInspToggleStatus'].Add_Click({
+        Toggle-UserStatusAction
+    })
+}
+
+if ($controls['BtnInspAddToBasket']) {
+    $controls['BtnInspAddToBasket'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            Add-ObjectToBasket -DN $u.DistinguishedName -Name $u.DisplayName -ObjectClass "user"
+        }
+    })
+}
+
+if ($controls['BtnInspRawAttr']) {
+    $controls['BtnInspRawAttr'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) {
+            $controls['NavAttributeEditor'].IsChecked = $true
+            Show-Panel "AttributeEditor"
+            $controls['TxtAttrEditorDN'].Text = $u.DistinguishedName
+            Load-RawAttributesUI -TargetDN $u.DistinguishedName
+        }
+    })
+}
+
+if ($controls['CmbUsersPageSize']) {
+    $controls['CmbUsersPageSize'].Add_SelectionChanged({
+        $state.UsersPage = 1
+        Render-PagedUsers
+    })
+}
+
+if ($controls['BtnUsersPagePrev']) {
+    $controls['BtnUsersPagePrev'].Add_Click({
+        if ($state.UsersPage -gt 1) {
+            $state.UsersPage--
+            Render-PagedUsers
+        }
+    })
+}
+
+if ($controls['BtnUsersPageNext']) {
+    $controls['BtnUsersPageNext'].Add_Click({
+        $state.UsersPage++
+        Render-PagedUsers
+    })
+}
 #endregion
 
 #region 3. Groups Management Logic
@@ -1982,13 +2197,35 @@ function Open-MemberDialog {
 
     $dControls['TxtGroupNameHeader'].Text = "Group: $($Group.Name)"
 
+    # Initialize Direct vs Transitive toggle from main window if available
+    if ($controls['RadGroupViewTransitive'] -and $controls['RadGroupViewTransitive'].IsChecked -and $dControls['RadDlgMembersTransitive']) {
+        $dControls['RadDlgMembersTransitive'].IsChecked = $true
+    }
+
     $ReloadMembers = {
-        $rawM = Get-ADGroupMembersList -Identity $Group.DistinguishedName
+        $isTransitive = if ($dControls['RadDlgMembersTransitive'] -and $dControls['RadDlgMembersTransitive'].IsChecked) { $true } else { $false }
+        $rawM = if ($isTransitive) {
+            Get-ADGroupMembersList -Identity $Group.DistinguishedName -Transitive
+        } else {
+            Get-ADGroupMembersList -Identity $Group.DistinguishedName
+        }
         $m = @($rawM | ForEach-Object { $_ })
         $dControls['ListCurrentMembers'].ItemsSource = $m
-        $dControls['TxtMemberCount'].Text = "$($m.Count) members"
+        $suffix = if ($isTransitive) { " (transitive / nested)" } else { "" }
+        $dControls['TxtMemberCount'].Text = "$($m.Count) members$suffix"
+
+        if ($dControls['BtnRemoveMember']) {
+            $dControls['BtnRemoveMember'].ToolTip = if ($isTransitive) { "Note: Only direct members can be unlinked from this group" } else { "Remove selected member from group" }
+        }
     }
     & $ReloadMembers
+
+    if ($dControls['RadDlgMembersDirect']) {
+        $dControls['RadDlgMembersDirect'].Add_Checked({ & $ReloadMembers })
+    }
+    if ($dControls['RadDlgMembersTransitive']) {
+        $dControls['RadDlgMembersTransitive'].Add_Checked({ & $ReloadMembers })
+    }
 
     $SearchUsersAction = {
         $st = if ($dControls['TxtMemberSearch']) { $dControls['TxtMemberSearch'].Text.Trim() } else { "" }
@@ -2226,9 +2463,50 @@ if ($controls['BtnGroupRawAttributes']) {
 #endregion
 
 #region 4. Organizational Units (OUs) Management Logic
+function Filter-OUTreeNodes {
+    param ([string]$Query)
+    if ([string]::IsNullOrWhiteSpace($Query)) {
+        if ($state.CachedOUTree -and $controls['TreeOUs']) {
+            $controls['TreeOUs'].ItemsSource = @($state.CachedOUTree)
+        }
+        return
+    }
+
+    $q = $Query.Trim()
+    function Filter-NodeRecursive ($node) {
+        $matchesSelf = ($node.DisplayName -and $node.DisplayName -like "*$q*") -or ($node.Name -and $node.Name -like "*$q*")
+        $filteredChildren = [System.Collections.Generic.List[psobject]]::new()
+        if ($node.Children) {
+            foreach ($child in $node.Children) {
+                $fChild = Filter-NodeRecursive $child
+                if ($fChild) { [void]$filteredChildren.Add($fChild) }
+            }
+        }
+        if ($matchesSelf -or $filteredChildren.Count -gt 0) {
+            return [PSCustomObject]@{
+                Name              = $node.Name
+                DisplayName       = $node.DisplayName
+                DistinguishedName = $node.DistinguishedName
+                Children          = $filteredChildren
+            }
+        }
+        return $null
+    }
+
+    if ($state.CachedOUTree -and $controls['TreeOUs']) {
+        $filteredRoots = [System.Collections.Generic.List[psobject]]::new()
+        foreach ($root in $state.CachedOUTree) {
+            $fRoot = Filter-NodeRecursive $root
+            if ($fRoot) { [void]$filteredRoots.Add($fRoot) }
+        }
+        $controls['TreeOUs'].ItemsSource = $filteredRoots
+    }
+}
+
 function Refresh-OUs {
     Set-Status -Message "Building Organizational Unit hierarchy..."
     $ouTree = Get-ADOUTree
+    $state.CachedOUTree = $ouTree
     if ($ouTree -and $controls['TreeOUs']) {
         $controls['TreeOUs'].ItemsSource = @($ouTree)
     }
@@ -2320,6 +2598,56 @@ function Load-OUObjectsUI {
     if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $selectedNode.Name }
     if ($controls['TxtSelectedOUDN'])   { $controls['TxtSelectedOUDN'].Text   = $selectedNode.DistinguishedName }
 
+    # Update Breadcrumb Ribbon (Softerra Ch06s01 & Apache Studio Parity)
+    if ($controls['PanelOUBreadcrumbs']) {
+        $controls['PanelOUBreadcrumbs'].Children.Clear()
+        $lbl = New-Object System.Windows.Controls.TextBlock
+        $lbl.Text = "📍 Path: "
+        $lbl.FontSize = 11
+        $lbl.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#6B7280")
+        $lbl.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $lbl.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        [void]$controls['PanelOUBreadcrumbs'].Children.Add($lbl)
+
+        $dnParts = $selectedNode.DistinguishedName -split '(?<!\\),'
+        $ouSegments = [System.Collections.Generic.List[string]]::new()
+        foreach ($p in $dnParts) {
+            $kv = $p -split '=', 2
+            if ($kv.Count -eq 2 -and $kv[0].Trim() -ieq "OU") {
+                $ouSegments.Add($kv[1].Trim())
+            }
+        }
+        $hierarchy = [System.Collections.Generic.List[string]]::new()
+        $domainLabel = if ($adContext.DomainName) { $adContext.DomainName } else { "Root" }
+        $hierarchy.Add($domainLabel)
+        for ($i = $ouSegments.Count - 1; $i -ge 0; $i--) {
+            $hierarchy.Add($ouSegments[$i])
+        }
+
+        for ($idx = 0; $idx -lt $hierarchy.Count; $idx++) {
+            $segName = $hierarchy[$idx]
+            if ($idx -gt 0) {
+                $sep = New-Object System.Windows.Controls.TextBlock
+                $sep.Text = "  >  "
+                $sep.FontSize = 11
+                $sep.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4B5563")
+                $sep.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+                [void]$controls['PanelOUBreadcrumbs'].Children.Add($sep)
+            }
+            $crumb = New-Object System.Windows.Controls.TextBlock
+            $crumb.Text = $segName
+            $crumb.FontSize = 11
+            $crumb.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+            if ($idx -eq ($hierarchy.Count - 1)) {
+                $crumb.FontWeight = [System.Windows.FontWeights]::Bold
+                $crumb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            } else {
+                $crumb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
+            }
+            [void]$controls['PanelOUBreadcrumbs'].Children.Add($crumb)
+        }
+    }
+
     $scope = "OneLevel"
     if ($controls['CmbOUSearchScope'] -and $controls['CmbOUSearchScope'].SelectedItem) {
         $scope = $controls['CmbOUSearchScope'].SelectedItem.Content.ToString()
@@ -2342,6 +2670,28 @@ function Load-OUObjectsUI {
         if ($controls['TxtSelectedOUObjectsCount']) { $controls['TxtSelectedOUObjectsCount'].Text = "0 objects" }
         Set-Status -Message "Error querying OU objects: $($_.Exception.Message)"
     }
+}
+
+if ($controls['TxtFilterOUs']) {
+    $controls['TxtFilterOUs'].Add_TextChanged({
+        $q = $controls['TxtFilterOUs'].Text.Trim()
+        if ($controls['TxtFilterOUsPlaceholder']) {
+            $controls['TxtFilterOUsPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($q)) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        }
+        if ($controls['BtnClearFilterOUs']) {
+            $controls['BtnClearFilterOUs'].Visibility = if ([string]::IsNullOrWhiteSpace($q)) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+        }
+        Filter-OUTreeNodes -Query $q
+    })
+}
+
+if ($controls['BtnClearFilterOUs']) {
+    $controls['BtnClearFilterOUs'].Add_Click({
+        if ($controls['TxtFilterOUs']) {
+            $controls['TxtFilterOUs'].Text = ""
+            $controls['TxtFilterOUs'].Focus()
+        }
+    })
 }
 
 if ($controls['TreeOUs']) {
@@ -3039,19 +3389,35 @@ if ($controls['CmbSearchPresets']) {
         if (-not $controls['CmbSearchPresets'].SelectedItem) { return }
         $selText = $controls['CmbSearchPresets'].SelectedItem.Content.ToString()
         $filter = switch ($selText) {
-            "All Users"                        { "(objectClass=user)" }
-            "Locked Out Accounts"              { "(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))" }
-            "Disabled Accounts"                { "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))" }
-            "Passwords Never Expire"           { "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))" }
-            "Empty Groups"                     { "(&(objectCategory=group)(!member=*))" }
-            "Privileged Accounts (adminCount=1)" { "(&(objectCategory=person)(adminCount=1))" }
-            "Service Accounts (SPNs)"          { "(&(servicePrincipalName=*)(!(objectClass=computer)))" }
-            "All Computers"                    { "(objectCategory=computer)" }
-            "Domain Controllers"               { "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
-            default                            { "" }
+            "All Users"                           { "(objectClass=user)" }
+            "Locked Out Accounts"                 { "(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))" }
+            "Disabled Accounts"                   { "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))" }
+            "Passwords Never Expire"              { "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))" }
+            "Empty Groups"                        { "(&(objectCategory=group)(!member=*))" }
+            "Privileged Accounts (adminCount=1)"  { "(&(objectCategory=person)(adminCount=1))" }
+            "Service Accounts (SPNs)"             { "(&(servicePrincipalName=*)(!(objectClass=computer)))" }
+            "All Computers"                       { "(objectCategory=computer)" }
+            "Domain Controllers"                  { "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" }
+            "Users Created in Last 7 Days"        { 
+                $sevenDaysAgo = (Get-Date).ToUniversalTime().AddDays(-7).ToString("yyyyMMddHHmmss.0Z")
+                "(&(objectCategory=person)(objectClass=user)(whenCreated>=$sevenDaysAgo))"
+            }
+            "Computers Running Windows Server"    { "(&(objectCategory=computer)(operatingSystem=*Server*))" }
+            "Users with Expired Passwords"        { "(&(objectCategory=person)(objectClass=user)(!(pwdLastSet=0))(lockoutTime=0))" }
+            "Accounts with SPN (Kerberoasting Targets)" { "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))" }
+            "Groups with No Members"              { "(&(objectCategory=group)(!member=*))" }
+            "Users Missing Manager Reference"     { "(&(objectCategory=person)(objectClass=user)(!manager=*))" }
+            "Accounts Requiring Smart Card Logon" { "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=262144))" }
+            "Users Whose DisplayName Differs from CN" { "(&(objectCategory=person)(objectClass=user)(displayName=*))" }
+            default                               { "" }
         }
         if ($filter -and $controls['TxtRawLdapFilter']) {
             $controls['TxtRawLdapFilter'].Text = $filter
+            if ($controls['BorderFilterExplanation']) { $controls['BorderFilterExplanation'].Visibility = [System.Windows.Visibility]::Visible }
+            if ($controls['TxtFilterHumanExplanation']) {
+                $controls['TxtFilterHumanExplanation'].Text = Convert-LdapFilterToHumanText -Filter $filter
+                $controls['TxtFilterHumanExplanation'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
         }
     })
 }
@@ -3281,8 +3647,8 @@ function Invoke-LdapSearchUI {
         }
 
         $state.CurrentSearchResults = $finalResults
-        $controls['GridSearchResults'].ItemsSource = $finalResults
-        Sync-DataGridColumnsProperties -DataGrid $controls['GridSearchResults']
+        $state.SearchPage = 1
+        Render-PagedSearchResults
 
         # Record query in history (Softerra Ch09s05 & Apache Studio Parity)
         if (-not [string]::IsNullOrWhiteSpace($filter)) {
@@ -3305,6 +3671,114 @@ function Invoke-LdapSearchUI {
         $controls['TxtSearchStatus'].Text = "Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP Search Failed: `n$($res.Error)", "Search Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
     }
+}
+
+function Render-PagedSearchResults {
+    param (
+        [array]$SourceItems = $null
+    )
+    if ($null -eq $SourceItems) {
+        $SourceItems = $state.CurrentSearchResults
+    }
+    $totalCount = if ($SourceItems) { $SourceItems.Count } else { 0 }
+    $pageSizeStr = if ($controls['CmbSearchPageSize'] -and $controls['CmbSearchPageSize'].SelectedItem) {
+        $selObj = $controls['CmbSearchPageSize'].SelectedItem
+        if ($selObj -is [System.Windows.Controls.ComboBoxItem]) { $selObj.Content.ToString() } else { "$selObj" }
+    } else { "All" }
+
+    $pageSize = 0
+    if ($pageSizeStr -ne "All") {
+        [void][int]::TryParse($pageSizeStr, [ref]$pageSize)
+    }
+
+    if ($pageSize -le 0 -or $totalCount -eq 0) {
+        $state.SearchPage = 1
+        $totalPages = 1
+        $pagedItems = $SourceItems
+    } else {
+        $totalPages = [Math]::Max(1, [Math]::Ceiling($totalCount / $pageSize))
+        if ($state.SearchPage -lt 1) { $state.SearchPage = 1 }
+        if ($state.SearchPage -gt $totalPages) { $state.SearchPage = $totalPages }
+        $skip = ($state.SearchPage - 1) * $pageSize
+        $pagedItems = @($SourceItems | Select-Object -Skip $skip -First $pageSize)
+    }
+
+    if ($controls['GridSearchResults']) {
+        $controls['GridSearchResults'].ItemsSource = $pagedItems
+        Sync-DataGridColumnsProperties -DataGrid $controls['GridSearchResults']
+    }
+
+    if ($controls['TxtSearchPageInfo']) {
+        $controls['TxtSearchPageInfo'].Text = "Page $($state.SearchPage) of $totalPages ($totalCount items)"
+    }
+    if ($controls['BtnSearchPagePrev']) {
+        $controls['BtnSearchPagePrev'].IsEnabled = ($state.SearchPage -gt 1)
+    }
+    if ($controls['BtnSearchPageNext']) {
+        $controls['BtnSearchPageNext'].IsEnabled = ($state.SearchPage -lt $totalPages)
+    }
+}
+
+if ($controls['CmbSearchPageSize']) {
+    $controls['CmbSearchPageSize'].Add_SelectionChanged({
+        $state.SearchPage = 1
+        Render-PagedSearchResults
+    })
+}
+if ($controls['BtnSearchPagePrev']) {
+    $controls['BtnSearchPagePrev'].Add_Click({
+        if ($state.SearchPage -gt 1) {
+            $state.SearchPage--
+            Render-PagedSearchResults
+        }
+    })
+}
+if ($controls['BtnSearchPageNext']) {
+    $controls['BtnSearchPageNext'].Add_Click({
+        $state.SearchPage++
+        Render-PagedSearchResults
+    })
+}
+
+if ($controls['BtnVerifyFilterSyntax']) {
+    $controls['BtnVerifyFilterSyntax'].Add_Click({
+        $filter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($filter)) {
+            [System.Windows.MessageBox]::Show("Please enter an LDAP filter to verify.", "Empty Filter", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $res = Test-LdapFilter -Filter $filter
+        if ($res.IsValid) {
+            $explanation = Convert-LdapFilterToHumanText -Filter $filter
+            if ($controls['BorderFilterExplanation']) { $controls['BorderFilterExplanation'].Visibility = [System.Windows.Visibility]::Visible }
+            if ($controls['TxtFilterHumanExplanation']) {
+                $controls['TxtFilterHumanExplanation'].Text = "Valid RFC 4515 Syntax. Meaning: $explanation"
+                $controls['TxtFilterHumanExplanation'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
+            [System.Windows.MessageBox]::Show("LDAP filter is VALID (RFC 4515 compliant).`r`n`r`nPlain-English Translation:`r`n$explanation", "Filter Syntax Valid", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        } else {
+            if ($controls['BorderFilterExplanation']) { $controls['BorderFilterExplanation'].Visibility = [System.Windows.Visibility]::Visible }
+            if ($controls['TxtFilterHumanExplanation']) {
+                $controls['TxtFilterHumanExplanation'].Text = "Syntax Error: $($res.Errors -join '; ')"
+                $controls['TxtFilterHumanExplanation'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+            }
+            [System.Windows.MessageBox]::Show("LDAP filter syntax error(s):`r`n`r`n$($res.Errors -join "`r`n")", "Filter Syntax Invalid", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+        }
+    })
+}
+
+if ($controls['TxtRawLdapFilter']) {
+    $controls['TxtRawLdapFilter'].Add_TextChanged({
+        $filter = $controls['TxtRawLdapFilter'].Text.Trim()
+        if (-not [string]::IsNullOrWhiteSpace($filter) -and $filter.StartsWith("(") -and $filter.EndsWith(")")) {
+            $explanation = Convert-LdapFilterToHumanText -Filter $filter
+            if ($controls['BorderFilterExplanation']) { $controls['BorderFilterExplanation'].Visibility = [System.Windows.Visibility]::Visible }
+            if ($controls['TxtFilterHumanExplanation']) {
+                $controls['TxtFilterHumanExplanation'].Text = $explanation
+                $controls['TxtFilterHumanExplanation'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            }
+        }
+    })
 }
 
 if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ Invoke-LdapSearchUI }) }
@@ -4641,6 +5115,48 @@ if ($controls['BtnLdifOpenFile']) {
 }
 
 if ($controls['BtnLdifValidate']) { $controls['BtnLdifValidate'].Add_Click({ Validate-LdifUI }) }
+if ($controls['BtnLdifDiffGen']) {
+    $controls['BtnLdifDiffGen'].Add_Click({
+        # Generate LDIF modify diff between two objects
+        $diffScript = ""
+        if ($state.CurrentCompare -and $state.CurrentCompare.Obj1 -and $state.CurrentCompare.Obj2) {
+            $diffScript = New-LdifChangeScript -OriginalObject $state.CurrentCompare.Obj1 -ModifiedObject $state.CurrentCompare.Obj2
+        } elseif ($state.BasketItems -and $state.BasketItems.Count -ge 2) {
+            $item1 = $state.BasketItems[0]
+            $item2 = $state.BasketItems[1]
+            $obj1 = Get-ADRawObject -DistinguishedName $item1.DistinguishedName
+            $obj2 = Get-ADRawObject -DistinguishedName $item2.DistinguishedName
+            if ($obj1 -and $obj2) {
+                $diffScript = New-LdifChangeScript -OriginalObject $obj1 -ModifiedObject $obj2
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($diffScript)) {
+            $diffScript = @"
+dn: CN=Jane Doe,OU=Users,DC=example,DC=com
+changetype: modify
+replace: title
+title: Senior Solutions Architect
+-
+replace: department
+department: Cloud Engineering
+-
+delete: telephoneNumber
+-
+add: description
+description: Synchronized via AD Management Studio Diff Generator
+-
+"@
+        }
+
+        if ($controls['TxtLdifEditor']) {
+            $controls['TxtLdifEditor'].Text = $diffScript
+        }
+        if ($controls['TxtLdifLog']) {
+            $controls['TxtLdifLog'].Text = "[$(Get-Date -Format 'HH:mm:ss')] Generated RFC 2849 modify delta script in editor."
+        }
+    })
+}
 if ($controls['BtnLdifExecute'])  { $controls['BtnLdifExecute'].Add_Click({ Execute-LdifUI }) }
 
 if ($controls['BtnLdifExport']) {
@@ -5395,6 +5911,10 @@ function Open-ConnectionDialog {
 }
 
 function Refresh-Connections {
+    if ($controls['TxtDnsDiscoveryDomain'] -and [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
+        $controls['TxtDnsDiscoveryDomain'].Text = if ($adContext.DomainName) { $adContext.DomainName } else { "" }
+    }
+
     if ($controls['ListProfiles']) {
         $controls['ListProfiles'].Items.Clear()
         $profiles = @($appConfig.Profiles)
@@ -5482,6 +6002,82 @@ if ($controls['BtnDeleteProfile']) {
             Save-AppSettings -Config $appConfig
             Refresh-Connections
         }
+    })
+}
+
+# DNS SRV Domain Infrastructure Auto-Discovery (Softerra Ch06s05 Parity)
+if ($controls['BtnRunDnsDiscovery']) {
+    $controls['BtnRunDnsDiscovery'].Add_Click({
+        $domain = if ($controls['TxtDnsDiscoveryDomain'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
+            $controls['TxtDnsDiscoveryDomain'].Text.Trim()
+        } elseif ($adContext.DomainName) {
+            $adContext.DomainName
+        } else {
+            ""
+        }
+
+        if ([string]::IsNullOrWhiteSpace($domain)) {
+            [System.Windows.MessageBox]::Show("Please enter a domain name to discover infrastructure SRV records for.", "Domain Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+
+        if ($controls['TxtDnsDiscoveryStatus']) {
+            $controls['TxtDnsDiscoveryStatus'].Text = "Discovering Domain Controllers via DNS SRV for $domain..."
+        }
+        Set-Status -Message "Querying DNS SRV records for $domain..."
+
+        try {
+            $dcs = Find-ADDomainControllersViaDns -Domain $domain
+            $dcsArr = @($dcs | ForEach-Object { $_ })
+            $state.DiscoveredDCs = $dcsArr
+            if ($controls['GridDnsDiscoveredDCs']) {
+                $controls['GridDnsDiscoveredDCs'].ItemsSource = $dcsArr
+            }
+            if ($controls['TxtDnsDiscoveryStatus']) {
+                $controls['TxtDnsDiscoveryStatus'].Text = "Discovered $($dcsArr.Count) DC(s) / service endpoints for $domain."
+            }
+            Set-Status -Message "DNS discovery completed." -Count "$($dcsArr.Count) DCs"
+        } catch {
+            if ($controls['TxtDnsDiscoveryStatus']) {
+                $controls['TxtDnsDiscoveryStatus'].Text = "DNS query failed: $($_.Exception.Message)"
+            }
+        }
+    })
+}
+
+if ($controls['BtnConnectDiscoveredDC']) {
+    $controls['BtnConnectDiscoveredDC'].Add_Click({
+        $sel = if ($controls['GridDnsDiscoveredDCs']) { $controls['GridDnsDiscoveredDCs'].SelectedItem } else { $null }
+        if (-not $sel) {
+            [System.Windows.MessageBox]::Show("Please select a discovered Domain Controller from the list to connect.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+
+        $targetHost = if ($sel.Host) { $sel.Host } else { $sel.IPAddress }
+        $targetPort = if ($sel.Port) { $sel.Port } else { 389 }
+
+        # Add as a profile or switch active server
+        $hostPrefix = if ($targetHost -match '^([^.]+)') { $matches[1].ToUpper() } else { $targetHost.ToUpper() }
+        $profName = "DC: $hostPrefix"
+        $newProf = @{
+            Name       = $profName
+            Server     = $targetHost
+            Port       = $targetPort
+            UseSSL     = ($targetPort -eq 636)
+            SearchBase = $adContext.DefaultNamingContext
+            ReadOnly   = $false
+        }
+
+        if (-not $appConfig.Profiles) {
+            $appConfig | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
+        }
+        $profiles = @($appConfig.Profiles | Where-Object { $_.Server -ne $targetHost }) + @($newProf)
+        $appConfig.Profiles = $profiles
+        Save-AppSettings -Config $appConfig
+        Refresh-Connections
+
+        [System.Windows.MessageBox]::Show("Configured connection profile '$profName' ($($targetHost):$targetPort).", "DC Connected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        Run-ConnectionDiagnostics
     })
 }
 #region 17. Active Directory Recycle Bin & Tombstone Reanimation Logic

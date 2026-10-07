@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ConfigService module for Active Directory Management Studio.
 .DESCRIPTION

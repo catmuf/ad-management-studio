@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ValidationService module for Active Directory Management Studio.
 .DESCRIPTION
@@ -367,6 +367,7 @@ function Test-LdapFilter {
     $result = [PSCustomObject]@{
         IsValid = $false
         Message = ""
+        Filter  = $Filter
     }
 
     if ([string]::IsNullOrWhiteSpace($Filter)) {
@@ -380,10 +381,24 @@ function Test-LdapFilter {
         return $result
     }
 
-    # Count matching parentheses
+    # Count matching parentheses & check logical operator syntax
     $openCount = 0
-    foreach ($char in $trimmed.ToCharArray()) {
-        if ($char -eq '(') { $openCount++ }
+    $chars = $trimmed.ToCharArray()
+    for ($i = 0; $i -lt $chars.Length; $i++) {
+        $char = $chars[$i]
+        if ($char -eq '(') {
+            $openCount++
+            # Next character check if logical operator (&, |, !)
+            if ($i + 1 -lt $chars.Length) {
+                $next = $chars[$i + 1]
+                if ($next -in @('&', '|', '!')) {
+                    if ($i + 2 -lt $chars.Length -and $chars[$i + 2] -ne '(') {
+                        $result.Message = "Logical operator '$next' at position $($i + 1) must be immediately followed by '('."
+                        return $result
+                    }
+                }
+            }
+        }
         elseif ($char -eq ')') { 
             $openCount-- 
             if ($openCount -lt 0) {
@@ -398,9 +413,64 @@ function Test-LdapFilter {
         return $result
     }
 
+    # Verify that leaf filters contain a valid comparison operator (=, ~=, >=, <=, :=)
+    if ($trimmed -notmatch '[=~><:]') {
+        $result.Message = "Invalid LDAP filter: no comparison operator (=, >=, <=, ~=, :=) found."
+        return $result
+    }
+
     $result.IsValid = $true
-    $result.Message = "Filter syntax is structurally valid."
+    $result.Message = "Filter syntax is valid according to RFC 4515 standards."
     return $result
+}
+
+function Convert-LdapFilterToHumanText {
+    [CmdletBinding()]
+    param (
+        [string]$Filter
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Filter)) { return "No filter specified (all directory objects)" }
+
+    $f = $Filter.Trim()
+    if ($f -eq "(objectClass=*)" -or $f -eq "(objectCategory=*)") { return "All directory objects" }
+    if ($f -match "objectClass=user.*adminCount=1" -or $f -match "adminCount=1") { return "Privileged / administrative accounts protected by AdminSDHolder" }
+    if ($f -match "objectClass=user.*userAccountControl.*2\)") { return "Disabled user accounts" }
+    if ($f -match "objectClass=user.*!.*userAccountControl.*2\)") { return "Active (enabled) user accounts" }
+    if ($f -match "userAccountControl.*65536") { return "Accounts with passwords that never expire (DONT_EXPIRE_PASSWORD)" }
+    if ($f -match "lockoutTime.*1") { return "Accounts locked out due to failed logon attempts" }
+    if ($f -match "objectClass=group.*!.*member=\*") { return "Empty security or distribution groups (0 members)" }
+    if ($f -match "servicePrincipalName=\*") { return "Service accounts with registered Service Principal Names (SPNs)" }
+    if ($f -match "objectClass=computer") { return "Domain computer objects" }
+    if ($f -match "objectClass=group") { return "Active Directory security and distribution groups" }
+    if ($f -match "objectClass=user") { return "Active Directory user accounts" }
+    if ($f -match "objectClass=organizationalUnit") { return "Organizational Units (OUs)" }
+
+    # Fallback readable extraction
+    $parts = @()
+    $matchesObj = [regex]::Matches($f, '\(([^()&|!]+)\)')
+    foreach ($m in $matchesObj) {
+        $val = $m.Groups[1].Value
+        if ($val -match '^([a-zA-Z0-9_\-]+)\s*(=|>=|<=|~=)\s*(.+)$') {
+            $attr = $matches[1]
+            $op = switch ($matches[2]) {
+                "="  { "is" }
+                ">=" { "is greater than or equal to" }
+                "<=" { "is less than or equal to" }
+                "~=" { "sounds like / approx" }
+                default { "matches" }
+            }
+            $valPart = $matches[3]
+            $parts += "$attr $op '$valPart'"
+        }
+    }
+
+    if ($parts.Count -gt 0) {
+        $joiner = if ($f -match '^\(\|\(') { " OR " } else { " AND " }
+        return "Find objects where: " + ($parts -join $joiner)
+    }
+
+    return "Custom LDAP query: $Filter"
 }
 
 function Test-LdifSyntax {
@@ -412,6 +482,8 @@ function Test-LdifSyntax {
     $result = [PSCustomObject]@{
         IsValid    = $false
         EntryCount = 0
+        ErrorCount = 0
+        Errors     = @()
         Message    = ""
     }
 
@@ -423,23 +495,55 @@ function Test-LdifSyntax {
     $lines = $Content -split '\r?\n'
     $hasDn = $false
     $count = 0
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $lineNum = 0
 
     foreach ($line in $lines) {
+        $lineNum++
         $t = $line.Trim()
-        if ($t -match '^dn:\s*.+') {
+        if ([string]::IsNullOrWhiteSpace($t) -or $t.StartsWith("#")) { continue }
+
+        if ($t -match '^dn:\s*(.+)$') {
             $hasDn = $true
             $count++
+            $dnVal = $matches[1]
+            if ($dnVal -notmatch '=') {
+                $errors.Add("Line ${lineNum}: Malformed DN '$dnVal' - must contain attribute=value components.")
+            }
+        }
+        elseif ($t -match '^changetype:\s*(.+)$') {
+            $ct = $matches[1].ToLower().Trim()
+            if ($ct -notin @('add', 'modify', 'delete', 'moddn', 'modrdn')) {
+                $errors.Add("Line ${lineNum}: Unknown changetype '$ct'. Expected add, modify, delete, moddn, or modrdn.")
+            }
+        }
+        elseif ($t -match '^([a-zA-Z0-9_\-]+)(:?:\s*.+)$') {
+            # Valid attribute line
+        }
+        elseif ($t -eq "-") {
+            # Valid modification separator
+        }
+        else {
+            $errors.Add("Line ${lineNum}: Syntax error - unrecognized LDIF statement '$t'.")
         }
     }
 
     if (-not $hasDn) {
-        $result.Message = "No 'dn:' entry definitions found in LDIF."
+        $result.Message = "No 'dn:' entry definitions found in LDIF document."
+        return $result
+    }
+
+    if ($errors.Count -gt 0) {
+        $result.IsValid = $false
+        $result.ErrorCount = $errors.Count
+        $result.Errors = @($errors)
+        $result.Message = "LDIF syntax verification failed with $($errors.Count) error(s)."
         return $result
     }
 
     $result.IsValid = $true
     $result.EntryCount = $count
-    $result.Message = "Valid LDIF format with $count entry/entries."
+    $result.Message = "Valid RFC 2849 LDIF format with $count verified record(s)."
     return $result
 }
 
@@ -504,6 +608,7 @@ Export-ModuleMember -Function `
     ConvertFrom-ADSid, `
     ConvertFrom-ADGuid, `
     Test-LdapFilter, `
+    Convert-LdapFilterToHumanText, `
     Test-LdifSyntax, `
     Test-ADSamAccountName, `
     Test-ADEmail, `

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ExportService module for Active Directory Management Studio.
 .DESCRIPTION
@@ -847,6 +847,52 @@ function Export-ADDataToScim {
     }
 }
 
-Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml, Export-ADDataToScim
+function New-LdifChangeScript {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        $OriginalObject,
+
+        [Parameter(Mandatory = $true)]
+        $ModifiedObject
+    )
+
+    $dn = if ($ModifiedObject.DistinguishedName) { $ModifiedObject.DistinguishedName } else { $OriginalObject.DistinguishedName }
+    if (-not $dn) { return "# Error: Object must contain a DistinguishedName." }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("dn: $dn")
+    $lines.Add("changetype: modify")
+
+    $props = @()
+    if ($ModifiedObject.PSObject) {
+        $props = $ModifiedObject.PSObject.Properties | Where-Object { $_.Name -notin @('DistinguishedName', 'ItemType', 'ObjectClass', 'IsOperational') } | Select-Object -ExpandProperty Name
+    }
+
+    $hasChanges = $false
+    foreach ($p in $props) {
+        $oldVal = if ($OriginalObject) { $OriginalObject.$p } else { $null }
+        $newVal = $ModifiedObject.$p
+        if ($oldVal -ne $newVal) {
+            $hasChanges = $true
+            if ($null -eq $newVal -or [string]::IsNullOrEmpty([string]$newVal)) {
+                $lines.Add("delete: $p")
+                $lines.Add("-")
+            } else {
+                $lines.Add("replace: $p")
+                $lines.Add("$p`: $newVal")
+                $lines.Add("-")
+            }
+        }
+    }
+
+    if (-not $hasChanges) {
+        return "# No attribute differences detected.`ndn: $dn"
+    }
+
+    return ($lines -join "`r`n")
+}
+
+Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml, Export-ADDataToScim, New-LdifChangeScript
 
 

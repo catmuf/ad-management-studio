@@ -170,7 +170,11 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
-                        <TextBlock Text="CURRENT MEMBERS" FontSize="11" FontWeight="Bold" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="MEMBERS" FontSize="11" FontWeight="Bold" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Name="RadDlgMembersDirect" Content="Direct" Foreground="#E5E7EB" IsChecked="True" FontSize="10.5" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <RadioButton Name="RadDlgMembersTransitive" Content="Transitive" Foreground="#38BDF8" FontWeight="SemiBold" FontSize="10.5" VerticalAlignment="Center" ToolTip="Recursively expand nested group memberships"/>
+                        </StackPanel>
                         <TextBlock Name="TxtMemberCount" DockPanel.Dock="Right" Text="0 members" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center"/>
                     </DockPanel>
 
