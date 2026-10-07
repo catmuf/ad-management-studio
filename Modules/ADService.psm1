@@ -138,6 +138,7 @@ function Get-ADUsersList {
     [CmdletBinding()]
     param (
         [string]$SearchText = "",
+        [Alias("FilterStatus")]
         [string]$StatusFilter = "All", # "All", "Active", "Disabled", "Locked"
         [string]$SearchBase = "",
         [int]$Limit = 1000
@@ -1965,7 +1966,6 @@ function Get-ADSecurityAuditReport {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $false)]
-        [ValidateSet("InactiveUsers", "PasswordsNeverExpire", "PasswordNeverExpires", "PasswordExpiringSoon", "PrivilegedAccounts", "EmptyGroups", "UnprotectedOUs", "LockedAccounts", "LockedOutUsers", "DisabledAccounts", "ServiceAccounts", "InactiveComputers", "AdminCount", "AdminCountAccounts")]
         [Alias("AuditType", "Type")]
         [string]$Category = "InactiveUsers",
 
@@ -1980,7 +1980,32 @@ function Get-ADSecurityAuditReport {
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
     $summary = [ordered]@{}
 
-    switch ($Category) {
+    $normalizedCategory = switch -Regex ($Category) {
+        '^(Inactive|Stale)User|InactiveAccount'           { "InactiveUsers" }
+        'NeverExpire|NoPasswordExpiry'                    { "PasswordsNeverExpire" }
+        'ExpiringSoon|SoonExpire|ExpiredPassword'         { "PasswordExpiringSoon" }
+        'ExpiredAccount'                                  { "ExpiredAccounts" }
+        'Disabled'                                        { "DisabledAccounts" }
+        'NotReq|PasswordNotRequired'                      { "PasswordNotRequired" }
+        'Locked'                                          { "LockedAccounts" }
+        'Privileged|DomainAdmin|AdminUser|AdminAccount'   { "PrivilegedAccounts" }
+        'EmptyGroup'                                      { "EmptyGroups" }
+        'UnprotectedOU'                                   { "UnprotectedOUs" }
+        'ServiceAccount|SPN'                              { "ServiceAccounts" }
+        'InactiveComputer|StaleComputer'                  { "InactiveComputers" }
+        'RecentlyCreated|RecentUser'                      { "RecentlyCreated" }
+        'IncompleteProfile|MissingField'                  { "IncompleteProfiles" }
+        'AdminCount'                                      { "AdminCount" }
+        'PasswordSettings|PSO|FineGrained'                { "PasswordSettingsObjects" }
+        'Circular|GroupCycle'                             { "CircularGroupMemberships" }
+        'Orphan|Orphaned'                                 { "OrphanedAccounts" }
+        'NeverLogged|NeverLogon'                          { "NeverLoggedInUsers" }
+        'PreWin2000|PreWindows'                           { "PreWin2000Compatible" }
+        'Tombstone|DeletedObject'                         { "TombstonedDeletedObjects" }
+        default                                           { $Category }
+    }
+
+    switch ($normalizedCategory) {
         "InactiveUsers" {
             $cutoff = (Get-Date).AddDays(-$Days)
             $users = Get-ADUsersList
@@ -1990,10 +2015,10 @@ function Get-ADSecurityAuditReport {
                 if ($lastLog -eq "Never" -or [string]::IsNullOrEmpty($lastLog)) {
                     $isInactive = $true
                 } else {
-                    $dt = $null
-                    if ([DateTime]::TryParse($lastLog, [ref]$dt)) {
+                    try {
+                        $dt = [DateTime]$lastLog
                         if ($dt -lt $cutoff) { $isInactive = $true }
-                    }
+                    } catch {}
                 }
 
                 if ($isInactive) {
@@ -2013,7 +2038,7 @@ function Get-ADSecurityAuditReport {
             $summary["Cutoff Threshold"] = "$Days Days"
         }
 
-        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } {
+        "PasswordsNeverExpire" {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'userAccountControl', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -2029,7 +2054,7 @@ function Get-ADSecurityAuditReport {
             $summary["Policy Risk"] = "High (Non-compliant with regular rotation)"
         }
 
-        { $_ -in "LockedAccounts", "LockedOutUsers" } {
+        "LockedAccounts" {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'lockoutTime', 'badPwdCount', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -2050,21 +2075,47 @@ function Get-ADSecurityAuditReport {
             $seenUsers = New-Object System.Collections.Generic.HashSet[string]
             
             foreach ($grp in $privGroups) {
-                $members = Get-ADGroupMembersList -GroupName $grp
-                foreach ($m in $members) {
-                    if ($m.ObjectClass -ne "group" -and -not $seenUsers.Contains($m.SamAccountName)) {
-                        [void]$seenUsers.Add($m.SamAccountName)
+                try {
+                    $members = Get-ADGroupMembersList -GroupName $grp -ErrorAction Stop
+                    foreach ($m in $members) {
+                        if ($m.ObjectClass -ne "group" -and -not $seenUsers.Contains($m.SamAccountName)) {
+                            [void]$seenUsers.Add($m.SamAccountName)
+                            $results.Add([PSCustomObject]@{
+                                SamAccountName    = $m.SamAccountName
+                                DisplayName       = $m.DisplayName
+                                PrivilegedRole    = $grp
+                                Email             = $m.Email
+                                Status            = if ($m.Enabled) { "Active" } else { "Disabled" }
+                                DistinguishedName = $m.DistinguishedName
+                            })
+                        }
+                    }
+                }
+                catch {
+                    # Group might not exist in this domain or language
+                }
+            }
+
+            # Supplement with users flagged with adminCount=1
+            try {
+                $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(adminCount=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'userAccountControl', 'distinguishedName') -Server $Server
+                foreach ($r in $query.Results) {
+                    if ($r.sAMAccountName -and -not $seenUsers.Contains($r.sAMAccountName)) {
+                        [void]$seenUsers.Add($r.sAMAccountName)
+                        $uac = if ($r.userAccountControl) { [int]$r.userAccountControl } else { 0 }
                         $results.Add([PSCustomObject]@{
-                            SamAccountName    = $m.SamAccountName
-                            DisplayName       = $m.DisplayName
-                            PrivilegedRole    = $grp
-                            Email             = $m.Email
-                            Status            = if ($m.Enabled) { "Active" } else { "Disabled" }
-                            DistinguishedName = $m.DistinguishedName
+                            SamAccountName    = $r.sAMAccountName
+                            DisplayName       = $r.displayName
+                            PrivilegedRole    = "AdminSDHolder (adminCount=1)"
+                            Email             = $r.mail
+                            Status            = if (($uac -band 2) -eq 0) { "Active" } else { "Disabled" }
+                            DistinguishedName = $r.DistinguishedName
                         })
                     }
                 }
             }
+            catch {}
+
             $summary["Privileged Accounts"] = $results.Count
             $summary["Groups Monitored"] = $privGroups -join ", "
         }
@@ -2129,10 +2180,10 @@ function Get-ADSecurityAuditReport {
                 if ($lastLogonStr -eq "Never") {
                     $isInactive = $true
                 } else {
-                    $dt = $null
-                    if ([DateTime]::TryParse($lastLogonStr, [ref]$dt)) {
+                    try {
+                        $dt = [DateTime]$lastLogonStr
                         if ($dt -lt $cutoff) { $isInactive = $true }
-                    }
+                    } catch {}
                 }
 
                 if ($isInactive) {
@@ -2149,7 +2200,7 @@ function Get-ADSecurityAuditReport {
             $summary["Threshold"] = "$Days Days"
         }
 
-        { $_ -in "AdminCount", "AdminCountAccounts" } {
+        "AdminCount" {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(adminCount=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'adminCount', 'userAccountControl', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -2180,8 +2231,8 @@ function Get-ADSecurityAuditReport {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(pwdLastSet>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $lastSetStr = ConvertFrom-ADLargeInteger -Value $r.pwdLastSet
-                $lastSetDate = $null
-                if ([DateTime]::TryParse($lastSetStr, [ref]$lastSetDate)) {
+                try {
+                    $lastSetDate = [DateTime]$lastSetStr
                     $expiryDate = $lastSetDate.AddDays($defaultMaxAgeDays)
                     $remaining = [int]($expiryDate - (Get-Date)).TotalDays
                     if ($expiryDate -le $cutoffExpiry) {
@@ -2195,14 +2246,14 @@ function Get-ADSecurityAuditReport {
                             DistinguishedName = $r.DistinguishedName
                         })
                     }
-                }
+                } catch {}
             }
             $summary["Policy Max Age"] = "$defaultMaxAgeDays Days"
             $summary["Accounts Expiring Soon"] = $results.Count
             $summary["Expiring Within"] = "$Days Days"
         }
 
-        { $_ -in "PasswordNotRequired", "PasswordNotReqd" } {
+        "PasswordNotRequired" {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=32))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'userAccountControl', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $results.Add([PSCustomObject]@{
@@ -2260,7 +2311,7 @@ function Get-ADSecurityAuditReport {
             $summary["Criteria"] = "Active users missing Mail, Department, Phone or Title"
         }
 
-        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } {
+        "PasswordSettingsObjects" {
             $psos = Get-ADPasswordSettingsObjects -Server $Server
             foreach ($p in $psos) {
                 $results.Add([PSCustomObject]@{
@@ -2279,8 +2330,169 @@ function Get-ADSecurityAuditReport {
             $summary["Status"] = if ($psos.Count -gt 0) { "Active Fine-Grained Policies Found" } else { "No Custom PSOs (Domain Default Policy Active)" }
         }
 
+        "CircularGroupMemberships" {
+            $allGroups = Get-ADGroupsList
+            $groupMap = @{}
+            foreach ($g in $allGroups) { $groupMap[$g.DistinguishedName] = $g }
+            $visited = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $recStack = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $cyclesDetected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+            function Check-Cycle ($currDN, $path) {
+                [void]$visited.Add($currDN)
+                [void]$recStack.Add($currDN)
+
+                $grpItem = $groupMap[$currDN]
+                if ($grpItem) {
+                    $members = Get-ADGroupMembersList -GroupName ($grpItem.SamAccountName)
+                    foreach ($m in $members) {
+                        if ($m.ObjectClass -eq "group" -and $m.DistinguishedName) {
+                            if ($recStack.Contains($m.DistinguishedName)) {
+                                $cycleKey = "$currDN -> $($m.DistinguishedName)"
+                                if (-not $cyclesDetected.Contains($cycleKey)) {
+                                    [void]$cyclesDetected.Add($cycleKey)
+                                    $results.Add([PSCustomObject]@{
+                                        GroupA            = $grpItem.Name
+                                        GroupB            = $m.Name
+                                        CycleDescription  = "Circular nesting: '$($grpItem.Name)' contains '$($m.Name)', which loops back"
+                                        DistinguishedName = $currDN
+                                    })
+                                }
+                            } elseif (-not $visited.Contains($m.DistinguishedName)) {
+                                Check-Cycle -currDN $m.DistinguishedName -path "$path -> $($m.Name)"
+                            }
+                        }
+                    }
+                }
+                [void]$recStack.Remove($currDN)
+            }
+
+            foreach ($g in $allGroups) {
+                if (-not $visited.Contains($g.DistinguishedName)) {
+                    Check-Cycle -currDN $g.DistinguishedName -path $g.Name
+                }
+            }
+            $summary["Total Groups Checked"] = $allGroups.Count
+            $summary["Circular Loops Found"] = $results.Count
+            $summary["Risk Rating"] = if ($results.Count -gt 0) { "High (Can cause token expansion recursion/crashes)" } else { "Clean" }
+        }
+
+        "OrphanedAccounts" {
+            $allUsers = Get-ADUsersList
+            $userDns = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($u in $allUsers) { if ($u.DistinguishedName) { [void]$userDns.Add($u.DistinguishedName) } }
+
+            foreach ($u in $allUsers) {
+                $isOrphan = $false
+                $orphanReason = @()
+                if ($u.Manager -and -not $userDns.Contains($u.Manager)) {
+                    $isOrphan = $true
+                    $orphanReason += "Manager reference '$($u.Manager)' does not exist"
+                }
+                if ($isOrphan) {
+                    $results.Add([PSCustomObject]@{
+                        SamAccountName    = $u.SamAccountName
+                        DisplayName       = $u.DisplayName
+                        Department        = $u.Department
+                        Reason            = $orphanReason -join "; "
+                        DistinguishedName = $u.DistinguishedName
+                    })
+                }
+            }
+            $summary["Total Evaluated"] = $allUsers.Count
+            $summary["Orphaned Accounts"] = $results.Count
+        }
+
+        "NeverLoggedInUsers" {
+            $cutoff = (Get-Date).AddDays(-$Days)
+            $users = Get-ADUsersList
+            foreach ($u in $users) {
+                if ($u.LastLogon -eq "Never" -or [string]::IsNullOrEmpty($u.LastLogon)) {
+                    $results.Add([PSCustomObject]@{
+                        SamAccountName    = $u.SamAccountName
+                        DisplayName       = $u.DisplayName
+                        Department        = $u.Department
+                        Status            = $u.Status
+                        CreatedDate       = $u.WhenCreated
+                        DistinguishedName = $u.DistinguishedName
+                    })
+                }
+            }
+            $summary["Total Evaluated"] = $users.Count
+            $summary["Never Logged In"] = $results.Count
+        }
+
+        "PreWin2000Compatible" {
+            $members = @()
+            try {
+                $members = Get-ADGroupMembersList -GroupName "Pre-Windows 2000 Compatible Access" -ErrorAction Stop
+            }
+            catch {}
+            foreach ($m in $members) {
+                $results.Add([PSCustomObject]@{
+                    PrincipalName     = $m.Name
+                    SamAccountName    = $m.SamAccountName
+                    ObjectClass       = $m.ObjectClass
+                    SecurityRisk      = "Broad anonymous/unauthenticated read access permitted"
+                    DistinguishedName = $m.DistinguishedName
+                })
+            }
+            $summary["Group Members"] = $results.Count
+            $summary["Recommendation"] = "Remove Everyone and Anonymous Logon from this legacy group"
+        }
+
+        "TombstonedDeletedObjects" {
+            $deleted = Get-ADDeletedObjects -Server $Server
+            foreach ($d in $deleted) {
+                $results.Add([PSCustomObject]@{
+                    Name              = $d.Name
+                    ObjectClass       = $d.ObjectClass
+                    WhenDeleted       = $d.WhenChanged
+                    LastKnownParent   = $d.LastKnownParent
+                    DistinguishedName = $d.DistinguishedName
+                })
+            }
+            $summary["Tombstoned Objects"] = $deleted.Count
+        }
+
+        "ExpiredAccounts" {
+            $nowFileTime = (Get-Date).ToFileTimeUtc()
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(accountExpires>=1)(accountExpires<=$nowFileTime))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'accountExpires', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                $expVal = [int64]$r.accountExpires
+                if ($expVal -gt 0 -and $expVal -ne 9223372036854775807) {
+                    $expDate = [DateTime]::FromFileTimeUtc($expVal)
+                    $results.Add([PSCustomObject]@{
+                        SamAccountName    = $r.sAMAccountName
+                        DisplayName       = $r.displayName
+                        Email             = $r.mail
+                        ExpirationDate    = $expDate.ToString("yyyy-MM-dd HH:mm")
+                        DaysExpired       = [int]((Get-Date) - $expDate).TotalDays
+                        DistinguishedName = $r.DistinguishedName
+                    })
+                }
+            }
+            $summary["Expired Accounts"] = $results.Count
+            $summary["Action Required"] = "Disable or delete expired employee/contractor accounts"
+        }
+
+        "DisabledAccounts" {
+            $users = Get-ADUsersList -StatusFilter "Disabled"
+            foreach ($u in $users) {
+                $results.Add([PSCustomObject]@{
+                    SamAccountName    = $u.SamAccountName
+                    DisplayName       = $u.DisplayName
+                    Department        = $u.Department
+                    Email             = $u.Email
+                    OUPath            = $u.OUPath
+                    DistinguishedName = $u.DistinguishedName
+                })
+            }
+            $summary["Disabled Accounts"] = $results.Count
+        }
+
         Default {
-            $users = Get-ADUsersList -FilterStatus "Disabled"
+            $users = Get-ADUsersList -StatusFilter "Disabled"
             foreach ($u in $users) {
                 $results.Add([PSCustomObject]@{
                     SamAccountName    = $u.SamAccountName
@@ -2295,52 +2507,65 @@ function Get-ADSecurityAuditReport {
         }
     }
 
-    $title = switch ($Category) {
-        "InactiveUsers"                                          { "Inactive User Accounts" }
-        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "Accounts with Passwords that Never Expire" }
-        "PasswordExpiringSoon"                                   { "Accounts with Passwords Expiring Soon" }
-        { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "Accounts with Password Not Required (PASSWD_NOTREQD)" }
-        "RecentlyCreated"                                        { "Recently Created Active Directory Accounts" }
-        "IncompleteProfiles"                                     { "User Accounts with Incomplete Directory Profiles" }
-        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } { "Fine-Grained Password Policies (Password Settings Objects - PSO)" }
-        "PrivilegedAccounts"                                     { "Privileged and Administrative Accounts" }
-        "EmptyGroups"                                            { "Empty Security and Distribution Groups" }
-        "UnprotectedOUs"                                         { "Organizational Units Unprotected from Deletion" }
-        { $_ -in "LockedAccounts", "LockedOutUsers" }             { "Locked Out User Accounts" }
-        "DisabledAccounts"                                       { "Disabled User Accounts" }
-        "ServiceAccounts"                                        { "Configured Service Accounts with SPNs" }
-        "InactiveComputers"                                      { "Inactive Domain Computer Objects" }
-        { $_ -in "AdminCount", "AdminCountAccounts" }             { "Accounts with AdminCount=1 (AdminSDHolder Protected)" }
-        default                                                  { "$Category Audit" }
+    $title = switch ($normalizedCategory) {
+        "InactiveUsers"            { "Inactive User Accounts" }
+        "PasswordsNeverExpire"     { "Accounts with Passwords that Never Expire" }
+        "PasswordExpiringSoon"     { "Accounts with Passwords Expiring Soon" }
+        "ExpiredAccounts"          { "Expired User and Contractor Accounts" }
+        "PasswordNotRequired"      { "Accounts with Password Not Required (PASSWD_NOTREQD)" }
+        "RecentlyCreated"          { "Recently Created Active Directory Accounts" }
+        "IncompleteProfiles"       { "User Accounts with Incomplete Directory Profiles" }
+        "PasswordSettingsObjects"  { "Fine-Grained Password Policies (Password Settings Objects - PSO)" }
+        "PrivilegedAccounts"       { "Privileged and Administrative Accounts" }
+        "EmptyGroups"              { "Empty Security and Distribution Groups" }
+        "UnprotectedOUs"           { "Organizational Units Unprotected from Deletion" }
+        "LockedAccounts"           { "Locked Out User Accounts" }
+        "DisabledAccounts"         { "Disabled User Accounts" }
+        "ServiceAccounts"          { "Configured Service Accounts with SPNs" }
+        "InactiveComputers"        { "Inactive Domain Computer Objects" }
+        "AdminCount"               { "Accounts with AdminCount=1 (AdminSDHolder Protected)" }
+        "CircularGroupMemberships" { "Circular Group Memberships (Nesting Loop Detection)" }
+        "OrphanedAccounts"         { "Orphaned Accounts (Missing Manager References)" }
+        "NeverLoggedInUsers"       { "User Accounts That Have Never Logged In" }
+        "PreWin2000Compatible"     { "Pre-Windows 2000 Compatible Access Permissions" }
+        "TombstonedDeletedObjects" { "Tombstoned / Deleted Directory Objects in Recycle Bin" }
+        default                    { "$Category Audit" }
     }
-    $desc = switch ($Category) {
-        "InactiveUsers"                                          { "Users who have not logged in within the last $Days days." }
-        { $_ -in "PasswordsNeverExpire", "PasswordNeverExpires" } { "User accounts configured with DONT_EXPIRE_PASSWORD flag." }
-        "PasswordExpiringSoon"                                   { "Accounts whose password will expire within the next $Days days." }
-        { $_ -in "PasswordNotRequired", "PasswordNotReqd" }       { "High-risk accounts where blank or empty passwords are permitted by policy." }
-        "RecentlyCreated"                                        { "User accounts provisioned within the past $Days days." }
-        "IncompleteProfiles"                                     { "Active user accounts missing essential organizational attributes." }
-        { $_ -in "PasswordSettingsObjects", "FineGrainedPolicies", "PSO" } { "Fine-Grained Password Policies configured in the domain with precedence and lockout thresholds." }
-        "PrivilegedAccounts"                                     { "Members of high-privilege built-in Active Directory security groups." }
-        "EmptyGroups"                                            { "Groups containing zero members that may be candidates for cleanup." }
-        "UnprotectedOUs"                                         { "Organizational Units without accidental deletion protection enabled." }
-        { $_ -in "LockedAccounts", "LockedOutUsers" }             { "Accounts currently locked out due to invalid logon attempts." }
-        "DisabledAccounts"                                       { "User accounts marked as disabled." }
-        "ServiceAccounts"                                        { "Accounts with registered Service Principal Names (SPNs)." }
-        "InactiveComputers"                                      { "Computers with no logon activity in the last $Days days." }
-        { $_ -in "AdminCount", "AdminCountAccounts" }             { "User accounts flagged with adminCount=1 whose ACL inheritance is managed by AdminSDHolder." }
-        default                                                  { "Security and hygiene audit results for $Category." }
+    $desc = switch ($normalizedCategory) {
+        "InactiveUsers"            { "Users who have not logged in within the last $Days days." }
+        "PasswordsNeverExpire"     { "User accounts configured with DONT_EXPIRE_PASSWORD flag." }
+        "PasswordExpiringSoon"     { "Accounts whose password will expire within the next $Days days." }
+        "ExpiredAccounts"          { "Accounts that have exceeded their configured expiration timestamp." }
+        "PasswordNotRequired"      { "High-risk accounts where blank or empty passwords are permitted by policy." }
+        "RecentlyCreated"          { "User accounts provisioned within the past $Days days." }
+        "IncompleteProfiles"       { "Active user accounts missing essential organizational attributes." }
+        "PasswordSettingsObjects"  { "Fine-Grained Password Policies configured in the domain with precedence and lockout thresholds." }
+        "PrivilegedAccounts"       { "Members of high-privilege built-in Active Directory security groups." }
+        "EmptyGroups"              { "Groups containing zero members that may be candidates for cleanup." }
+        "UnprotectedOUs"           { "Organizational Units without accidental deletion protection enabled." }
+        "LockedAccounts"           { "Accounts currently locked out due to invalid logon attempts." }
+        "DisabledAccounts"         { "User accounts marked as disabled." }
+        "ServiceAccounts"          { "Accounts with registered Service Principal Names (SPNs)." }
+        "InactiveComputers"        { "Computers with no logon activity in the last $Days days." }
+        "AdminCount"               { "User accounts flagged with adminCount=1 whose ACL inheritance is managed by AdminSDHolder." }
+        "CircularGroupMemberships" { "Active Directory security or distribution groups nested in circular loops." }
+        "OrphanedAccounts"         { "Active user accounts pointing to deleted or non-existent manager DNs." }
+        "NeverLoggedInUsers"       { "Accounts that have never logged on to the domain." }
+        "PreWin2000Compatible"     { "Identifies members of the legacy Pre-Windows 2000 group that may grant excessive anonymous access." }
+        "TombstonedDeletedObjects" { "Objects residing in the Deleted Objects container awaiting tombstone lifetime expiration." }
+        default                    { "Security and hygiene audit results for $Category." }
     }
 
     return [PSCustomObject]@{
-        Category     = $Category
-        AuditType    = $Category
+        Category     = $normalizedCategory
+        AuditType    = $normalizedCategory
         Title        = $title
         Description  = $desc
         SummaryStats = $summary
         Results      = $results
         Findings     = $results
         Count        = $results.Count
+        Success      = $true
     }
 }
 

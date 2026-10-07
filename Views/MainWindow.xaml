@@ -869,6 +869,7 @@
                     <!-- Action Ribbon -->
                     <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                         <Button Name="BtnNewUser" Style="{StaticResource PrimaryButton}" Content="➕ New User" Margin="0,0,6,6"/>
+                        <Button Name="BtnNewUserTemplate" Style="{StaticResource ModernButton}" Content="📋 New from Template..." Margin="0,0,6,6" ToolTip="Create a new user using pre-configured corporate templates"/>
                         <Button Name="BtnEditUser" Style="{StaticResource ModernButton}" Content="✏️ Edit" Margin="0,0,6,6"/>
                         <Button Name="BtnViewUser" Style="{StaticResource ModernButton}" Content="👁️ Details" Margin="0,0,6,6"/>
                         <Button Name="BtnResetPassword" Style="{StaticResource ModernButton}" Content="🔑 Reset PW" Margin="0,0,6,6"/>
@@ -1014,6 +1015,9 @@
                             <TreeView Grid.Row="1" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF">
                                 <TreeView.ContextMenu>
                                     <ContextMenu Style="{StaticResource ModernContextMenu}">
+                                        <MenuItem Name="CtxOUTreeNewUser" Style="{StaticResource ModernMenuItem}" Header="👤 New User in this OU..."/>
+                                        <MenuItem Name="CtxOUTreeNewGroup" Style="{StaticResource ModernMenuItem}" Header="👥 New Group in this OU..."/>
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                         <MenuItem Name="CtxOUTreeNewOU" Style="{StaticResource ModernMenuItem}" Header="📁 New Child Organizational Unit..."/>
                                         <MenuItem Name="CtxOUTreeDeleteOU" Style="{StaticResource ModernMenuItem}" Header="🗑️ Delete OU..."/>
                                         <Separator Style="{StaticResource ModernMenuSeparator}"/>
@@ -1202,25 +1206,25 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <!-- Row 1: Search Base & Scope & Presets -->
+                            <!-- Row 1: Search Base & Scope & Presets & History -->
                             <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
                                 <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Search Base (DN):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Width="300" Height="30"/>
+                                    <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Width="260" Height="30"/>
                                 </StackPanel>
 
                                 <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Scope:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <ComboBox Name="CmbSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="30">
+                                    <ComboBox Name="CmbSearchScope" Style="{StaticResource ModernComboBox}" Width="100" Height="30">
                                         <ComboBoxItem Content="Subtree" IsSelected="True"/>
                                         <ComboBoxItem Content="OneLevel"/>
                                         <ComboBoxItem Content="Base"/>
                                     </ComboBox>
                                 </StackPanel>
 
-                                <StackPanel Margin="0,0,0,6">
+                                <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Search Presets:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
-                                    <ComboBox Name="CmbSearchPresets" Style="{StaticResource ModernComboBox}" Width="220" Height="30">
+                                    <ComboBox Name="CmbSearchPresets" Style="{StaticResource ModernComboBox}" Width="180" Height="30">
                                         <ComboBoxItem Content="Custom Filter..." IsSelected="True"/>
                                         <ComboBoxItem Content="All Users"/>
                                         <ComboBoxItem Content="Locked Out Accounts"/>
@@ -1232,6 +1236,14 @@
                                         <ComboBoxItem Content="All Computers"/>
                                         <ComboBoxItem Content="Domain Controllers"/>
                                     </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Query History &amp; Pinned:" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox Name="CmbSearchHistory" Style="{StaticResource ModernComboBox}" Width="220" Height="30" ToolTip="Recent and pinned LDAP search queries"/>
+                                        <Button Name="BtnPinSearch" Style="{StaticResource ModernButton}" Height="30" Width="36" Content="📌" Margin="4,0,0,0" ToolTip="Pin / Unpin active query"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </WrapPanel>
 
@@ -1316,6 +1328,7 @@
                             <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
                             <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
                             <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
+                            <Button Name="BtnSearchExportScim" Style="{StaticResource ModernButton}" Content="☁️ Export SCIM 2.0" Margin="0,0,6,6" ToolTip="Export search results to RFC 7643 SCIM 2.0 JSON"/>
                             <Button Name="BtnSearchAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected search results to Directory Basket"/>
                             <Button Name="BtnSearchAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to Search Results table"/>
                             <Button Name="BtnSearchResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Search Results table columns to default"/>
@@ -1721,6 +1734,7 @@
                         <Button Name="BtnBasketMoveOU" Style="{StaticResource ModernButton}" Content="📂 Bulk Move to OU" Margin="0,0,6,6" ToolTip="Move all staged objects to a target Organizational Unit"/>
                         <Button Name="BtnBasketExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export Basket CSV" Margin="0,0,6,6" ToolTip="Export staged objects to CSV"/>
                         <Button Name="BtnBasketExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export Basket LDIF" Margin="0,0,6,6" ToolTip="Export staged objects to LDIF"/>
+                        <Button Name="BtnBasketExportScim" Style="{StaticResource ModernButton}" Content="☁️ Export Basket SCIM 2.0" Margin="0,0,6,6" ToolTip="Export staged objects to RFC 7643 SCIM 2.0 JSON"/>
                         <Button Name="BtnBasketRemoveSelected" Style="{StaticResource ModernButton}" Content="✖ Remove Selected" Margin="0,0,6,6" ToolTip="Remove selected items from basket"/>
                         <Button Name="BtnBasketClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Basket" Margin="0,0,6,6" ToolTip="Empty all objects from the basket"/>
                     </WrapPanel>

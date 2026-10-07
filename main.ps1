@@ -99,6 +99,8 @@ $state = [PSCustomObject]@{
     CachedRecycleBin       = @()
     ExternalTools          = $initialTools
     CachedPartitions       = @()
+    SearchHistory          = [System.Collections.Generic.List[psobject]]::new()
+    PinnedSearches         = [System.Collections.Generic.List[psobject]]::new()
 }
 
 function Test-CanModifyDirectory {
@@ -1123,7 +1125,9 @@ function Filter-UsersLive {
 function Open-UserDialog {
     param (
         [string]$Mode = "Create",
-        $UserToEdit = $null
+        $UserToEdit = $null,
+        [string]$TargetOU = "",
+        [string]$Template = ""
     )
 
     $dlgPath = Join-Path $viewsPath "UserDialog.xaml"
@@ -1151,7 +1155,17 @@ function Open-UserDialog {
 
     if ($dControls['CmbTargetOU'].Items.Count -gt 0) {
         $dControls['CmbTargetOU'].SelectedIndex = 0
-        $dControls['TxtSelectedOUDN'].Text = $dControls['CmbTargetOU'].SelectedItem.Tag
+        if (-not [string]::IsNullOrWhiteSpace($TargetOU)) {
+            foreach ($item in $dControls['CmbTargetOU'].Items) {
+                if ($item.Tag -ieq $TargetOU) {
+                    $dControls['CmbTargetOU'].SelectedItem = $item
+                    break
+                }
+            }
+        }
+        if ($dControls['CmbTargetOU'].SelectedItem) {
+            $dControls['TxtSelectedOUDN'].Text = $dControls['CmbTargetOU'].SelectedItem.Tag
+        }
     }
 
     $dControls['CmbTargetOU'].Add_SelectionChanged({
@@ -1211,6 +1225,14 @@ function Open-UserDialog {
                 }
             }
         })
+        if (-not [string]::IsNullOrWhiteSpace($Template)) {
+            foreach ($item in $dControls['CmbUserTemplate'].Items) {
+                if ($item.Content.ToString() -ilike "*$Template*") {
+                    $dControls['CmbUserTemplate'].SelectedItem = $item
+                    break
+                }
+            }
+        }
     }
 
     if ($Mode -eq "Edit" -and $UserToEdit) {
@@ -1618,6 +1640,24 @@ if ($controls['FilterUserLocked'])   { $controls['FilterUserLocked'].Add_Checked
 if ($controls['CmbUserOUFilter'])    { $controls['CmbUserOUFilter'].Add_SelectionChanged({ Refresh-Users }) }
 
 if ($controls['BtnNewUser']) { $controls['BtnNewUser'].Add_Click({ Open-UserDialog -Mode "Create" }) }
+if ($controls['BtnNewUserTemplate']) {
+    $controls['BtnNewUserTemplate'].Add_Click({
+        $choice = [Microsoft.VisualBasic.Interaction]::InputBox(
+            "Select template number:`n1. Standard Employee (Corporate standard)`n2. Contractor (Expires in 90 days)`n3. Domain Admin Template (Privileged)`n4. Service Account (SPN / Non-expiring)",
+            "Template-Based Entry Creation",
+            "1"
+        )
+        if ([string]::IsNullOrWhiteSpace($choice)) { return }
+        $selectedTpl = switch ($choice.Trim()) {
+            "1" { "Standard Employee" }
+            "2" { "Contractor (Expires 90d)" }
+            "3" { "Domain Admin Template" }
+            "4" { "Service Account (No Expire)" }
+            default { "Standard Employee" }
+        }
+        Open-UserDialog -Mode "Create" -Template $selectedTpl
+    })
+}
 if ($controls['BtnEditUser']) {
     $controls['BtnEditUser'].Add_Click({
         $u = $controls['GridUsers'].SelectedItem
@@ -1809,6 +1849,10 @@ function Filter-GroupsLive {
 }
 
 function Open-GroupDialog {
+    param (
+        [string]$TargetOU = "",
+        [string]$Template = ""
+    )
     $dlgPath = Join-Path $viewsPath "GroupDialog.xaml"
     $dlg = Load-XamlWindow -XamlPath $dlgPath
     $dlg.Owner = $window
@@ -1831,6 +1875,52 @@ function Open-GroupDialog {
     }
     if ($dControls['CmbGroupOU'].Items.Count -gt 0) {
         $dControls['CmbGroupOU'].SelectedIndex = 0
+        if (-not [string]::IsNullOrWhiteSpace($TargetOU)) {
+            foreach ($item in $dControls['CmbGroupOU'].Items) {
+                if ($item.Tag -ieq $TargetOU) {
+                    $dControls['CmbGroupOU'].SelectedItem = $item
+                    break
+                }
+            }
+        }
+    }
+
+    if ($dControls['CmbGroupTemplate']) {
+        $dControls['CmbGroupTemplate'].Add_SelectionChanged({
+            if (-not $dControls['CmbGroupTemplate'].SelectedItem) { return }
+            $tpl = [string]$dControls['CmbGroupTemplate'].SelectedItem.Content
+            switch -Wildcard ($tpl) {
+                "*Role Group*" {
+                    if ($dControls['RadScopeGlobal']) { $dControls['RadScopeGlobal'].IsChecked = $true }
+                    if ($dControls['RadCatSecurity']) { $dControls['RadCatSecurity'].IsChecked = $true }
+                    if (-not $dControls['TxtGroupDescription'].Text) { $dControls['TxtGroupDescription'].Text = "Role-based access group (RBAC)" }
+                }
+                "*Resource Group*" {
+                    if ($dControls['RadScopeDomainLocal']) { $dControls['RadScopeDomainLocal'].IsChecked = $true }
+                    if ($dControls['RadCatSecurity']) { $dControls['RadCatSecurity'].IsChecked = $true }
+                    if (-not $dControls['TxtGroupDescription'].Text) { $dControls['TxtGroupDescription'].Text = "Resource permission access group (AGDLP)" }
+                }
+                "*Enterprise Group*" {
+                    if ($dControls['RadScopeUniversal']) { $dControls['RadScopeUniversal'].IsChecked = $true }
+                    if ($dControls['RadCatSecurity']) { $dControls['RadCatSecurity'].IsChecked = $true }
+                    if (-not $dControls['TxtGroupDescription'].Text) { $dControls['TxtGroupDescription'].Text = "Enterprise multi-domain security group" }
+                }
+                "*Distribution List*" {
+                    if ($dControls['RadScopeUniversal']) { $dControls['RadScopeUniversal'].IsChecked = $true }
+                    if ($dControls['RadCatDistribution']) { $dControls['RadCatDistribution'].IsChecked = $true }
+                    if (-not $dControls['TxtGroupDescription'].Text) { $dControls['TxtGroupDescription'].Text = "Corporate email distribution group" }
+                }
+            }
+        })
+
+        if (-not [string]::IsNullOrWhiteSpace($Template)) {
+            foreach ($item in $dControls['CmbGroupTemplate'].Items) {
+                if ($item.Content.ToString() -ilike "*$Template*") {
+                    $dControls['CmbGroupTemplate'].SelectedItem = $item
+                    break
+                }
+            }
+        }
     }
 
     $dControls['TxtGroupName'].Add_TextChanged({
@@ -2079,6 +2169,7 @@ if ($controls['BtnClearSearchGroups']) {
 if ($controls['CmbGroupScopeFilter'])    { $controls['CmbGroupScopeFilter'].Add_SelectionChanged({ Refresh-Groups }) }
 if ($controls['CmbGroupCategoryFilter']) { $controls['CmbGroupCategoryFilter'].Add_SelectionChanged({ Refresh-Groups }) }
 
+if ($controls['BtnNewGroup'])      { $controls['BtnNewGroup'].Add_Click({ Open-GroupDialog }) }
 if ($controls['BtnDeleteGroup'])   { $controls['BtnDeleteGroup'].Add_Click({ Delete-GroupAction }) }
 if ($controls['BtnExportGroups'])  { $controls['BtnExportGroups'].Add_Click({ Export-GroupsAction }) }
 if ($controls['BtnGroupAddToBasket']) {
@@ -2907,6 +2998,7 @@ function Init-DirectorySearch {
         $controls['TxtSearchBaseDn'].Text = $adContext.DefaultNamingContext
     }
     Populate-SearchAttributeDropdowns
+    Update-SearchHistoryUI
 }
 
 # Live Attribute Search & Outcome Event Listeners for Quick Search Bar
@@ -3066,6 +3158,32 @@ if ($controls['BtnFilterClear']) {
     })
 }
 
+function Update-SearchHistoryUI {
+    if (-not $controls['CmbSearchHistory']) { return }
+    $controls['CmbSearchHistory'].Items.Clear()
+
+    # Pinned queries first
+    foreach ($item in $state.PinnedSearches) {
+        $cbi = New-Object System.Windows.Controls.ComboBoxItem
+        $cbi.Content = "📌 $($item.Filter)"
+        $cbi.Tag = $item
+        $cbi.ToolTip = "Pinned: $($item.Filter)`nBase: $($item.BaseDn)`nScope: $($item.Scope)"
+        [void]$controls['CmbSearchHistory'].Items.Add($cbi)
+    }
+
+    # Recent queries
+    foreach ($item in $state.SearchHistory) {
+        $isPinned = $state.PinnedSearches | Where-Object { $_.Filter -ieq $item.Filter -and $_.BaseDn -ieq $item.BaseDn }
+        if (-not $isPinned) {
+            $cbi = New-Object System.Windows.Controls.ComboBoxItem
+            $cbi.Content = "🕒 $($item.Filter)"
+            $cbi.Tag = $item
+            $cbi.ToolTip = "Recent: $($item.Filter)`nBase: $($item.BaseDn)`nScope: $($item.Scope)`nRun: $($item.Timestamp)"
+            [void]$controls['CmbSearchHistory'].Items.Add($cbi)
+        }
+    }
+}
+
 function Invoke-LdapSearchUI {
     $filter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "(objectClass=*)" }
     $baseDn = if ($controls['TxtSearchBaseDn'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtSearchBaseDn'].Text)) {
@@ -3165,6 +3283,24 @@ function Invoke-LdapSearchUI {
         $state.CurrentSearchResults = $finalResults
         $controls['GridSearchResults'].ItemsSource = $finalResults
         Sync-DataGridColumnsProperties -DataGrid $controls['GridSearchResults']
+
+        # Record query in history (Softerra Ch09s05 & Apache Studio Parity)
+        if (-not [string]::IsNullOrWhiteSpace($filter)) {
+            $existing = $state.SearchHistory | Where-Object { $_.Filter -ieq $filter -and $_.BaseDn -ieq $baseDn -and $_.Scope -ieq $scopeItem }
+            if (-not $existing) {
+                $histObj = [PSCustomObject]@{
+                    Filter    = $filter
+                    BaseDn    = $baseDn
+                    Scope     = $scopeItem
+                    Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm")
+                }
+                $state.SearchHistory.Insert(0, $histObj)
+                while ($state.SearchHistory.Count -gt 30) {
+                    $state.SearchHistory.RemoveAt($state.SearchHistory.Count - 1)
+                }
+                Update-SearchHistoryUI
+            }
+        }
     } else {
         $controls['TxtSearchStatus'].Text = "Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP Search Failed: `n$($res.Error)", "Search Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
@@ -3175,6 +3311,50 @@ if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ I
 if ($controls['TxtRawLdapFilter']) {
     $controls['TxtRawLdapFilter'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Invoke-LdapSearchUI }
+    })
+}
+
+if ($controls['CmbSearchHistory']) {
+    $controls['CmbSearchHistory'].Add_SelectionChanged({
+        $sel = $controls['CmbSearchHistory'].SelectedItem
+        if ($sel -and $sel.Tag) {
+            $item = $sel.Tag
+            if ($controls['TxtRawLdapFilter'] -and $item.Filter) { $controls['TxtRawLdapFilter'].Text = $item.Filter }
+            if ($controls['TxtSearchBaseDn'] -and $item.BaseDn) { $controls['TxtSearchBaseDn'].Text = $item.BaseDn }
+            if ($controls['CmbSearchScope'] -and $item.Scope) {
+                foreach ($ci in $controls['CmbSearchScope'].Items) {
+                    if ($ci.Content.ToString() -ieq $item.Scope) {
+                        $controls['CmbSearchScope'].SelectedItem = $ci
+                        break
+                    }
+                }
+            }
+        }
+    })
+}
+
+if ($controls['BtnPinSearch']) {
+    $controls['BtnPinSearch'].Add_Click({
+        $currFilter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($currFilter)) { return }
+        $currBase = if ($controls['TxtSearchBaseDn']) { $controls['TxtSearchBaseDn'].Text.Trim() } else { "" }
+        $currScope = if ($controls['CmbSearchScope'] -and $controls['CmbSearchScope'].SelectedItem) { $controls['CmbSearchScope'].SelectedItem.Content.ToString() } else { "Subtree" }
+
+        $existingPinned = $state.PinnedSearches | Where-Object { $_.Filter -ieq $currFilter -and $_.BaseDn -ieq $currBase }
+        if ($existingPinned) {
+            [void]$state.PinnedSearches.Remove($existingPinned)
+            [System.Windows.MessageBox]::Show("Unpinned query: `n$currFilter", "Pinned Searches", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        } else {
+            $pinnedObj = [PSCustomObject]@{
+                Filter    = $currFilter
+                BaseDn    = $currBase
+                Scope     = $currScope
+                Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm")
+            }
+            $state.PinnedSearches.Insert(0, $pinnedObj)
+            [System.Windows.MessageBox]::Show("Pinned query for quick access: `n$currFilter", "Pinned Searches", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+        Update-SearchHistoryUI
     })
 }
 
@@ -3290,6 +3470,26 @@ if ($controls['BtnSearchExportJson']) {
             $res = Export-ADDataToJson -Data $state.CurrentSearchResults -FilePath $saveDlg.FileName
             if ($res.Success) {
                 [System.Windows.MessageBox]::Show($res.Message, "JSON Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        }
+    })
+}
+
+if ($controls['BtnSearchExportScim']) {
+    $controls['BtnSearchExportScim'].Add_Click({
+        if (-not $state.CurrentSearchResults -or $state.CurrentSearchResults.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No search results to export.", "Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDlg.FileName = "SCIM_Search_$(Get-Date -Format 'yyyyMMdd_HHmm').json"
+        $saveDlg.Filter = "SCIM 2.0 JSON (*.json)|*.json|All files (*.*)|*.*"
+        if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $res = Export-ADDataToScim -Data $state.CurrentSearchResults -FilePath $saveDlg.FileName
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "SCIM 2.0 Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            } else {
+                [System.Windows.MessageBox]::Show($res.Message, "SCIM Export Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
             }
         }
     })
@@ -4877,23 +5077,50 @@ if ($controls['BtnBasketModifyAttr']) {
             [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             return
         }
-        $attrName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the attribute name to update across all $($state.BasketItems.Count) basket objects:`n(e.g., department, company, description, title, physicalDeliveryOfficeName)", "Bulk Edit Basket Objects", "department")
+        $attrName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the attribute name to update across all $($state.BasketItems.Count) basket objects:`n(e.g., department, company, description, title, mail, physicalDeliveryOfficeName)", "Bulk Edit Basket Objects", "department")
         if ([string]::IsNullOrWhiteSpace($attrName)) { return }
-        $newVal = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the new value for attribute '$attrName':`n(Leave blank to clear the attribute)", "Bulk Attribute Value", "")
+        $newVal = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the new value for attribute '$attrName':`nSupports dynamic references: %givenName%, %sn%, %sAMAccountName%, %department%, %company%, %mail%, %title%, etc.`n(Leave blank to clear the attribute)", "Bulk Attribute Value", "")
         
         $confirm = [System.Windows.MessageBox]::Show("Update attribute '$attrName' to '$newVal' for all $($state.BasketItems.Count) staged objects?", "Confirm Bulk Update", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
         if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
 
+        $hasTokens = ($newVal -match '%[a-zA-Z0-9_-]+%')
+        $tokenMatches = if ($hasTokens) { [regex]::Matches($newVal, '%([a-zA-Z0-9_-]+)%') } else { @() }
+
         $succ = 0; $fail = 0
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         foreach ($obj in $state.BasketItems) {
+            $effectiveVal = $newVal
+            if ($hasTokens) {
+                $attrDict = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                foreach ($p in $obj.PSObject.Properties) {
+                    if ($p.Value) { $attrDict[$p.Name] = "$($p.Value)" }
+                }
+                if ($obj.DistinguishedName) {
+                    try {
+                        $raws = Get-ADObjectRawAttributes -DistinguishedName $obj.DistinguishedName
+                        foreach ($ra in $raws) {
+                            if (-not $attrDict.ContainsKey($ra.Name) -and $ra.Value) {
+                                $attrDict[$ra.Name] = "$($ra.Value)"
+                            }
+                        }
+                    } catch {}
+                }
+
+                foreach ($tm in $tokenMatches) {
+                    $tokenKey = $tm.Groups[1].Value
+                    $tokenReplacement = if ($attrDict.ContainsKey($tokenKey)) { $attrDict[$tokenKey] } else { "" }
+                    $effectiveVal = $effectiveVal -replace [regex]::Escape($tm.Value), $tokenReplacement
+                }
+            }
+
             try {
-                Set-ADObjectRawAttribute -DistinguishedName $obj.DistinguishedName -AttributeName $attrName -Value $newVal
+                Set-ADObjectRawAttribute -DistinguishedName $obj.DistinguishedName -AttributeName $attrName -Value $effectiveVal
                 $succ++
-                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $newVal" -DurationMs 10 -Status "SUCCESS"
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $effectiveVal" -DurationMs 10 -Status "SUCCESS"
             } catch {
                 $fail++
-                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $newVal" -DurationMs 10 -Status "ERROR" -Details $_.Exception.Message
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $effectiveVal" -DurationMs 10 -Status "ERROR" -Details $_.Exception.Message
             }
         }
         $sw.Stop()
@@ -5008,6 +5235,26 @@ if ($controls['BtnBasketExportLdif']) {
             }
             [System.IO.File]::WriteAllText($sfd.FileName, $sb.ToString(), [System.Text.Encoding]::UTF8)
             [System.Windows.MessageBox]::Show("Exported $($state.BasketItems.Count) objects to LDIF:`n$($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+
+if ($controls['BtnBasketExportScim']) {
+    $controls['BtnBasketExportScim'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+        $sfd.Filter = "SCIM 2.0 JSON (*.json)|*.json|All Files (*.*)|*.*"
+        $sfd.FileName = "Directory_Basket_$(Get-Date -Format 'yyyyMMdd_HHmmss').json"
+        if ($sfd.ShowDialog()) {
+            $res = Export-ADDataToScim -Data $state.BasketItems -FilePath $sfd.FileName
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "SCIM 2.0 Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            } else {
+                [System.Windows.MessageBox]::Show($res.Message, "SCIM Export Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
         }
     })
 }
@@ -5755,6 +6002,20 @@ if ($controls['CtxGroupCompare']) {
 }
 
 # OUs TreeView ContextMenu
+if ($controls['CtxOUTreeNewUser']) {
+    $controls['CtxOUTreeNewUser'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $ouDN = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        Open-UserDialog -Mode "Create" -TargetOU $ouDN
+    })
+}
+if ($controls['CtxOUTreeNewGroup']) {
+    $controls['CtxOUTreeNewGroup'].Add_Click({
+        $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+        $ouDN = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
+        Open-GroupDialog -TargetOU $ouDN
+    })
+}
 if ($controls['CtxOUTreeNewOU']) {
     $controls['CtxOUTreeNewOU'].Add_Click({
         $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }

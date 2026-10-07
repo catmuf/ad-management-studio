@@ -443,6 +443,53 @@ function Test-LdifSyntax {
     return $result
 }
 
+function Test-ADSamAccountName {
+    [CmdletBinding()]
+    param (
+        [string]$SamAccountName
+    )
+    $res = [PSCustomObject]@{
+        IsValid = $false
+        Message = ""
+    }
+    if ([string]::IsNullOrWhiteSpace($SamAccountName)) {
+        $res.Message = "sAMAccountName cannot be empty."
+        return $res
+    }
+    if ($SamAccountName.Length -gt 20) {
+        $res.Message = "sAMAccountName cannot exceed 20 characters."
+        return $res
+    }
+    if ($SamAccountName -match '["/\\\[\]:;|=,+*?<>]') {
+        $res.Message = "sAMAccountName contains illegal characters."
+        return $res
+    }
+    $res.IsValid = $true
+    $res.Message = "Valid sAMAccountName."
+    return $res
+}
+
+function Test-ADEmail {
+    [CmdletBinding()]
+    param (
+        [string]$Email
+    )
+    $valid = (Test-ValidEmailAddress -Email $Email)
+    return [PSCustomObject]@{
+        IsValid = $valid
+        Message = if ($valid) { "Valid email address." } else { "Invalid email address format." }
+    }
+}
+
+function Test-ADPasswordComplexity {
+    [CmdletBinding()]
+    param (
+        [string]$Password,
+        [int]$MinLength = 10
+    )
+    return (Test-PasswordComplexity -Password $Password -MinLength $MinLength)
+}
+
 Export-ModuleMember -Function `
     Remove-Diacritics, `
     New-SecurePassword, `
@@ -457,5 +504,8 @@ Export-ModuleMember -Function `
     ConvertFrom-ADSid, `
     ConvertFrom-ADGuid, `
     Test-LdapFilter, `
-    Test-LdifSyntax
+    Test-LdifSyntax, `
+    Test-ADSamAccountName, `
+    Test-ADEmail, `
+    Test-ADPasswordComplexity
 

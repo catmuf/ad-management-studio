@@ -89,10 +89,26 @@
 
         <!-- Header -->
         <Border Grid.Row="0" Margin="0,0,0,16" Padding="0,0,0,10" BorderBrush="#2D313F" BorderThickness="0,0,0,1">
-            <StackPanel>
-                <TextBlock Name="TxtDialogTitle" Text="Create New Active Directory Group" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
-                <TextBlock Text="Configure group name, scope, category, and target location." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Name="TxtDialogTitle" Text="Create New Active Directory Group" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Text="Configure group name, scope, category, and target location." FontSize="12" Foreground="#9CA3AF" Margin="0,3,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="📋 Template Blueprint:" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                    <ComboBox Name="CmbGroupTemplate" Style="{StaticResource ModernComboBox}" Width="190" Height="30">
+                        <ComboBoxItem Content="Custom / Blank" IsSelected="True"/>
+                        <ComboBoxItem Content="Role Group (Global Security)"/>
+                        <ComboBoxItem Content="Resource Group (Domain Local)"/>
+                        <ComboBoxItem Content="Enterprise Group (Universal Security)"/>
+                        <ComboBoxItem Content="Distribution List (Universal Mail)"/>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Form Fields -->

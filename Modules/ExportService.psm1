@@ -637,6 +637,216 @@ function Export-ADDataToDsml {
     }
 }
 
-Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml
+function Export-ADDataToScim {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IEnumerable]$Data,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+
+    try {
+        $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
+        if ($targetDir -and -not (Test-Path $targetDir)) {
+            [void](New-Item -ItemType Directory -Path $targetDir -Force)
+        }
+
+        $resources = [System.Collections.Generic.List[object]]::new()
+
+        foreach ($item in $Data) {
+            if (-not $item) { continue }
+
+            # Detect if group or user
+            $isGroup = $false
+            if ($item.PSObject.Properties['GroupScope'] -or $item.ObjectClass -eq 'group' -or ($item.DistinguishedName -and $item.DistinguishedName -match '^CN=.*?,.*(Groups|OU=Groups)')) {
+                $isGroup = $true
+            } elseif ($item.PSObject.Properties['SamAccountName'] -and -not $item.PSObject.Properties['GivenName'] -and -not $item.PSObject.Properties['Surname'] -and -not $item.PSObject.Properties['UserPrincipalName']) {
+                if ($item.PSObject.Properties['MemberCount'] -or $item.PSObject.Properties['Members']) {
+                    $isGroup = $true
+                }
+            }
+
+            $id = if ($item.ObjectGUID) { "$($item.ObjectGUID)" } elseif ($item.SID) { "$($item.SID)" } elseif ($item.SamAccountName) { "$($item.SamAccountName)" } else { [Guid]::NewGuid().ToString() }
+            
+            $createdIso = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            if ($item.WhenCreated) {
+                try {
+                    $createdIso = ([DateTime]$item.WhenCreated).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+                } catch {
+                    $createdIso = "$($item.WhenCreated)"
+                }
+            }
+
+            $changedIso = $createdIso
+            if ($item.WhenChanged) {
+                try {
+                    $changedIso = ([DateTime]$item.WhenChanged).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+                } catch {
+                    $changedIso = "$($item.WhenChanged)"
+                }
+            }
+
+            if ($isGroup) {
+                # SCIM 2.0 Group Schema (RFC 7643 Section 4.2)
+                $displayName = if ($item.DisplayName) { "$($item.DisplayName)" } elseif ($item.Name) { "$($item.Name)" } else { "$($item.SamAccountName)" }
+                $grpObj = [ordered]@{
+                    schemas      = @("urn:ietf:params:scim:schemas:core:2.0:Group")
+                    id           = $id
+                    displayName  = $displayName
+                    externalId   = "$($item.DistinguishedName)"
+                    meta         = [ordered]@{
+                        resourceType = "Group"
+                        created      = $createdIso
+                        lastModified = $changedIso
+                    }
+                }
+
+                if ($item.Members) {
+                    $mList = [System.Collections.Generic.List[object]]::new()
+                    foreach ($m in $item.Members) {
+                        $mVal = if ($m.DistinguishedName) { $m.DistinguishedName } elseif ($m.SamAccountName) { $m.SamAccountName } else { "$m" }
+                        $mDisplay = if ($m.DisplayName) { $m.DisplayName } elseif ($m.Name) { $m.Name } else { $mVal }
+                        $mList.Add([ordered]@{
+                            value   = $mVal
+                            display = $mDisplay
+                        })
+                    }
+                    $grpObj["members"] = $mList
+                }
+
+                $resources.Add($grpObj)
+            }
+            else {
+                # SCIM 2.0 User Schema (RFC 7643 Section 4.1 & Enterprise Extension Section 4.3)
+                $userName = if ($item.SamAccountName) { "$($item.SamAccountName)" } elseif ($item.UserPrincipalName) { "$($item.UserPrincipalName)" } else { "$($item.Name)" }
+                $displayName = if ($item.DisplayName) { "$($item.DisplayName)" } elseif ($item.Name) { "$($item.Name)" } else { $userName }
+                $givenName = if ($item.GivenName) { "$($item.GivenName)" } else { "" }
+                $familyName = if ($item.Surname) { "$($item.Surname)" } elseif ($item.sn) { "$($item.sn)" } else { "" }
+
+                $isActive = $true
+                if ($null -ne $item.Enabled) {
+                    $isActive = [bool]$item.Enabled
+                } elseif ($item.Status -ieq "Disabled" -or $item.StatusBadge -ieq "Disabled") {
+                    $isActive = $false
+                }
+
+                $userObj = [ordered]@{
+                    schemas    = @(
+                        "urn:ietf:params:scim:schemas:core:2.0:User",
+                        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+                    )
+                    id         = $id
+                    userName   = $userName
+                    externalId = "$($item.DistinguishedName)"
+                    name       = [ordered]@{
+                        formatted  = $displayName
+                        familyName = $familyName
+                        givenName  = $givenName
+                    }
+                    displayName = $displayName
+                    active     = $isActive
+                }
+
+                if ($item.Title) { $userObj["title"] = "$($item.Title)" }
+                if ($item.Description) { $userObj["userType"] = "$($item.Description)" }
+
+                # Emails
+                $emailVal = if ($item.Mail) { "$($item.Mail)" } elseif ($item.Email) { "$($item.Email)" } elseif ($item.UserPrincipalName -match '@') { "$($item.UserPrincipalName)" } else { "" }
+                if ($emailVal) {
+                    $userObj["emails"] = @(
+                        [ordered]@{
+                            value   = $emailVal
+                            type    = "work"
+                            primary = $true
+                        }
+                    )
+                }
+
+                # Phone numbers
+                $phones = [System.Collections.Generic.List[object]]::new()
+                if ($item.telephoneNumber) {
+                    $phones.Add([ordered]@{ value = "$($item.telephoneNumber)"; type = "work" })
+                }
+                if ($item.mobile) {
+                    $phones.Add([ordered]@{ value = "$($item.mobile)"; type = "mobile" })
+                }
+                if ($phones.Count -gt 0) {
+                    $userObj["phoneNumbers"] = $phones
+                }
+
+                # Addresses
+                $addr = [ordered]@{}
+                if ($item.streetAddress) { $addr["streetAddress"] = "$($item.streetAddress)" }
+                if ($item.l -or $item.City) { $addr["locality"] = if ($item.l) { "$($item.l)" } else { "$($item.City)" } }
+                if ($item.st -or $item.State) { $addr["region"] = if ($item.st) { "$($item.st)" } else { "$($item.State)" } }
+                if ($item.postalCode -or $item.ZipCode) { $addr["postalCode"] = if ($item.postalCode) { "$($item.postalCode)" } else { "$($item.ZipCode)" } }
+                if ($item.co -or $item.Country) { $addr["country"] = if ($item.co) { "$($item.co)" } else { "$($item.Country)" } }
+                if ($addr.Count -gt 0) {
+                    $addr["type"] = "work"
+                    $userObj["addresses"] = @($addr)
+                }
+
+                # Meta
+                $userObj["meta"] = [ordered]@{
+                    resourceType = "User"
+                    created      = $createdIso
+                    lastModified = $changedIso
+                }
+
+                # Enterprise Extension (RFC 7643 Section 4.3)
+                $enterpriseExt = [ordered]@{}
+                if ($item.EmployeeID) { $enterpriseExt["employeeNumber"] = "$($item.EmployeeID)" }
+                if ($item.Department) { $enterpriseExt["department"] = "$($item.Department)" }
+                if ($item.Company) { $enterpriseExt["organization"] = "$($item.Company)" }
+                if ($item.Division) { $enterpriseExt["division"] = "$($item.Division)" }
+                if ($item.Manager) {
+                    $mgrName = "$($item.Manager)"
+                    if ($mgrName -match '^CN=([^,]+)') { $mgrDisp = $matches[1] } else { $mgrDisp = $mgrName }
+                    $enterpriseExt["manager"] = [ordered]@{
+                        value       = $mgrName
+                        displayName = $mgrDisp
+                    }
+                }
+
+                if ($enterpriseExt.Count -gt 0) {
+                    $userObj["urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"] = $enterpriseExt
+                }
+
+                $resources.Add($userObj)
+            }
+        }
+
+        # RFC 7644 Section 3.4.2 ListResponse
+        $scimResponse = [ordered]@{
+            schemas      = @("urn:ietf:params:scim:api:messages:2.0:ListResponse")
+            totalResults = $resources.Count
+            startIndex   = 1
+            itemsPerPage = $resources.Count
+            Resources    = $resources
+        }
+
+        $jsonStr = $scimResponse | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($FilePath, $jsonStr, [System.Text.Encoding]::UTF8)
+
+        return [PSCustomObject]@{
+            Success  = $true
+            FilePath = $FilePath
+            Count    = $resources.Count
+            Message  = "SCIM 2.0 JSON export completed successfully ($($resources.Count) resources)."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success  = $false
+            FilePath = $FilePath
+            Count    = 0
+            Message  = "SCIM 2.0 export failed: $_"
+        }
+    }
+}
+
+Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml, Export-ADDataToScim
 
 
