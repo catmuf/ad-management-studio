@@ -83,6 +83,11 @@ $state = [PSCustomObject]@{
     MasterAttributeList    = [System.Collections.Generic.List[string]]::new()
     SearchAttributesLoaded = $false
     IsFilteringAttributes  = $false
+    NavHistory             = [System.Collections.Generic.List[string]]::new()
+    NavIndex               = -1
+    IsNavigatingHistory    = $false
+    BasketItems            = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
+    RequestLogs            = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
 }
 
 # Update Top Header Ribbon
@@ -112,6 +117,73 @@ function Set-Status {
     }
 }
 
+function Log-LdapRequest {
+    param (
+        [string]$Operation,
+        [string]$TargetDN = "--",
+        [string]$FilterOrPayload = "--",
+        [double]$DurationMs = 0,
+        [string]$Status = "SUCCESS",
+        [string]$Details = ""
+    )
+    if (-not $state.RequestLogs) {
+        $state.RequestLogs = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
+    }
+    $timeStr = (Get-Date).ToString("HH:mm:ss.fff")
+    $logItem = [PSCustomObject]@{
+        Timestamp = $timeStr
+        Operation = $Operation
+        Status    = $Status
+        Duration  = "$([Math]::Round($DurationMs, 1)) ms"
+        TargetDN  = if ($TargetDN) { $TargetDN } else { "--" }
+        Filter    = if ($FilterOrPayload) { $FilterOrPayload } else { "--" }
+        Details   = if ($Details) { $Details } else { "Operation: $Operation`r`nTarget DN: $TargetDN`r`nPayload/Filter: $FilterOrPayload`r`nDuration: $DurationMs ms`r`nStatus: $Status`r`nTimestamp: $timeStr" }
+    }
+    
+    if ($state.RequestLogs.Count -gt 1000) {
+        $state.RequestLogs.RemoveAt(0)
+    }
+    $state.RequestLogs.Add($logItem)
+    
+    if ($controls['TxtRequestLogCountBadge']) {
+        $controls['TxtRequestLogCountBadge'].Text = "$($state.RequestLogs.Count) requests"
+    }
+    if ($controls['GridRequestLog'] -and $controls['ChkRequestLogAutoScroll'] -and $controls['ChkRequestLogAutoScroll'].IsChecked) {
+        $controls['GridRequestLog'].ScrollIntoView($logItem)
+    }
+}
+
+# Navigation History Engine
+function Update-NavButtons {
+    if ($controls['BtnNavBack']) {
+        $controls['BtnNavBack'].IsEnabled = ($state.NavIndex -gt 0)
+    }
+    if ($controls['BtnNavForward']) {
+        $controls['BtnNavForward'].IsEnabled = ($state.NavIndex -ge 0 -and $state.NavIndex -lt ($state.NavHistory.Count - 1))
+    }
+}
+
+function Record-NavHistory {
+    param ([string]$PanelName)
+    if ($state.IsNavigatingHistory) { return }
+    if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
+    
+    if ($state.NavIndex -ge 0 -and $state.NavIndex -lt $state.NavHistory.Count) {
+        if ($state.NavHistory[$state.NavIndex] -eq $PanelName) { return }
+    }
+    
+    if ($state.NavIndex -lt ($state.NavHistory.Count - 1)) {
+        $removeCount = $state.NavHistory.Count - 1 - $state.NavIndex
+        for ($i = 0; $i -lt $removeCount; $i++) {
+            $state.NavHistory.RemoveAt($state.NavHistory.Count - 1)
+        }
+    }
+    
+    $state.NavHistory.Add($PanelName)
+    $state.NavIndex = $state.NavHistory.Count - 1
+    Update-NavButtons
+}
+
 #region Panel Switching & Navigation
 function Show-Panel {
     param ([string]$PanelName)
@@ -119,6 +191,7 @@ function Show-Panel {
         'PanelDashboard', 'PanelUsers', 'PanelGroups', 'PanelOUs', 'PanelComputers',
         'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelObjectCompare',
         'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
+        'PanelBasket', 'PanelRequestLog',
         'PanelConnections', 'PanelSettings'
     )
     $targetName = "Panel$PanelName"
@@ -127,6 +200,44 @@ function Show-Panel {
             $controls[$p].Visibility = if ($p -eq $targetName) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
         }
     }
+    Record-NavHistory -PanelName $PanelName
+}
+
+# Wire Header Navigation Buttons
+if ($controls['BtnNavBack']) {
+    $controls['BtnNavBack'].Add_Click({
+        if ($state.NavIndex -gt 0) {
+            $state.NavIndex--
+            $target = $state.NavHistory[$state.NavIndex]
+            $state.IsNavigatingHistory = $true
+            try {
+                $radio = $controls["Nav$target"]
+                if ($radio) { $radio.IsChecked = $true }
+                Show-Panel $target
+            } finally {
+                $state.IsNavigatingHistory = $false
+                Update-NavButtons
+            }
+        }
+    })
+}
+
+if ($controls['BtnNavForward']) {
+    $controls['BtnNavForward'].Add_Click({
+        if ($state.NavIndex -ge 0 -and $state.NavIndex -lt ($state.NavHistory.Count - 1)) {
+            $state.NavIndex++
+            $target = $state.NavHistory[$state.NavIndex]
+            $state.IsNavigatingHistory = $true
+            try {
+                $radio = $controls["Nav$target"]
+                if ($radio) { $radio.IsChecked = $true }
+                Show-Panel $target
+            } finally {
+                $state.IsNavigatingHistory = $false
+                Update-NavButtons
+            }
+        }
+    })
 }
 
 # Wire Sidebar Navigation RadioButtons
@@ -143,6 +254,8 @@ if ($controls['NavLdifStudio'])      { $controls['NavLdifStudio'].Add_Checked({ 
 if ($controls['NavAuditReports'])    { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports" }) }
 if ($controls['NavSchemaBrowser'])   { $controls['NavSchemaBrowser'].Add_Checked({ Show-Panel "SchemaBrowser"; Refresh-Schema }) }
 if ($controls['NavBulkEditor'])      { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
+if ($controls['NavBasket'])          { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
+if ($controls['NavRequestLog'])      { $controls['NavRequestLog'].Add_Checked({ Show-Panel "RequestLog" }) }
 if ($controls['NavConnections'])     { $controls['NavConnections'].Add_Checked({ Show-Panel "Connections"; Refresh-Connections }) }
 if ($controls['NavSettings'])        { $controls['NavSettings'].Add_Checked({ Show-Panel "Settings"; Load-SettingsPanel }) }
 #endregion
@@ -1342,6 +1455,16 @@ if ($controls['BtnMoveUser']) {
 }
 if ($controls['BtnDeleteUser']) { $controls['BtnDeleteUser'].Add_Click({ Delete-UserAction }) }
 if ($controls['BtnExportUsers']) { $controls['BtnExportUsers'].Add_Click({ Export-UsersAction }) }
+if ($controls['BtnUserAddToBasket']) {
+    $controls['BtnUserAddToBasket'].Add_Click({
+        $selected = $controls['GridUsers'].SelectedItems
+        if ($selected -and $selected.Count -gt 0) {
+            Add-ToBasket -Items $selected -DefaultClass "User"
+        } else {
+            [System.Windows.MessageBox]::Show("Please select one or more users to add to the Directory Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
 if ($controls['BtnUserAddColumn']) { $controls['BtnUserAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Users" }) }
 if ($controls['BtnUserResetColumns']) { $controls['BtnUserResetColumns'].Add_Click({ Reset-TableColumns -TableName "Users" }) }
 
@@ -1766,9 +1889,18 @@ if ($controls['BtnClearSearchGroups']) {
 if ($controls['CmbGroupScopeFilter'])    { $controls['CmbGroupScopeFilter'].Add_SelectionChanged({ Refresh-Groups }) }
 if ($controls['CmbGroupCategoryFilter']) { $controls['CmbGroupCategoryFilter'].Add_SelectionChanged({ Refresh-Groups }) }
 
-if ($controls['BtnNewGroup'])      { $controls['BtnNewGroup'].Add_Click({ Open-GroupDialog }) }
 if ($controls['BtnDeleteGroup'])   { $controls['BtnDeleteGroup'].Add_Click({ Delete-GroupAction }) }
 if ($controls['BtnExportGroups'])  { $controls['BtnExportGroups'].Add_Click({ Export-GroupsAction }) }
+if ($controls['BtnGroupAddToBasket']) {
+    $controls['BtnGroupAddToBasket'].Add_Click({
+        $selected = $controls['GridGroups'].SelectedItems
+        if ($selected -and $selected.Count -gt 0) {
+            Add-ToBasket -Items $selected -DefaultClass "Group"
+        } else {
+            [System.Windows.MessageBox]::Show("Please select one or more groups to add to the Directory Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
 if ($controls['BtnGroupAddColumn']) { $controls['BtnGroupAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Groups" }) }
 if ($controls['BtnGroupResetColumns']) { $controls['BtnGroupResetColumns'].Add_Click({ Reset-TableColumns -TableName "Groups" }) }
 if ($controls['BtnManageMembers']) {
@@ -2083,6 +2215,16 @@ if ($controls['BtnClearSearchComputers']) {
         if ($controls['TxtSearchComputers']) {
             $controls['TxtSearchComputers'].Text = ""
             $controls['TxtSearchComputers'].Focus()
+        }
+    })
+}
+if ($controls['BtnComputerAddToBasket']) {
+    $controls['BtnComputerAddToBasket'].Add_Click({
+        $selected = $controls['GridComputers'].SelectedItems
+        if ($selected -and $selected.Count -gt 0) {
+            Add-ToBasket -Items $selected -DefaultClass "Computer"
+        } else {
+            [System.Windows.MessageBox]::Show("Please select one or more computers to add to the Directory Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
         }
     })
 }
@@ -2632,46 +2774,104 @@ if ($controls['CmbSearchPresets']) {
     })
 }
 
+function Get-CurrentLdapConditionString {
+    $attr = ""
+    if ($controls['CmbFilterAttr'].SelectedItem) {
+        $attr = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+            $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
+        } else {
+            $controls['CmbFilterAttr'].SelectedItem.ToString()
+        }
+    } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
+        $attr = $controls['CmbFilterAttr'].Text.Trim()
+    }
+    if ([string]::IsNullOrWhiteSpace($attr)) { $attr = "sAMAccountName" }
+
+    $op = if ($controls['CmbFilterOp'].SelectedItem) {
+        if ($controls['CmbFilterOp'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+            $controls['CmbFilterOp'].SelectedItem.Content.ToString()
+        } else {
+            $controls['CmbFilterOp'].SelectedItem.ToString()
+        }
+    } else { "=" }
+    $val = if ($controls['TxtFilterVal']) { $controls['TxtFilterVal'].Text.Trim() } else { "*" }
+
+    $resCond = switch ($op) {
+        "="            { "($attr=$val)" }
+        "starts with"  { "($attr=$val*)" }
+        "ends with"    { "($attr=*$val)" }
+        "contains"     { "($attr=*$val*)" }
+        "* is present" { "($attr=*)" }
+        "!="           { "(!($attr=$val))" }
+        ">="           { "($attr>=$val)" }
+        "<="           { "($attr<=$val)" }
+        default        { "($attr=$val)" }
+    }
+    return $resCond
+}
+
 if ($controls['BtnInsertCondition']) {
     $controls['BtnInsertCondition'].Add_Click({
-        $attr = ""
-        if ($controls['CmbFilterAttr'].SelectedItem) {
-            $attr = if ($controls['CmbFilterAttr'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-                $controls['CmbFilterAttr'].SelectedItem.Content.ToString()
-            } else {
-                $controls['CmbFilterAttr'].SelectedItem.ToString()
-            }
-        } elseif (-not [string]::IsNullOrWhiteSpace($controls['CmbFilterAttr'].Text)) {
-            $attr = $controls['CmbFilterAttr'].Text.Trim()
-        }
-        if ([string]::IsNullOrWhiteSpace($attr)) { $attr = "sAMAccountName" }
-
-        $op = if ($controls['CmbFilterOp'].SelectedItem) {
-            if ($controls['CmbFilterOp'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-                $controls['CmbFilterOp'].SelectedItem.Content.ToString()
-            } else {
-                $controls['CmbFilterOp'].SelectedItem.ToString()
-            }
-        } else { "=" }
-        $val = if ($controls['TxtFilterVal']) { $controls['TxtFilterVal'].Text.Trim() } else { "*" }
-
-        $condition = switch ($op) {
-            "="            { "($attr=$val)" }
-            "starts with"  { "($attr=$val*)" }
-            "ends with"    { "($attr=*$val)" }
-            "contains"     { "($attr=*$val*)" }
-            "* is present" { "($attr=*)" }
-            "!="           { "(!($attr=$val))" }
-            ">="           { "($attr>=$val)" }
-            "<="           { "($attr<=$val)" }
-            default        { "($attr=$val)" }
-        }
-
+        $condition = Get-CurrentLdapConditionString
         $existing = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
         if ([string]::IsNullOrWhiteSpace($existing) -or $existing -eq "(objectClass=*)" -or $existing -eq "(objectClass=user)") {
             $controls['TxtRawLdapFilter'].Text = "(&(objectClass=user)$condition)"
+        } elseif ($existing.StartsWith("(&") -and $existing.EndsWith(")")) {
+            $inner = $existing.Substring(2, $existing.Length - 3)
+            $controls['TxtRawLdapFilter'].Text = "(&$inner$condition)"
         } else {
             $controls['TxtRawLdapFilter'].Text = "(&$existing$condition)"
+        }
+    })
+}
+
+if ($controls['BtnFilterGroupAnd']) {
+    $controls['BtnFilterGroupAnd'].Add_Click({
+        $condition = Get-CurrentLdapConditionString
+        $existing = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($existing) -or $existing -eq "(objectClass=*)") {
+            $controls['TxtRawLdapFilter'].Text = "(&$condition)"
+        } elseif ($existing.StartsWith("(&") -and $existing.EndsWith(")")) {
+            $inner = $existing.Substring(2, $existing.Length - 3)
+            $controls['TxtRawLdapFilter'].Text = "(&$inner$condition)"
+        } else {
+            $controls['TxtRawLdapFilter'].Text = "(&$existing$condition)"
+        }
+    })
+}
+
+if ($controls['BtnFilterGroupOr']) {
+    $controls['BtnFilterGroupOr'].Add_Click({
+        $condition = Get-CurrentLdapConditionString
+        $existing = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($existing) -or $existing -eq "(objectClass=*)") {
+            $controls['TxtRawLdapFilter'].Text = "(|$condition)"
+        } elseif ($existing.StartsWith("(|") -and $existing.EndsWith(")")) {
+            $inner = $existing.Substring(2, $existing.Length - 3)
+            $controls['TxtRawLdapFilter'].Text = "(|$inner$condition)"
+        } else {
+            $controls['TxtRawLdapFilter'].Text = "(|$existing$condition)"
+        }
+    })
+}
+
+if ($controls['BtnFilterGroupNot']) {
+    $controls['BtnFilterGroupNot'].Add_Click({
+        $existing = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if (-not [string]::IsNullOrWhiteSpace($existing)) {
+            if ($existing.StartsWith("(!") -and $existing.EndsWith(")")) {
+                $controls['TxtRawLdapFilter'].Text = $existing.Substring(2, $existing.Length - 3)
+            } else {
+                $controls['TxtRawLdapFilter'].Text = "(!$existing)"
+            }
+        }
+    })
+}
+
+if ($controls['BtnFilterClear']) {
+    $controls['BtnFilterClear'].Add_Click({
+        if ($controls['TxtRawLdapFilter']) {
+            $controls['TxtRawLdapFilter'].Text = "(objectClass=*)"
         }
     })
 }
@@ -2905,6 +3105,16 @@ if ($controls['BtnSearchExportJson']) {
     })
 }
 
+if ($controls['BtnSearchAddToBasket']) {
+    $controls['BtnSearchAddToBasket'].Add_Click({
+        $selected = $controls['GridSearchResults'].SelectedItems
+        if ($selected -and $selected.Count -gt 0) {
+            Add-ToBasket -Items $selected -DefaultClass "DirectoryObject"
+        } else {
+            [System.Windows.MessageBox]::Show("Please select one or more search results to add to the Directory Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
 if ($controls['BtnSearchAddColumn']) { $controls['BtnSearchAddColumn'].Add_Click({ Show-ColumnChooser -TableName "Search" }) }
 if ($controls['BtnSearchResetColumns']) { $controls['BtnSearchResetColumns'].Add_Click({ Reset-TableColumns -TableName "Search" }) }
 #endregion
@@ -3095,8 +3305,12 @@ function Load-RawAttributesUI {
         return
     }
 
-    Set-Status -Message "Fetching raw directory attributes for: $TargetDN..."
-    $attrs = Get-ADObjectRawAttributes -DistinguishedName $TargetDN
+    $incOp = if ($controls['ChkShowOperationalAttributes']) { [bool]$controls['ChkShowOperationalAttributes'].IsChecked } else { $false }
+    Set-Status -Message "Fetching raw directory attributes for: $TargetDN (Operational: $incOp)..."
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $attrs = Get-ADObjectRawAttributes -DistinguishedName $TargetDN -IncludeOperational:$incOp
+    $sw.Stop()
+
     if ($attrs -and $attrs.Count -gt 0) {
         $state.CurrentRawAttributes = $attrs
         $state.CurrentRawDN = $attrs[0].RawDN
@@ -3104,9 +3318,19 @@ function Load-RawAttributesUI {
         if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].ItemsSource = $attrs }
         if ($controls['TxtAttrCount']) { $controls['TxtAttrCount'].Text = "$($attrs.Count) attributes loaded" }
         Set-Status -Message "Loaded $($attrs.Count) attributes for '$($attrs[0].RawDN)'." -Count "$($attrs.Count) attributes"
+        Log-LdapRequest -Operation "SEARCH/ATTRS" -TargetDN $state.CurrentRawDN -FilterOrPayload "(IncludeOperational=$incOp)" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details "Loaded $($attrs.Count) attributes for object '$($state.CurrentRawDN)'."
     } else {
+        Log-LdapRequest -Operation "SEARCH/ATTRS" -TargetDN $TargetDN -FilterOrPayload "(IncludeOperational=$incOp)" -DurationMs $sw.ElapsedMilliseconds -Status "ERROR" -Details "No attributes found or object could not be resolved: $TargetDN"
         [System.Windows.MessageBox]::Show("No attributes found or object could not be resolved: $TargetDN", "Object Not Found", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
     }
+}
+
+if ($controls['ChkShowOperationalAttributes']) {
+    $controls['ChkShowOperationalAttributes'].Add_Click({
+        if ($controls['TxtAttrEditorDN'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtAttrEditorDN'].Text)) {
+            Load-RawAttributesUI -TargetDN $controls['TxtAttrEditorDN'].Text.Trim()
+        }
+    })
 }
 
 if ($controls['BtnLoadRawAttributes']) { $controls['BtnLoadRawAttributes'].Add_Click({ Load-RawAttributesUI }) }
@@ -3155,12 +3379,18 @@ function Open-AttributeEditDialog {
     $dControls['TxtHeaderType'].Text = "Syntax: $($selAttr.Type) | Count: $($selAttr.Count)"
     $dControls['TxtHeaderDN'].Text = $selAttr.RawDN
 
-    $isUac = ($selAttr.Name -ieq "userAccountControl")
+    $isUac   = ($selAttr.Name -ieq "userAccountControl")
+    $isPhoto = ($selAttr.Name -in @('thumbnailPhoto', 'jpegPhoto', 'photo') -or ($selAttr.Name -match 'photo' -and ($selAttr.RawValue -is [byte[]] -or $selAttr.Type -match 'Binary|OctetString')))
+    $isCert  = ($selAttr.Name -in @('userCertificate', 'cACertificate', 'userSMIMECertificate') -or ($selAttr.Name -match 'cert' -and ($selAttr.RawValue -is [byte[]] -or $selAttr.Type -match 'Binary|OctetString')))
+    $isHex   = (-not $isPhoto -and -not $isCert -and ($selAttr.RawValue -is [byte[]] -or $selAttr.Type -match 'Binary|OctetString'))
     $isMulti = ($selAttr.IsMultiValued -or $selAttr.Count -gt 1 -or $selAttr.Type -match "MultiValued")
 
+    # Hide all mode panels first
+    foreach ($m in @('ModeStringEditor', 'ModeMultiValueEditor', 'ModeUacEditor', 'ModePhotoEditor', 'ModeCertificateEditor', 'ModeHexEditor')) {
+        if ($dControls[$m]) { $dControls[$m].Visibility = [System.Windows.Visibility]::Collapsed }
+    }
+
     if ($isUac) {
-        $dControls['ModeStringEditor'].Visibility = [System.Windows.Visibility]::Collapsed
-        $dControls['ModeMultiValueEditor'].Visibility = [System.Windows.Visibility]::Collapsed
         $dControls['ModeUacEditor'].Visibility = [System.Windows.Visibility]::Visible
 
         $intVal = 512
@@ -3219,10 +3449,188 @@ function Open-AttributeEditDialog {
             & $ComputeUac
         })
 
+    } elseif ($isPhoto) {
+        $dControls['ModePhotoEditor'].Visibility = [System.Windows.Visibility]::Visible
+        $script:stagedPhotoBytes = if ($selAttr.RawValue -is [byte[]]) { $selAttr.RawValue } elseif ($selAttr.RawValues -and $selAttr.RawValues[0] -is [byte[]]) { $selAttr.RawValues[0] } else { $null }
+
+        $RenderPhoto = {
+            if ($script:stagedPhotoBytes -and $script:stagedPhotoBytes.Length -gt 0) {
+                try {
+                    $ms = [System.IO.MemoryStream]::new($script:stagedPhotoBytes)
+                    $bmp = [System.Windows.Media.Imaging.BitmapImage]::new()
+                    $bmp.BeginInit()
+                    $bmp.StreamSource = $ms
+                    $bmp.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                    $bmp.EndInit()
+                    $dControls['ImgPhotoPreview'].Source = $bmp
+                    $dControls['TxtPhotoPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed
+                    $dControls['TxtPhotoDimensions'].Text = "Dimensions: $($bmp.PixelWidth) x $($bmp.PixelHeight) px"
+                    $dControls['TxtPhotoSize'].Text = "File Size: $([Math]::Round($script:stagedPhotoBytes.Length / 1KB, 1)) KB ($($script:stagedPhotoBytes.Length) bytes)"
+                } catch {
+                    $dControls['ImgPhotoPreview'].Source = $null
+                    $dControls['TxtPhotoPlaceholder'].Text = "Image Error"
+                    $dControls['TxtPhotoPlaceholder'].Visibility = [System.Windows.Visibility]::Visible
+                }
+            } else {
+                $dControls['ImgPhotoPreview'].Source = $null
+                $dControls['TxtPhotoPlaceholder'].Text = "No Image"
+                $dControls['TxtPhotoPlaceholder'].Visibility = [System.Windows.Visibility]::Visible
+                $dControls['TxtPhotoDimensions'].Text = "Dimensions: --"
+                $dControls['TxtPhotoSize'].Text = "File Size: --"
+            }
+        }
+        & $RenderPhoto
+
+        $dControls['BtnLoadPhoto'].Add_Click({
+            $ofd = [Microsoft.Win32.OpenFileDialog]::new()
+            $ofd.Filter = "Image Files (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp|All Files (*.*)|*.*"
+            if ($ofd.ShowDialog() -eq $true) {
+                $script:stagedPhotoBytes = [System.IO.File]::ReadAllBytes($ofd.FileName)
+                & $RenderPhoto
+            }
+        })
+
+        $dControls['BtnExportPhoto'].Add_Click({
+            if (-not $script:stagedPhotoBytes -or $script:stagedPhotoBytes.Length -eq 0) { return }
+            $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+            $sfd.FileName = "$($selAttr.Name).jpg"
+            $sfd.Filter = "JPEG Image (*.jpg)|*.jpg|PNG Image (*.png)|*.png|All Files (*.*)|*.*"
+            if ($sfd.ShowDialog() -eq $true) {
+                [System.IO.File]::WriteAllBytes($sfd.FileName, $script:stagedPhotoBytes)
+                [System.Windows.MessageBox]::Show("Photo successfully exported to $($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        })
+
+        $dControls['BtnRemovePhoto'].Add_Click({
+            $script:stagedPhotoBytes = [byte[]]@()
+            & $RenderPhoto
+        })
+
+    } elseif ($isCert) {
+        $dControls['ModeCertificateEditor'].Visibility = [System.Windows.Visibility]::Visible
+        $script:stagedCertBytes = if ($selAttr.RawValue -is [byte[]]) { $selAttr.RawValue } elseif ($selAttr.RawValues -and $selAttr.RawValues[0] -is [byte[]]) { $selAttr.RawValues[0] } else { $null }
+
+        $RenderCert = {
+            if ($script:stagedCertBytes -and $script:stagedCertBytes.Length -gt 0) {
+                try {
+                    $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($script:stagedCertBytes)
+                    $dControls['TxtCertSubject'].Text = $cert.Subject
+                    $dControls['TxtCertIssuer'].Text = $cert.Issuer
+                    $validDays = [Math]::Round(($cert.NotAfter - (Get-Date)).TotalDays)
+                    $validText = "$($cert.NotBefore.ToString('yyyy-MM-dd')) to $($cert.NotAfter.ToString('yyyy-MM-dd'))"
+                    if ($validDays -lt 0) { $validText += " (EXPIRED)" } else { $validText += " ($validDays days remaining)" }
+                    $dControls['TxtCertValidity'].Text = $validText
+                    $dControls['TxtCertSerial'].Text = $cert.SerialNumber
+                    $dControls['TxtCertThumbprint'].Text = $cert.Thumbprint
+                    $dControls['TxtCertAlgorithm'].Text = "$($cert.SignatureAlgorithm.FriendlyName) ($($cert.PublicKey.Key.KeySize)-bit)"
+                } catch {
+                    $dControls['TxtCertSubject'].Text = "Parse Error: $_"
+                }
+            } else {
+                $dControls['TxtCertSubject'].Text = "<No Certificate Present>"
+                $dControls['TxtCertIssuer'].Text = "--"
+                $dControls['TxtCertValidity'].Text = "--"
+                $dControls['TxtCertSerial'].Text = "--"
+                $dControls['TxtCertThumbprint'].Text = "--"
+                $dControls['TxtCertAlgorithm'].Text = "--"
+            }
+        }
+        & $RenderCert
+
+        $dControls['BtnViewWindowsCert'].Add_Click({
+            if ($script:stagedCertBytes -and $script:stagedCertBytes.Length -gt 0) {
+                try {
+                    $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($script:stagedCertBytes)
+                    [System.Security.Cryptography.X509Certificates.X509Certificate2UI]::DisplayCertificate($cert)
+                } catch {}
+            }
+        })
+
+        $dControls['BtnExportCert'].Add_Click({
+            if (-not $script:stagedCertBytes -or $script:stagedCertBytes.Length -eq 0) { return }
+            $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+            $sfd.FileName = "$($selAttr.Name).cer"
+            $sfd.Filter = "DER Encoded Binary X.509 (*.cer)|*.cer|All Files (*.*)|*.*"
+            if ($sfd.ShowDialog() -eq $true) {
+                [System.IO.File]::WriteAllBytes($sfd.FileName, $script:stagedCertBytes)
+                [System.Windows.MessageBox]::Show("Certificate saved to $($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        })
+
+        $dControls['BtnImportCert'].Add_Click({
+            $ofd = [Microsoft.Win32.OpenFileDialog]::new()
+            $ofd.Filter = "X.509 Certificate (*.cer;*.crt)|*.cer;*.crt|All Files (*.*)|*.*"
+            if ($ofd.ShowDialog() -eq $true) {
+                $script:stagedCertBytes = [System.IO.File]::ReadAllBytes($ofd.FileName)
+                & $RenderCert
+            }
+        })
+
+        $dControls['BtnClearCert'].Add_Click({
+            $script:stagedCertBytes = [byte[]]@()
+            & $RenderCert
+        })
+
+    } elseif ($isHex) {
+        $dControls['ModeHexEditor'].Visibility = [System.Windows.Visibility]::Visible
+        $script:stagedBinaryBytes = if ($selAttr.RawValue -is [byte[]]) { $selAttr.RawValue } elseif ($selAttr.RawValues -and $selAttr.RawValues[0] -is [byte[]]) { $selAttr.RawValues[0] } else { $null }
+
+        $RenderHex = {
+            if ($script:stagedBinaryBytes -and $script:stagedBinaryBytes.Length -gt 0) {
+                $sb = [System.Text.StringBuilder]::new()
+                $len = $script:stagedBinaryBytes.Length
+                for ($i = 0; $i -lt $len; $i += 16) {
+                    $chunkLen = [Math]::Min(16, $len - $i)
+                    $chunk = $script:stagedBinaryBytes[$i..($i + $chunkLen - 1)]
+                    $hexPart = ($chunk | ForEach-Object { $_.ToString("X2") }) -join " "
+                    $hexPart = $hexPart.PadRight(48)
+                    $asciiPart = -join ($chunk | ForEach-Object { if ($_ -ge 32 -and $_ -le 126) { [char]$_ } else { '.' } })
+                    [void]$sb.AppendLine(("{0:X8}:  {1}  |{2}|" -f $i, $hexPart, $asciiPart))
+                }
+                $dControls['TxtHexView'].Text = $sb.ToString()
+                $dControls['TxtHexByteCount'].Text = "Total: $len bytes ($($len * 8)-bit)"
+            } else {
+                $dControls['TxtHexView'].Text = "<Empty Data>"
+                $dControls['TxtHexByteCount'].Text = "Total: 0 bytes"
+            }
+        }
+        & $RenderHex
+
+        $dControls['BtnCopyHex'].Add_Click({
+            if ($script:stagedBinaryBytes) {
+                $hexOnly = ($script:stagedBinaryBytes | ForEach-Object { $_.ToString("X2") }) -join " "
+                [System.Windows.Clipboard]::SetText($hexOnly)
+                [System.Windows.MessageBox]::Show("Hex bytes copied to clipboard.", "Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        })
+
+        $dControls['BtnExportBinary'].Add_Click({
+            if (-not $script:stagedBinaryBytes) { return }
+            $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+            $sfd.FileName = "$($selAttr.Name).bin"
+            $sfd.Filter = "Binary File (*.bin)|*.bin|All Files (*.*)|*.*"
+            if ($sfd.ShowDialog() -eq $true) {
+                [System.IO.File]::WriteAllBytes($sfd.FileName, $script:stagedBinaryBytes)
+                [System.Windows.MessageBox]::Show("Binary data exported to $($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        })
+
+        $dControls['BtnImportBinary'].Add_Click({
+            $ofd = [Microsoft.Win32.OpenFileDialog]::new()
+            $ofd.Filter = "All Files (*.*)|*.*"
+            if ($ofd.ShowDialog() -eq $true) {
+                $script:stagedBinaryBytes = [System.IO.File]::ReadAllBytes($ofd.FileName)
+                & $RenderHex
+            }
+        })
+
+        $dControls['BtnClearBinary'].Add_Click({
+            $script:stagedBinaryBytes = [byte[]]@()
+            & $RenderHex
+        })
+
     } elseif ($isMulti) {
-        $dControls['ModeStringEditor'].Visibility = [System.Windows.Visibility]::Collapsed
         $dControls['ModeMultiValueEditor'].Visibility = [System.Windows.Visibility]::Visible
-        $dControls['ModeUacEditor'].Visibility = [System.Windows.Visibility]::Collapsed
 
         $multiItems = New-Object System.Collections.ObjectModel.ObservableCollection[System.String]
         if ($selAttr.RawValues -is [System.Collections.IEnumerable] -and $selAttr.RawValues -isnot [string]) {
@@ -3257,8 +3665,6 @@ function Open-AttributeEditDialog {
 
     } else {
         $dControls['ModeStringEditor'].Visibility = [System.Windows.Visibility]::Visible
-        $dControls['ModeMultiValueEditor'].Visibility = [System.Windows.Visibility]::Collapsed
-        $dControls['ModeUacEditor'].Visibility = [System.Windows.Visibility]::Collapsed
 
         $dControls['TxtStringValue'].Text = [string]$selAttr.Value
 
@@ -3285,6 +3691,12 @@ function Open-AttributeEditDialog {
             if ($isUac) {
                 $newUac = & $ComputeUac
                 $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName "userAccountControl" -NewValue $newUac
+            } elseif ($isPhoto) {
+                $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $script:stagedPhotoBytes
+            } elseif ($isCert) {
+                $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $script:stagedCertBytes
+            } elseif ($isHex) {
+                $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $script:stagedBinaryBytes
             } elseif ($isMulti) {
                 $newVals = @($multiItems)
                 $setRes = Set-ADObjectRawAttribute -DistinguishedName $selAttr.RawDN -AttributeName $selAttr.Name -NewValue $newVals
@@ -3701,9 +4113,89 @@ function Refresh-Schema {
     Set-Status -Message "Schema loaded: $($items.Count) definition(s) displayed." -Count "$($items.Count) schema items"
 }
 
+function Export-SchemaOpenLdapAction {
+    $items = $state.CachedSchema
+    if (-not $items -or $items.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Please load schema definitions first.", "No Schema Loaded", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+    $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
+    $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+    $sfd.Filter = "OpenLDAP Schema (*.schema)|*.schema|All Files (*.*)|*.*"
+    $sfd.FileName = if ($isClasses) { "ad_classes.schema" } else { "ad_attributes.schema" }
+    if ($sfd.ShowDialog()) {
+        $sb = [System.Text.StringBuilder]::new()
+        [void]$sb.AppendLine("# OpenLDAP Schema Definitions Exported from Active Directory Studio")
+        [void]$sb.AppendLine("# Export Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        [void]$sb.AppendLine("")
+        if ($isClasses) {
+            foreach ($c in $items) {
+                $oid = if ($c.OID) { $c.OID } else { "1.3.6.1.4.1.7165.2.1" }
+                $sup = if ($c.SubClassOf) { " SUP $($c.SubClassOf)" } else { " SUP top" }
+                $mustStr = if ($c.MandatoryAttrs) { " MUST ( $($c.MandatoryAttrs -replace ',', ' $') )" } else { "" }
+                $mayStr = if ($c.OptionalAttrs) { " MAY ( $($c.OptionalAttrs -replace ',', ' $') )" } else { "" }
+                [void]$sb.AppendLine("objectclass ( $oid")
+                [void]$sb.AppendLine("    NAME '$($c.Name)'")
+                [void]$sb.AppendLine("    DESC 'Active Directory Schema Class $($c.Name)'$sup STRUCTURAL$mustStr$mayStr )")
+                [void]$sb.AppendLine("")
+            }
+        } else {
+            foreach ($a in $items) {
+                $oid = if ($a.OID) { $a.OID } else { "1.3.6.1.4.1.7165.2.2" }
+                $single = if ($a.IsSingleValued) { " SINGLE-VALUE" } else { "" }
+                [void]$sb.AppendLine("attributetype ( $oid")
+                [void]$sb.AppendLine("    NAME '$($a.Name)'")
+                [void]$sb.AppendLine("    DESC 'Active Directory Schema Attribute $($a.Name)'")
+                [void]$sb.AppendLine("    SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{1024}$single )")
+                [void]$sb.AppendLine("")
+            }
+        }
+        [System.IO.File]::WriteAllText($sfd.FileName, $sb.ToString(), [System.Text.Encoding]::UTF8)
+        [System.Windows.MessageBox]::Show("Exported $($items.Count) schema definition(s) to OpenLDAP schema format:`n$($sfd.FileName)", "Schema Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    }
+}
+
+function Export-SchemaLdifAction {
+    $items = $state.CachedSchema
+    if (-not $items -or $items.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Please load schema definitions first.", "No Schema Loaded", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+    $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
+    $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+    $sfd.Filter = "LDIF Schema (*.ldif)|*.ldif|All Files (*.*)|*.*"
+    $sfd.FileName = if ($isClasses) { "ad_classes_schema.ldif" } else { "ad_attributes_schema.ldif" }
+    if ($sfd.ShowDialog()) {
+        $sb = [System.Text.StringBuilder]::new()
+        [void]$sb.AppendLine("version: 1")
+        [void]$sb.AppendLine("dn: cn=schema,cn=config")
+        [void]$sb.AppendLine("objectClass: olcSchemaConfig")
+        [void]$sb.AppendLine("cn: schema")
+        if ($isClasses) {
+            foreach ($c in $items) {
+                $oid = if ($c.OID) { $c.OID } else { "1.3.6.1.4.1.7165.2.1" }
+                $sup = if ($c.SubClassOf) { " SUP $($c.SubClassOf)" } else { " SUP top" }
+                $mustStr = if ($c.MandatoryAttrs) { " MUST ( $($c.MandatoryAttrs -replace ',', ' $') )" } else { "" }
+                $mayStr = if ($c.OptionalAttrs) { " MAY ( $($c.OptionalAttrs -replace ',', ' $') )" } else { "" }
+                [void]$sb.AppendLine("olcObjectClasses: ( $oid NAME '$($c.Name)'$sup STRUCTURAL$mustStr$mayStr )")
+            }
+        } else {
+            foreach ($a in $items) {
+                $oid = if ($a.OID) { $a.OID } else { "1.3.6.1.4.1.7165.2.2" }
+                $single = if ($a.IsSingleValued) { " SINGLE-VALUE" } else { "" }
+                [void]$sb.AppendLine("olcAttributeTypes: ( $oid NAME '$($a.Name)' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15$single )")
+            }
+        }
+        [System.IO.File]::WriteAllText($sfd.FileName, $sb.ToString(), [System.Text.Encoding]::UTF8)
+        [System.Windows.MessageBox]::Show("Exported $($items.Count) schema definition(s) to LDIF format:`n$($sfd.FileName)", "Schema Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    }
+}
+
 if ($controls['BtnRefreshSchema']) { $controls['BtnRefreshSchema'].Add_Click({ Refresh-Schema }) }
 if ($controls['RadioSchemaClasses'])    { $controls['RadioSchemaClasses'].Add_Checked({ Refresh-Schema }) }
 if ($controls['RadioSchemaAttributes']) { $controls['RadioSchemaAttributes'].Add_Checked({ Refresh-Schema }) }
+if ($controls['BtnExportSchemaOpenLdap']) { $controls['BtnExportSchemaOpenLdap'].Add_Click({ Export-SchemaOpenLdapAction }) }
+if ($controls['BtnExportSchemaLdif'])     { $controls['BtnExportSchemaLdif'].Add_Click({ Export-SchemaLdifAction }) }
 if ($controls['TxtSearchSchema']) {
     $controls['TxtSearchSchema'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-Schema }
@@ -3759,7 +4251,293 @@ $($bulkRes.Log -join "`r`n")
 }
 #endregion
 
-#region 14. Connection Profiles & Diagnostics Logic
+#region 14. Directory Basket Engine Logic (Softerra Parity)
+function Refresh-BasketUI {
+    if ($controls['GridBasket']) {
+        $controls['GridBasket'].ItemsSource = $null
+        $controls['GridBasket'].ItemsSource = $state.BasketItems
+    }
+    $cnt = if ($state.BasketItems) { $state.BasketItems.Count } else { 0 }
+    if ($controls['TxtBasketCountBadge']) {
+        $controls['TxtBasketCountBadge'].Text = "$cnt objects in basket"
+    }
+    if ($controls['TxtNavBasketLabel']) {
+        $controls['TxtNavBasketLabel'].Text = "Directory Basket ($cnt)"
+    }
+}
+
+function Add-ToBasket {
+    param (
+        $Items,
+        [string]$DefaultClass = "Object"
+    )
+    if (-not $Items) { return }
+    $itemsList = @($Items)
+    if ($itemsList.Count -eq 0) { return }
+
+    if (-not $state.BasketItems) {
+        $state.BasketItems = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
+    }
+
+    $added = 0
+    foreach ($item in $itemsList) {
+        if (-not $item -or -not $item.DistinguishedName) { continue }
+        $dn = $item.DistinguishedName
+
+        $exists = $false
+        foreach ($b in $state.BasketItems) {
+            if ($b.DistinguishedName -eq $dn) {
+                $exists = $true
+                break
+            }
+        }
+        if (-not $exists) {
+            $className = if ($item.ObjectClass) { $item.ObjectClass } elseif ($item.Class) { $item.Class } else { $DefaultClass }
+            $nameVal = if ($item.DisplayName) { $item.DisplayName } elseif ($item.Name) { $item.Name } else { $item.SamAccountName }
+            $statusVal = if ($item.StatusBadge) { $item.StatusBadge } elseif ($item.Status) { $item.Status } else { "Active" }
+
+            $basketObj = [PSCustomObject]@{
+                Class             = $className
+                Name              = $nameVal
+                SamAccountName    = if ($item.SamAccountName) { $item.SamAccountName } else { "--" }
+                Status            = $statusVal
+                OUPath            = if ($item.OUPath) { $item.OUPath } else { "--" }
+                DistinguishedName = $dn
+            }
+            $state.BasketItems.Add($basketObj)
+            $added++
+        }
+    }
+
+    Refresh-BasketUI
+    Set-Status -Message "Added $added item(s) to Directory Basket (Total: $($state.BasketItems.Count))." -Count "$($state.BasketItems.Count) staged"
+    Log-LdapRequest -Operation "BASKET" -TargetDN "Staging Cart" -FilterOrPayload "Added $added items" -DurationMs 1 -Status "SUCCESS" -Details "Staged $added new objects into Directory Basket. Current basket count: $($state.BasketItems.Count)."
+}
+
+if ($controls['BtnBasketClear']) {
+    $controls['BtnBasketClear'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) { return }
+        $res = [System.Windows.MessageBox]::Show("Clear all $($state.BasketItems.Count) staged object(s) from the Directory Basket?", "Clear Basket", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($res -eq [System.Windows.MessageBoxResult]::Yes) {
+            $state.BasketItems.Clear()
+            Refresh-BasketUI
+            Set-Status -Message "Directory Basket cleared."
+            Log-LdapRequest -Operation "BASKET" -TargetDN "Staging Cart" -FilterOrPayload "Cleared" -DurationMs 1 -Status "SUCCESS" -Details "Cleared all items from Directory Basket."
+        }
+    })
+}
+
+if ($controls['BtnBasketRemoveSelected']) {
+    $controls['BtnBasketRemoveSelected'].Add_Click({
+        $selected = @($controls['GridBasket'].SelectedItems)
+        if ($selected.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Please select one or more items to remove from the basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        foreach ($item in $selected) {
+            $state.BasketItems.Remove($item)
+        }
+        Refresh-BasketUI
+        Set-Status -Message "Removed $($selected.Count) item(s) from basket."
+    })
+}
+
+if ($controls['BtnBasketModifyAttr']) {
+    $controls['BtnBasketModifyAttr'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $attrName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the attribute name to update across all $($state.BasketItems.Count) basket objects:`n(e.g., department, company, description, title, physicalDeliveryOfficeName)", "Bulk Edit Basket Objects", "department")
+        if ([string]::IsNullOrWhiteSpace($attrName)) { return }
+        $newVal = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the new value for attribute '$attrName':`n(Leave blank to clear the attribute)", "Bulk Attribute Value", "")
+        
+        $confirm = [System.Windows.MessageBox]::Show("Update attribute '$attrName' to '$newVal' for all $($state.BasketItems.Count) staged objects?", "Confirm Bulk Update", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+        $succ = 0; $fail = 0
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        foreach ($obj in $state.BasketItems) {
+            try {
+                Set-ADObjectRawAttribute -DistinguishedName $obj.DistinguishedName -AttributeName $attrName -Value $newVal
+                $succ++
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $newVal" -DurationMs 10 -Status "SUCCESS"
+            } catch {
+                $fail++
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $obj.DistinguishedName -FilterOrPayload "$attrName = $newVal" -DurationMs 10 -Status "ERROR" -Details $_.Exception.Message
+            }
+        }
+        $sw.Stop()
+        [System.Windows.MessageBox]::Show("Bulk modification finished in $($sw.ElapsedMilliseconds) ms:`nSucceeded: $succ`nFailed: $fail", "Bulk Update Result", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    })
+}
+
+if ($controls['BtnBasketToggleStatus']) {
+    $controls['BtnBasketToggleStatus'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $users = @($state.BasketItems | Where-Object { $_.Class -eq "User" -or $_.Class -like "*user*" })
+        if ($users.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No user accounts found in the Directory Basket.", "No Users", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $choice = [System.Windows.MessageBox]::Show("Toggle status of $($users.Count) user account(s):`n`nClick YES to ENABLE all accounts.`nClick NO to DISABLE all accounts.`nClick CANCEL to abort.", "Bulk Status Toggle", [System.Windows.MessageBoxButton]::YesNoCancel, [System.Windows.MessageBoxImage]::Question)
+        if ($choice -eq [System.Windows.MessageBoxResult]::Cancel) { return }
+        $enable = ($choice -eq [System.Windows.MessageBoxResult]::Yes)
+
+        $updated = 0
+        foreach ($u in $users) {
+            try {
+                if ($enable) {
+                    Enable-ADUserAccount -DistinguishedName $u.DistinguishedName
+                    $u.Status = "Active"
+                } else {
+                    Disable-ADUserAccount -DistinguishedName $u.DistinguishedName
+                    $u.Status = "Disabled"
+                }
+                $updated++
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $u.DistinguishedName -FilterOrPayload "Enabled = $enable" -DurationMs 15 -Status "SUCCESS"
+            } catch {
+                Log-LdapRequest -Operation "MODIFY" -TargetDN $u.DistinguishedName -FilterOrPayload "Enabled = $enable" -DurationMs 15 -Status "ERROR" -Details $_.Exception.Message
+            }
+        }
+        Refresh-BasketUI
+        [System.Windows.MessageBox]::Show("Status updated for $updated account(s).", "Toggle Status Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    })
+}
+
+if ($controls['BtnBasketMoveOU']) {
+    $controls['BtnBasketMoveOU'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $targetOU = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the target Organizational Unit (DN) to move all $($state.BasketItems.Count) staged objects into:", "Bulk Move Objects to OU", $state.DefaultNamingContext)
+        if ([string]::IsNullOrWhiteSpace($targetOU)) { return }
+
+        $confirm = [System.Windows.MessageBox]::Show("Move all $($state.BasketItems.Count) objects to target OU:`n$targetOU`n`nProceed?", "Confirm Bulk Move", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+        $moved = 0; $failed = 0
+        foreach ($item in $state.BasketItems) {
+            try {
+                Move-ADPrincipal -Identity $item.DistinguishedName -TargetPath $targetOU
+                $moved++
+                $item.OUPath = $targetOU
+                Log-LdapRequest -Operation "MOVE" -TargetDN $item.DistinguishedName -FilterOrPayload "Target: $targetOU" -DurationMs 20 -Status "SUCCESS"
+            } catch {
+                $failed++
+                Log-LdapRequest -Operation "MOVE" -TargetDN $item.DistinguishedName -FilterOrPayload "Target: $targetOU" -DurationMs 20 -Status "ERROR" -Details $_.Exception.Message
+            }
+        }
+        Refresh-BasketUI
+        [System.Windows.MessageBox]::Show("Bulk move completed:`nMoved: $moved`nFailed: $failed", "Bulk Move Result", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    })
+}
+
+if ($controls['BtnBasketExportCsv']) {
+    $controls['BtnBasketExportCsv'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+        $sfd.Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*"
+        $sfd.FileName = "Directory_Basket_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
+        if ($sfd.ShowDialog()) {
+            $state.BasketItems | Export-Csv -Path $sfd.FileName -NoTypeInformation -Encoding utf8 -Delimiter ";"
+            [System.Windows.MessageBox]::Show("Exported $($state.BasketItems.Count) objects to CSV:`n$($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+
+if ($controls['BtnBasketExportLdif']) {
+    $controls['BtnBasketExportLdif'].Add_Click({
+        if ($state.BasketItems.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+        $sfd.Filter = "LDIF Files (*.ldif)|*.ldif|All Files (*.*)|*.*"
+        $sfd.FileName = "Directory_Basket_$(Get-Date -Format 'yyyyMMdd_HHmmss').ldif"
+        if ($sfd.ShowDialog()) {
+            $sb = [System.Text.StringBuilder]::new()
+            [void]$sb.AppendLine("version: 1`n")
+            foreach ($item in $state.BasketItems) {
+                [void]$sb.AppendLine("dn: $($item.DistinguishedName)")
+                [void]$sb.AppendLine("changetype: add")
+                [void]$sb.AppendLine("objectClass: $($item.Class)")
+                if ($item.SamAccountName -and $item.SamAccountName -ne "--") {
+                    [void]$sb.AppendLine("sAMAccountName: $($item.SamAccountName)")
+                }
+                if ($item.Name) {
+                    [void]$sb.AppendLine("cn: $($item.Name)")
+                }
+                [void]$sb.AppendLine("")
+            }
+            [System.IO.File]::WriteAllText($sfd.FileName, $sb.ToString(), [System.Text.Encoding]::UTF8)
+            [System.Windows.MessageBox]::Show("Exported $($state.BasketItems.Count) objects to LDIF:`n$($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+#endregion
+
+#region 15. Live Protocol Wire Request Log Logic (Softerra & Apache Studio Parity)
+if ($controls['GridRequestLog']) {
+    $controls['GridRequestLog'].ItemsSource = $state.RequestLogs
+    $controls['GridRequestLog'].Add_SelectionChanged({
+        $selected = $controls['GridRequestLog'].SelectedItem
+        if ($selected -and $controls['TxtRequestLogDetails']) {
+            $controls['TxtRequestLogDetails'].Text = $selected.Details
+        }
+    })
+}
+
+if ($controls['BtnRequestLogClear']) {
+    $controls['BtnRequestLogClear'].Add_Click({
+        $state.RequestLogs.Clear()
+        if ($controls['TxtRequestLogDetails']) { $controls['TxtRequestLogDetails'].Text = "" }
+        if ($controls['TxtRequestLogCountBadge']) { $controls['TxtRequestLogCountBadge'].Text = "0 requests" }
+    })
+}
+
+if ($controls['BtnRequestLogExport']) {
+    $controls['BtnRequestLogExport'].Add_Click({
+        if ($state.RequestLogs.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("Request log is empty.", "Export", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $sfd = [Microsoft.Win32.SaveFileDialog]::new()
+        $sfd.Filter = "Text Log (*.txt)|*.txt|All Files (*.*)|*.*"
+        $sfd.FileName = "Ldap_Wire_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+        if ($sfd.ShowDialog()) {
+            $lines = foreach ($l in $state.RequestLogs) {
+                "[$($l.Timestamp)] $($l.Operation.PadRight(12)) [$($l.Status.PadRight(7))] $($l.Duration.PadLeft(10)) | Target: $($l.TargetDN) | Details: $($l.Filter)"
+            }
+            $lines | Set-Content -Path $sfd.FileName -Encoding utf8
+            [System.Windows.MessageBox]::Show("Exported $($state.RequestLogs.Count) wire requests to:`n$($sfd.FileName)", "Export Complete", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+
+if ($controls['TxtFilterRequestLog']) {
+    $controls['TxtFilterRequestLog'].Add_TextChanged({
+        $query = $controls['TxtFilterRequestLog'].Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($query)) {
+            $controls['GridRequestLog'].ItemsSource = $state.RequestLogs
+        } else {
+            $filtered = $state.RequestLogs | Where-Object {
+                $_.Operation -like "*$query*" -or $_.TargetDN -like "*$query*" -or $_.Status -like "*$query*" -or $_.Filter -like "*$query*"
+            }
+            $controls['GridRequestLog'].ItemsSource = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new($filtered)
+        }
+    })
+}
+#endregion
+
+#region 16. Connection Profiles & Diagnostics Logic
 function Open-ConnectionDialog {
     $dlgPath = Join-Path $viewsPath "ConnectionDialog.xaml"
     $dlg = Load-XamlWindow -XamlPath $dlgPath

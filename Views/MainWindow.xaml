@@ -400,8 +400,10 @@
                     <ColumnDefinition Width="Auto"/> <!-- Quick Actions -->
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: Branding & Profile Selector -->
+                <!-- Left: Branding & Profile Selector with Navigation History -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Name="BtnNavBack" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="◀" Margin="0,0,4,0" ToolTip="Navigate Back (Alt+Left)" IsEnabled="False"/>
+                    <Button Name="BtnNavForward" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="▶" Margin="0,0,10,0" ToolTip="Navigate Forward (Alt+Right)" IsEnabled="False"/>
                     <TextBlock Text="⚡" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
                         <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF"/>
@@ -538,6 +540,18 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="👥" Margin="0,0,8,0"/>
                                 <TextBlock Text="Bulk Operations"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavBasket" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🛒" Margin="0,0,8,0"/>
+                                <TextBlock Name="TxtNavBasketLabel" Text="Directory Basket (0)"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavRequestLog" Style="{StaticResource NavTabButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📡" Margin="0,0,8,0"/>
+                                <TextBlock Text="Protocol Wire Log"/>
                             </StackPanel>
                         </RadioButton>
 
@@ -772,6 +786,7 @@
                         <Button Name="BtnUserCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,6"/>
                         <Button Name="BtnDeleteUser" Style="{StaticResource DangerButton}" Content="🗑️ Delete" Margin="0,0,6,6"/>
                         <Button Name="BtnExportUsers" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
+                        <Button Name="BtnUserAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected user(s) to Directory Basket for cross-OU batch processing"/>
                         <Button Name="BtnUserAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add or choose attribute columns in the Users table"/>
                         <Button Name="BtnUserResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Users table columns to default"/>
                     </WrapPanel>
@@ -833,6 +848,7 @@
                         <Button Name="BtnGroupRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,6"/>
                         <Button Name="BtnDeleteGroup" Style="{StaticResource DangerButton}" Content="🗑️ Delete Group" Margin="0,0,6,6"/>
                         <Button Name="BtnExportGroups" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
+                        <Button Name="BtnGroupAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected group(s) to Directory Basket"/>
                         <Button Name="BtnGroupAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add or choose attribute columns in the Groups table"/>
                         <Button Name="BtnGroupResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Groups table columns to default"/>
                     </WrapPanel>
@@ -978,6 +994,7 @@
                         <Button Name="BtnComputerRawAttributes" Style="{StaticResource ModernButton}" Content="🏷️ Raw Attributes" Margin="0,0,6,6"/>
                         <Button Name="BtnComputerCompare" Style="{StaticResource ModernButton}" Content="⚖️ Compare" Margin="0,0,6,6"/>
                         <Button Name="BtnExportComputers" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
+                        <Button Name="BtnComputerAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected computer(s) to Directory Basket"/>
                         <Button Name="BtnComputerAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to Computers table"/>
                         <Button Name="BtnComputerResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Computers table columns to default"/>
                     </WrapPanel>
@@ -1062,7 +1079,7 @@
                                 </Border>
                             </WrapPanel>
 
-                            <!-- Row 3: Condition Builder -->
+                            <!-- Row 3: Condition Builder & Visual Filter Blocks -->
                             <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
                                 <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="28" Margin="0,0,8,6"
                                           IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
@@ -1080,7 +1097,11 @@
                                 </ComboBox>
 
                                 <TextBox Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Width="180" Height="28" Text="user" Margin="0,0,8,6"/>
-                                <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="28" Content="Insert Condition" Margin="0,0,6,6"/>
+                                <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="28" Content="➕ Add Condition" Margin="0,0,6,6"/>
+                                <Button Name="BtnFilterGroupAnd" Style="{StaticResource ModernButton}" Height="28" Content="&amp; Group (AND)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP AND (&amp;) block"/>
+                                <Button Name="BtnFilterGroupOr" Style="{StaticResource ModernButton}" Height="28" Content="| Group (OR)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP OR (|) block"/>
+                                <Button Name="BtnFilterGroupNot" Style="{StaticResource ModernButton}" Height="28" Content="! Group (NOT)" Margin="0,0,6,6" ToolTip="Negate current filter using LDAP NOT (!) block"/>
+                                <Button Name="BtnFilterClear" Style="{StaticResource ModernButton}" Height="28" Content="Clear Filter" Margin="0,0,6,6" ToolTip="Reset filter to (objectClass=*)"/>
                             </WrapPanel>
 
                             <!-- Row 4: Raw LDAP Filter & Execute -->
@@ -1123,6 +1144,7 @@
                             <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
                             <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
                             <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
+                            <Button Name="BtnSearchAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected search results to Directory Basket"/>
                             <Button Name="BtnSearchAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to Search Results table"/>
                             <Button Name="BtnSearchResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Search Results table columns to default"/>
                         </WrapPanel>
@@ -1212,7 +1234,8 @@
                     <!-- Filter Bar & Attribute Actions -->
                     <Border Grid.Row="1" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal">
-                            <TextBox Name="TxtSearchAttributes" Style="{StaticResource ModernTextBox}" Width="220" Height="28" Margin="0,0,10,6"/>
+                            <TextBox Name="TxtSearchAttributes" Style="{StaticResource ModernTextBox}" Width="200" Height="28" Margin="0,0,10,6"/>
+                            <CheckBox Name="ChkShowOperationalAttributes" Content="Show Operational (+)" IsChecked="False" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#38BDF8" FontWeight="SemiBold" ToolTip="Query and include operational / directory metadata attributes (e.g. whenCreated, whenChanged, canonicalName, msDS-UserPasswordExpiryTimeComputed)"/>
                             <TextBlock Name="TxtAttrCount" Text="0 attributes loaded" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,14,6"/>
                             <Button Name="BtnEditAttrValue" Style="{StaticResource PrimaryButton}" Content="✏️ Edit Value" Margin="0,0,6,6"/>
                             <Button Name="BtnClearAttrValue" Style="{StaticResource DangerButton}" Content="🗑️ Clear Attribute" Margin="0,0,6,6"/>
@@ -1393,6 +1416,8 @@
                             <TextBox Name="TxtSearchSchema" Style="{StaticResource ModernTextBox}" Width="240" Height="30" Margin="0,0,10,6"/>
 
                             <Button Name="BtnRefreshSchema" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Load Schema" Margin="0,0,6,6"/>
+                            <Button Name="BtnExportSchemaOpenLdap" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export OpenLDAP (.schema)" Margin="0,0,6,6" ToolTip="Export selected schema items to OpenLDAP .schema format"/>
+                            <Button Name="BtnExportSchemaLdif" Style="{StaticResource ModernButton}" Height="30" Content="📜 Export Schema LDIF" Margin="0,0,6,6" ToolTip="Export selected schema items to standard schema LDIF format"/>
                         </WrapPanel>
                     </Border>
 
@@ -1444,7 +1469,137 @@
                     </Border>
                 </Grid>
 
-                <!-- 14. CONNECTIONS PANEL -->
+                <!-- 14. DIRECTORY BASKET PANEL (SOFTERRA BASKET STAGING & BATCH ENGINE) -->
+                <Grid Name="PanelBasket" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header / Summary -->
+                        <RowDefinition Height="Auto"/> <!-- Action Ribbon -->
+                        <RowDefinition Height="*"/>    <!-- Basket DataGrid -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Header & Information -->
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🛒 Directory Basket (Cross-Tree Staging)" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Stage objects from multiple OUs, searches, or categories into a unified workspace for batch operations, cross-container movement, and bulk export." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="12,6" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Staged Objects: " FontSize="12" Foreground="#9CA3AF" FontWeight="Bold"/>
+                                    <TextBlock Name="TxtBasketCountBadge" Text="0 objects in basket" FontSize="12" Foreground="#38BDF8" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Ribbon -->
+                    <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Name="BtnBasketModifyAttr" Style="{StaticResource PrimaryButton}" Content="✏️ Bulk Edit Attribute" Margin="0,0,6,6" ToolTip="Modify or set an attribute across all staged objects"/>
+                        <Button Name="BtnBasketToggleStatus" Style="{StaticResource ModernButton}" Content="⚡ Toggle Status" Margin="0,0,6,6" ToolTip="Toggle enabled/disabled state for staged users"/>
+                        <Button Name="BtnBasketMoveOU" Style="{StaticResource ModernButton}" Content="📂 Bulk Move to OU" Margin="0,0,6,6" ToolTip="Move all staged objects to a target Organizational Unit"/>
+                        <Button Name="BtnBasketExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export Basket CSV" Margin="0,0,6,6" ToolTip="Export staged objects to CSV"/>
+                        <Button Name="BtnBasketExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export Basket LDIF" Margin="0,0,6,6" ToolTip="Export staged objects to LDIF"/>
+                        <Button Name="BtnBasketRemoveSelected" Style="{StaticResource ModernButton}" Content="✖ Remove Selected" Margin="0,0,6,6" ToolTip="Remove selected items from basket"/>
+                        <Button Name="BtnBasketClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Basket" Margin="0,0,6,6" ToolTip="Empty all objects from the basket"/>
+                    </WrapPanel>
+
+                    <!-- Basket DataGrid -->
+                    <DataGrid Grid.Row="2" Name="GridBasket" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Class}" Width="90"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180"/>
+                            <DataGridTextColumn Header="Username / SamAccountName" Binding="{Binding SamAccountName}" Width="160"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                            <DataGridTextColumn Header="OU Location" Binding="{Binding OUPath}" Width="200"/>
+                            <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <!-- 15. PROTOCOL WIRE REQUEST LOG PANEL (SOFTERRA & APACHE STUDIO REQUEST MONITOR) -->
+                <Grid Name="PanelRequestLog" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header / Summary -->
+                        <RowDefinition Height="Auto"/> <!-- Controls Ribbon -->
+                        <RowDefinition Height="*"/>    <!-- Split: Grid & Detail Viewer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Header & Information -->
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="📡 Live LDAP Protocol Request Log &amp; Wire Inspector" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Real-time capture of all LDAPv3 protocol operations (BIND, SEARCH, MODIFY, ADD, DELETE), query latency, target DNs, and LDIF wire payloads." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="12,6" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Total Wire Requests: " FontSize="12" Foreground="#9CA3AF" FontWeight="Bold"/>
+                                    <TextBlock Name="TxtRequestLogCountBadge" Text="0 requests" FontSize="12" Foreground="#10B981" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Controls Ribbon -->
+                    <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                        <Grid Width="240" Margin="0,0,8,6">
+                            <TextBox Name="TxtFilterRequestLog" Style="{StaticResource ModernTextBox}" Height="28" Tag="Filter requests (op, DN, status)..."/>
+                        </Grid>
+                        <Button Name="BtnRequestLogClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Wire Log" Margin="0,0,6,6"/>
+                        <Button Name="BtnRequestLogExport" Style="{StaticResource ModernButton}" Content="📤 Export Log to Text" Margin="0,0,8,6"/>
+                        <CheckBox Name="ChkRequestLogAutoScroll" Content="Auto-scroll to latest" IsChecked="True" VerticalAlignment="Center" Margin="0,0,8,6" Foreground="#E5E7EB"/>
+                    </WrapPanel>
+
+                    <!-- Split View: Top DataGrid, Bottom Detail Viewer -->
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="3*" MinHeight="150"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="2*" MinHeight="100"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Log Entries Grid -->
+                        <DataGrid Grid.Row="0" Name="GridRequestLog" Style="{StaticResource ModernDataGrid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="95"/>
+                                <DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="90"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="85"/>
+                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
+                                <DataGridTextColumn Header="Target DN" Binding="{Binding TargetDN}" Width="280"/>
+                                <DataGridTextColumn Header="Filter / Payload Details" Binding="{Binding Filter}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Splitter -->
+                        <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" Background="#111319" Margin="0,2"/>
+
+                        <!-- Details Viewer -->
+                        <Border Grid.Row="2" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="LDAP Protocol Payload &amp; Wire Inspection Details:" FontSize="11" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                                <TextBox Grid.Row="1" Name="TxtRequestLogDetails" Style="{StaticResource ModernTextBox}"
+                                         FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                         Background="#111319" Foreground="#38BDF8"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- 16. CONNECTIONS PANEL -->
                 <Grid Name="PanelConnections" Visibility="Collapsed" Margin="18">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid>

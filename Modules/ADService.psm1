@@ -681,6 +681,7 @@ function Get-ADGroupMembersList {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias("GroupName", "Group")]
         [string]$Identity
     )
 
@@ -1263,7 +1264,8 @@ function Get-ADObjectRawAttributes {
     param (
         [Parameter(Mandatory = $true)]
         [string]$DistinguishedName,
-        [string]$Server = ""
+        [string]$Server = "",
+        [switch]$IncludeOperational
     )
 
     $attrList = New-Object System.Collections.Generic.List[PSCustomObject]
@@ -1277,21 +1279,32 @@ function Get-ADObjectRawAttributes {
             'pwdLastSet', 'lastLogon', 'lastLogonTimestamp', 'badPasswordTime', 'lockoutTime',
             'accountExpires', 'msDS-UserPasswordExpiryTimeComputed', 'tokenGroups',
             'objectSid', 'objectGUID', 'userAccountControl', 'whenCreated', 'whenChanged',
-            'distinguishedName', 'sAMAccountName', 'userPrincipalName'
+            'distinguishedName', 'sAMAccountName', 'userPrincipalName',
+            'subschemaSubentry', 'structuralObjectClass', 'allowedAttributes', 'allowedAttributesEffective',
+            'dSCorePropagationData', 'msDS-SupportedEncryptionTypes', 'msDS-KeyVersionNumber'
         )
 
-        try {
-            $entry.RefreshCache($operationalAttrs)
-        } catch {}
+        if ($IncludeOperational) {
+            try {
+                $entry.RefreshCache($operationalAttrs)
+            } catch {}
+        }
 
-        $opSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($op in $operationalAttrs) { [void]$opSet.Add($op) }
+        $purelyOperational = @(
+            'canonicalName', 'createTimeStamp', 'modifyTimeStamp',
+            'pwdLastSet', 'lastLogon', 'lastLogonTimestamp', 'badPasswordTime', 'lockoutTime',
+            'accountExpires', 'msDS-UserPasswordExpiryTimeComputed', 'tokenGroups',
+            'whenCreated', 'whenChanged', 'subschemaSubentry', 'structuralObjectClass',
+            'allowedAttributes', 'allowedAttributesEffective', 'dSCorePropagationData',
+            'msDS-SupportedEncryptionTypes', 'msDS-KeyVersionNumber'
+        )
+        $pureOpSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($p in $purelyOperational) { [void]$pureOpSet.Add($p) }
 
         foreach ($propName in $entry.Properties.PropertyNames) {
+            $isOp = $pureOpSet.Contains($propName)
+            if (-not $IncludeOperational -and $isOp) { continue }
             $propValues = $entry.Properties[$propName]
-            $valCount = $propValues.Count
-            $isMulti = ($valCount -gt 1)
-            $isOp = $opSet.Contains($propName)
 
             $displayVal = ""
             $typeStr = "String"
@@ -1387,7 +1400,17 @@ function Set-ADObjectRawAttribute {
         $ldapPath = if ($Server) { "LDAP://$Server/$DistinguishedName" } else { "LDAP://$DistinguishedName" }
         $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
         
-        if ($null -eq $NewValue -or [string]::IsNullOrEmpty("$NewValue")) {
+        if ($null -eq $NewValue) {
+            $entry.Properties[$AttributeName].Clear()
+        }
+        elseif ($NewValue -is [byte[]]) {
+            if ($NewValue.Length -eq 0) {
+                $entry.Properties[$AttributeName].Clear()
+            } else {
+                $entry.Properties[$AttributeName].Value = $NewValue
+            }
+        }
+        elseif ([string]::IsNullOrEmpty("$NewValue")) {
             $entry.Properties[$AttributeName].Clear()
         }
         elseif ($NewValue -is [array]) {
@@ -1840,7 +1863,7 @@ function Get-ADSecurityAuditReport {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $false)]
-        [ValidateSet("InactiveUsers", "PasswordsNeverExpire", "PasswordNeverExpires", "PasswordExpiringSoon", "PrivilegedAccounts", "EmptyGroups", "UnprotectedOUs", "LockedAccounts", "LockedOutUsers", "DisabledAccounts", "ServiceAccounts", "InactiveComputers")]
+        [ValidateSet("InactiveUsers", "PasswordsNeverExpire", "PasswordNeverExpires", "PasswordExpiringSoon", "PrivilegedAccounts", "EmptyGroups", "UnprotectedOUs", "LockedAccounts", "LockedOutUsers", "DisabledAccounts", "ServiceAccounts", "InactiveComputers", "AdminCount", "AdminCountAccounts")]
         [Alias("AuditType", "Type")]
         [string]$Category = "InactiveUsers",
 
@@ -2024,6 +2047,21 @@ function Get-ADSecurityAuditReport {
             $summary["Threshold"] = "$Days Days"
         }
 
+        { $_ -in "AdminCount", "AdminCountAccounts" } {
+            $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(adminCount=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'adminCount', 'userAccountControl', 'distinguishedName') -Server $Server
+            foreach ($r in $query.Results) {
+                $results.Add([PSCustomObject]@{
+                    SamAccountName    = $r.sAMAccountName
+                    DisplayName       = $r.displayName
+                    Email             = $r.mail
+                    AdminCount        = $r.adminCount
+                    DistinguishedName = $r.DistinguishedName
+                })
+            }
+            $summary["AdminCount=1 Accounts"] = $results.Count
+            $summary["SDProp Flag"] = "adminCount=1 (Protected by AdminSDHolder)"
+        }
+
         Default {
             $users = Get-ADUsersList -FilterStatus "Disabled"
             foreach ($u in $users) {
@@ -2051,6 +2089,7 @@ function Get-ADSecurityAuditReport {
         "DisabledAccounts"                                       { "Disabled User Accounts" }
         "ServiceAccounts"                                        { "Configured Service Accounts with SPNs" }
         "InactiveComputers"                                      { "Inactive Domain Computer Objects" }
+        { $_ -in "AdminCount", "AdminCountAccounts" }             { "Accounts with AdminCount=1 (AdminSDHolder Protected)" }
         default                                                  { "$Category Audit" }
     }
     $desc = switch ($Category) {
@@ -2064,6 +2103,7 @@ function Get-ADSecurityAuditReport {
         "DisabledAccounts"                                       { "User accounts marked as disabled." }
         "ServiceAccounts"                                        { "Accounts with registered Service Principal Names (SPNs)." }
         "InactiveComputers"                                      { "Computers with no logon activity in the last $Days days." }
+        { $_ -in "AdminCount", "AdminCountAccounts" }             { "User accounts flagged with adminCount=1 whose ACL inheritance is managed by AdminSDHolder." }
         default                                                  { "Security and hygiene audit results for $Category." }
     }
 

@@ -43,7 +43,7 @@ The application will inspect its execution thread, elevate to an STA runspace if
 
 ## 3. Workspace Navigation Reference
 
-The sidebar categorizes the 15 functional workspaces into 4 distinct groups:
+The sidebar categorizes the 17 functional workspaces into 4 distinct groups:
 
 | Category | Workspace | Description & Scope |
 | :--- | :--- | :--- |
@@ -52,15 +52,17 @@ The sidebar categorizes the 15 functional workspaces into 4 distinct groups:
 | | **Groups** | Security and distribution group management, scope configuration, and member rosters. |
 | | **Org. Units (OUs)** | Hierarchical directory tree navigation, OU creation, accidental deletion safeguard, and object inspector. |
 | | **Computers** | Domain workstation and server inventory, operating systems, versions, and logon tracking. |
-| **Softerra LDAP Tools** | **Directory Search** | Visual LDAP Filter Builder, administrative query presets, and multi-scope directory querying. |
+| **Softerra & Apache LDAP Tools** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), administrative query presets, and multi-scope directory querying. |
+| | **Directory Basket** | Cross-OU object staging cart for mass bulk updates, status toggling, OU moving, and CSV/LDIF export. |
 | | **LDAP-SQL Console** | ANSI-SQL query interface over LDAP directory databases (`SELECT ... FROM ... WHERE ...`). |
-| | **Attribute Editor** | Low-level raw attribute inspector with multi-valued array editors and UAC bitmask flags decoder. |
+| | **Attribute Editor** | Low-level raw attribute inspector with multi-valued array editors, UAC bitmask decoder, photo/cert editors, and operational attributes. |
 | | **Object Compare** | Side-by-side object difference engine, attribute reconciliation, and diff exporter. |
 | | **LDIF Studio** | RFC 2849 LDIF script editor, dry-run simulation engine, and live directory modifier. |
-| **Analytics & Security**| **Security Audits** | 8 automated security posture audits with styled HTML executive reports and remediation advice. |
-| | **Schema Browser** | Interactive catalog of Active Directory object classes and attribute syntaxes. |
+| **Analytics & Security**| **Security Audits** | Automated security posture audits (including AdminSDHolder/adminCount=1) with styled HTML executive reports. |
+| | **Schema Browser** | Interactive catalog of Active Directory object classes and attribute syntaxes with OpenLDAP/LDIF export. |
 | | **Bulk Operations** | Mass batch updates, attribute overrides, batch account status changes, and OU relocation. |
-| **System** | **Connections** | Multi-profile connection manager, custom ports, LDAPS SSL toggles, and live TCP/RootDSE diagnostics. |
+| **System & Diagnostics** | **Protocol Wire Log**| Live real-time LDAP request wire logger capturing timestamps, operations, base DNs, scopes, filters, server endpoints, and status. |
+| | **Connections** | Multi-profile connection manager, custom ports, LDAPS SSL toggles, and live TCP/RootDSE diagnostics. |
 | | **Settings** | Configuration manager for password policies, naming formats, and export delimiters. |
 
 ---
@@ -319,6 +321,76 @@ Manage multiple Active Directory connection profiles (e.g. Production Forest, La
 - **Port Status**: Tests TCP socket connection on Port 389 (LDAP), 636 (LDAPS), or 3268 (GC).
 - **Round-Trip Latency**: Measures precise millisecond response time.
 - **RootDSE Verification**: Reads `defaultNamingContext`, `configurationNamingContext`, and `dnsHostName`.
+
+---
+
+### 4.9. Specialized Attribute Processors & Editors
+
+The **Attribute Editor** modal (`AttributeEditDialog.xaml`) automatically routes attributes to specialized interactive processors based on LDAP syntax and attribute name:
+
+1. **UserAccountControl (UAC) Bitmask Editor**:
+   - Interactive checkbox grid covering key flags (`ACCOUNTDISABLE`, `LOCKOUT`, `DONT_EXPIRE_PASSWORD`, `SMARTCARD_REQUIRED`, `TRUSTED_FOR_DELEGATION`, etc.).
+   - Live recalculation of Decimal, Hexadecimal, and Bitmask values with safe single-click toggling.
+2. **Photo & Avatar Editor (`jpegPhoto`, `thumbnailPhoto`)**:
+   - Renders image previews directly from raw byte arrays.
+   - Provides **Import Photo** (JPEG/PNG with file size telemetry) and **Export Photo** to disk.
+3. **X.509 Digital Certificate Viewer (`userCertificate`, `cACertificate`)**:
+   - Parses DER/ASN.1 byte stream into a `[System.Security.Cryptography.X509Certificates.X509Certificate2]` object.
+   - Displays Subject, Issuer, Serial Number, Thumbprint, and Validity Period.
+   - Integrates with the native Windows Certificate Details viewer (`X509Certificate2UI.DisplayStore`).
+4. **Hex & Binary Viewer**:
+   - Byte-level hexadecimal dump with ASCII inspection pane and raw binary export.
+
+---
+
+### 4.10. Directory Basket (Cross-OU Object Staging Cart)
+
+The **Directory Basket** (`NavBasket`) enables staged multi-object operations across disparate Organizational Units and object types:
+- **Staging**: Click **🧺 Add to Basket** from Users, Groups, Computers, or Directory Search results grids.
+- **Batch Attribute Override**: Bulk apply an attribute name/value pair across all staged objects.
+- **Batch Status Toggle**: Instantly enable or disable all staged user accounts.
+- **Batch OU Relocation**: Relocate all staged objects to a selected destination OU in a single operation.
+- **Cart Export**: Export staged objects directly to CSV or RFC 2849 LDIF.
+
+---
+
+### 4.11. Operational Attributes & Live Protocol Request Logger
+
+1. **Operational Attributes Toggle**:
+   - In the **Attribute Editor**, the **Show Operational Attributes** checkbox requests server-managed constructed attributes (`canonicalName`, `createTimeStamp`, `modifyTimeStamp`, `structuralObjectClass`, `subschemaSubentry`) via explicit ADSI cache refresh.
+2. **Protocol Wire Request Log (`NavRequestLog`)**:
+   - Captures live LDAP transactions in real-time.
+   - Logs timestamp, operation name (`Search`, `Modify`, `LdifImport`, `SchemaExport`), Base DN, Scope, LDAP Filter, Target Server, Latency (ms), and Status.
+   - Provides text filtering, details inspection pane, clipboard export, and clear log.
+
+---
+
+### 4.12. Schema Definition Exporter
+
+In the **Schema Browser**, administrators can export Active Directory classes and attribute definitions to standard formats:
+- **Export to OpenLDAP (`.schema`)**: Generates RFC 4512 compliant `objectclass` and `attributetype` definitions compatible with OpenLDAP server configurations.
+- **Export to RFC 2849 LDIF (`.ldif`)**: Generates schema definitions ready for directory ingestion or backup.
+
+---
+
+### 4.13. Headless Automation CLI (`tools/ad-studio-cli.ps1`)
+
+The standalone command-line engine enables headless unattended operation for CI/CD pipelines, automated security assessments, and scheduled tasks:
+
+```powershell
+# Export directory objects to CSV/JSON/LDIF
+.\tools\ad-studio-cli.ps1 -Export -Filter "(objectClass=user)" -Format CSV -OutFile "C:\exports\users.csv"
+
+# Validate or execute an RFC 2849 LDIF script
+.\tools\ad-studio-cli.ps1 -ImportLDIF -InFile "C:\scripts\bulk_depts.ldif" -DryRun
+.\tools\ad-studio-cli.ps1 -ImportLDIF -InFile "C:\scripts\bulk_depts.ldif"
+
+# Run security & hygiene audit and export executive HTML report
+.\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "C:\reports\security_audit.html"
+
+# Run LDAP-SQL query
+.\tools\ad-studio-cli.ps1 -QuerySQL -Query "SELECT sAMAccountName, mail FROM 'DC=example,DC=com' WHERE objectClass = 'user'"
+```
 
 ---
 

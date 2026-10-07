@@ -14,15 +14,17 @@ A modern, high-performance administration suite built with **PowerShell & WPF/XA
 
 ## ⚡ Key Highlights & Capabilities
 
-### 🛠️ Softerra LDAP Administrator 2026 Feature Equivalence
-- **Visual LDAP Filter Builder**: Construct complex RFC 4515 LDAP search filters visually with presets for locked accounts, disabled users, empty groups, Kerberos SPNs, and recursive nested memberships (`1.2.840.113556.1.4.1941`).
+### 🛠️ Softerra LDAP & Apache Directory Studio Feature Equivalence
+- **Visual LDAP Filter Builder**: Construct complex RFC 4515 LDAP search filters visually with AND/OR/NOT condition blocks and presets for locked accounts, disabled users, empty groups, Kerberos SPNs, and recursive nested memberships (`1.2.840.113556.1.4.1941`).
+- **Directory Basket**: Cross-OU object staging cart for performing staged bulk attribute updates, status toggling, OU migrations, and CSV/LDIF exports.
+- **Specialized Attribute Processors**: Dedicated editors for `userAccountControl` bitmask flags, Photo/Avatar JPEG/PNG import/export, X.509 Digital Certificates (native Windows viewer integration), Hex/Binary viewer, and operational attributes.
 - **LDAP-SQL Console**: Query directory objects using familiar ANSI-SQL grammar (`SELECT ... FROM ... WHERE ...`) with instant export to CSV, JSON, and LDIF.
-- **Raw Attribute Editor & UAC Bitmask Decoder**: Inspect and modify single-valued, multi-valued arrays, and `userAccountControl` bitmask flags with live computed hex/dec values.
+- **Protocol Wire Request Logger**: Live real-time LDAP protocol request and latency monitor with search filter, details inspector, and clipboard export.
 - **Object Compare & Diff**: Attribute-by-attribute side-by-side comparison between any two directory objects with difference isolation and drift reports.
 - **RFC 2849 LDIF Studio**: In-app editor for LDIF import/export scripts featuring a two-stage safety model (Dry-Run simulation before live execution).
-- **Security Audits & Executive Reports**: 8 automated security posture audits with styled HTML executive reports and remediation advice.
-- **AD Schema Browser**: Browse Active Directory object classes and attribute syntaxes directly from the schema partition.
-- **Bulk Operations Engine**: Mass batch updates, attribute overrides, status toggling, and OU migrations.
+- **Security Audits & Executive Reports**: Automated security posture audits (including AdminSDHolder/adminCount=1) with styled HTML executive reports and remediation advice.
+- **AD Schema Browser & Exporter**: Browse Active Directory classes and syntaxes, and export schema definitions to OpenLDAP (`.schema`) and RFC 2849 LDIF.
+- **Headless Automation CLI (`tools/ad-studio-cli.ps1`)**: Unattended command-line engine for exports, LDIF execution, scheduled hygiene audits, and LDAP-SQL queries.
 - **Connection Profiles & Diagnostics**: Multi-domain / multi-controller profiles, custom ports (389, 636 LDAPS, 3268 GC), and real-time TCP socket, latency, and RootDSE diagnostics.
 
 ### 👥 Complete Active Directory Lifecycle Operations
@@ -55,6 +57,9 @@ cd ad-management-studio
 
 # Launch Active Directory Management Studio in STA mode
 .\main.ps1
+
+# Run headless automation CLI
+.\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "audit.html"
 ```
 
 ---
@@ -66,14 +71,17 @@ ad-management-studio/
 ├── main.ps1                   # Application entrypoint & STA launcher
 ├── HANDBOOK.md                # Comprehensive SysAdmin Handbook & Operator Manual
 ├── config.json                # Application configuration & connection profiles
+├── tools/
+│   └── ad-studio-cli.ps1      # Headless automation CLI (export, LDIF, audit, SQL)
 ├── Modules/
 │   ├── ADService.psm1         # LDAP engine, RSAT/ADSI bridge, SQL, LDIF, Compare, Audits
 │   ├── ValidationService.psm1 # UAC bitmask, LargeInteger, GUID, SID, LDAP filter validation
 │   ├── ExportService.psm1     # CSV, JSON, LDIF, and HTML Executive Report exporter
 │   └── ConfigService.psm1     # Settings persistence, Profiles, and RootDSE discovery
 ├── Views/
-│   ├── MainWindow.xaml        # Central workspace (15 panels, dark-mode, telemetry ribbon)
-│   ├── AttributeEditDialog.xaml# Multi-mode attribute editor (Scalar, Multi-Valued, UAC)
+│   ├── MainWindow.xaml        # Central workspace (17 panels, dark-mode, telemetry ribbon)
+│   ├── AttributeEditDialog.xaml# Multi-mode attribute editor (Scalar, Multi-Valued, UAC, Photo, Cert, Hex)
+│   ├── ColumnChooserDialog.xaml# DataGrid dynamic column customizer modal
 │   ├── ConnectionDialog.xaml  # Connection profile modal with live TCP diagnostics
 │   ├── UserDialog.xaml        # User provisioning and modification modal
 │   ├── UserDetailDialog.xaml  # User inspection and group membership viewer

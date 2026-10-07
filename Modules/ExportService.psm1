@@ -22,7 +22,7 @@ function Export-ADDataToCsv {
 
     try {
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
-        if (-not (Test-Path $targetDir)) {
+        if ($targetDir -and -not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
@@ -66,7 +66,7 @@ function Export-ADDataToLdif {
 
     try {
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
-        if (-not (Test-Path $targetDir)) {
+        if ($targetDir -and -not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
@@ -141,7 +141,7 @@ function Export-ADDataToJson {
 
     try {
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
-        if (-not (Test-Path $targetDir)) {
+        if ($targetDir -and -not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
@@ -200,7 +200,7 @@ function Export-ADSecurityAuditToHtml {
         }
 
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
-        if (-not (Test-Path $targetDir)) {
+        if ($targetDir -and -not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
