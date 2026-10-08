@@ -425,6 +425,37 @@ $script:ColorMapBorderLight = @{
     '#4B526D' = '#94A3B8'
 }
 
+$script:ColorMapBgDark = @{
+    '#F1F5F9' = '#161820'
+    '#F8FAFC' = '#14161C'
+    '#FFFFFF' = '#1A1D27'
+    '#E2E8F0' = '#253352'
+    '#FEF2F2' = '#3A1C20'
+}
+
+$script:ColorMapFgDark = @{
+    '#0F172A' = '#FFFFFF'
+    '#1E293B' = '#E5E7EB'
+    '#334155' = '#D1D5DB'
+    '#475569' = '#9CA3AF'
+    '#64748B' = '#6B7280'
+    '#2563EB' = '#60A5FA'
+    '#0284C7' = '#38BDF8'
+    '#1D4ED8' = '#93C5FD'
+    '#7C3AED' = '#A78BFA'
+    '#059669' = '#34D399'
+    '#047857' = '#10B981'
+    '#D97706' = '#FBBF24'
+    '#B45309' = '#F59E0B'
+    '#DC2626' = '#EF4444'
+}
+
+$script:ColorMapBorderDark = @{
+    '#CBD5E1' = '#2F3446'
+    '#94A3B8' = '#4B526D'
+    '#E2E8F0' = '#252936'
+}
+
 function Test-IsDynamicExpression ($node, $prop) {
     if (-not $node -or -not $prop) { return $false }
     try {
@@ -446,46 +477,52 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
         { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::BackgroundProperty }
         default { $null }
     }
-    $isBgDynamic = ($bgProp -and (Test-IsDynamicExpression $node $bgProp))
-
     $fgProp = switch ($node) {
         { $_ -is [System.Windows.Controls.Control] }   { [System.Windows.Controls.Control]::ForegroundProperty }
         { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::ForegroundProperty }
         default { $null }
     }
-    $isFgDynamic = ($fgProp -and (Test-IsDynamicExpression $node $fgProp))
-
     $borderProp = switch ($node) {
         { $_ -is [System.Windows.Controls.Border] }  { [System.Windows.Controls.Border]::BorderBrushProperty }
         { $_ -is [System.Windows.Controls.Control] } { [System.Windows.Controls.Control]::BorderBrushProperty }
         default { $null }
     }
+
+    # Only treat property as having a local static brush if ReadLocalValue is NOT UnsetValue and NOT a dynamic expression
+    $localBg = if ($bgProp) { $node.ReadLocalValue($bgProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
+    $isBgDynamic = ($bgProp -and (Test-IsDynamicExpression $node $bgProp))
+    $hasLocalBg = ($localBg -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isBgDynamic)
+
+    $localFg = if ($fgProp) { $node.ReadLocalValue($fgProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
+    $isFgDynamic = ($fgProp -and (Test-IsDynamicExpression $node $fgProp))
+    $hasLocalFg = ($localFg -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isFgDynamic)
+
+    $localBorder = if ($borderProp) { $node.ReadLocalValue($borderProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
     $isBorderDynamic = ($borderProp -and (Test-IsDynamicExpression $node $borderProp))
+    $hasLocalBorder = ($localBorder -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isBorderDynamic)
 
     if ($targetTheme -eq "Light") {
-        # Cache original dark brushes if not already cached
+        # Cache original dark brushes if element has local static properties
         if (-not $script:OriginalBrushes.ContainsKey($id)) {
             $script:OriginalBrushes[$id] = @{
-                Bg = if (-not $isBgDynamic) { $node.Background } else { $null }
-                Fg = if (-not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) { $node.Foreground } else { $null }
-                Border = if (-not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) { $node.BorderBrush } else { $null }
+                Bg     = if ($hasLocalBg) { $localBg } else { $null }
+                Fg     = if ($hasLocalFg) { $localFg } else { $null }
+                Border = if ($hasLocalBorder) { $localBorder } else { $null }
             }
         }
         $orig = $script:OriginalBrushes[$id]
 
-        # Apply Light Background for static properties
-        if ($orig.Bg -and -not $isBgDynamic) {
+        # Apply Light Background for local static properties
+        if ($orig.Bg) {
             $hex = Convert-BrushToHex $orig.Bg
             if ($hex -ne "TRANSPARENT" -and $script:ColorMapBgLight.ContainsKey($hex)) {
                 $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgLight[$hex])
             }
         }
 
-        # Apply Light Foreground (protect primary/accent/danger/warning action buttons & badges)
-        if ($orig.Fg -and -not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+        # Apply Light Foreground (protect primary/accent action badges and buttons)
+        if ($orig.Fg) {
             $isAccentHost = $false
-            
-            # Check if this element or its parent button or border has an accent background
             $checkBg = $node.Background
             if (-not $checkBg -and ($node.Parent -is [System.Windows.Controls.Button] -or $node.Parent -is [System.Windows.Controls.Border])) {
                 $checkBg = $node.Parent.Background
@@ -507,40 +544,58 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
             }
         }
 
-        # Apply Light BorderBrush
-        if ($orig.Border -and -not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+        # Apply Light BorderBrush for local static properties
+        if ($orig.Border) {
             $hex = Convert-BrushToHex $orig.Border
             if ($hex -ne "TRANSPARENT" -and $script:ColorMapBorderLight.ContainsKey($hex)) {
                 $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderLight[$hex])
             }
         }
-
-        # DataGrid specific styling in Light Mode
-        if ($node -is [System.Windows.Controls.DataGrid]) {
-            $node.Background = $script:BrushConverter.ConvertFromString("#FFFFFF")
-            $node.RowBackground = $script:BrushConverter.ConvertFromString("#FFFFFF")
-            $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#F8FAFC")
-            $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
-            $node.VerticalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
-        }
     } else {
-        # Restore Dark Mode from cached originals for static properties
+        # Restore Dark Mode: restore cached original dark brushes, or clear local values if none was set
         if ($script:OriginalBrushes.ContainsKey($id)) {
             $saved = $script:OriginalBrushes[$id]
-            if ($null -ne $saved.Bg -and -not $isBgDynamic) { $node.Background = $saved.Bg }
-            if ($null -ne $saved.Fg -and -not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+            if ($null -ne $saved.Bg) {
+                $node.Background = $saved.Bg
+            } elseif ($bgProp -and -not $isBgDynamic) {
+                $node.ClearValue($bgProp)
+            }
+            if ($null -ne $saved.Fg) {
                 $node.Foreground = $saved.Fg
+            } elseif ($fgProp -and -not $isFgDynamic) {
+                $node.ClearValue($fgProp)
             }
-            if ($null -ne $saved.Border -and -not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+            if ($null -ne $saved.Border) {
                 $node.BorderBrush = $saved.Border
+            } elseif ($borderProp -and -not $isBorderDynamic) {
+                $node.ClearValue($borderProp)
             }
-        }
-        if ($node -is [System.Windows.Controls.DataGrid]) {
-            $node.Background = $script:BrushConverter.ConvertFromString("#161821")
-            $node.RowBackground = $script:BrushConverter.ConvertFromString("#161820")
-            $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#1B1E28")
-            $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#252936")
-            $node.VerticalGridLinesBrush = $script:BrushConverter.ConvertFromString("#252936")
+        } else {
+            # Element was not cached (e.g. style-based or created in Light mode)
+            if ($bgProp -and -not $isBgDynamic -and $hasLocalBg) {
+                $hex = Convert-BrushToHex $localBg
+                if ($script:ColorMapBgDark.ContainsKey($hex)) {
+                    $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgDark[$hex])
+                } else {
+                    $node.ClearValue($bgProp)
+                }
+            }
+            if ($fgProp -and -not $isFgDynamic -and $hasLocalFg) {
+                $hex = Convert-BrushToHex $localFg
+                if ($script:ColorMapFgDark.ContainsKey($hex)) {
+                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapFgDark[$hex])
+                } else {
+                    $node.ClearValue($fgProp)
+                }
+            }
+            if ($borderProp -and -not $isBorderDynamic -and $hasLocalBorder) {
+                $hex = Convert-BrushToHex $localBorder
+                if ($script:ColorMapBorderDark.ContainsKey($hex)) {
+                    $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderDark[$hex])
+                } else {
+                    $node.ClearValue($borderProp)
+                }
+            }
         }
     }
 
@@ -592,6 +647,9 @@ function Set-ApplicationTheme {
     $dataGridAltRowBgVal = if ($isLight) { "#F8FAFC" } else { "#1B1E28" }
     $dataGridGridLinesVal= if ($isLight) { "#E2E8F0" } else { "#262A38" }
     $contextMenuBgVal    = if ($isLight) { "#FFFFFF" } else { "#181A22" }
+    $dangerBtnBgVal      = if ($isLight) { "#FEF2F2" } else { "#3A1C20" }
+    $dangerBtnFgVal      = if ($isLight) { "#DC2626" } else { "#FFA3A8" }
+    $dangerBtnBorderVal  = if ($isLight) { "#FCA5A5" } else { "#D13438" }
 
     $resourceMap = @{
         "BgDark"              = $bgDarkVal
@@ -618,6 +676,9 @@ function Set-ApplicationTheme {
         "DataGridAltRowBg"    = $dataGridAltRowBgVal
         "DataGridGridLines"   = $dataGridGridLinesVal
         "ContextMenuBg"       = $contextMenuBgVal
+        "DangerButtonBg"      = $dangerBtnBgVal
+        "DangerButtonFg"      = $dangerBtnFgVal
+        "DangerButtonBorder"  = $dangerBtnBorderVal
     }
 
     foreach ($k in $resourceMap.Keys) {
@@ -1411,6 +1472,11 @@ function Update-WorkspaceTabStrip {
         $tbIcon.Margin = [System.Windows.Thickness]::new(0, 0, 5, 0)
         $tbIcon.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
         $tbIcon.Tag = $tab.Id
+        if ($isActive) {
+            $tbIcon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentPrimary")
+        } else {
+            $tbIcon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
+        }
         [void]$tabPanel.Children.Add($tbIcon)
 
         # Title

@@ -49,6 +49,9 @@
         <SolidColorBrush x:Key="DataGridAltRowBg" Color="#1B1E28"/>
         <SolidColorBrush x:Key="DataGridGridLines" Color="#262A38"/>
         <SolidColorBrush x:Key="ContextMenuBg" Color="#181A22"/>
+        <SolidColorBrush x:Key="DangerButtonBg" Color="#3A1C20"/>
+        <SolidColorBrush x:Key="DangerButtonBorder" Color="#D13438"/>
+        <SolidColorBrush x:Key="DangerButtonFg" Color="#FFA3A8"/>
 
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
@@ -134,9 +137,9 @@
 
         <!-- Danger Button -->
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="#3A1C20"/>
-            <Setter Property="BorderBrush" Value="#D13438"/>
-            <Setter Property="Foreground" Value="#FFA3A8"/>
+            <Setter Property="Background" Value="{DynamicResource DangerButtonBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerButtonBorder}"/>
+            <Setter Property="Foreground" Value="{DynamicResource DangerButtonFg}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -160,6 +163,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
@@ -335,7 +339,7 @@
                         <Border Name="navBorder" Background="{TemplateBinding Background}" CornerRadius="5" Padding="10,0" Margin="6,1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Name="navIndicator" Text="▌" Foreground="Transparent" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
-                                <ContentPresenter VerticalAlignment="Center"/>
+                                <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -430,6 +434,47 @@
             <Setter Property="SelectionUnit" Value="FullRow"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="RowHeight" Value="32"/>
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                        <Setter Property="Background" Value="{DynamicResource DataGridRowBg}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                                        <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="DataGridColumnHeader">
@@ -442,9 +487,32 @@
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
         </Style>
 
+        <Style TargetType="DataGridRow">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="DataGridCell">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                            <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
