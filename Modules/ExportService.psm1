@@ -227,7 +227,7 @@ function Export-ADSecurityAuditToHtml {
         foreach ($row in $Data) {
             $tds = foreach ($h in $headers) {
                 $v = $row.$h
-                "<td>$([System.Web.HttpUtility]::HtmlEncode("$v"))</td>"
+                "<td>$([System.Net.WebUtility]::HtmlEncode("$v"))</td>"
             }
             $trHtml += "<tr>$($tds -join '')</tr>`n"
         }
@@ -299,6 +299,358 @@ function Export-ADSecurityAuditToHtml {
     }
 }
 
+function Get-ADObjectHtmlContent {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        $ObjectDetail,
+
+        [Parameter(Mandatory = $false)]
+        [System.Collections.IEnumerable]$Attributes = @(),
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Dark", "Light")]
+        [string]$Theme = "Dark",
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Technical", "Executive", "Groups", "Raw")]
+        [string]$Template = "Technical",
+
+        [Parameter(Mandatory = $false)]
+        [string]$Title = ""
+    )
+
+    # Resolve primary attributes
+    $dn = ""
+    $sam = ""
+    $upn = ""
+    $dispName = ""
+    $objClass = "user"
+    $status = "Active"
+    $mail = ""
+    $title = ""
+    $dept = ""
+    $office = ""
+    $company = ""
+    $phone = ""
+    $mobile = ""
+    $manager = ""
+    $created = ""
+    $changed = ""
+    $pwdLastSet = ""
+    $acctExpires = ""
+    $badPwdCount = ""
+    $lastLogon = ""
+    $guid = ""
+    $sid = ""
+    $groups = @()
+
+    if ($ObjectDetail -is [System.Collections.IDictionary] -or $ObjectDetail.PSObject) {
+        if ($ObjectDetail.DistinguishedName) { $dn = "$($ObjectDetail.DistinguishedName)" }
+        elseif ($ObjectDetail.DN) { $dn = "$($ObjectDetail.DN)" }
+
+        if ($ObjectDetail.SamAccountName) { $sam = "$($ObjectDetail.SamAccountName)" }
+        if ($ObjectDetail.UserPrincipalName) { $upn = "$($ObjectDetail.UserPrincipalName)" }
+        if ($ObjectDetail.DisplayName) { $dispName = "$($ObjectDetail.DisplayName)" }
+        if ($ObjectDetail.ObjectClass) { $objClass = "$($ObjectDetail.ObjectClass)" }
+        if ($ObjectDetail.Status) { $status = "$($ObjectDetail.Status)" }
+        if ($ObjectDetail.Mail) { $mail = "$($ObjectDetail.Mail)" }
+        if ($ObjectDetail.Title) { $title = "$($ObjectDetail.Title)" }
+        if ($ObjectDetail.Department) { $dept = "$($ObjectDetail.Department)" }
+        if ($ObjectDetail.Office) { $office = "$($ObjectDetail.Office)" }
+        if ($ObjectDetail.Company) { $company = "$($ObjectDetail.Company)" }
+        if ($ObjectDetail.TelephoneNumber) { $phone = "$($ObjectDetail.TelephoneNumber)" }
+        if ($ObjectDetail.Mobile) { $mobile = "$($ObjectDetail.Mobile)" }
+        if ($ObjectDetail.Manager) { $manager = "$($ObjectDetail.Manager)" }
+        if ($ObjectDetail.WhenCreated) { $created = "$($ObjectDetail.WhenCreated)" }
+        if ($ObjectDetail.WhenChanged) { $changed = "$($ObjectDetail.WhenChanged)" }
+        if ($ObjectDetail.PasswordLastSet) { $pwdLastSet = "$($ObjectDetail.PasswordLastSet)" }
+        if ($ObjectDetail.AccountExpirationDate) { $acctExpires = "$($ObjectDetail.AccountExpirationDate)" }
+        if ($ObjectDetail.BadPwdCount) { $badPwdCount = "$($ObjectDetail.BadPwdCount)" }
+        if ($ObjectDetail.LastLogon) { $lastLogon = "$($ObjectDetail.LastLogon)" }
+        if ($ObjectDetail.ObjectGUID) { $guid = "$($ObjectDetail.ObjectGUID)" }
+        if ($ObjectDetail.SID) { $sid = "$($ObjectDetail.SID)" }
+        if ($ObjectDetail.MemberOf) { $groups = @($ObjectDetail.MemberOf) }
+    }
+
+    # Fallback from attributes list if fields are blank
+    if ($Attributes -and $Attributes.Count -gt 0) {
+        foreach ($attr in $Attributes) {
+            $n = $attr.Name
+            $v = "$($attr.Value)"
+            if (-not $dn -and $n -ieq 'distinguishedName') { $dn = $v }
+            if (-not $sam -and $n -ieq 'sAMAccountName') { $sam = $v }
+            if (-not $upn -and $n -ieq 'userPrincipalName') { $upn = $v }
+            if (-not $dispName -and $n -ieq 'displayName') { $dispName = $v }
+            if (-not $mail -and $n -ieq 'mail') { $mail = $v }
+            if (-not $title -and $n -ieq 'title') { $title = $v }
+            if (-not $dept -and $n -ieq 'department') { $dept = $v }
+            if (-not $office -and $n -ieq 'physicalDeliveryOfficeName') { $office = $v }
+            if (-not $company -and $n -ieq 'company') { $company = $v }
+            if (-not $phone -and $n -ieq 'telephoneNumber') { $phone = $v }
+            if (-not $mobile -and $n -ieq 'mobile') { $mobile = $v }
+            if (-not $manager -and $n -ieq 'manager') { $manager = $v }
+            if (-not $created -and $n -ieq 'whenCreated') { $created = $v }
+            if (-not $changed -and $n -ieq 'whenChanged') { $changed = $v }
+            if (-not $pwdLastSet -and $n -ieq 'pwdLastSet') { $pwdLastSet = $v }
+            if (-not $acctExpires -and $n -ieq 'accountExpires') { $acctExpires = $v }
+            if (-not $badPwdCount -and $n -ieq 'badPwdCount') { $badPwdCount = $v }
+            if (-not $lastLogon -and ($n -ieq 'lastLogonTimestamp' -or $n -ieq 'lastLogon')) { $lastLogon = $v }
+            if (-not $guid -and $n -ieq 'objectGUID') { $guid = $v }
+            if (-not $sid -and $n -ieq 'objectSid') { $sid = $v }
+            if ($groups.Count -eq 0 -and $n -ieq 'memberOf') {
+                $groups = $v -split ';\s*'
+            }
+        }
+    }
+
+    if (-not $dispName) { $dispName = if ($sam) { $sam } else { $dn } }
+    if (-not $Title) { $Title = "Directory Dossier: $dispName" }
+    $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+    # Status badge color
+    $statusColor = switch -Wildcard ($status) {
+        "*Active*"   { "#10B981" }
+        "*Enabled*"  { "#10B981" }
+        "*Disabled*" { "#EF4444" }
+        "*Locked*"   { "#F59E0B" }
+        default      { "#3B82F6" }
+    }
+
+    # Avatar initials
+    $initials = if ($dispName -match '^\s*([A-Za-z0-9])') { $matches[1].ToUpper() } else { "AD" }
+
+    # Groups list HTML
+    $groupsHtml = if ($groups.Count -gt 0) {
+        ($groups | ForEach-Object {
+            $grpName = if ($_ -match '^CN=([^,]+)') { $matches[1] } else { $_ }
+            "<span class='badge group-badge'>$([System.Net.WebUtility]::HtmlEncode($grpName))</span>"
+        }) -join " "
+    } else {
+        "<span style='color:var(--text-muted); font-style:italic;'>No group memberships recorded or domain primary group only.</span>"
+    }
+
+    # Attributes Table HTML
+    $attrRowsHtml = ""
+    if ($Attributes -and $Attributes.Count -gt 0) {
+        foreach ($attr in $Attributes) {
+            $an = [System.Net.WebUtility]::HtmlEncode("$($attr.Name)")
+            $av = [System.Net.WebUtility]::HtmlEncode("$($attr.Value)")
+            $at = [System.Net.WebUtility]::HtmlEncode("$($attr.Type)")
+            $opBadge = if ($attr.IsOperational) { "<span class='badge op-badge'>Op</span>" } else { "" }
+            $attrRowsHtml += "<tr><td class='attr-name'><b>$an</b> $opBadge</td><td class='attr-val'>$av</td><td class='attr-type'>$at</td></tr>`n"
+        }
+    }
+
+    $themeAttr = if ($Theme -ieq "Light") { "data-theme='light'" } else { "data-theme='dark'" }
+
+    # Section rendering based on template
+    $showIdentity = $Template -in @("Technical", "Executive", "Groups")
+    $showOrg = $Template -in @("Technical", "Executive")
+    $showTelemetry = $Template -eq "Technical"
+    $showGroups = $Template -in @("Technical", "Executive", "Groups")
+    $showAttributes = $Template -in @("Technical", "Raw")
+
+    $cardsGridHtml = ""
+    if ($showIdentity -or $showOrg -or $showTelemetry) {
+        $cardsGridHtml += "<div class='cards-grid'>"
+        if ($showIdentity) {
+            $cardsGridHtml += @"
+            <div class="panel-card">
+                <h3>&#x1F194; Identity &amp; Naming</h3>
+                <div class="field-row"><span class="field-label">Display Name:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($dispName))</span></div>
+                <div class="field-row"><span class="field-label">Username (sAM):</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($sam))</span></div>
+                <div class="field-row"><span class="field-label">User Principal (UPN):</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($upn))</span></div>
+                <div class="field-row"><span class="field-label">Object Class:</span><span class="field-val">$objClass</span></div>
+                <div class="field-row"><span class="field-label">Account Status:</span><span class="field-val" style="color: $statusColor;">$status</span></div>
+                <div class="field-row"><span class="field-label">Distinguished Name:</span><span class="field-val" style="font-size:11px;">$([System.Net.WebUtility]::HtmlEncode($dn))</span></div>
+                $(if ($guid) { "<div class='field-row'><span class='field-label'>Object GUID:</span><span class='field-val' style='font-size:11px;'>$guid</span></div>" })
+                $(if ($sid) { "<div class='field-row'><span class='field-label'>Object SID:</span><span class='field-val' style='font-size:11px;'>$sid</span></div>" })
+            </div>
+"@
+        }
+        if ($showOrg) {
+            $mailLink = if ($mail) { "<a href='mailto:$mail' style='color:var(--accent); text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($mail))</a>" } else { "--" }
+            $phoneLink = if ($phone) { "<a href='tel:$phone' style='color:var(--accent); text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($phone))</a>" } else { "--" }
+            $cardsGridHtml += @"
+            <div class="panel-card">
+                <h3>&#x1F4BC; Organization &amp; Contact</h3>
+                <div class="field-row"><span class="field-label">Job Title:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($title))</span></div>
+                <div class="field-row"><span class="field-label">Department:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($dept))</span></div>
+                <div class="field-row"><span class="field-label">Company:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($company))</span></div>
+                <div class="field-row"><span class="field-label">Office:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($office))</span></div>
+                <div class="field-row"><span class="field-label">Email:</span><span class="field-val">$mailLink</span></div>
+                <div class="field-row"><span class="field-label">Phone:</span><span class="field-val">$phoneLink</span></div>
+                <div class="field-row"><span class="field-label">Mobile:</span><span class="field-val">$([System.Net.WebUtility]::HtmlEncode($mobile))</span></div>
+                <div class="field-row"><span class="field-label">Manager:</span><span class="field-val" style="font-size:11px;">$([System.Net.WebUtility]::HtmlEncode($manager))</span></div>
+            </div>
+"@
+        }
+        if ($showTelemetry) {
+            $cardsGridHtml += @"
+            <div class="panel-card">
+                <h3>&#x23F3; Lifecycle &amp; Security</h3>
+                <div class="field-row"><span class="field-label">When Created:</span><span class="field-val">$created</span></div>
+                <div class="field-row"><span class="field-label">When Changed:</span><span class="field-val">$changed</span></div>
+                <div class="field-row"><span class="field-label">Password Last Set:</span><span class="field-val">$pwdLastSet</span></div>
+                <div class="field-row"><span class="field-label">Account Expires:</span><span class="field-val">$acctExpires</span></div>
+                <div class="field-row"><span class="field-label">Bad Password Count:</span><span class="field-val">$badPwdCount</span></div>
+                <div class="field-row"><span class="field-label">Last Logon:</span><span class="field-val">$lastLogon</span></div>
+            </div>
+"@
+        }
+        $cardsGridHtml += "</div>"
+    }
+
+    $groupsBlockHtml = ""
+    if ($showGroups) {
+        $groupsBlockHtml = @"
+        <div class="panel-card" style="margin-bottom: 24px;">
+            <h3>&#x1F465; Direct Group Memberships ($($groups.Count))</h3>
+            <div style="padding-top: 6px;">
+                $groupsHtml
+            </div>
+        </div>
+"@
+    }
+
+    $attrBlockHtml = ""
+    if ($showAttributes -and $Attributes -and $Attributes.Count -gt 0) {
+        $attrBlockHtml = @"
+        <div class="section-title">&#x1F3F7;&#xFE0F; Complete Active Directory Attributes ($($Attributes.Count))</div>
+        <table class="attr-table">
+            <thead>
+                <tr>
+                    <th>Attribute Name</th>
+                    <th>Decoded Value</th>
+                    <th>Syntax / Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                $attrRowsHtml
+            </tbody>
+        </table>
+"@
+    }
+
+    $html = @"
+<!DOCTYPE html>
+<html lang="en" $themeAttr>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<title>$Title - Active Directory Management Studio</title>
+<style>
+    :root, [data-theme="dark"] {
+        --bg-body: #0E1017;
+        --bg-container: #141722;
+        --bg-card: #161922;
+        --bg-card-header: #1E2230;
+        --bg-subtle: #111319;
+        --border-color: #262B3D;
+        --border-subtle: #1E2230;
+        --text-primary: #F1F5F9;
+        --text-secondary: #94A3B8;
+        --text-muted: #64748B;
+        --accent: #38BDF8;
+        --accent-hover: #0284C7;
+        --badge-bg: #1E293B;
+        --badge-text: #93C5FD;
+        --badge-border: #3B82F6;
+        --table-row-hover: #1C202C;
+    }
+    [data-theme="light"] {
+        --bg-body: #F8FAFC;
+        --bg-container: #FFFFFF;
+        --bg-card: #FFFFFF;
+        --bg-card-header: #F1F5F9;
+        --bg-subtle: #F8FAFC;
+        --border-color: #CBD5E1;
+        --border-subtle: #E2E8F0;
+        --text-primary: #0F172A;
+        --text-secondary: #475569;
+        --text-muted: #64748B;
+        --accent: #0284C7;
+        --accent-hover: #0369A1;
+        --badge-bg: #E0F2FE;
+        --badge-text: #0369A1;
+        --badge-border: #BAE6FD;
+        --table-row-hover: #F1F5F9;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-body);
+        color: var(--text-primary);
+        margin: 0;
+        padding: 20px;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 16px; margin-bottom: 24px; }
+    .title-group { display: flex; align-items: center; }
+    .avatar-circle { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; margin-right: 14px; }
+    .title-group h1 { margin: 0; font-size: 22px; color: var(--accent); }
+    .title-group p { margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary); }
+    .btn-bar { display: flex; align-items: center; }
+    .btn-bar button { background: var(--accent); color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; font-size: 12px; margin-left: 8px; transition: background 0.15s ease; }
+    .btn-bar button:hover { background: var(--accent-hover); }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .op-badge { background: #0369A1; color: #FFFFFF; font-size: 10px; padding: 2px 6px; }
+    .group-badge { background: var(--badge-bg); color: var(--badge-text); border: 1px solid var(--badge-border); margin: 3px 4px 3px 0; text-transform: none; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .panel-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .panel-card h3 { margin-top: 0; margin-bottom: 14px; font-size: 14px; color: var(--accent); border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+    .field-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px; }
+    .field-label { color: var(--text-secondary); font-weight: 500; min-width: 130px; }
+    .field-val { color: var(--text-primary); font-weight: 600; text-align: right; word-break: break-all; font-family: Consolas, monospace; }
+    .section-title { font-size: 15px; font-weight: bold; color: var(--text-primary); margin: 26px 0 12px 0; display: flex; align-items: center; }
+    .attr-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); margin-top: 10px; }
+    .attr-table th { background: var(--bg-card-header); color: var(--text-primary); text-align: left; padding: 10px 14px; font-size: 12px; text-transform: uppercase; }
+    .attr-table td { padding: 8px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }
+    .attr-name { width: 220px; color: var(--accent); font-family: Consolas, monospace; }
+    .attr-val { color: var(--text-secondary); word-break: break-all; font-family: Consolas, monospace; }
+    .attr-type { width: 140px; color: var(--text-muted); }
+    tr:hover { background: var(--table-row-hover); }
+    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 16px; }
+    @media print {
+        body { background-color: #FFFFFF !important; color: #000000 !important; padding: 0; }
+        .btn-bar { display: none; }
+        .panel-card, .attr-table { border: 1px solid #CCCCCC !important; background: #FAFAFA !important; color: #000000 !important; }
+        .field-val, .field-label, .attr-table td, .attr-table th { color: #000000 !important; }
+        .group-badge { background: #EEEEEE !important; color: #000000 !important; border: 1px solid #999999 !important; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div class="title-group">
+            <div class="avatar-circle">$initials</div>
+            <div>
+                <h1>$([System.Net.WebUtility]::HtmlEncode($dispName))</h1>
+                <p>Active Directory Object Report Card &bull; Template: $Template &bull; Generated $now</p>
+            </div>
+        </div>
+        <div class="btn-bar">
+            <span class="badge" style="background: $statusColor; color: #FFFFFF; margin-right: 12px;">$status</span>
+            <button onclick="window.print()">&#x1F5B6;&#xFE0F; Print Dossier</button>
+        </div>
+    </div>
+
+    $cardsGridHtml
+    $groupsBlockHtml
+    $attrBlockHtml
+
+    <div class="footer">
+        Active Directory Management Studio &bull; Enterprise Directory Services &amp; HTML Dossier Suite
+    </div>
+</div>
+</body>
+</html>
+"@
+
+    return $html
+}
+
 function Export-ADObjectToHtml {
     [CmdletBinding()]
     param (
@@ -312,6 +664,12 @@ function Export-ADObjectToHtml {
         [string]$FilePath,
 
         [Parameter(Mandatory = $false)]
+        [string]$Theme = "Dark",
+
+        [Parameter(Mandatory = $false)]
+        [string]$Template = "Technical",
+
+        [Parameter(Mandatory = $false)]
         [string]$Title = ""
     )
 
@@ -321,214 +679,7 @@ function Export-ADObjectToHtml {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
-        # Resolve primary attributes
-        $dn = ""
-        $sam = ""
-        $dispName = ""
-        $objClass = "user"
-        $status = "Active"
-        $mail = ""
-        $title = ""
-        $dept = ""
-        $office = ""
-        $phone = ""
-        $manager = ""
-        $created = ""
-        $changed = ""
-        $lastLogon = ""
-        $groups = @()
-
-        if ($ObjectDetail -is [System.Collections.IDictionary] -or $ObjectDetail.PSObject) {
-            if ($ObjectDetail.DistinguishedName) { $dn = $ObjectDetail.DistinguishedName }
-            elseif ($ObjectDetail.DN) { $dn = $ObjectDetail.DN }
-
-            if ($ObjectDetail.SamAccountName) { $sam = $ObjectDetail.SamAccountName }
-            if ($ObjectDetail.DisplayName) { $dispName = $ObjectDetail.DisplayName }
-            if ($ObjectDetail.ObjectClass) { $objClass = $ObjectDetail.ObjectClass }
-            if ($ObjectDetail.Status) { $status = $ObjectDetail.Status }
-            if ($ObjectDetail.Mail) { $mail = $ObjectDetail.Mail }
-            if ($ObjectDetail.Title) { $title = $ObjectDetail.Title }
-            if ($ObjectDetail.Department) { $dept = $ObjectDetail.Department }
-            if ($ObjectDetail.Office) { $office = $ObjectDetail.Office }
-            if ($ObjectDetail.TelephoneNumber) { $phone = $ObjectDetail.TelephoneNumber }
-            if ($ObjectDetail.Manager) { $manager = $ObjectDetail.Manager }
-            if ($ObjectDetail.WhenCreated) { $created = "$($ObjectDetail.WhenCreated)" }
-            if ($ObjectDetail.WhenChanged) { $changed = "$($ObjectDetail.WhenChanged)" }
-            if ($ObjectDetail.LastLogon) { $lastLogon = "$($ObjectDetail.LastLogon)" }
-            if ($ObjectDetail.MemberOf) { $groups = @($ObjectDetail.MemberOf) }
-        }
-
-        # Fallback from attributes list if fields are blank
-        if ($Attributes -and $Attributes.Count -gt 0) {
-            foreach ($attr in $Attributes) {
-                $n = $attr.Name
-                $v = "$($attr.Value)"
-                if (-not $dn -and $n -ieq 'distinguishedName') { $dn = $v }
-                if (-not $sam -and $n -ieq 'sAMAccountName') { $sam = $v }
-                if (-not $dispName -and $n -ieq 'displayName') { $dispName = $v }
-                if (-not $mail -and $n -ieq 'mail') { $mail = $v }
-                if (-not $title -and $n -ieq 'title') { $title = $v }
-                if (-not $dept -and $n -ieq 'department') { $dept = $v }
-                if (-not $office -and $n -ieq 'physicalDeliveryOfficeName') { $office = $v }
-                if (-not $phone -and $n -ieq 'telephoneNumber') { $phone = $v }
-                if (-not $manager -and $n -ieq 'manager') { $manager = $v }
-                if (-not $created -and $n -ieq 'whenCreated') { $created = $v }
-                if (-not $changed -and $n -ieq 'whenChanged') { $changed = $v }
-                if (-not $lastLogon -and $n -ieq 'lastLogonTimestamp') { $lastLogon = $v }
-                if ($groups.Count -eq 0 -and $n -ieq 'memberOf') {
-                    $groups = $v -split ';\s*'
-                }
-            }
-        }
-
-        if (-not $dispName) { $dispName = if ($sam) { $sam } else { $dn } }
-        if (-not $Title) { $Title = "Directory Object Dossier: $dispName" }
-        $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-
-        # Status badge color
-        $statusColor = switch -Wildcard ($status) {
-            "*Active*"   { "#10B981" }
-            "*Disabled*" { "#EF4444" }
-            "*Locked*"   { "#F59E0B" }
-            default      { "#3B82F6" }
-        }
-
-        # Groups list HTML
-        $groupsHtml = if ($groups.Count -gt 0) {
-            ($groups | ForEach-Object {
-                $grpName = if ($_ -match '^CN=([^,]+)') { $matches[1] } else { $_ }
-                "<span class='badge group-badge'>$([System.Web.HttpUtility]::HtmlEncode($grpName))</span>"
-            }) -join " "
-        } else {
-            "<span style='color:#6B7280; font-style:italic;'>No group memberships recorded or domain primary group only.</span>"
-        }
-
-        # Attributes Table HTML
-        $attrRowsHtml = ""
-        if ($Attributes -and $Attributes.Count -gt 0) {
-            foreach ($attr in $Attributes) {
-                $an = [System.Web.HttpUtility]::HtmlEncode("$($attr.Name)")
-                $av = [System.Web.HttpUtility]::HtmlEncode("$($attr.Value)")
-                $at = [System.Web.HttpUtility]::HtmlEncode("$($attr.Type)")
-                $opBadge = if ($attr.IsOperational) { "<span class='badge' style='background:#0369A1;'>Op</span>" } else { "" }
-                $attrRowsHtml += "<tr><td class='attr-name'><b>$an</b> $opBadge</td><td class='attr-val'>$av</td><td class='attr-type'>$at</td></tr>`n"
-            }
-        }
-
-        $html = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>$Title - Active Directory Management Studio</title>
-<style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0E1017; color: #E2E8F0; margin: 0; padding: 24px; }
-    .container { max-width: 1100px; margin: 0 auto; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #232736; padding-bottom: 16px; margin-bottom: 24px; }
-    .title-group h1 { margin: 0; font-size: 24px; color: #60A5FA; }
-    .title-group p { margin: 4px 0 0 0; font-size: 13px; color: #94A3B8; }
-    .btn-bar button { background: #2563EB; color: #FFFFFF; border: none; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer; font-size: 13px; margin-left: 8px; }
-    .btn-bar button:hover { background: #1D4ED8; }
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .group-badge { background: #1E293B; color: #93C5FD; border: 1px solid #3B82F6; margin: 3px 4px 3px 0; text-transform: none; }
-    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .panel-card { background: #161922; border: 1px solid #262B3D; border-radius: 8px; padding: 18px; }
-    .panel-card h3 { margin-top: 0; margin-bottom: 14px; font-size: 15px; color: #38BDF8; border-bottom: 1px solid #232736; padding-bottom: 8px; }
-    .field-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1E2230; font-size: 13px; }
-    .field-label { color: #94A3B8; font-weight: 500; min-width: 130px; }
-    .field-val { color: #F1F5F9; font-weight: 600; text-align: right; word-break: break-all; font-family: Consolas, monospace; }
-    .section-title { font-size: 16px; font-weight: bold; color: #F8FAFC; margin: 28px 0 12px 0; display: flex; align-items: center; }
-    .attr-table { width: 100%; border-collapse: collapse; background: #141720; border-radius: 8px; overflow: hidden; border: 1px solid #232736; margin-top: 10px; }
-    .attr-table th { background: #1B202E; color: #E2E8F0; text-align: left; padding: 10px 14px; font-size: 12px; text-transform: uppercase; }
-    .attr-table td { padding: 8px 14px; border-bottom: 1px solid #1F2433; font-size: 12px; }
-    .attr-name { width: 220px; color: #60A5FA; font-family: Consolas, monospace; }
-    .attr-val { color: #CBD5E1; word-break: break-all; font-family: Consolas, monospace; }
-    .attr-type { width: 140px; color: #94A3B8; }
-    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: #64748B; border-top: 1px solid #1E2230; padding-top: 16px; }
-    @media print {
-        body { background-color: #FFFFFF; color: #000000; padding: 0; }
-        .btn-bar { display: none; }
-        .panel-card, .attr-table { border: 1px solid #CCCCCC; background: #FAFAFA; color: #000000; }
-        .field-val, .field-label, .attr-table td, .attr-table th { color: #000000 !important; }
-        .group-badge { background: #EEEEEE; color: #000000; border: 1px solid #999999; }
-    }
-</style>
-</head>
-<body>
-<div class="container">
-    <div class="top-bar">
-        <div class="title-group">
-            <h1>&#x1F4C4; $dispName</h1>
-            <p>Active Directory Object Report Card &bull; Generated $now</p>
-        </div>
-        <div class="btn-bar">
-            <span class="badge" style="background: $statusColor; color: #FFFFFF; margin-right: 12px;">$status</span>
-            <button onclick="window.print()">&#x1F5B6;&#xFE0F; Print Dossier</button>
-        </div>
-    </div>
-
-    <div class="cards-grid">
-        <!-- Identity & Object Details -->
-        <div class="panel-card">
-            <h3>&#x1F194; Identity &amp; Naming</h3>
-            <div class="field-row"><span class="field-label">Display Name:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($dispName))</span></div>
-            <div class="field-row"><span class="field-label">Username (sAM):</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($sam))</span></div>
-            <div class="field-row"><span class="field-label">Object Class:</span><span class="field-val">$objClass</span></div>
-            <div class="field-row"><span class="field-label">Status:</span><span class="field-val" style="color: $statusColor;">$status</span></div>
-            <div class="field-row"><span class="field-label">Distinguished Name:</span><span class="field-val" style="font-size:11px;">$([System.Web.HttpUtility]::HtmlEncode($dn))</span></div>
-        </div>
-
-        <!-- Organization & Contact -->
-        <div class="panel-card">
-            <h3>&#x1F4BC; Organization &amp; Contact</h3>
-            <div class="field-row"><span class="field-label">Job Title:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($title))</span></div>
-            <div class="field-row"><span class="field-label">Department:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($dept))</span></div>
-            <div class="field-row"><span class="field-label">Office:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($office))</span></div>
-            <div class="field-row"><span class="field-label">Email:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($mail))</span></div>
-            <div class="field-row"><span class="field-label">Phone:</span><span class="field-val">$([System.Web.HttpUtility]::HtmlEncode($phone))</span></div>
-            <div class="field-row"><span class="field-label">Manager:</span><span class="field-val" style="font-size:11px;">$([System.Web.HttpUtility]::HtmlEncode($manager))</span></div>
-        </div>
-
-        <!-- Lifecycle & Telemetry -->
-        <div class="panel-card">
-            <h3>&#x23F3; Lifecycle &amp; Telemetry</h3>
-            <div class="field-row"><span class="field-label">When Created:</span><span class="field-val">$created</span></div>
-            <div class="field-row"><span class="field-label">When Changed:</span><span class="field-val">$changed</span></div>
-            <div class="field-row"><span class="field-label">Last Logon:</span><span class="field-val">$lastLogon</span></div>
-        </div>
-    </div>
-
-    <!-- Group Memberships -->
-    <div class="panel-card" style="margin-bottom: 24px;">
-        <h3>&#x1F465; Direct Group Memberships</h3>
-        <div style="padding-top: 6px;">
-            $groupsHtml
-        </div>
-    </div>
-
-    <!-- Complete Attribute Table -->
-    <div class="section-title">&#x1F3F7;&#xFE0F; Complete Active Directory Attributes ($($Attributes.Count))</div>
-    <table class="attr-table">
-        <thead>
-            <tr>
-                <th>Attribute Name</th>
-                <th>Decoded Value</th>
-                <th>Syntax / Type</th>
-            </tr>
-        </thead>
-        <tbody>
-            $attrRowsHtml
-        </tbody>
-    </table>
-
-    <div class="footer">
-        Active Directory Management Studio &bull; Enterprise LDAP & Directory Inspection Suite
-    </div>
-</div>
-</body>
-</html>
-"@
-
+        $html = Get-ADObjectHtmlContent -ObjectDetail $ObjectDetail -Attributes $Attributes -Theme $Theme -Template $Template -Title $Title
         [System.IO.File]::WriteAllText($FilePath, $html, [System.Text.Encoding]::UTF8)
 
         return [PSCustomObject]@{
@@ -893,6 +1044,6 @@ function New-LdifChangeScript {
     return ($lines -join "`r`n")
 }
 
-Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Export-ADDataToDsml, Export-ADDataToScim, New-LdifChangeScript
+Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Get-ADObjectHtmlContent, Export-ADDataToDsml, Export-ADDataToScim, New-LdifChangeScript
 
 

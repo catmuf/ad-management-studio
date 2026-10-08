@@ -269,3 +269,46 @@ TOTAL ERRORS ENCOUNTERED ACROSS ALL 19 TABS: 0
 =================================================
 ```
 
+---
+
+## 5. Light Mode Appearance Engine & In-App HTML Dossier View
+
+### A. Dynamic Light Mode & Accent Tone Engine
+* **Overview & Rationale**:
+  - Provides native Light Mode and customizable accent color schemes selectable from application settings and switchable instantly via header shortcuts.
+* **Architecture & Implementation**:
+  - **Lossless Tree Recurser**: Implemented `Apply-ThemeNode` and `Set-ApplicationTheme` in [main.ps1](./main.ps1). Caches default dark brushes into `$script:OriginalBrushes` on first switch, ensuring 100% pixel-perfect lossless restoration when switching between Dark and Light modes.
+  - **Quick Header Toggle**: Added `BtnQuickThemeToggle` in the top header bar next to `BtnGlobalRefresh` with dynamic sun/moon icons and keyboard accelerator `Ctrl+T`.
+  - **Appearance Configuration**: Added visual theme card in `PanelSettings` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) with Theme selection (`CmbThemeMode`: Dark / Light), Accent Tone (`CmbAccentTone`: Blue, Sky, Emerald, Indigo, Amber), and Auto-Sync HTML View toggle (`ChkThemeAutoSync`).
+  - **Configuration Persistence**: Added `UI.Theme`, `UI.AccentTone`, and `UI.SyncHtmlViewTheme` to [Modules/ConfigService.psm1](./Modules/ConfigService.psm1), persisting user preferences cleanly to `config.json`.
+
+### B. In-App HTML Dossier View (Softerra LDAP Administrator Parity)
+* **Competitor Benchmark**: Softerra LDAP Administrator Screenshot 02 (`02_HTMLView.png`).
+* **Architecture & Implementation**:
+  - **Dedicated Navigation View**: Added `NavHtmlView` ("📄 HTML Dossier View") under Directory Tools and responsive `PanelHtmlView` in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
+  - **Embedded WebBrowser**: Integrated `<WebBrowser Name="BrowserHtmlView"/>` with `X-UA-Compatible: IE=edge` header support for modern CSS variables, flexbox, border-radii, and responsive typography.
+  - **Multi-Template Generator**: Implemented `Get-ADObjectHtmlContent` in [Modules/ExportService.psm1](./Modules/ExportService.psm1) supporting 4 distinct report card templates:
+    1. **Technical**: Complete identity properties, organizational hierarchy, lifecycle & telemetry timestamps, group memberships, and raw operational attributes.
+    2. **Executive**: Executive summary card featuring job title, department, office, interactive `mailto:` and `tel:` links, manager DN, and group affiliations.
+    3. **Groups**: Group membership analysis and distribution report card.
+    4. **Raw**: Full Active Directory attribute schema dictionary with operational attribute tags.
+  - **Interactive Toolbar**:
+    - DN Address Omnibar (`TxtHtmlViewDN`) with **"Go"** button (`BtnHtmlViewGo`).
+    - Template Selector (`CmbHtmlViewTemplate`) with instant in-memory re-rendering.
+    - Action triggers: Refresh (`BtnHtmlViewRefresh`), Print (`BtnHtmlViewPrint`), Copy HTML markup (`BtnHtmlViewCopyHtml` with COM clipboard retry handling), and Open in Default Browser (`BtnHtmlViewOpenBrowser`).
+  - **Directory-Wide Context Menus**: Added **"📄 View HTML Dossier"** and **"🌐 Open HTML Dossier in Browser"** context menu items across:
+    - User Management (`GridUsers`)
+    - Group Management (`GridGroups`)
+    - OU Object Explorer (`GridOUObjects`)
+    - Computer Management (`GridComputers`)
+    - Directory Search Results (`GridSearchResults`)
+
+### C. Comprehensive Integration Test Results
+The automated STA UI harness verified the new features with 100% success:
+* **Syntax & XAML Validation**: `ConfigService.psm1`, `ExportService.psm1`, `main.ps1`, and `MainWindow.xaml` parsed with 0 errors.
+* **HTML Generation**: All 4 templates (`Technical`, `Executive`, `Groups`, `Raw`) verified across both `Dark` and `Light` themes.
+* **Theme Switching**: Verified Light Mode background `#F8FAFC`, icon switch, symmetric toggle, and lossless Dark Mode restoration `#14161C`.
+* **In-App WebBrowser**: Rendered object dossier, switched all 4 templates, and copied HTML without exceptions.
+* **Settings Persistence**: Verified configuration save and reload round-trip for Light Mode and accent tone.
+
+

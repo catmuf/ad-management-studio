@@ -557,6 +557,10 @@
                             <TextBlock Text="Refresh All"/>
                         </StackPanel>
                     </Button>
+
+                    <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Margin="6,0,0,0" Padding="8,5" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
+                        <TextBlock Name="TxtQuickThemeIcon" Text="🌙" FontSize="13"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -631,6 +635,12 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="🏷️" Margin="0,0,8,0"/>
                                 <TextBlock Text="Raw Attribute Editor"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavHtmlView" Style="{StaticResource NavTabButton}" ToolTip="Interactive HTML dossier card viewer (Softerra Parity)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📄" Margin="0,0,8,0"/>
+                                <TextBlock Text="HTML Dossier View"/>
                             </StackPanel>
                         </RadioButton>
                         <RadioButton Name="NavObjectCompare" Style="{StaticResource NavTabButton}">
@@ -952,7 +962,8 @@
                                     <MenuItem Name="CtxUserCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                     <MenuItem Name="CtxUserViewDetails" Style="{StaticResource ModernMenuItem}" Header="👁️ View Details &amp; Groups"/>
                                     <Separator Style="{StaticResource ModernMenuSeparator}"/>
-                                    <MenuItem Name="CtxUserViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Report Card"/>
+                                    <MenuItem Name="CtxUserViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
+                                    <MenuItem Name="CtxUserOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                     <MenuItem Name="CtxUserExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
@@ -1166,6 +1177,9 @@
                                 <MenuItem Name="CtxGroupAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
                                 <MenuItem Name="CtxGroupInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxGroupCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxGroupViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
+                                <MenuItem Name="CtxGroupOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -1316,7 +1330,8 @@
                                         <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                         <MenuItem Name="CtxOUObjCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                         <Separator Style="{StaticResource ModernMenuSeparator}"/>
-                                        <MenuItem Name="CtxOUObjViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Report Card"/>
+                                        <MenuItem Name="CtxOUObjViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
+                                        <MenuItem Name="CtxOUObjOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                         <MenuItem Name="CtxOUObjExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
@@ -1382,7 +1397,8 @@
                                 <MenuItem Name="CtxCompInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxCompCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
-                                <MenuItem Name="CtxCompViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Report Card"/>
+                                <MenuItem Name="CtxCompViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
+                                <MenuItem Name="CtxCompOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                 <MenuItem Name="CtxCompExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
@@ -1581,7 +1597,8 @@
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxSearchCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
-                                <MenuItem Name="CtxSearchViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Report Card"/>
+                                <MenuItem Name="CtxSearchViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
+                                <MenuItem Name="CtxSearchOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                 <MenuItem Name="CtxSearchExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
@@ -2366,6 +2383,27 @@
                                     <ComboBoxItem Content="; (Semicolon - Recommended for Excel Europe)" IsSelected="True"/>
                                     <ComboBoxItem Content=", (Comma - Standard CSV)"/>
                                 </ComboBox>
+
+                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <TextBlock Text="🎨 Appearance &amp; Visual Theme" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
+
+                                <TextBlock Text="Interface Theme Mode:" Margin="0,0,0,4"/>
+                                <ComboBox Name="CmbThemeMode" Style="{StaticResource ModernComboBox}" Margin="0,0,0,12">
+                                    <ComboBoxItem Content="🌙 Dark Mode (Slate &amp; Midnight) - Default" IsSelected="True"/>
+                                    <ComboBoxItem Content="☀️ Light Mode (Clean Slate &amp; Polar White)"/>
+                                </ComboBox>
+
+                                <TextBlock Text="Accent Tone Color:" Margin="0,0,0,4"/>
+                                <ComboBox Name="CmbAccentTone" Style="{StaticResource ModernComboBox}" Margin="0,0,0,12">
+                                    <ComboBoxItem Content="🔷 Classic Azure Blue (#0078D4)" IsSelected="True"/>
+                                    <ComboBoxItem Content="💠 Sky Cyan (#0284C7)"/>
+                                    <ComboBoxItem Content="🌿 Emerald Green (#107C41)"/>
+                                    <ComboBoxItem Content="🔮 Royal Indigo (#4F46E5)"/>
+                                    <ComboBoxItem Content="⚡ Amber Gold (#D97706)"/>
+                                </ComboBox>
+
+                                <CheckBox Name="ChkThemeAutoSync" Content="Synchronize in-app HTML View styling with active theme" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+
                                 <Separator Background="#252936" Margin="0,10,0,14"/>
                                 <TextBlock Text="🚀 External Tools &amp; Admin Integrations (Softerra Ch22s02)" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,6"/>
                                 <TextBlock Text="Configure external tools and scripts with token replacement (%dNSHostName%, %sAMAccountName%, %distinguishedName%, %mail%)." FontSize="12" Foreground="#9CA3AF" Margin="0,0,0,10"/>
@@ -2596,6 +2634,74 @@
                             </Border>
                         </Grid>
                     </ScrollViewer>
+                </Grid>
+
+                <!-- 18. HTML DOSSIER VIEW PANEL (SOFTERRA SCREENSHOT 02 PARITY) -->
+                <Grid Name="PanelHtmlView" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header & Toolbar -->
+                        <RowDefinition Height="*"/>    <!-- WebBrowser -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Title row -->
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="📄 In-App HTML Dossier View" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                    <TextBlock Text="Render rich, responsive Active Directory object dossiers, organizational cards, and technical reports." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4" VerticalAlignment="Center">
+                                    <TextBlock Name="TxtHtmlViewStatusBadge" Text="No Object Loaded" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                                </Border>
+                            </Grid>
+
+                            <!-- Address bar & Actions Toolbar -->
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Address bar (DN or SamAccountName) -->
+                                <Grid Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBox Name="TxtHtmlViewDN" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5" ToolTip="Enter Distinguished Name, SamAccountName, or UPN"/>
+                                    <TextBlock Name="TxtHtmlViewDNPlaceholder" Text="Enter DN or sAMAccountName (e.g. jdoe, CN=Administrator,CN=Users,DC=...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
+                                </Grid>
+
+                                <Button Grid.Column="1" Name="BtnHtmlViewGo" Style="{StaticResource PrimaryButton}" Height="30" Content="➔ Go" Padding="12,0" Margin="0,0,8,0"/>
+
+                                <!-- Toolbar buttons & Template selector -->
+                                <WrapPanel Grid.Column="2" Orientation="Horizontal">
+                                    <ComboBox Name="CmbHtmlViewTemplate" Style="{StaticResource ModernComboBox}" Width="170" Height="30" Margin="0,0,6,0" ToolTip="Select HTML Dossier Layout Template">
+                                        <ComboBoxItem Content="Full Technical Dossier" IsSelected="True"/>
+                                        <ComboBoxItem Content="Executive Summary"/>
+                                        <ComboBoxItem Content="Group &amp; Access Audit"/>
+                                        <ComboBoxItem Content="Raw Attributes Only"/>
+                                    </ComboBox>
+                                    <Button Name="BtnHtmlViewRefresh" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Refresh" Margin="0,0,6,0" ToolTip="Reload and re-render current object dossier"/>
+                                    <Button Name="BtnHtmlViewPrint" Style="{StaticResource ModernButton}" Height="30" Content="🖨️ Print" Margin="0,0,6,0" ToolTip="Print this dossier"/>
+                                    <Button Name="BtnHtmlViewCopyHtml" Style="{StaticResource ModernButton}" Height="30" Content="📋 Copy HTML" Margin="0,0,6,0" ToolTip="Copy raw HTML markup to clipboard"/>
+                                    <Button Name="BtnHtmlViewOpenBrowser" Style="{StaticResource ModernButton}" Height="30" Content="🌐 Open in Browser" ToolTip="Open dossier in system web browser"/>
+                                </WrapPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Embedded WebBrowser Control -->
+                    <Border Grid.Row="1" Background="#161821" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6">
+                        <WebBrowser Name="BrowserHtmlView"/>
+                    </Border>
                 </Grid>
 
             </Grid>

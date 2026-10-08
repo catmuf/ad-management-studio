@@ -21,6 +21,8 @@ function Get-AppSettings {
         }
         UI = [PSCustomObject]@{
             Theme                  = "Dark"
+            AccentTone             = "Blue"
+            SyncHtmlViewTheme      = $true
             AutoRefresh            = $false
             RefreshIntervalSeconds = 60
             PageSize               = 500
@@ -71,6 +73,13 @@ function Get-AppSettings {
     if (Test-Path $ConfigPath) {
         try {
             $jsonContent = Get-Content -Path $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if (-not $jsonContent.UI) {
+                $jsonContent | Add-Member -MemberType NoteProperty -Name "UI" -Value $defaultConfig.UI -Force
+            } else {
+                if (-not $jsonContent.UI.Theme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "Theme" -Value "Dark" -Force }
+                if (-not $jsonContent.UI.AccentTone) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AccentTone" -Value "Blue" -Force }
+                if ($null -eq $jsonContent.UI.SyncHtmlViewTheme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "SyncHtmlViewTheme" -Value $true -Force }
+            }
             if (-not $jsonContent.ExternalTools) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "ExternalTools" -Value $defaultConfig.ExternalTools -Force
             }

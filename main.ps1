@@ -106,6 +106,11 @@ $state = [PSCustomObject]@{
     SearchPage             = 1
     CachedOUTree           = $null
     DiscoveredDCs          = @()
+    CurrentHtmlObject      = $null
+    CurrentHtmlDN          = ""
+    CurrentHtmlTemplate    = "Technical"
+    CurrentHtmlRaw         = ""
+    CurrentTheme           = if ($appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Dark" }
 }
 
 function Test-CanModifyDirectory {
@@ -248,6 +253,480 @@ function Populate-AllExternalToolsMenus {
     Populate-ExternalToolsMenu $controls['CtxSearchExternalTools'] { if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null } }
 }
 
+#region Application Theme Engine (Dark / Light Mode)
+$script:OriginalBrushes = @{}
+$script:BrushConverter = New-Object System.Windows.Media.BrushConverter
+
+function Convert-BrushToHex ($brush) {
+    if (-not $brush) { return "" }
+    if ($brush -is [System.Windows.Media.SolidColorBrush]) {
+        return "#" + $brush.Color.ToString().Substring(3).ToUpper()
+    }
+    return ""
+}
+
+$script:ColorMapLight = @{
+    '#14161C' = '#F8FAFC'
+    '#0F1015' = '#F1F5F9'
+    '#13151D' = '#F1F5F9'
+    '#161820' = '#F1F5F9'
+    '#161821' = '#F8FAFC'
+    '#161822' = '#F8FAFC'
+    '#1A1D27' = '#FFFFFF'
+    '#181A22' = '#FFFFFF'
+    '#1E212B' = '#F1F5F9'
+    '#1E212D' = '#F1F5F9'
+    '#252936' = '#FFFFFF'
+    '#111319' = '#FFFFFF'
+    '#1B1E28' = '#F8FAFC'
+    '#292E3E' = '#CBD5E1'
+    '#252A3A' = '#CBD5E1'
+    '#2F3446' = '#CBD5E1'
+    '#334155' = '#CBD5E1'
+    '#2E3345' = '#CBD5E1'
+    '#4B526D' = '#94A3B8'
+    '#FFFFFF' = '#0F172A'
+    '#F3F4F6' = '#0F172A'
+    '#F1F5F9' = '#0F172A'
+    '#E5E7EB' = '#1E293B'
+    '#9CA3AF' = '#475569'
+    '#D1D5DB' = '#334155'
+    '#6B7280' = '#64748B'
+    '#1E293B' = '#E2E8F0'
+}
+
+function Apply-ThemeNode ($node, [string]$targetTheme) {
+    if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
+    $id = $node.GetHashCode()
+
+    if ($targetTheme -eq "Light") {
+        # Cache original brushes if not already cached
+        if (-not $script:OriginalBrushes.ContainsKey($id)) {
+            $script:OriginalBrushes[$id] = @{
+                Bg = $node.Background
+                Fg = if ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock]) { $node.Foreground } else { $null }
+                Border = if ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control]) { $node.BorderBrush } else { $null }
+            }
+        }
+
+        # Apply Light Background
+        if ($node.Background) {
+            $hex = Convert-BrushToHex $node.Background
+            if ($script:ColorMapLight.ContainsKey($hex)) {
+                $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
+            }
+        }
+
+        # Apply Light Foreground
+        if ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock]) {
+            if ($node.Foreground) {
+                $hex = Convert-BrushToHex $node.Foreground
+                if ($script:ColorMapLight.ContainsKey($hex)) {
+                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
+                }
+            }
+        }
+
+        # Apply Light BorderBrush
+        if ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control]) {
+            if ($node.BorderBrush) {
+                $hex = Convert-BrushToHex $node.BorderBrush
+                if ($script:ColorMapLight.ContainsKey($hex)) {
+                    $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
+                }
+            }
+        }
+
+        # DataGrid specific styling in Light Mode
+        if ($node -is [System.Windows.Controls.DataGrid]) {
+            $node.Background = $script:BrushConverter.ConvertFromString("#FFFFFF")
+            $node.RowBackground = $script:BrushConverter.ConvertFromString("#FFFFFF")
+            $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#F8FAFC")
+            $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
+        }
+    } else {
+        # Restore Dark Mode from cached originals
+        if ($script:OriginalBrushes.ContainsKey($id)) {
+            $saved = $script:OriginalBrushes[$id]
+            if ($null -ne $saved.Bg) { $node.Background = $saved.Bg }
+            if ($null -ne $saved.Fg -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+                $node.Foreground = $saved.Fg
+            }
+            if ($null -ne $saved.Border -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+                $node.BorderBrush = $saved.Border
+            }
+        }
+        if ($node -is [System.Windows.Controls.DataGrid]) {
+            $node.Background = $script:BrushConverter.ConvertFromString("#161821")
+            $node.RowBackground = $script:BrushConverter.ConvertFromString("#161820")
+            $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#1B1E28")
+            $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#252936")
+        }
+    }
+
+    foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($node)) {
+        if ($child -is [System.Windows.FrameworkElement]) {
+            Apply-ThemeNode $child $targetTheme
+        }
+    }
+}
+
+function Set-ApplicationTheme {
+    [CmdletBinding()]
+    param (
+        [ValidateSet("Dark", "Light")]
+        [string]$Theme = "Dark",
+
+        [string]$AccentTone = "Blue",
+
+        [switch]$SavePreference
+    )
+
+    $isLight = ($Theme -eq "Light")
+    $state.CurrentTheme = $Theme
+
+    # 1. Update Window Resource Brushes
+    $bgDarkVal     = if ($isLight) { "#F1F5F9" } else { "#0F1015" }
+    $bgSidebarVal  = if ($isLight) { "#F1F5F9" } else { "#161820" }
+    $bgSurfaceVal  = if ($isLight) { "#F8FAFC" } else { "#1E212B" }
+    $bgCardVal     = if ($isLight) { "#FFFFFF" } else { "#252936" }
+    $bgInputVal    = if ($isLight) { "#FFFFFF" } else { "#181A22" }
+    $borderVal     = if ($isLight) { "#CBD5E1" } else { "#2F3446" }
+    $textPriVal    = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
+    $textSecVal    = if ($isLight) { "#475569" } else { "#9CA3AF" }
+    $textMutVal    = if ($isLight) { "#64748B" } else { "#6B7280" }
+
+    $window.Resources["BgDark"]           = $script:BrushConverter.ConvertFromString($bgDarkVal)
+    $window.Resources["BgSidebar"]        = $script:BrushConverter.ConvertFromString($bgSidebarVal)
+    $window.Resources["BgSurface"]        = $script:BrushConverter.ConvertFromString($bgSurfaceVal)
+    $window.Resources["BgCard"]           = $script:BrushConverter.ConvertFromString($bgCardVal)
+    $window.Resources["BgInput"]          = $script:BrushConverter.ConvertFromString($bgInputVal)
+    $window.Resources["BorderBrushColor"] = $script:BrushConverter.ConvertFromString($borderVal)
+    $window.Resources["TextPrimary"]      = $script:BrushConverter.ConvertFromString($textPriVal)
+    $window.Resources["TextSecondary"]    = $script:BrushConverter.ConvertFromString($textSecVal)
+    $window.Resources["TextMuted"]        = $script:BrushConverter.ConvertFromString($textMutVal)
+
+    # Accent tone handling
+    $accentHex = switch -Wildcard ($AccentTone) {
+        "*Sky*"     { "#0284C7" }
+        "*Emerald*" { "#107C41" }
+        "*Indigo*"  { "#4F46E5" }
+        "*Amber*"   { "#D97706" }
+        default     { "#0078D4" }
+    }
+    $window.Resources["AccentPrimary"] = $script:BrushConverter.ConvertFromString($accentHex)
+
+    # 2. Apply theme recursively across visual tree
+    Apply-ThemeNode $window $Theme
+
+    # 3. Update Quick Theme Toggle button
+    if ($controls['TxtQuickThemeIcon']) {
+        $controls['TxtQuickThemeIcon'].Text = if ($isLight) { [char]::ConvertFromUtf32(0x2600) } else { [char]::ConvertFromUtf32(0x1F319) }
+    }
+    if ($controls['BtnQuickThemeToggle']) {
+        $controls['BtnQuickThemeToggle'].ToolTip = if ($isLight) { "Switch to Dark Mode (Ctrl+T)" } else { "Switch to Light Mode (Ctrl+T)" }
+    }
+
+    # 4. Synchronize Settings ComboBox
+    if ($controls['CmbThemeMode']) {
+        $targetIndex = if ($isLight) { 1 } else { 0 }
+        if ($controls['CmbThemeMode'].SelectedIndex -ne $targetIndex) {
+            $controls['CmbThemeMode'].SelectedIndex = $targetIndex
+        }
+    }
+
+    # 5. Synchronize In-App HTML View if active and sync enabled
+    if ($state.CurrentHtmlDN -and $appConfig.UI.SyncHtmlViewTheme) {
+        Refresh-HtmlViewUI
+    }
+
+    # 6. Save Preference to config
+    if ($SavePreference) {
+        $appConfig.UI.Theme = $Theme
+        $appConfig.UI.AccentTone = $AccentTone
+        [void](Save-AppSettings -Config $appConfig)
+        Set-Status -Message "Theme updated to $Theme Mode."
+    }
+}
+
+# Wire Quick Theme Toggle button
+if ($controls['BtnQuickThemeToggle']) {
+    $controls['BtnQuickThemeToggle'].Add_Click({
+        $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
+        Set-ApplicationTheme -Theme $newTheme -SavePreference
+    })
+}
+
+# Wire Settings Appearance Controls
+if ($controls['CmbThemeMode']) {
+    $controls['CmbThemeMode'].Add_SelectionChanged({
+        $newTheme = if ($controls['CmbThemeMode'].SelectedIndex -eq 1) { "Light" } else { "Dark" }
+        if ($newTheme -ne $state.CurrentTheme) {
+            Set-ApplicationTheme -Theme $newTheme -SavePreference
+        }
+    })
+}
+
+if ($controls['CmbAccentTone']) {
+    $controls['CmbAccentTone'].Add_SelectionChanged({
+        $selTone = if ($controls['CmbAccentTone'].SelectedItem) { "$($controls['CmbAccentTone'].SelectedItem.Content)" } else { "Blue" }
+        Set-ApplicationTheme -Theme $state.CurrentTheme -AccentTone $selTone -SavePreference
+    })
+}
+#endregion
+
+#region 18. In-App HTML Dossier View Logic
+function Init-HtmlViewUI {
+    if (-not $state.CurrentHtmlDN) {
+        # Show elegant welcome landing page
+        $isLight = ($state.CurrentTheme -eq "Light")
+        $bg = if ($isLight) { "#F8FAFC" } else { "#0E1017" }
+        $cardBg = if ($isLight) { "#FFFFFF" } else { "#161922" }
+        $border = if ($isLight) { "#CBD5E1" } else { "#262B3D" }
+        $fg = if ($isLight) { "#0F172A" } else { "#F1F5F9" }
+        $sub = if ($isLight) { "#475569" } else { "#94A3B8" }
+        $accent = if ($isLight) { "#0284C7" } else { "#38BDF8" }
+
+        $welcomeHtml = @"
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: $bg; color: $fg; padding: 40px 20px; text-align: center; }
+    .hero { max-width: 650px; margin: 40px auto; background: $cardBg; border: 1px solid $border; border-radius: 12px; padding: 36px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h1 { color: $accent; font-size: 24px; margin-bottom: 12px; }
+    p { color: $sub; font-size: 14px; line-height: 1.6; }
+    .features { text-align: left; margin: 24px 0; padding-left: 20px; font-size: 13px; color: $sub; }
+    .features li { margin-bottom: 8px; }
+    .badge { display: inline-block; background: $accent; color: #FFFFFF; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: bold; margin-bottom: 14px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+    <div class="hero">
+        <span class="badge">Softerra LDAP Administrator Parity</span>
+        <h1>&#x1F4C4; Active Directory HTML Dossier View</h1>
+        <p>Interactive, web-formatted directory entry cards with real-time status pills, manager hierarchy, and full technical attributes.</p>
+        <ul class="features">
+            <li>&#x1F50D; <b>Address Bar:</b> Type any username (sAMAccountName) or Distinguished Name and click <b>Go</b>.</li>
+            <li>&#x1F4C6; <b>Context Menus:</b> Right-click any User, Group, Computer, or OU across the app and select <b>View HTML Dossier</b>.</li>
+            <li>&#x1F3A8; <b>Multi-Template:</b> Switch between Technical Dossier, Executive Summary, Group Audit, and Raw Attributes.</li>
+            <li>&#x1F5B6;&#xFE0F; <b>Print &amp; Share:</b> Print high-contrast report cards or open in external browser.</li>
+        </ul>
+        <p style="font-size: 12px; color: $accent;">Ready: Select an object or enter a query above to render.</p>
+    </div>
+</body>
+</html>
+"@
+        if ($controls['BrowserHtmlView']) {
+            $controls['BrowserHtmlView'].NavigateToString($welcomeHtml)
+        }
+    }
+}
+
+function Show-ObjectHtmlView {
+    [CmdletBinding()]
+    param (
+        $Identity,
+        [string]$Template = ""
+    )
+
+    try {
+        if (-not $Identity) {
+            [System.Windows.MessageBox]::Show("Please select or specify a directory object to view.", "Object Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+
+        # Resolve DN and Target Object
+        $targetObj = $null
+        $targetDN = ""
+
+        if ($Identity -is [string]) {
+            $targetDN = $Identity.Trim()
+            # If sAMAccountName or simple name without DC=, query user or group
+            if ($targetDN -notmatch 'DC=') {
+                $user = Get-ADUsersQuick -Filter "*$targetDN*" | Where-Object { $_.SamAccountName -ieq $targetDN -or $_.Name -ieq $targetDN } | Select-Object -First 1
+                if ($user) {
+                    $targetObj = $user
+                    $targetDN = if ($user.DistinguishedName) { $user.DistinguishedName } else { $user.DN }
+                } else {
+                    $targetObj = [PSCustomObject]@{ SamAccountName = $targetDN; DisplayName = $targetDN; DistinguishedName = $targetDN; Status = "Unknown" }
+                }
+            } else {
+                $targetObj = [PSCustomObject]@{ DistinguishedName = $targetDN; DisplayName = ($targetDN -split ',')[0] -replace '^CN=|^OU=', '' }
+            }
+        } elseif ($Identity -is [System.Collections.IDictionary] -or $Identity.PSObject) {
+            $targetObj = $Identity
+            $targetDN = if ($Identity.DistinguishedName) { $Identity.DistinguishedName } elseif ($Identity.DN) { $Identity.DN } else { "" }
+        }
+
+        if (-not $targetDN) {
+            [System.Windows.MessageBox]::Show("Unable to resolve Distinguished Name for object.", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            return
+        }
+
+        Set-Status -Message "Loading HTML Dossier for $targetDN..."
+
+        # Resolve extended properties & raw attributes
+        $attrs = @()
+        try {
+            $attrs = Get-ADObjectRawAttributes -DistinguishedName $targetDN -IncludeOperational:$true
+        } catch { }
+
+        # Resolve template
+        $activeTemplate = if ($Template) { $Template } elseif ($controls['CmbHtmlViewTemplate']) {
+            switch ($controls['CmbHtmlViewTemplate'].SelectedIndex) {
+                1 { "Executive" }
+                2 { "Groups" }
+                3 { "Raw" }
+                default { "Technical" }
+            }
+        } else { "Technical" }
+
+        # Resolve theme
+        $themeToUse = if ($appConfig.UI.SyncHtmlViewTheme -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+
+        # Generate HTML
+        $html = Get-ADObjectHtmlContent -ObjectDetail $targetObj -Attributes $attrs -Theme $themeToUse -Template $activeTemplate
+
+        # Cache in state
+        $state.CurrentHtmlObject   = $targetObj
+        $state.CurrentHtmlDN       = $targetDN
+        $state.CurrentHtmlTemplate = $activeTemplate
+        $state.CurrentHtmlRaw      = $html
+
+        # Update UI controls
+        if ($controls['TxtHtmlViewDN']) {
+            $controls['TxtHtmlViewDN'].Text = $targetDN
+        }
+        if ($controls['TxtHtmlViewDNPlaceholder']) {
+            $controls['TxtHtmlViewDNPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed
+        }
+        if ($controls['TxtHtmlViewStatusBadge']) {
+            $nameDisp = if ($targetObj.DisplayName) { $targetObj.DisplayName } elseif ($targetObj.Name) { $targetObj.Name } else { ($targetDN -split ',')[0] }
+            $controls['TxtHtmlViewStatusBadge'].Text = "$nameDisp"
+        }
+
+        # Navigate Browser
+        if ($controls['BrowserHtmlView']) {
+            $controls['BrowserHtmlView'].NavigateToString($html)
+        }
+
+        # Navigate to panel
+        Show-Panel "HtmlView"
+        if ($controls['NavHtmlView']) {
+            $controls['NavHtmlView'].IsChecked = $true
+        }
+
+        Set-Status -Message "HTML Dossier loaded successfully ($activeTemplate template)."
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Failed to render HTML Dossier: $_", "Render Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+        Set-Status -Message "Error rendering HTML dossier: $_"
+    }
+}
+
+function Refresh-HtmlViewUI {
+    if ($state.CurrentHtmlDN) {
+        Show-ObjectHtmlView -Identity $state.CurrentHtmlDN -Template $state.CurrentHtmlTemplate
+    } else {
+        Init-HtmlViewUI
+    }
+}
+
+# Wire HTML View Toolbar Controls
+if ($controls['BtnHtmlViewGo']) {
+    $controls['BtnHtmlViewGo'].Add_Click({
+        $inputDn = if ($controls['TxtHtmlViewDN']) { $controls['TxtHtmlViewDN'].Text.Trim() } else { "" }
+        if ($inputDn) {
+            Show-ObjectHtmlView -Identity $inputDn
+        } else {
+            [System.Windows.MessageBox]::Show("Please enter a username or Distinguished Name.", "Input Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+        }
+    })
+}
+
+if ($controls['TxtHtmlViewDN']) {
+    $controls['TxtHtmlViewDN'].Add_KeyDown({
+        param($sender, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Return) {
+            if ($controls['BtnHtmlViewGo']) { $controls['BtnHtmlViewGo'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
+        }
+    })
+    $controls['TxtHtmlViewDN'].Add_TextChanged({
+        if ($controls['TxtHtmlViewDNPlaceholder']) {
+            $hasText = [string]::IsNullOrEmpty($controls['TxtHtmlViewDN'].Text)
+            $controls['TxtHtmlViewDNPlaceholder'].Visibility = if ($hasText) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        }
+    })
+}
+
+if ($controls['BtnHtmlViewRefresh']) {
+    $controls['BtnHtmlViewRefresh'].Add_Click({ Refresh-HtmlViewUI })
+}
+
+if ($controls['BtnHtmlViewPrint']) {
+    $controls['BtnHtmlViewPrint'].Add_Click({
+        if ($controls['BrowserHtmlView'] -and $controls['BrowserHtmlView'].Document) {
+            try {
+                $controls['BrowserHtmlView'].Document.parentWindow.execScript("window.print()")
+            } catch {
+                try { $controls['BrowserHtmlView'].Document.execCommand("Print", $true, $null) } catch { }
+            }
+        }
+    })
+}
+
+if ($controls['BtnHtmlViewCopyHtml']) {
+    $controls['BtnHtmlViewCopyHtml'].Add_Click({
+        if ($state.CurrentHtmlRaw) {
+            $copied = $false
+            for ($retry = 0; $retry -lt 5; $retry++) {
+                try {
+                    [System.Windows.Clipboard]::SetDataObject($state.CurrentHtmlRaw, $true)
+                    $copied = $true
+                    break
+                } catch {
+                    Start-Sleep -Milliseconds 60
+                }
+            }
+            if ($copied) {
+                Set-Status -Message "HTML markup copied to clipboard."
+            } else {
+                Set-Status -Message "Clipboard unavailable (locked by another process)." -IsWarning
+            }
+        }
+    })
+}
+
+if ($controls['BtnHtmlViewOpenBrowser']) {
+    $controls['BtnHtmlViewOpenBrowser'].Add_Click({
+        if ($state.CurrentHtmlRaw) {
+            $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "AD_Dossier_$([System.IO.Path]::GetRandomFileName()).html")
+            [System.IO.File]::WriteAllText($tempPath, $state.CurrentHtmlRaw, [System.Text.Encoding]::UTF8)
+            Start-Process $tempPath
+            Set-Status -Message "Opened dossier in default system browser."
+        }
+    })
+}
+
+if ($controls['CmbHtmlViewTemplate']) {
+    $controls['CmbHtmlViewTemplate'].Add_SelectionChanged({
+        if ($state.CurrentHtmlDN) {
+            $tpl = switch ($controls['CmbHtmlViewTemplate'].SelectedIndex) {
+                1 { "Executive" }
+                2 { "Groups" }
+                3 { "Raw" }
+                default { "Technical" }
+            }
+            if ($tpl -ne $state.CurrentHtmlTemplate) {
+                Show-ObjectHtmlView -Identity $state.CurrentHtmlDN -Template $tpl
+            }
+        }
+    })
+}
+#endregion
+
 # Update Top Header Ribbon
 if ($adContext.IsConnected) {
     if ($controls['TxtDomainBadge'])  { $controls['TxtDomainBadge'].Text = "Connected: $($adContext.DomainName)" }
@@ -347,7 +826,7 @@ function Show-Panel {
     param ([string]$PanelName)
     $panels = @(
         'PanelDashboard', 'PanelUsers', 'PanelGroups', 'PanelOUs', 'PanelComputers',
-        'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelObjectCompare',
+        'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelHtmlView', 'PanelObjectCompare',
         'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
         'PanelBasket', 'PanelRequestLog',
         'PanelRecycleBin', 'PanelServerMonitor',
@@ -408,6 +887,7 @@ if ($controls['NavComputers'])       { $controls['NavComputers'].Add_Checked({ S
 if ($controls['NavDirectorySearch']) { $controls['NavDirectorySearch'].Add_Checked({ Show-Panel "DirectorySearch"; Init-DirectorySearch }) }
 if ($controls['NavLdapSql'])         { $controls['NavLdapSql'].Add_Checked({ Show-Panel "LdapSql" }) }
 if ($controls['NavAttributeEditor']) { $controls['NavAttributeEditor'].Add_Checked({ Show-Panel "AttributeEditor" }) }
+if ($controls['NavHtmlView'])        { $controls['NavHtmlView'].Add_Checked({ Show-Panel "HtmlView"; Init-HtmlViewUI }) }
 if ($controls['NavObjectCompare'])   { $controls['NavObjectCompare'].Add_Checked({ Show-Panel "ObjectCompare" }) }
 if ($controls['NavLdifStudio'])      { $controls['NavLdifStudio'].Add_Checked({ Show-Panel "LdifStudio"; Init-LdifStudio }) }
 if ($controls['NavAuditReports'])    { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports"; Refresh-CustomReportsDropdown }) }
@@ -7052,6 +7532,12 @@ if ($controls['CtxUserViewDetails']) {
 if ($controls['CtxUserViewHtml']) {
     $controls['CtxUserViewHtml'].Add_Click({
         $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u) { Show-ObjectHtmlView -Identity $u }
+    })
+}
+if ($controls['CtxUserOpenBrowser']) {
+    $controls['CtxUserOpenBrowser'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
         if ($u) { Show-ObjectHtmlDossier -TargetObject $u }
     })
 }
@@ -7138,6 +7624,18 @@ if ($controls['CtxGroupCompare']) {
             if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $g.DistinguishedName }
             else { $controls['TxtCompareObjectB'].Text = $g.DistinguishedName }
         }
+    })
+}
+if ($controls['CtxGroupViewHtml']) {
+    $controls['CtxGroupViewHtml'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Show-ObjectHtmlView -Identity $g }
+    })
+}
+if ($controls['CtxGroupOpenBrowser']) {
+    $controls['CtxGroupOpenBrowser'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g) { Show-ObjectHtmlDossier -TargetObject $g }
     })
 }
 
@@ -7301,6 +7799,12 @@ if ($controls['CtxOuObjCompare']) {
 if ($controls['CtxOUObjViewHtml']) {
     $controls['CtxOUObjViewHtml'].Add_Click({
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
+        if ($obj) { Show-ObjectHtmlView -Identity $obj }
+    })
+}
+if ($controls['CtxOUObjOpenBrowser']) {
+    $controls['CtxOUObjOpenBrowser'].Add_Click({
+        $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
         if ($obj) { Show-ObjectHtmlDossier -TargetObject $obj }
     })
 }
@@ -7406,6 +7910,12 @@ if ($controls['CtxCompCompare']) {
 if ($controls['CtxCompViewHtml']) {
     $controls['CtxCompViewHtml'].Add_Click({
         $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c) { Show-ObjectHtmlView -Identity $c }
+    })
+}
+if ($controls['CtxCompOpenBrowser']) {
+    $controls['CtxCompOpenBrowser'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
         if ($c) { Show-ObjectHtmlDossier -TargetObject $c }
     })
 }
@@ -7481,6 +7991,12 @@ if ($controls['CtxSearchCompare']) {
 }
 if ($controls['CtxSearchViewHtml']) {
     $controls['CtxSearchViewHtml'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s) { Show-ObjectHtmlView -Identity $s }
+    })
+}
+if ($controls['CtxSearchOpenBrowser']) {
+    $controls['CtxSearchOpenBrowser'].Add_Click({
         $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
         if ($s) { Show-ObjectHtmlDossier -TargetObject $s }
     })
@@ -7570,7 +8086,10 @@ function Load-SettingsPanel {
     if ($controls['ChkAutoDetect']) { $controls['ChkAutoDetect'].IsChecked = $true }
     if ($controls['TxtCfgSearchBase']) { $controls['TxtCfgSearchBase'].Text = $appConfig.Domain.SearchBase }
     if ($controls['TxtCfgPasswordLength']) { $controls['TxtCfgPasswordLength'].Text = $appConfig.Defaults.PasswordLength.ToString() }
-    if ($controls['ChkCfgRequirePwChange']) { $controls['ChkCfgRequirePwChange'].IsChecked = $appConfig.Defaults.RequirePasswordChange }
+    if ($controls['ChkCfgRequirePwChange']) {
+        $reqPw = if ($null -ne $appConfig.Defaults.PasswordRequireChange) { $appConfig.Defaults.PasswordRequireChange } else { $appConfig.Defaults.RequirePasswordChange }
+        $controls['ChkCfgRequirePwChange'].IsChecked = [bool]$reqPw
+    }
     if ($controls['CmbUsernameFormat']) {
         $fmt = if ($appConfig.Defaults.UsernameFormat) { $appConfig.Defaults.UsernameFormat } else { "first.last" }
         $controls['CmbUsernameFormat'].SelectedIndex = if ($fmt -eq "flast") { 1 } else { 0 }
@@ -7578,6 +8097,22 @@ function Load-SettingsPanel {
     if ($controls['CmbExportDelimiter']) {
         $delim = if ($appConfig.Defaults.ExportDelimiter) { $appConfig.Defaults.ExportDelimiter } else { ";" }
         $controls['CmbExportDelimiter'].SelectedIndex = if ($delim -eq ",") { 1 } else { 0 }
+    }
+    if ($controls['CmbThemeMode']) {
+        $controls['CmbThemeMode'].SelectedIndex = if ($appConfig.UI.Theme -eq "Light") { 1 } else { 0 }
+    }
+    if ($controls['CmbAccentTone']) {
+        $toneIdx = switch -Wildcard ($appConfig.UI.AccentTone) {
+            "*Sky*"     { 1 }
+            "*Emerald*" { 2 }
+            "*Indigo*"  { 3 }
+            "*Amber*"   { 4 }
+            default     { 0 }
+        }
+        $controls['CmbAccentTone'].SelectedIndex = $toneIdx
+    }
+    if ($controls['ChkThemeAutoSync']) {
+        $controls['ChkThemeAutoSync'].IsChecked = if ($null -ne $appConfig.UI.SyncHtmlViewTheme) { [bool]$appConfig.UI.SyncHtmlViewTheme } else { $true }
     }
     if ($controls['GridExternalTools']) {
         $controls['GridExternalTools'].ItemsSource = $null
@@ -7693,7 +8228,14 @@ if ($controls['BtnSaveSettings']) {
         }
 
         if ($controls['ChkCfgRequirePwChange']) {
-            $appConfig.Defaults.RequirePasswordChange = [bool]$controls['ChkCfgRequirePwChange'].IsChecked
+            $val = [bool]$controls['ChkCfgRequirePwChange'].IsChecked
+            if ($appConfig.Defaults.PSObject.Properties['PasswordRequireChange']) {
+                $appConfig.Defaults.PasswordRequireChange = $val
+            } elseif ($appConfig.Defaults.PSObject.Properties['RequirePasswordChange']) {
+                $appConfig.Defaults.RequirePasswordChange = $val
+            } else {
+                $appConfig.Defaults | Add-Member -MemberType NoteProperty -Name "PasswordRequireChange" -Value $val -Force
+            }
         }
 
         if ($controls['CmbUsernameFormat']) {
@@ -7702,6 +8244,24 @@ if ($controls['BtnSaveSettings']) {
 
         if ($controls['CmbExportDelimiter']) {
             $appConfig.Defaults.ExportDelimiter = if ($controls['CmbExportDelimiter'].SelectedIndex -eq 1) { "," } else { ";" }
+        }
+
+        if ($controls['CmbThemeMode']) {
+            $appConfig.UI.Theme = if ($controls['CmbThemeMode'].SelectedIndex -eq 1) { "Light" } else { "Dark" }
+        }
+
+        if ($controls['CmbAccentTone']) {
+            $appConfig.UI.AccentTone = switch ($controls['CmbAccentTone'].SelectedIndex) {
+                1 { "Sky" }
+                2 { "Emerald" }
+                3 { "Indigo" }
+                4 { "Amber" }
+                default { "Blue" }
+            }
+        }
+
+        if ($controls['ChkThemeAutoSync']) {
+            $appConfig.UI.SyncHtmlViewTheme = [bool]$controls['ChkThemeAutoSync'].IsChecked
         }
 
         $appConfig.ExternalTools = @($state.ExternalTools)
@@ -7725,10 +8285,23 @@ function Refresh-All {
 
 # Initial Window Launch
 $window.Add_Loaded({
+    if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
+        Set-ApplicationTheme -Theme "Light" -AccentTone $appConfig.UI.AccentTone
+    }
     Refresh-All
     Refresh-Connections
     Populate-SearchAttributeDropdowns
     Populate-AllExternalToolsMenus
+})
+
+# Keyboard shortcut: Ctrl+T for quick theme toggle
+$window.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+        $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
+        Set-ApplicationTheme -Theme $newTheme -SavePreference
+        $e.Handled = $true
+    }
 })
 
 # Show Main Window
