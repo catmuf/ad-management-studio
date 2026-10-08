@@ -543,7 +543,7 @@
         </Grid.RowDefinitions>
 
         <!-- TOP APP BAR -->
-        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="16,0">
+        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="10,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/> <!-- Logo, Profiles & Bookmarks -->
@@ -553,43 +553,43 @@
 
                 <!-- Left: Branding & Profile Selector with Navigation History -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Name="BtnNavBack" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="◀" Margin="0,0,4,0" ToolTip="Navigate Back (Alt+Left)" IsEnabled="False"/>
-                    <Button Name="BtnNavForward" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="▶" Margin="0,0,10,0" ToolTip="Navigate Forward (Alt+Right)" IsEnabled="False"/>
-                    <TextBlock Text="⚡" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimary}"/>
-                        <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="10" Foreground="#60A5FA"/>
+                    <Button Name="BtnNavBack" Style="{StaticResource ModernButton}" Width="26" Height="26" Padding="0" Content="◀" Margin="0,0,3,0" ToolTip="Navigate Back (Alt+Left)" IsEnabled="False"/>
+                    <Button Name="BtnNavForward" Style="{StaticResource ModernButton}" Width="26" Height="26" Padding="0" Content="▶" Margin="0,0,8,0" ToolTip="Navigate Forward (Alt+Right)" IsEnabled="False"/>
+                    <TextBlock Text="⚡" FontSize="18" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                        <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="9.5" Foreground="#60A5FA"/>
                     </StackPanel>
 
-                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" MinWidth="150" MaxWidth="220" Height="28" FontSize="11" Margin="0,0,8,0" ToolTip="Active Directory Connection Profile / Domain Controller">
+                    <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" Width="145" Height="28" FontSize="11" Margin="0,0,6,0" ToolTip="Active Directory Connection Profile / Domain Controller">
                         <ComboBoxItem Content="Default (Auto-Detect)" IsSelected="True"/>
                     </ComboBox>
 
                     <!-- Bookmarks / Favorites Dropdown (Apache Studio & Softerra Favorites Parity) -->
-                    <ComboBox Name="CmbBookmarks" Style="{StaticResource ModernComboBox}" MinWidth="130" MaxWidth="190" Height="28" FontSize="11" Margin="0,0,4,0" ToolTip="Directory Favorites &amp; Bookmarks">
+                    <ComboBox Name="CmbBookmarks" Style="{StaticResource ModernComboBox}" Width="110" Height="28" FontSize="11" Margin="0,0,3,0" ToolTip="Directory Favorites &amp; Bookmarks">
                         <ComboBoxItem Content="⭐ Favorites..." IsSelected="True"/>
                     </ComboBox>
-                    <Button Name="BtnAddBookmark" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="⭐" Margin="0,0,10,0" ToolTip="Bookmark Current Selection (Ctrl+D)"/>
+                    <Button Name="BtnAddBookmark" Style="{StaticResource ModernButton}" Width="26" Height="28" Padding="0" Content="⭐" Margin="0,0,8,0" ToolTip="Bookmark Current Selection (Ctrl+D)"/>
                 </StackPanel>
 
                 <!-- Center: Connection Telemetry Badge -->
-                <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="16" Padding="14,4">
+                <Border Name="BorderTelemetryBadge" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="16" Padding="10,3" ClipToBounds="True">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Name="StatusDot" Width="8" Height="8" Fill="#107C41" Margin="0,0,8,0"/>
-                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text=" | DC: " FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
-                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="{DynamicResource TextSecondary}" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text=" | " FontSize="12" Foreground="{DynamicResource TextMuted}"/>
-                        <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                        <Ellipse Name="StatusDot" Width="8" Height="8" Fill="#107C41" Margin="0,0,6,0"/>
+                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" MaxWidth="100" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text=" | DC: " FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="11" Foreground="{DynamicResource TextSecondary}" MaxWidth="105" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text=" | " FontSize="11" Foreground="{DynamicResource TextMuted}"/>
+                        <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="10.5" Foreground="#38BDF8" FontWeight="SemiBold"/>
 
                         <!-- Read-Only Profile Mode Badge (Softerra Parity) -->
-                        <Border Name="BorderReadOnlyBadge" Background="#D97706" CornerRadius="10" Padding="8,1" Margin="8,0,0,0" Visibility="Collapsed" ToolTip="Directory modifications are locked for this server profile">
-                            <TextBlock Text="🔒 READ-ONLY" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <Border Name="BorderReadOnlyBadge" Background="#D97706" CornerRadius="10" Padding="6,1" Margin="6,0,0,0" Visibility="Collapsed" ToolTip="Directory modifications are locked for this server profile">
+                            <TextBlock Text="🔒 READ-ONLY" FontSize="9.5" FontWeight="Bold" Foreground="#FFFFFF"/>
                         </Border>
 
                         <!-- Process Elevation Status Badge (NetTools Parity) -->
-                        <Border Name="BorderElevationBadge" Background="#107C41" CornerRadius="10" Padding="8,1" Margin="8,0,0,0" ToolTip="Process security privilege token status">
-                            <TextBlock Name="TxtElevationStatus" Text="🛡️ ELEVATED" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <Border Name="BorderElevationBadge" Background="#107C41" CornerRadius="10" Padding="6,1" Margin="6,0,0,0" ToolTip="Process security privilege token status">
+                            <TextBlock Name="TxtElevationStatus" Text="🛡️ ELEVATED" FontSize="9.5" FontWeight="Bold" Foreground="#FFFFFF"/>
                         </Border>
                     </StackPanel>
                 </Border>
@@ -597,9 +597,9 @@
                 <!-- Right: Quick Search, Diagnostics & Refresh -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity) -->
-                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
-                        <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="240" Height="28" Tag="🔍 Quick search (User, Group, OU)..." FontSize="11" Padding="6,4"/>
-                        <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="380" MaxHeight="320">
+                    <Grid Margin="0,0,6,0" VerticalAlignment="Center">
+                        <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="150" Height="28" Tag="🔍 Quick search..." FontSize="11" Padding="6,4"/>
+                        <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="360" MaxHeight="320">
                             <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,4,0,0">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -609,7 +609,7 @@
                                     <TextBlock Grid.Row="0" Name="TxtGlobalSearchStatus" Text="Quick Search Results" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}" Margin="6,4,6,6"/>
                                     <ListBox Grid.Row="1" Name="ListGlobalSearchResults" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="250">
                                         <ListBox.ItemTemplate>
-                                            <DataTemplate>
+                                             <DataTemplate>
                                                 <Grid Margin="2,4">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto"/>
@@ -632,59 +632,59 @@
                     </Grid>
 
                     <!-- Resolver Scratchpad Quick Button (Ctrl+R) -->
-                    <Button Name="BtnHeaderResolver" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Open Resolver Scratchpad: Bulk parse and resolve entities (Ctrl+R)">
+                    <Button Name="BtnHeaderResolver" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Open Resolver Scratchpad: Bulk parse and resolve entities (Ctrl+R)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📝" Margin="0,0,5,0"/>
-                            <TextBlock Text="Resolver"/>
+                            <TextBlock Text="📝" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderResolver" Text="Resolver"/>
                         </StackPanel>
                     </Button>
 
                     <!-- Quick Lockout Investigator -->
-                    <Button Name="BtnHeaderLockout" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Quick Account Lockout Investigator &amp; Unlocker">
+                    <Button Name="BtnHeaderLockout" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Quick Account Lockout Investigator &amp; Unlocker">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔓" Margin="0,0,5,0"/>
-                            <TextBlock Text="Lockout"/>
+                            <TextBlock Text="🔓" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderLockout" Text="Lockout"/>
                         </StackPanel>
                     </Button>
 
                     <!-- Pinned Suite Launchers -->
-                    <Button Name="BtnHeaderGpoExplorer" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Launch Group Policy Explorer &amp; GPOTool Multi-DC Consistency">
+                    <Button Name="BtnHeaderGpoExplorer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Group Policy Explorer &amp; GPOTool Multi-DC Consistency">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📜" Margin="0,0,5,0"/>
-                            <TextBlock Text="GPO Explorer"/>
+                            <TextBlock Text="📜" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderGpo" Text="GPO"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnHeaderAsn1Viewer" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Launch ASN.1 Structure &amp; Synchronized Hex Dump Viewer">
+                    <Button Name="BtnHeaderAsn1Viewer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch ASN.1 Structure &amp; Synchronized Hex Dump Viewer">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔬" Margin="0,0,5,0"/>
-                            <TextBlock Text="ASN.1"/>
+                            <TextBlock Text="🔬" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderAsn1" Text="ASN.1"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnHeaderDiffViewer" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Launch Side-by-Side Value &amp; Attribute Diff Viewer">
+                    <Button Name="BtnHeaderDiffViewer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Side-by-Side Value &amp; Attribute Diff Viewer">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚖️" Margin="0,0,5,0"/>
-                            <TextBlock Text="Diff"/>
+                            <TextBlock Text="⚖️" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderDiff" Text="Diff"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5">
+                    <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Directory Diagnostics &amp; Port Monitor">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📡" Margin="0,0,5,0"/>
-                            <TextBlock Text="Diagnostics"/>
+                            <TextBlock Text="📡" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderDiag" Text="Diag"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Padding="10,5">
+                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Refresh All Directory Data (F5)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔄" Margin="0,0,5,0"/>
-                            <TextBlock Text="Refresh All"/>
+                            <TextBlock Text="🔄" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderRefresh" Text="Refresh"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Margin="6,0,0,0" Padding="8,5" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
-                        <TextBlock Name="TxtQuickThemeIcon" Text="🌙" FontSize="13"/>
+                    <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Width="28" Height="28" Margin="2,0,0,0" Padding="0" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
+                        <TextBlock Name="TxtQuickThemeIcon" Text="🌙" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
                 </StackPanel>
             </Grid>

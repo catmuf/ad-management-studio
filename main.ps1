@@ -9973,6 +9973,27 @@ function Refresh-All {
     if ($controls['NavComputers'] -and $controls['NavComputers'].IsChecked) { Refresh-Computers }
 }
 
+function Update-HeaderLayoutResponsive {
+    $w = if ($window.ActualWidth -gt 0) { $window.ActualWidth } else { $window.Width }
+    
+    # Text labels on header buttons collapse when window is under 1240px
+    $showFullLabels = ($w -ge 1240)
+    $labelVis = if ($showFullLabels) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    
+    if ($controls['TxtHeaderResolver']) { $controls['TxtHeaderResolver'].Visibility = $labelVis }
+    if ($controls['TxtHeaderLockout'])  { $controls['TxtHeaderLockout'].Visibility  = $labelVis }
+    if ($controls['TxtHeaderGpo'])      { $controls['TxtHeaderGpo'].Visibility      = $labelVis }
+    if ($controls['TxtHeaderAsn1'])     { $controls['TxtHeaderAsn1'].Visibility     = $labelVis }
+    if ($controls['TxtHeaderDiff'])     { $controls['TxtHeaderDiff'].Visibility     = $labelVis }
+    if ($controls['TxtHeaderDiag'])     { $controls['TxtHeaderDiag'].Visibility     = $labelVis }
+    if ($controls['TxtHeaderRefresh'])  { $controls['TxtHeaderRefresh'].Visibility  = $labelVis }
+
+    # Telemetry badge in center only displays when there is ample width (>= 1380px)
+    if ($controls['BorderTelemetryBadge']) {
+        $controls['BorderTelemetryBadge'].Visibility = if ($w -ge 1380) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    }
+}
+
 # Initial Window Launch
 $window.Add_Loaded({
     if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
@@ -9983,6 +10004,12 @@ $window.Add_Loaded({
     Refresh-Connections
     Populate-SearchAttributeDropdowns
     Populate-AllExternalToolsMenus
+    Update-HeaderLayoutResponsive
+})
+
+$window.Add_SizeChanged({
+    param($sender, $e)
+    Update-HeaderLayoutResponsive
 })
 
 # Keyboard shortcuts: Ctrl+T for quick theme toggle, Ctrl+R for Resolver Scratchpad
