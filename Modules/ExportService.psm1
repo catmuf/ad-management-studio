@@ -420,6 +420,34 @@ function Get-ADObjectHtmlContent {
     # Avatar initials
     $initials = if ($dispName -match '^\s*([A-Za-z0-9])') { $matches[1].ToUpper() } else { "AD" }
 
+    # Theme palette variables (ensures solid rendering in MSHTML/IE WebBrowser and modern browsers)
+    $isLight = ($Theme -ieq "Light")
+    $bgBody        = if ($isLight) { "#F8FAFC" } else { "#0E1017" }
+    $bgContainer   = if ($isLight) { "#FFFFFF" } else { "#141722" }
+    $bgCard        = if ($isLight) { "#FFFFFF" } else { "#161922" }
+    $bgCardHeader  = if ($isLight) { "#F1F5F9" } else { "#1E2230" }
+    $bgSubtle      = if ($isLight) { "#F8FAFC" } else { "#111319" }
+    $borderColor   = if ($isLight) { "#CBD5E1" } else { "#262B3D" }
+    $borderSubtle  = if ($isLight) { "#E2E8F0" } else { "#1E2230" }
+    $textPrimary   = if ($isLight) { "#0F172A" } else { "#F1F5F9" }
+    $textSecondary = if ($isLight) { "#475569" } else { "#94A3B8" }
+    $textMuted     = if ($isLight) { "#64748B" } else { "#64748B" }
+    $accentColor   = if ($isLight) { "#0284C7" } else { "#38BDF8" }
+    $accentHover   = if ($isLight) { "#0369A1" } else { "#0284C7" }
+    $badgeBg       = if ($isLight) { "#E0F2FE" } else { "#1E293B" }
+    $badgeText     = if ($isLight) { "#0369A1" } else { "#93C5FD" }
+    $badgeBorder   = if ($isLight) { "#BAE6FD" } else { "#3B82F6" }
+    $rowHover      = if ($isLight) { "#F1F5F9" } else { "#1C202C" }
+
+    # High-contrast button styles for Print Dossier:
+    # In Light Mode: Solid primary blue with dark blue border for high contrast against white background
+    # In Dark Mode: Vibrant accent blue with high contrast
+    $btnBg          = if ($isLight) { "#0284C7" } else { "#0284C7" }
+    $btnFg          = "#FFFFFF"
+    $btnBorder      = if ($isLight) { "#0369A1" } else { "#38BDF8" }
+    $btnHoverBg     = if ($isLight) { "#0369A1" } else { "#0369A1" }
+    $btnHoverBorder = if ($isLight) { "#075985" } else { "#0284C7" }
+
     # Groups list HTML
     $groupsHtml = if ($groups.Count -gt 0) {
         ($groups | ForEach-Object {
@@ -427,7 +455,7 @@ function Get-ADObjectHtmlContent {
             "<span class='badge group-badge'>$([System.Net.WebUtility]::HtmlEncode($grpName))</span>"
         }) -join " "
     } else {
-        "<span style='color:var(--text-muted); font-style:italic;'>No group memberships recorded or domain primary group only.</span>"
+        "<span style='color:$textMuted; font-style:italic;'>No group memberships recorded or domain primary group only.</span>"
     }
 
     # Attributes Table HTML
@@ -470,8 +498,8 @@ function Get-ADObjectHtmlContent {
 "@
         }
         if ($showOrg) {
-            $mailLink = if ($mail) { "<a href='mailto:$mail' style='color:var(--accent); text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($mail))</a>" } else { "--" }
-            $phoneLink = if ($phone) { "<a href='tel:$phone' style='color:var(--accent); text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($phone))</a>" } else { "--" }
+            $mailLink = if ($mail) { "<a href='mailto:$mail' style='color:$accentColor; text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($mail))</a>" } else { "--" }
+            $phoneLink = if ($phone) { "<a href='tel:$phone' style='color:$accentColor; text-decoration:none;'>$([System.Net.WebUtility]::HtmlEncode($phone))</a>" } else { "--" }
             $cardsGridHtml += @"
             <div class="panel-card">
                 <h3>&#x1F4BC; Organization &amp; Contact</h3>
@@ -579,44 +607,217 @@ function Get-ADObjectHtmlContent {
     }
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        background-color: var(--bg-body);
-        color: var(--text-primary);
+        background-color: $bgBody;
+        background-color: var(--bg-body, $bgBody);
+        color: $textPrimary;
+        color: var(--text-primary, $textPrimary);
         margin: 0;
         padding: 20px;
     }
     .container { max-width: 1100px; margin: 0 auto; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 16px; margin-bottom: 24px; }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid $borderColor;
+        border-bottom: 2px solid var(--border-color, $borderColor);
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
     .title-group { display: flex; align-items: center; }
-    .avatar-circle { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; margin-right: 14px; }
-    .title-group h1 { margin: 0; font-size: 22px; color: var(--accent); }
-    .title-group p { margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary); }
+    .avatar-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background-color: $accentColor;
+        background-color: var(--accent, $accentColor);
+        color: #FFFFFF;
+        display: inline-block;
+        line-height: 44px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        margin-right: 14px;
+        float: left;
+    }
+    .title-group h1 {
+        margin: 0;
+        font-size: 22px;
+        color: $accentColor;
+        color: var(--accent, $accentColor);
+    }
+    .title-group p {
+        margin: 4px 0 0 0;
+        font-size: 13px;
+        color: $textSecondary;
+        color: var(--text-secondary, $textSecondary);
+    }
     .btn-bar { display: flex; align-items: center; }
-    .btn-bar button { background: var(--accent); color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer; font-size: 12px; margin-left: 8px; transition: background 0.15s ease; }
-    .btn-bar button:hover { background: var(--accent-hover); }
+    .btn-bar button {
+        display: inline-block;
+        background-color: $btnBg;
+        background-color: var(--accent, $btnBg);
+        color: $btnFg;
+        border: 1px solid $btnBorder;
+        border-radius: 6px;
+        padding: 7px 16px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 8px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-bar button:hover {
+        background-color: $btnHoverBg;
+        background-color: var(--accent-hover, $btnHoverBg);
+        border-color: $btnHoverBorder;
+    }
+    [data-theme="light"] .btn-bar button {
+        background-color: #0284C7;
+        color: #FFFFFF;
+        border: 1px solid #0369A1;
+    }
+    [data-theme="light"] .btn-bar button:hover {
+        background-color: #0369A1;
+        border-color: #075985;
+    }
+    [data-theme="dark"] .btn-bar button {
+        background-color: #0284C7;
+        color: #FFFFFF;
+        border: 1px solid #38BDF8;
+    }
+    [data-theme="dark"] .btn-bar button:hover {
+        background-color: #0369A1;
+        border-color: #0284C7;
+    }
     .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .op-badge { background: #0369A1; color: #FFFFFF; font-size: 10px; padding: 2px 6px; }
-    .group-badge { background: var(--badge-bg); color: var(--badge-text); border: 1px solid var(--badge-border); margin: 3px 4px 3px 0; text-transform: none; }
+    .op-badge { background-color: #0369A1; color: #FFFFFF; font-size: 10px; padding: 2px 6px; }
+    .group-badge {
+        background-color: $badgeBg;
+        background-color: var(--badge-bg, $badgeBg);
+        color: $badgeText;
+        color: var(--badge-text, $badgeText);
+        border: 1px solid $badgeBorder;
+        border: 1px solid var(--badge-border, $badgeBorder);
+        margin: 3px 4px 3px 0;
+        text-transform: none;
+    }
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .panel-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .panel-card h3 { margin-top: 0; margin-bottom: 14px; font-size: 14px; color: var(--accent); border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
-    .field-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px; }
-    .field-label { color: var(--text-secondary); font-weight: 500; min-width: 130px; }
-    .field-val { color: var(--text-primary); font-weight: 600; text-align: right; word-break: break-all; font-family: Consolas, monospace; }
-    .section-title { font-size: 15px; font-weight: bold; color: var(--text-primary); margin: 26px 0 12px 0; display: flex; align-items: center; }
-    .attr-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); margin-top: 10px; }
-    .attr-table th { background: var(--bg-card-header); color: var(--text-primary); text-align: left; padding: 10px 14px; font-size: 12px; text-transform: uppercase; }
-    .attr-table td { padding: 8px 14px; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }
-    .attr-name { width: 220px; color: var(--accent); font-family: Consolas, monospace; }
-    .attr-val { color: var(--text-secondary); word-break: break-all; font-family: Consolas, monospace; }
-    .attr-type { width: 140px; color: var(--text-muted); }
-    tr:hover { background: var(--table-row-hover); }
-    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 16px; }
+    .panel-card {
+        background-color: $bgCard;
+        background-color: var(--bg-card, $bgCard);
+        border: 1px solid $borderColor;
+        border: 1px solid var(--border-color, $borderColor);
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .panel-card h3 {
+        margin-top: 0;
+        margin-bottom: 14px;
+        font-size: 14px;
+        color: $accentColor;
+        color: var(--accent, $accentColor);
+        border-bottom: 1px solid $borderSubtle;
+        border-bottom: 1px solid var(--border-subtle, $borderSubtle);
+        padding-bottom: 8px;
+    }
+    .field-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid $borderSubtle;
+        border-bottom: 1px solid var(--border-subtle, $borderSubtle);
+        font-size: 13px;
+    }
+    .field-label {
+        color: $textSecondary;
+        color: var(--text-secondary, $textSecondary);
+        font-weight: 500;
+        min-width: 130px;
+    }
+    .field-val {
+        color: $textPrimary;
+        color: var(--text-primary, $textPrimary);
+        font-weight: 600;
+        text-align: right;
+        word-break: break-all;
+        font-family: Consolas, monospace;
+    }
+    .section-title {
+        font-size: 15px;
+        font-weight: bold;
+        color: $textPrimary;
+        color: var(--text-primary, $textPrimary);
+        margin: 26px 0 12px 0;
+        display: flex;
+        align-items: center;
+    }
+    .attr-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: $bgCard;
+        background-color: var(--bg-card, $bgCard);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid $borderColor;
+        border: 1px solid var(--border-color, $borderColor);
+        margin-top: 10px;
+    }
+    .attr-table th {
+        background-color: $bgCardHeader;
+        background-color: var(--bg-card-header, $bgCardHeader);
+        color: $textPrimary;
+        color: var(--text-primary, $textPrimary);
+        text-align: left;
+        padding: 10px 14px;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    .attr-table td {
+        padding: 8px 14px;
+        border-bottom: 1px solid $borderSubtle;
+        border-bottom: 1px solid var(--border-subtle, $borderSubtle);
+        font-size: 12px;
+    }
+    .attr-name {
+        width: 220px;
+        color: $accentColor;
+        color: var(--accent, $accentColor);
+        font-family: Consolas, monospace;
+    }
+    .attr-val {
+        color: $textSecondary;
+        color: var(--text-secondary, $textSecondary);
+        word-break: break-all;
+        font-family: Consolas, monospace;
+    }
+    .attr-type {
+        width: 140px;
+        color: $textMuted;
+        color: var(--text-muted, $textMuted);
+    }
+    tr:hover {
+        background-color: $rowHover;
+        background-color: var(--table-row-hover, $rowHover);
+    }
+    .footer {
+        text-align: center;
+        margin-top: 32px;
+        font-size: 12px;
+        color: $textMuted;
+        color: var(--text-muted, $textMuted);
+        border-top: 1px solid $borderSubtle;
+        border-top: 1px solid var(--border-subtle, $borderSubtle);
+        padding-top: 16px;
+    }
     @media print {
         body { background-color: #FFFFFF !important; color: #000000 !important; padding: 0; }
         .btn-bar { display: none; }
-        .panel-card, .attr-table { border: 1px solid #CCCCCC !important; background: #FAFAFA !important; color: #000000 !important; }
+        .panel-card, .attr-table { border: 1px solid #CCCCCC !important; background-color: #FAFAFA !important; color: #000000 !important; }
         .field-val, .field-label, .attr-table td, .attr-table th { color: #000000 !important; }
-        .group-badge { background: #EEEEEE !important; color: #000000 !important; border: 1px solid #999999 !important; }
+        .group-badge { background-color: #EEEEEE !important; color: #000000 !important; border: 1px solid #999999 !important; }
     }
 </style>
 </head>
@@ -625,13 +826,13 @@ function Get-ADObjectHtmlContent {
     <div class="top-bar">
         <div class="title-group">
             <div class="avatar-circle">$initials</div>
-            <div>
+            <div style="margin-left: 2px;">
                 <h1>$([System.Net.WebUtility]::HtmlEncode($dispName))</h1>
                 <p>Active Directory Object Report Card &bull; Template: $Template &bull; Generated $now</p>
             </div>
         </div>
         <div class="btn-bar">
-            <span class="badge" style="background: $statusColor; color: #FFFFFF; margin-right: 12px;">$status</span>
+            <span class="badge" style="background-color: $statusColor; color: #FFFFFF; margin-right: 12px;">$status</span>
             <button onclick="window.print()">&#x1F5B6;&#xFE0F; Print Dossier</button>
         </div>
     </div>
