@@ -2596,7 +2596,8 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,14">
@@ -2607,8 +2608,8 @@
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="🌐 Active Directory Connection Profiles" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Manage domain controller profiles, custom ports, LDAPS SSL, and diagnostic checks." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                                        <TextBlock Text="🌐 Active Directory Connection Profiles" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                        <TextBlock Text="Manage domain controller profiles, custom ports, LDAPS SSL, and diagnostic checks." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                                     </StackPanel>
 
                                     <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
@@ -2634,7 +2635,7 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Configured Profiles" FontWeight="Bold" Margin="0,0,0,8"/>
+                                        <TextBlock Grid.Row="0" Text="Configured Profiles" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
                                         <ListBox Grid.Row="1" Name="ListProfiles" Background="{DynamicResource BgInput}" BorderThickness="1" BorderBrush="{DynamicResource BorderBrushColor}" Foreground="{DynamicResource TextPrimary}" MinHeight="180"/>
 
                                         <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
@@ -2646,34 +2647,34 @@
                                 <!-- Live Diagnostic Results -->
                                 <Border Grid.Column="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="16">
                                     <StackPanel>
-                                        <TextBlock Text="Server Diagnostics &amp; Health Report" FontSize="15" FontWeight="Bold" Margin="0,0,0,14"/>
+                                        <TextBlock Text="Server Diagnostics &amp; Health Report" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,14"/>
 
                                         <Border Background="#161820" BorderBrush="#2F3446" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
                                             <StackPanel>
                                                 <Grid Margin="0,0,0,6">
-                                                    <TextBlock Text="Target Server:" Foreground="#9CA3AF"/>
-                                                    <TextBlock Name="TxtDiagServer" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="Target Server:" Foreground="{DynamicResource TextSecondary}"/>
+                                                    <TextBlock Name="TxtDiagServer" Text="--" HorizontalAlignment="Right" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold"/>
                                                 </Grid>
                                                 <Grid Margin="0,0,0,6">
-                                                    <TextBlock Text="IP Address:" Foreground="#9CA3AF"/>
-                                                    <TextBlock Name="TxtDiagIp" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                                    <TextBlock Text="IP Address:" Foreground="{DynamicResource TextSecondary}"/>
+                                                    <TextBlock Name="TxtDiagIp" Text="--" HorizontalAlignment="Right" Foreground="{DynamicResource TextPrimary}" FontFamily="Consolas"/>
                                                 </Grid>
                                                 <Grid Margin="0,0,0,6">
-                                                    <TextBlock Text="LDAP TCP Port (389):" Foreground="#9CA3AF"/>
+                                                    <TextBlock Text="LDAP TCP Port (389):" Foreground="{DynamicResource TextSecondary}"/>
                                                     <TextBlock Name="TxtDiagPortStatus" Text="--" HorizontalAlignment="Right" Foreground="#107C41" FontWeight="SemiBold"/>
                                                 </Grid>
                                                 <Grid Margin="0,0,0,6">
-                                                    <TextBlock Text="Round-Trip Latency:" Foreground="#9CA3AF"/>
+                                                    <TextBlock Text="Round-Trip Latency:" Foreground="{DynamicResource TextSecondary}"/>
                                                     <TextBlock Name="TxtDiagLatency" Text="--" HorizontalAlignment="Right" Foreground="#38BDF8" FontWeight="Bold"/>
                                                 </Grid>
                                                 <Grid>
-                                                    <TextBlock Text="RootDSE Default NC:" Foreground="#9CA3AF"/>
-                                                    <TextBlock Name="TxtDiagDefaultNC" Text="--" HorizontalAlignment="Right" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="11"/>
+                                                    <TextBlock Text="RootDSE Default NC:" Foreground="{DynamicResource TextSecondary}"/>
+                                                    <TextBlock Name="TxtDiagDefaultNC" Text="--" HorizontalAlignment="Right" Foreground="{DynamicResource TextPrimary}" FontFamily="Consolas" FontSize="11"/>
                                                 </Grid>
                                             </StackPanel>
                                         </Border>
 
-                                        <TextBlock Name="TxtDiagMessage" Text="Ready." Foreground="#9CA3AF" FontSize="12"/>
+                                        <TextBlock Name="TxtDiagMessage" Text="Ready." Foreground="{DynamicResource TextSecondary}" FontSize="12"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -2687,8 +2688,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="🌐 DNS SRV Domain Controller &amp; Service Auto-Discovery" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Discover all Domain Controllers, Kerberos KDCs, and Global Catalogs using DNS SRV records (_ldap, _kerberos, _gc)." FontSize="12" Foreground="#9CA3AF" Margin="0,2,0,0"/>
+                                            <TextBlock Text="🌐 DNS SRV Domain Controller &amp; Service Auto-Discovery" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Discover all Domain Controllers, Kerberos KDCs, and Global Catalogs using DNS SRV records (_ldap, _kerberos, _gc)." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBox Name="TxtDnsDiscoveryDomain" Style="{StaticResource ModernTextBox}" Width="180" Height="30" Margin="0,0,8,0" ToolTip="Domain to query DNS SRV records for"/>
