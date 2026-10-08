@@ -8934,9 +8934,19 @@ function Init-SecurityAclUI {
     if ($controls['TxtAclTrustee'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTrustee'].Text)) {
         $controls['TxtAclTrustee'].Text = "Domain Admins"
     }
-    if ($controls['CmbDelegationScope']) {
+    if ($controls['CmbDelegationScope'] -and $controls['CmbDelegationScope'].ItemsSource -eq $null) {
+        $controls['CmbDelegationScope'].Items.Clear()
         $cat = Get-ADDelegationReportsCatalog
-        $controls['CmbDelegationScope'].ItemsSource = @($cat | ForEach-Object { $_.ReportName })
+        $scopeList = [System.Collections.Generic.List[string]]::new()
+        [void]$scopeList.Add("All Sensitive Delegations")
+        if ($cat) {
+            foreach ($c in $cat) {
+                if ($c.Name -and -not $scopeList.Contains($c.Name)) {
+                    [void]$scopeList.Add($c.Name)
+                }
+            }
+        }
+        $controls['CmbDelegationScope'].ItemsSource = @($scopeList)
         $controls['CmbDelegationScope'].SelectedIndex = 0
     }
 }
@@ -9034,7 +9044,15 @@ if ($controls['BtnFixAdminSdHolder']) {
 
 if ($controls['BtnRunDelegationReport']) {
     $controls['BtnRunDelegationReport'].Add_Click({
-        $scope = if ($controls['CmbDelegationScope']) { $controls['CmbDelegationScope'].Text } else { "All Sensitive Delegations" }
+        $scope = if ($controls['CmbDelegationScope']) {
+            if ($controls['CmbDelegationScope'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                $controls['CmbDelegationScope'].SelectedItem.Content.ToString()
+            } elseif ($controls['CmbDelegationScope'].SelectedItem) {
+                $controls['CmbDelegationScope'].SelectedItem.ToString()
+            } elseif ($controls['CmbDelegationScope'].Text) {
+                $controls['CmbDelegationScope'].Text
+            } else { "All Sensitive Delegations" }
+        } else { "All Sensitive Delegations" }
         Set-Status -Message "Generating delegation report for scope: $scope..."
         $rep = Get-ADDelegationReport -Scope $scope
         if ($controls['GridDelegationReport']) { $controls['GridDelegationReport'].ItemsSource = $rep }
@@ -9505,7 +9523,15 @@ if ($controls['BtnCheckCert']) {
 if ($controls['BtnRunDcPortScan']) {
     $controls['BtnRunDcPortScan'].Add_Click({
         $dcHost = if ($controls['TxtDcScanHost']) { $controls['TxtDcScanHost'].Text.Trim() } else { "" }
-        $prof = if ($controls['CmbDcScanProfile']) { $controls['CmbDcScanProfile'].Text } else { "StandardAD" }
+        $prof = if ($controls['CmbDcScanProfile']) {
+            if ($controls['CmbDcScanProfile'].SelectedItem -is [System.Windows.Controls.ComboBoxItem]) {
+                $controls['CmbDcScanProfile'].SelectedItem.Content.ToString()
+            } elseif ($controls['CmbDcScanProfile'].SelectedItem) {
+                $controls['CmbDcScanProfile'].SelectedItem.ToString()
+            } elseif ($controls['CmbDcScanProfile'].Text) {
+                $controls['CmbDcScanProfile'].Text
+            } else { "StandardAD" }
+        } else { "StandardAD" }
         if ([string]::IsNullOrWhiteSpace($dcHost)) {
             [System.Windows.MessageBox]::Show("Please enter a domain controller or domain name to scan.", "Host Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
             return

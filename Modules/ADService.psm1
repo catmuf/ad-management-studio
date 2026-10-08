@@ -526,6 +526,7 @@ function Set-ADUserStatus {
         [string]$Identity,
 
         [Parameter(Mandatory = $true)]
+        [Alias("Enabled")]
         [bool]$Enable
     )
 
@@ -1441,6 +1442,7 @@ function Set-ADObjectRawAttribute {
         [Parameter(Mandatory = $true)]
         [string]$AttributeName,
         [Parameter(Mandatory = $true)]
+        [Alias("Value")]
         $NewValue,
         [string]$Server = ""
     )
@@ -3629,9 +3631,11 @@ function Rename-ADDirectoryObject {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias("DistinguishedName", "TargetDN", "DN")]
         [string]$Identity,
 
         [Parameter(Mandatory = $true)]
+        [Alias("NewRDN", "NewRelativeDistinguishedName")]
         [string]$NewName,
 
         [string]$Server = ""

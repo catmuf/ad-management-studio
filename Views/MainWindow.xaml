@@ -3050,13 +3050,7 @@
                                 <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                                     <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="Delegation Audit Scope:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox Name="CmbDelegationScope" Style="{StaticResource ModernComboBox}" Width="260" Height="28" Margin="0,0,10,0">
-                                            <ComboBoxItem Content="All Sensitive Delegations" IsSelected="True"/>
-                                            <ComboBoxItem Content="DCSync Rights (DS-Replication-Get-Changes)"/>
-                                            <ComboBoxItem Content="Password Reset Rights On Admins"/>
-                                            <ComboBoxItem Content="LAPS Password Read Delegation"/>
-                                            <ComboBoxItem Content="Unconstrained Kerberos Delegation"/>
-                                        </ComboBox>
+                                        <ComboBox Name="CmbDelegationScope" Style="{StaticResource ModernComboBox}" Width="260" Height="28" Margin="0,0,10,0"/>
                                         <Button Name="BtnRunDelegationReport" Style="{StaticResource PrimaryButton}" Height="28" Content="📊 Run Delegation Audit" Margin="0,0,8,0"/>
                                         <Button Name="BtnAclListUsers" Style="{StaticResource ModernButton}" Height="28" Content="👥 List Users (Resolve)" ToolTip="Recursively resolve trustee groups to human member users" Margin="0,0,8,0"/>
                                         <Button Name="BtnExportDelegationReport" Style="{StaticResource ModernButton}" Height="28" Content="📤 Export CSV"/>

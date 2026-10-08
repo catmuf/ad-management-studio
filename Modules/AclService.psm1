@@ -669,16 +669,46 @@ function Get-ADDelegationReport {
     .SYNOPSIS
         Executes pre-canned delegation reports across Active Directory.
     .PARAMETER ReportType
-        Key of report from Get-ADDelegationReportsCatalog.
+        Key or Name of report from Get-ADDelegationReportsCatalog, or "All Sensitive Delegations".
     #>
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$ReportType
+        [Parameter(Mandatory = $false, Position = 0)]
+        [Alias("Scope", "ReportName", "Type")]
+        [string]$ReportType = "All Sensitive Delegations"
     )
 
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-    switch ($ReportType) {
+    # Resolve friendly name or catalog Id
+    $catalog = Get-ADDelegationReportsCatalog
+    $matched = $catalog | Where-Object { $_.Id -ieq $ReportType -or $_.Name -ieq $ReportType }
+    $resolvedType = if ($matched) { $matched[0].Id } else { $ReportType }
+
+    if ([string]::IsNullOrWhiteSpace($resolvedType) -or $resolvedType -match "All Sensitive Delegations|^All$|^Sensitive$") {
+        $sensitiveIds = @(
+            "ResetAdminPassword",
+            "DCSyncRights",
+            "LAPSReadRights",
+            "WindowsLAPSReadRights",
+            "WriteAllowedToDelegate",
+            "WriteKeyCredentialLink",
+            "ShadowAdmins",
+            "UnconstrainedDelegation",
+            "GpoLinkRights",
+            "GpoEditRights",
+            "EveryoneAuthenticatedUsersSensitive"
+        )
+        foreach ($sId in $sensitiveIds) {
+            $subReports = Get-ADDelegationReport -ReportType $sId
+            foreach ($sub in $subReports) {
+                $results.Add($sub)
+            }
+        }
+        return $results
+    }
+
+    switch ($resolvedType) {
         "ResetAdminPassword" {
             try {
                 $rootDse = Get-ADRootDSE -ErrorAction SilentlyContinue

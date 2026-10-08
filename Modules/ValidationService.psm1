@@ -476,6 +476,8 @@ function Convert-LdapFilterToHumanText {
 function Test-LdifSyntax {
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory = $false, Position = 0)]
+        [Alias("LdifContent")]
         [string]$Content
     )
 
