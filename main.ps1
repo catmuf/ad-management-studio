@@ -4878,7 +4878,7 @@ function Load-OUObjectsUI {
         $lbl = New-Object System.Windows.Controls.TextBlock
         $lbl.Text = "📍 Path: "
         $lbl.FontSize = 11
-        $lbl.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#6B7280")
+        $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMuted")
         $lbl.FontWeight = [System.Windows.FontWeights]::SemiBold
         $lbl.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
         [void]$controls['PanelOUBreadcrumbs'].Children.Add($lbl)
@@ -4904,7 +4904,7 @@ function Load-OUObjectsUI {
                 $sep = New-Object System.Windows.Controls.TextBlock
                 $sep.Text = "  >  "
                 $sep.FontSize = 11
-                $sep.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4B5563")
+                $sep.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMuted")
                 $sep.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
                 [void]$controls['PanelOUBreadcrumbs'].Children.Add($sep)
             }
@@ -4914,9 +4914,9 @@ function Load-OUObjectsUI {
             $crumb.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
             if ($idx -eq ($hierarchy.Count - 1)) {
                 $crumb.FontWeight = [System.Windows.FontWeights]::Bold
-                $crumb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+                $crumb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentPrimary")
             } else {
-                $crumb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#9CA3AF")
+                $crumb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
             }
             [void]$controls['PanelOUBreadcrumbs'].Children.Add($crumb)
         }

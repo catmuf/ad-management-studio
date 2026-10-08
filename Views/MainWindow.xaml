@@ -1565,13 +1565,13 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
                             <Grid Grid.Row="1" Margin="0,0,0,8">
                                 <TextBox Name="TxtFilterOUs" Style="{StaticResource ModernTextBox}" Height="28" Padding="6,4,24,4" ToolTip="Quick filter OU tree nodes in real time"/>
-                                <TextBlock Name="TxtFilterOUsPlaceholder" Text="🔍 Filter OUs..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="8,0,24,0" IsHitTestVisible="False"/>
+                                <TextBlock Name="TxtFilterOUsPlaceholder" Text="🔍 Filter OUs..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="8,0,24,0" IsHitTestVisible="False"/>
                                 <Button Name="BtnClearFilterOUs" Content="✖" Style="{StaticResource ModernButton}" Width="18" Height="18" Padding="0" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Clear OU filter"/>
                             </Grid>
-                            <TreeView Grid.Row="2" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="#FFFFFF">
+                            <TreeView Grid.Row="2" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimary}">
                                 <TreeView.ContextMenu>
                                     <ContextMenu Style="{StaticResource ModernContextMenu}">
                                         <MenuItem Name="CtxOUTreeNewUser" Style="{StaticResource ModernMenuItem}" Header="👤 New User in this OU..."/>
@@ -1590,15 +1590,21 @@
                                 </TreeView.ContextMenu>
                                 <TreeView.ItemContainerStyle>
                                     <Style TargetType="TreeViewItem">
-                                        <Setter Property="Foreground" Value="#E5E7EB"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                                         <Setter Property="FontSize" Value="13"/>
                                         <Setter Property="Padding" Value="2,2"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
                                         <Style.Resources>
                                             <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D4"/>
                                             <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
-                                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#1E3A8A"/>
+                                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0078D4"/>
                                             <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF"/>
                                         </Style.Resources>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                            </Trigger>
+                                        </Style.Triggers>
                                     </Style>
                                 </TreeView.ItemContainerStyle>
                                 <TreeView.ItemTemplate>
@@ -1606,7 +1612,7 @@
                                         <StackPanel Orientation="Horizontal" Margin="2,2">
                                             <Path Data="M 2,4 C 2,2.9 2.9,2 4,2 L 7.5,2 C 8.3,2 9,2.5 9.4,3.2 L 10.2,4.5 C 10.4,4.8 10.8,5 11.2,5 L 18,5 C 19.1,5 20,5.9 20,7 L 20,16 C 20,17.1 19.1,18 18,18 L 4,18 C 2.9,18 2,17.1 2,16 Z"
                                                   Fill="#FBBF24" Width="15" Height="15" Stretch="Uniform" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="#E5E7EB" FontSize="13" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="13" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </HierarchicalDataTemplate>
                                 </TreeView.ItemTemplate>
@@ -1636,27 +1642,27 @@
                             <Border Grid.Row="0" Background="#14161F" BorderBrush="#252A3A" BorderThickness="1" CornerRadius="4" Padding="8,5" Margin="0,0,0,8">
                                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                     <WrapPanel Name="PanelOUBreadcrumbs" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="📍 Path: " FontSize="11" Foreground="#6B7280" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        <TextBlock Name="TxtOUBreadcrumbEmpty" Text="(Select an OU to view hierarchy path)" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                                        <TextBlock Text="📍 Path: " FontSize="11" Foreground="{DynamicResource TextMuted}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Name="TxtOUBreadcrumbEmpty" Text="(Select an OU to view hierarchy path)" FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
                                     </WrapPanel>
                                 </ScrollViewer>
                             </Border>
 
                             <!-- OU Inspector Header -->
                             <StackPanel Grid.Row="1" Margin="0,0,0,10">
-                                <TextBlock Name="TxtSelectedOUName" Text="Select an Organizational Unit" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                <TextBlock Name="TxtSelectedOUDN" Text="" FontSize="11" Foreground="#9CA3AF" FontFamily="Consolas" Margin="0,2,0,0"/>
+                                <TextBlock Name="TxtSelectedOUName" Text="Select an Organizational Unit" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Name="TxtSelectedOUDN" Text="" FontSize="11" Foreground="{DynamicResource TextSecondary}" FontFamily="Consolas" Margin="0,2,0,0"/>
                             </StackPanel>
 
                             <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
-                                    <TextBlock Text="Contained Objects:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Contained Objects:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Border Background="#252A3A" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
                                         <TextBlock Name="TxtSelectedOUObjectsCount" Text="0 objects" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
                                     </Border>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,6">
-                                    <TextBlock Text="Scope:" VerticalAlignment="Center" Foreground="#9CA3AF" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Scope:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,6,0"/>
                                     <ComboBox Name="CmbOUSearchScope" Style="{StaticResource ModernComboBox}" Width="110" Height="30">
                                         <ComboBoxItem Content="OneLevel" IsSelected="True"/>
                                         <ComboBoxItem Content="Subtree"/>
