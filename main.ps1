@@ -712,14 +712,80 @@ function Show-ObjectHtmlView {
 
         if ($Identity -is [string]) {
             $targetDN = $Identity.Trim()
-            # If sAMAccountName or simple name without DC=, query user or group
+            # If sAMAccountName or simple name without DC=, query user, group, or directory object
             if ($targetDN -notmatch 'DC=') {
-                $user = Get-ADUsersQuick -Filter "*$targetDN*" | Where-Object { $_.SamAccountName -ieq $targetDN -or $_.Name -ieq $targetDN } | Select-Object -First 1
+                # 1. Try finding matching user
+                $foundUsers = Get-ADUsersList -SearchText $targetDN -Limit 10
+                $user = if ($foundUsers) {
+                    $foundUsers | Where-Object {
+                        $_.SamAccountName -ieq $targetDN -or
+                        $_.UserPrincipalName -ieq $targetDN -or
+                        $_.DisplayName -ieq $targetDN -or
+                        $_.Name -ieq $targetDN -or
+                        $_.Mail -ieq $targetDN
+                    } | Select-Object -First 1
+                } else { $null }
+                if (-not $user -and $foundUsers -and $foundUsers.Count -gt 0) {
+                    $user = $foundUsers[0]
+                }
+
                 if ($user) {
                     $targetObj = $user
-                    $targetDN = if ($user.DistinguishedName) { $user.DistinguishedName } else { $user.DN }
+                    $targetDN = if ($user.DistinguishedName) { $user.DistinguishedName } else { "$($user.DN)" }
                 } else {
-                    $targetObj = [PSCustomObject]@{ SamAccountName = $targetDN; DisplayName = $targetDN; DistinguishedName = $targetDN; Status = "Unknown" }
+                    # 2. Try Find-ADObjectsQuickSearch (searches across users, groups, computers, OUs)
+                    $quickMatches = Find-ADObjectsQuickSearch -Query $targetDN -MaxResults 5
+                    $match = if ($quickMatches) {
+                        $quickMatches | Where-Object {
+                            $_.SamAccountName -ieq $targetDN -or
+                            $_.Name -ieq $targetDN -or
+                            $_.DisplayName -ieq $targetDN
+                        } | Select-Object -First 1
+                    } else { $null }
+                    if (-not $match -and $quickMatches -and $quickMatches.Count -gt 0) {
+                        $match = $quickMatches[0]
+                    }
+
+                    if ($match) {
+                        $targetObj = $match
+                        $targetDN = if ($match.DistinguishedName) { $match.DistinguishedName } else { "$($match.DN)" }
+                    } else {
+                        # 3. Try finding group
+                        $foundGroups = Get-ADGroupsList -SearchText $targetDN -Limit 5
+                        $grp = if ($foundGroups) {
+                            $foundGroups | Where-Object { $_.SamAccountName -ieq $targetDN -or $_.Name -ieq $targetDN } | Select-Object -First 1
+                        } else { $null }
+
+                        if ($grp) {
+                            $targetObj = $grp
+                            $targetDN = if ($grp.DistinguishedName) { $grp.DistinguishedName } else { "$($grp.DN)" }
+                        } else {
+                            # 4. Try finding computer
+                            $foundComps = Get-ADComputersList -SearchText $targetDN -Limit 5
+                            $comp = if ($foundComps) {
+                                $foundComps | Where-Object { $_.SamAccountName -ieq $targetDN -or $_.Name -ieq $targetDN -or $_.DNSHostName -ieq $targetDN } | Select-Object -First 1
+                            } else { $null }
+
+                            if ($comp) {
+                                $targetObj = $comp
+                                $targetDN = if ($comp.DistinguishedName) { $comp.DistinguishedName } else { "$($comp.DN)" }
+                            } else {
+                                # 5. Fallback: probe raw attributes directly
+                                $rawProbe = $null
+                                try {
+                                    $rawProbe = Get-ADObjectRawAttributes -DistinguishedName $targetDN
+                                } catch { }
+
+                                if ($rawProbe -and $rawProbe.Count -gt 0) {
+                                    $targetObj = [PSCustomObject]@{ SamAccountName = $targetDN; DisplayName = $targetDN; DistinguishedName = $targetDN; Status = "Active" }
+                                } else {
+                                    [System.Windows.MessageBox]::Show("Could not find any directory object matching '$targetDN'.`r`n`r`nPlease enter a valid username, group name, computer name, or Distinguished Name (DN).", "Object Not Found", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                                    Set-Status -Message "Object '$targetDN' not found."
+                                    return
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 $targetObj = [PSCustomObject]@{ DistinguishedName = $targetDN; DisplayName = ($targetDN -split ',')[0] -replace '^CN=|^OU=', '' }
@@ -727,6 +793,25 @@ function Show-ObjectHtmlView {
         } elseif ($Identity -is [System.Collections.IDictionary] -or $Identity.PSObject) {
             $targetObj = $Identity
             $targetDN = if ($Identity.DistinguishedName) { $Identity.DistinguishedName } elseif ($Identity.DN) { $Identity.DN } else { "" }
+        }
+
+        # If object is a user and groups aren't loaded, enrich with user detail
+        $isUser = if ($targetObj.ObjectClass) {
+            @($targetObj.ObjectClass) -contains 'user' -or "$($targetObj.ObjectClass)" -ieq 'user'
+        } else {
+            $true
+        }
+        if ($isUser -and $targetDN -and (-not $targetObj.Groups -or $targetObj.Groups.Count -eq 0)) {
+            try {
+                $detail = Get-ADUserDetail -Identity $targetDN -ErrorAction SilentlyContinue
+                if ($detail -and $detail.User) {
+                    $targetObj = $detail.User
+                    if ($detail.Groups) {
+                        $targetObj | Add-Member -NotePropertyName "Groups" -NotePropertyValue @($detail.Groups) -Force
+                        $targetObj | Add-Member -NotePropertyName "MemberOf" -NotePropertyValue @($detail.Groups | ForEach-Object { $_.DistinguishedName }) -Force
+                    }
+                }
+            } catch { }
         }
 
         if (-not $targetDN) {
