@@ -8,11 +8,24 @@
     AD Schema Browser, Bulk Operations Engine, and Connection Profiles with Diagnostics.
 #>
 
+[CmdletBinding()]
+param(
+    [string]$InitialTool = "",
+    [switch]$Standalone
+)
+
 # Ensure script runs in Single Thread Apartment (STA) mode for WPF
 if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) {
     Write-Host "Restarting Active Directory Studio in STA mode..." -ForegroundColor Cyan
     $powershellExe = (Get-Process -Id $PID).Path
-    Start-Process -FilePath $powershellExe -ArgumentList "-STA -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $argList = "-STA -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    if (-not [string]::IsNullOrWhiteSpace($InitialTool)) {
+        $argList += " -InitialTool `"$InitialTool`""
+    }
+    if ($Standalone) {
+        $argList += " -Standalone"
+    }
+    Start-Process -FilePath $powershellExe -ArgumentList $argList
     exit
 }
 
@@ -144,6 +157,13 @@ $state = [PSCustomObject]@{
     ActiveTabId            = "Dashboard"
     DetachedWindows        = @{}
     IsSelectingTab         = $false
+    TabDragContext         = @{
+        IsMouseDown  = $false
+        IsDragging   = $false
+        StartPoint   = [System.Windows.Point]::new(0, 0)
+        SourceTabId  = $null
+        SourceBorder = $null
+    }
 }
 
 # Master Directory & Tools Catalog for Tabs, Detached Windows, and Navigation
@@ -1135,6 +1155,203 @@ function Record-NavHistory {
 
 #region Workspace Engine (Multi-Tabs & Detachable Multi-Windows)
 
+function Launch-NewApplicationWindow {
+    param([string]$ToolName = "")
+    $powershellExe = (Get-Process -Id $PID).Path
+    $argList = "-STA -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    if (-not [string]::IsNullOrWhiteSpace($ToolName)) {
+        $argList += " -InitialTool `"$ToolName`""
+    }
+    Start-Process -FilePath $powershellExe -ArgumentList $argList
+    Set-Status -Message "Launched new independent window$(if ($ToolName) { " for $ToolName" })."
+}
+
+function Rename-WorkspaceTab {
+    param([string]$TabId)
+    if ([string]::IsNullOrWhiteSpace($TabId)) { return }
+    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
+    if (-not $targetTab) {
+        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
+    }
+    if (-not $targetTab) { return }
+
+    $dialog = [System.Windows.Window]::new()
+    $dialog.Title = "Rename Tab"
+    $dialog.Width = 360
+    $dialog.Height = 155
+    $dialog.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
+    if ($window) { $dialog.Owner = $window }
+    $dialog.SetResourceReference([System.Windows.Window]::BackgroundProperty, "BgDark")
+    $dialog.SetResourceReference([System.Windows.Window]::ForegroundProperty, "TextPrimary")
+    $dialog.ResizeMode = [System.Windows.ResizeMode]::NoResize
+
+    $stack = [System.Windows.Controls.StackPanel]::new()
+    $stack.Margin = [System.Windows.Thickness]::new(16)
+
+    $lbl = [System.Windows.Controls.TextBlock]::new()
+    $lbl.Text = "Custom name for '$($targetTab.Title)':"
+    $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
+    $lbl.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $lbl.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
+    [void]$stack.Children.Add($lbl)
+
+    $tb = [System.Windows.Controls.TextBox]::new()
+    $tb.Style = $window.TryFindResource("ModernTextBox")
+    $tb.Text = $targetTab.Title
+    $tb.Height = 28
+    $tb.Padding = [System.Windows.Thickness]::new(6, 3, 6, 3)
+    $tb.SelectAll()
+    [void]$stack.Children.Add($tb)
+
+    $btnPanel = [System.Windows.Controls.StackPanel]::new()
+    $btnPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+    $btnPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+    $btnPanel.Margin = [System.Windows.Thickness]::new(0, 12, 0, 0)
+
+    $btnOk = [System.Windows.Controls.Button]::new()
+    $btnOk.Style = $window.TryFindResource("PrimaryButton")
+    $btnOk.Content = "Save"
+    $btnOk.Width = 70
+    $btnOk.Height = 26
+    $btnOk.Margin = [System.Windows.Thickness]::new(0, 0, 8, 0)
+    $btnOk.IsDefault = $true
+    $btnOk.Add_Click({
+        if (-not [string]::IsNullOrWhiteSpace($tb.Text)) {
+            $targetTab.Title = $tb.Text.Trim()
+            Update-WorkspaceTabStrip
+        }
+        $dialog.Close()
+    })
+    [void]$btnPanel.Children.Add($btnOk)
+
+    $btnCancel = [System.Windows.Controls.Button]::new()
+    $btnCancel.Style = $window.TryFindResource("ModernButton")
+    $btnCancel.Content = "Cancel"
+    $btnCancel.Width = 70
+    $btnCancel.Height = 26
+    $btnCancel.IsCancel = $true
+    $btnCancel.Add_Click({ $dialog.Close() })
+    [void]$btnPanel.Children.Add($btnCancel)
+
+    [void]$stack.Children.Add($btnPanel)
+    $dialog.Content = $stack
+    [void]$dialog.ShowDialog()
+}
+
+function Save-TabSessionState {
+    param($Tab)
+    if (-not $Tab -or -not $Tab.State) { return }
+    $p = $Tab.PanelName
+    switch ($p) {
+        "Users" {
+            if ($controls['TxtSearchUsers']) { $Tab.State['SearchUsers'] = $controls['TxtSearchUsers'].Text }
+            if ($controls['FilterUserAll']) {
+                $Tab.State['FilterUser'] = if ($controls['FilterUserActive'] -and $controls['FilterUserActive'].IsChecked) { "Active" }
+                    elseif ($controls['FilterUserDisabled'] -and $controls['FilterUserDisabled'].IsChecked) { "Disabled" }
+                    elseif ($controls['FilterUserLocked'] -and $controls['FilterUserLocked'].IsChecked) { "Locked" }
+                    else { "All" }
+            }
+            if ($controls['CmbUserOUFilter']) { $Tab.State['OUFilter'] = $controls['CmbUserOUFilter'].SelectedIndex }
+        }
+        "Groups" {
+            if ($controls['TxtSearchGroups']) { $Tab.State['SearchGroups'] = $controls['TxtSearchGroups'].Text }
+            if ($controls['FilterGroupAll']) {
+                $Tab.State['FilterGroup'] = if ($controls['FilterGroupSec'] -and $controls['FilterGroupSec'].IsChecked) { "Security" }
+                    elseif ($controls['FilterGroupDist'] -and $controls['FilterGroupDist'].IsChecked) { "Distribution" }
+                    else { "All" }
+            }
+        }
+        "Computers" {
+            if ($controls['TxtSearchComputers']) { $Tab.State['SearchComputers'] = $controls['TxtSearchComputers'].Text }
+            if ($controls['FilterCompAll']) {
+                $Tab.State['FilterComp'] = if ($controls['FilterCompEnabled'] -and $controls['FilterCompEnabled'].IsChecked) { "Enabled" }
+                    elseif ($controls['FilterCompDisabled'] -and $controls['FilterCompDisabled'].IsChecked) { "Disabled" }
+                    else { "All" }
+            }
+        }
+        "DirectorySearch" {
+            if ($controls['TxtLdapFilter']) { $Tab.State['LdapFilter'] = $controls['TxtLdapFilter'].Text }
+            if ($controls['TxtLdapSearchBase']) { $Tab.State['SearchBase'] = $controls['TxtLdapSearchBase'].Text }
+            if ($controls['CmbLdapScope']) { $Tab.State['ScopeIndex'] = $controls['CmbLdapScope'].SelectedIndex }
+        }
+        "LdapSql" {
+            if ($controls['TxtLdapSqlQuery']) { $Tab.State['SqlQuery'] = $controls['TxtLdapSqlQuery'].Text }
+        }
+        "AttributeEditor" {
+            if ($controls['TxtSearchAttr']) { $Tab.State['SearchAttr'] = $controls['TxtSearchAttr'].Text }
+        }
+    }
+}
+
+function Restore-TabSessionState {
+    param($Tab)
+    if (-not $Tab -or -not $Tab.State) { return }
+    $p = $Tab.PanelName
+    switch ($p) {
+        "Users" {
+            if ($controls['TxtSearchUsers'] -and $Tab.State.ContainsKey('SearchUsers')) {
+                $controls['TxtSearchUsers'].Text = $Tab.State['SearchUsers']
+            }
+            if ($Tab.State.ContainsKey('FilterUser')) {
+                switch ($Tab.State['FilterUser']) {
+                    "Active"   { if ($controls['FilterUserActive'])   { $controls['FilterUserActive'].IsChecked = $true } }
+                    "Disabled" { if ($controls['FilterUserDisabled']) { $controls['FilterUserDisabled'].IsChecked = $true } }
+                    "Locked"   { if ($controls['FilterUserLocked'])   { $controls['FilterUserLocked'].IsChecked = $true } }
+                    default    { if ($controls['FilterUserAll'])      { $controls['FilterUserAll'].IsChecked = $true } }
+                }
+            }
+            if ($controls['CmbUserOUFilter'] -and $Tab.State.ContainsKey('OUFilter')) {
+                $controls['CmbUserOUFilter'].SelectedIndex = $Tab.State['OUFilter']
+            }
+        }
+        "Groups" {
+            if ($controls['TxtSearchGroups'] -and $Tab.State.ContainsKey('SearchGroups')) {
+                $controls['TxtSearchGroups'].Text = $Tab.State['SearchGroups']
+            }
+            if ($Tab.State.ContainsKey('FilterGroup')) {
+                switch ($Tab.State['FilterGroup']) {
+                    "Security"     { if ($controls['FilterGroupSec'])  { $controls['FilterGroupSec'].IsChecked = $true } }
+                    "Distribution" { if ($controls['FilterGroupDist']) { $controls['FilterGroupDist'].IsChecked = $true } }
+                    default        { if ($controls['FilterGroupAll'])  { $controls['FilterGroupAll'].IsChecked = $true } }
+                }
+            }
+        }
+        "Computers" {
+            if ($controls['TxtSearchComputers'] -and $Tab.State.ContainsKey('SearchComputers')) {
+                $controls['TxtSearchComputers'].Text = $Tab.State['SearchComputers']
+            }
+            if ($Tab.State.ContainsKey('FilterComp')) {
+                switch ($Tab.State['FilterComp']) {
+                    "Enabled"  { if ($controls['FilterCompEnabled'])  { $controls['FilterCompEnabled'].IsChecked = $true } }
+                    "Disabled" { if ($controls['FilterCompDisabled']) { $controls['FilterCompDisabled'].IsChecked = $true } }
+                    default    { if ($controls['FilterCompAll'])      { $controls['FilterCompAll'].IsChecked = $true } }
+                }
+            }
+        }
+        "DirectorySearch" {
+            if ($controls['TxtLdapFilter'] -and $Tab.State.ContainsKey('LdapFilter')) {
+                $controls['TxtLdapFilter'].Text = $Tab.State['LdapFilter']
+            }
+            if ($controls['TxtLdapSearchBase'] -and $Tab.State.ContainsKey('SearchBase')) {
+                $controls['TxtLdapSearchBase'].Text = $Tab.State['SearchBase']
+            }
+            if ($controls['CmbLdapScope'] -and $Tab.State.ContainsKey('ScopeIndex')) {
+                $controls['CmbLdapScope'].SelectedIndex = $Tab.State['ScopeIndex']
+            }
+        }
+        "LdapSql" {
+            if ($controls['TxtLdapSqlQuery'] -and $Tab.State.ContainsKey('SqlQuery')) {
+                $controls['TxtLdapSqlQuery'].Text = $Tab.State['SqlQuery']
+            }
+        }
+        "AttributeEditor" {
+            if ($controls['TxtSearchAttr'] -and $Tab.State.ContainsKey('SearchAttr')) {
+                $controls['TxtSearchAttr'].Text = $Tab.State['SearchAttr']
+            }
+        }
+    }
+}
+
 function Update-WorkspaceTabStrip {
     if (-not $controls['WorkspaceTabHost']) { return }
     $tabHost = $controls['WorkspaceTabHost']
@@ -1156,8 +1373,9 @@ function Update-WorkspaceTabStrip {
         $pName = $tab.PanelName
         if ([string]::IsNullOrWhiteSpace($pName)) { continue }
         $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $global:PanelCatalog.Contains($pName)) { $global:PanelCatalog[$pName] } else { [PSCustomObject]@{ Title = $pName; Icon = "📄"; Category = "Tool" } }
-        $isActive = ($state.ActiveTabId -eq $pName)
+        $isActive = ($state.ActiveTabId -eq $tab.Id)
         $isDetached = (-not [string]::IsNullOrWhiteSpace($pName) -and $state.DetachedWindows.ContainsKey($pName))
+        $tabTitle = if ($tab.Title) { $tab.Title } else { $meta.Title }
 
         # Tab Outer Border
         $tabBorder = [System.Windows.Controls.Border]::new()
@@ -1166,8 +1384,8 @@ function Update-WorkspaceTabStrip {
         $tabBorder.Margin = [System.Windows.Thickness]::new(0, 0, 4, 0)
         $tabBorder.Padding = [System.Windows.Thickness]::new(8, 2, 6, 2)
         $tabBorder.Cursor = [System.Windows.Input.Cursors]::Hand
-        $tabBorder.ToolTip = if ($isDetached) { "$($meta.Title) (Detached Window) - Click to focus" } else { "$($meta.Title) - Click to view" }
-        $tabBorder.Tag = $pName
+        $tabBorder.ToolTip = if ($isDetached) { "$tabTitle (Detached Window) - Click to focus" } else { "$tabTitle - Click to view, Drag to reorder" }
+        $tabBorder.Tag = $tab.Id
 
         # Dynamic theming for tab border
         if ($isActive) {
@@ -1184,7 +1402,7 @@ function Update-WorkspaceTabStrip {
         $tabPanel = [System.Windows.Controls.StackPanel]::new()
         $tabPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
         $tabPanel.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tabPanel.Tag = $pName
+        $tabPanel.Tag = $tab.Id
 
         # Icon
         $tbIcon = [System.Windows.Controls.TextBlock]::new()
@@ -1192,16 +1410,16 @@ function Update-WorkspaceTabStrip {
         $tbIcon.FontSize = 11
         $tbIcon.Margin = [System.Windows.Thickness]::new(0, 0, 5, 0)
         $tbIcon.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tbIcon.Tag = $pName
+        $tbIcon.Tag = $tab.Id
         [void]$tabPanel.Children.Add($tbIcon)
 
         # Title
         $tbTitle = [System.Windows.Controls.TextBlock]::new()
-        $tbTitle.Text = $meta.Title
+        $tbTitle.Text = $tabTitle
         $tbTitle.FontSize = 11.5
         $tbTitle.FontWeight = if ($isActive) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
         $tbTitle.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tbTitle.Tag = $pName
+        $tbTitle.Tag = $tab.Id
         if ($isActive) {
             $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
         } else {
@@ -1236,31 +1454,127 @@ function Update-WorkspaceTabStrip {
         $btnClose.Style = $window.TryFindResource("WorkspaceTabCloseBtn")
         $btnClose.Content = [string][char]0x2715
         $btnClose.ToolTip = "Close tab (Ctrl+W)"
-        $btnClose.Tag = $pName
+        $btnClose.Tag = $tab.Id
         $btnClose.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
             $e.Handled = $true
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                Remove-WorkspaceTab -TabId $p
+            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            if (-not [string]::IsNullOrWhiteSpace($tId)) {
+                Remove-WorkspaceTab -TabId $tId
             }
         })
         [void]$tabPanel.Children.Add($btnClose)
 
         $tabBorder.Child = $tabPanel
 
-        # Tab Click Handlers
-        $tabBorder.Add_MouseLeftButtonDown([System.Windows.Input.MouseButtonEventHandler]{
+        # Drag & Click Handlers on Tab Border
+        $tabBorder.Add_PreviewMouseLeftButtonDown([System.Windows.Input.MouseButtonEventHandler]{
             param($s, $e)
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) {
-                $s.Tag
-            } elseif ($e.Source -is [System.Windows.FrameworkElement] -and $e.Source.Tag) {
-                $e.Source.Tag
-            } else {
-                $null
+            $src = $e.OriginalSource
+            if ($src -is [System.Windows.FrameworkElement]) {
+                $cur = $src
+                $isBtn = $false
+                while ($cur -and $cur -ne $s) {
+                    if ($cur -is [System.Windows.Controls.Button]) { $isBtn = $true; break }
+                    $cur = [System.Windows.Media.VisualTreeHelper]::GetParent($cur)
+                }
+                if ($isBtn) { return }
             }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                Select-WorkspaceTab -TabId $p
+            $state.TabDragContext.IsMouseDown = $true
+            $state.TabDragContext.IsDragging = $false
+            $state.TabDragContext.StartPoint = $e.GetPosition($controls['WorkspaceTabHost'])
+            $state.TabDragContext.SourceTabId = $s.Tag
+            $state.TabDragContext.SourceBorder = $s
+        })
+
+        $tabBorder.Add_PreviewMouseMove([System.Windows.Input.MouseEventHandler]{
+            param($s, $e)
+            if (-not $state.TabDragContext.IsMouseDown) { return }
+            if ($state.TabDragContext.SourceBorder -ne $s) { return }
+            $hostPanel = $controls['WorkspaceTabHost']
+            if (-not $hostPanel) { return }
+            $curPos = $e.GetPosition($hostPanel)
+            $deltaX = [Math]::Abs($curPos.X - $state.TabDragContext.StartPoint.X)
+
+            if (-not $state.TabDragContext.IsDragging -and $deltaX -ge 6) {
+                $state.TabDragContext.IsDragging = $true
+                [void]$s.CaptureMouse()
+                $s.Opacity = 0.65
+                $s.Cursor = [System.Windows.Input.Cursors]::SizeWE
+            }
+
+            if ($state.TabDragContext.IsDragging) {
+                $curTabId = $state.TabDragContext.SourceTabId
+                $curIdx = -1
+                for ($idx = 0; $idx -lt $state.OpenTabs.Count; $idx++) {
+                    if ($state.OpenTabs[$idx].Id -eq $curTabId) { $curIdx = $idx; break }
+                }
+                if ($curIdx -ge 0) {
+                    for ($targetIdx = 0; $targetIdx -lt $hostPanel.Children.Count; $targetIdx++) {
+                        $child = $hostPanel.Children[$targetIdx]
+                        if ($child -eq $s) { continue }
+                        $childPos = $child.TranslatePoint([System.Windows.Point]::new(0, 0), $hostPanel)
+                        $midX = $childPos.X + ($child.ActualWidth / 2)
+
+                        if ($curIdx -lt $targetIdx -and $curPos.X -gt $midX) {
+                            $tabItem = $state.OpenTabs[$curIdx]
+                            $state.OpenTabs.RemoveAt($curIdx)
+                            $state.OpenTabs.Insert($targetIdx, $tabItem)
+                            $hostPanel.Children.Remove($s)
+                            $hostPanel.Children.Insert($targetIdx, $s)
+                            break
+                        } elseif ($curIdx -gt $targetIdx -and $curPos.X -lt $midX) {
+                            $tabItem = $state.OpenTabs[$curIdx]
+                            $state.OpenTabs.RemoveAt($curIdx)
+                            $state.OpenTabs.Insert($targetIdx, $tabItem)
+                            $hostPanel.Children.Remove($s)
+                            $hostPanel.Children.Insert($targetIdx, $s)
+                            break
+                        }
+                    }
+                }
+            }
+        })
+
+        $tabBorder.Add_PreviewMouseLeftButtonUp([System.Windows.Input.MouseButtonEventHandler]{
+            param($s, $e)
+            if ($state.TabDragContext.IsMouseDown) {
+                $wasDragging = $state.TabDragContext.IsDragging
+                $tabId = $state.TabDragContext.SourceTabId
+
+                if ($wasDragging) {
+                    $s.ReleaseMouseCapture()
+                    $s.Opacity = 1.0
+                    $s.Cursor = [System.Windows.Input.Cursors]::Hand
+                    $state.TabDragContext.IsDragging = $false
+                    $state.TabDragContext.IsMouseDown = $false
+                    $state.TabDragContext.SourceBorder = $null
+
+                    if ($state.RestoreTabsOnStartup) {
+                        $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
+                        $appConfig.UI.OpenTabs = $openNames
+                        [void](Save-AppSettings -Config $appConfig)
+                    }
+                    Update-WorkspaceTabStrip
+                } else {
+                    $state.TabDragContext.IsMouseDown = $false
+                    $state.TabDragContext.SourceBorder = $null
+                    if (-not [string]::IsNullOrWhiteSpace($tabId)) {
+                        Select-WorkspaceTab -TabId $tabId
+                    }
+                }
+            }
+        })
+
+        $tabBorder.Add_LostMouseCapture([System.Windows.Input.MouseEventHandler]{
+            param($s, $e)
+            if ($state.TabDragContext.IsDragging) {
+                $s.Opacity = 1.0
+                $s.Cursor = [System.Windows.Input.Cursors]::Hand
+                $state.TabDragContext.IsDragging = $false
+                $state.TabDragContext.IsMouseDown = $false
+                $state.TabDragContext.SourceBorder = $null
+                Update-WorkspaceTabStrip
             }
         })
 
@@ -1268,15 +1582,16 @@ function Update-WorkspaceTabStrip {
         $tabBorder.Add_MouseDown([System.Windows.Input.MouseButtonEventHandler]{
             param($s, $e)
             if ($e.ChangedButton -eq [System.Windows.Input.MouseButton]::Middle) {
-                $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) {
+                $e.Handled = $true
+                $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) {
                     $s.Tag
                 } elseif ($e.Source -is [System.Windows.FrameworkElement] -and $e.Source.Tag) {
                     $e.Source.Tag
                 } else {
                     $null
                 }
-                if (-not [string]::IsNullOrWhiteSpace($p)) {
-                    Remove-WorkspaceTab -TabId $p
+                if (-not [string]::IsNullOrWhiteSpace($tId)) {
+                    Remove-WorkspaceTab -TabId $tId
                 }
             }
         })
@@ -1284,6 +1599,42 @@ function Update-WorkspaceTabStrip {
         # Tab Context Menu
         $cm = [System.Windows.Controls.ContextMenu]::new()
         $cm.Style = $window.TryFindResource("ModernContextMenu")
+
+        $miDup = [System.Windows.Controls.MenuItem]::new()
+        $miDup.Header = "➕  Duplicate Tab (New Instance)"
+        $miDup.Tag = $pName
+        $miDup.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            if (-not [string]::IsNullOrWhiteSpace($p)) {
+                Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
+            }
+        })
+        [void]$cm.Items.Add($miDup)
+
+        $miRename = [System.Windows.Controls.MenuItem]::new()
+        $miRename.Header = "🏷️  Rename Tab..."
+        $miRename.Tag = $tab.Id
+        $miRename.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            if (-not [string]::IsNullOrWhiteSpace($tId)) {
+                Rename-WorkspaceTab -TabId $tId
+            }
+        })
+        [void]$cm.Items.Add($miRename)
+
+        $miNewWin = [System.Windows.Controls.MenuItem]::new()
+        $miNewWin.Header = "🗖  Open in New Independent Window"
+        $miNewWin.Tag = $pName
+        $miNewWin.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            Launch-NewApplicationWindow -ToolName $p
+        })
+        [void]$cm.Items.Add($miNewWin)
+
+        [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
 
         $miDetach = [System.Windows.Controls.MenuItem]::new()
         $miDetach.Header = if ($isDetached) { "$([char]0x2B07) Dock Back into Main Window" } else { "$([char]0x29C9) Detach to Separate Window" }
@@ -1301,30 +1652,29 @@ function Update-WorkspaceTabStrip {
         })
         [void]$cm.Items.Add($miDetach)
 
-        $sep = [System.Windows.Controls.Separator]::new()
-        [void]$cm.Items.Add($sep)
+        [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
 
         $miClose = [System.Windows.Controls.MenuItem]::new()
         $miClose.Header = "✕ Close Tab"
-        $miClose.Tag = $pName
+        $miClose.Tag = $tab.Id
         $miClose.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                Remove-WorkspaceTab -TabId $p
+            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            if (-not [string]::IsNullOrWhiteSpace($tId)) {
+                Remove-WorkspaceTab -TabId $tId
             }
         })
         [void]$cm.Items.Add($miClose)
 
         $miCloseOthers = [System.Windows.Controls.MenuItem]::new()
         $miCloseOthers.Header = "Close Other Tabs"
-        $miCloseOthers.Tag = $pName
+        $miCloseOthers.Tag = $tab.Id
         $miCloseOthers.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                $toClose = @($state.OpenTabs | Where-Object { $_.PanelName -ne $p })
-                foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.PanelName }
+            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+            if (-not [string]::IsNullOrWhiteSpace($tId)) {
+                $toClose = @($state.OpenTabs | Where-Object { $_.Id -ne $tId })
+                foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.Id }
             }
         })
         [void]$cm.Items.Add($miCloseOthers)
@@ -1334,7 +1684,7 @@ function Update-WorkspaceTabStrip {
         $miCloseAll.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
             $toClose = @($state.OpenTabs)
-            foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.PanelName }
+            foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.Id }
         })
         [void]$cm.Items.Add($miCloseAll)
 
@@ -1346,22 +1696,55 @@ function Update-WorkspaceTabStrip {
 function Add-WorkspaceTab {
     param (
         [string]$PanelName,
-        [bool]$Activate = $true
+        [bool]$Activate = $true,
+        [switch]$NewInstance,
+        [string]$CustomTitle = ""
     )
     if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
-    $existing = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName } | Select-Object -First 1
-    if (-not $existing) {
-        $meta = if ($global:PanelCatalog.Contains($PanelName)) { $global:PanelCatalog[$PanelName] } else { [PSCustomObject]@{ Title = $PanelName; Icon = "📄" } }
-        $tabObj = [PSCustomObject]@{
-            Id        = $PanelName
-            PanelName = $PanelName
-            Title     = $meta.Title
-            Icon      = $meta.Icon
+
+    $existing = if (-not $NewInstance) {
+        $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName } | Select-Object -First 1
+    } else { $null }
+
+    if ($existing) {
+        if ($Activate) {
+            Select-WorkspaceTab -TabId $existing.Id
+        } else {
+            Update-WorkspaceTabStrip
         }
-        $state.OpenTabs.Add($tabObj)
+        return
     }
+
+    $meta = if (-not [string]::IsNullOrWhiteSpace($PanelName) -and $global:PanelCatalog.Contains($PanelName)) {
+        $global:PanelCatalog[$PanelName]
+    } else {
+        [PSCustomObject]@{ Title = $PanelName; Icon = "📄"; Category = "Tool" }
+    }
+
+    $existingCount = @($state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName }).Count
+    $instanceNum = $existingCount + 1
+    $tabId = "${PanelName}_$([guid]::NewGuid().ToString('N').Substring(0, 6))"
+
+    $displayTitle = if (-not [string]::IsNullOrWhiteSpace($CustomTitle)) {
+        $CustomTitle
+    } elseif ($instanceNum -gt 1) {
+        "$($meta.Title) ($instanceNum)"
+    } else {
+        $meta.Title
+    }
+
+    $tabObj = [PSCustomObject]@{
+        Id             = $tabId
+        PanelName      = $PanelName
+        Title          = $displayTitle
+        Icon           = $meta.Icon
+        InstanceNumber = $instanceNum
+        State          = @{}
+    }
+    $state.OpenTabs.Add($tabObj)
+
     if ($Activate) {
-        Select-WorkspaceTab -TabId $PanelName
+        Select-WorkspaceTab -TabId $tabId
     } else {
         Update-WorkspaceTabStrip
     }
@@ -1370,21 +1753,27 @@ function Add-WorkspaceTab {
 function Remove-WorkspaceTab {
     param ([string]$TabId)
     if ([string]::IsNullOrWhiteSpace($TabId)) { return }
-    $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
+    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
+    if (-not $targetTab) {
+        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
+    }
     if (-not $targetTab) { return }
 
-    if (-not [string]::IsNullOrWhiteSpace($TabId) -and $state.DetachedWindows.ContainsKey($TabId)) {
-        Dock-PanelToMainWindow -PanelName $TabId -NoActivate
+    $pName = $targetTab.PanelName
+    $otherTabsForPanel = @($state.OpenTabs | Where-Object { $_.Id -ne $targetTab.Id -and $_.PanelName -eq $pName })
+
+    if ($otherTabsForPanel.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($pName) -and $state.DetachedWindows.ContainsKey($pName)) {
+        Dock-PanelToMainWindow -PanelName $pName -NoActivate
     }
 
     $idx = $state.OpenTabs.IndexOf($targetTab)
     [void]$state.OpenTabs.Remove($targetTab)
 
-    if ($state.ActiveTabId -eq $TabId) {
+    if ($state.ActiveTabId -eq $targetTab.Id) {
         if ($state.OpenTabs.Count -gt 0) {
             $newIdx = [Math]::Min($idx, $state.OpenTabs.Count - 1)
             $nextTab = $state.OpenTabs[$newIdx]
-            Select-WorkspaceTab -TabId $nextTab.PanelName
+            Select-WorkspaceTab -TabId $nextTab.Id
         } else {
             Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
         }
@@ -1396,9 +1785,26 @@ function Remove-WorkspaceTab {
 function Select-WorkspaceTab {
     param ([string]$TabId)
     if ([string]::IsNullOrWhiteSpace($TabId)) { return }
-    
-    if (-not [string]::IsNullOrWhiteSpace($TabId) -and $state.DetachedWindows.ContainsKey($TabId)) {
-        $detached = $state.DetachedWindows[$TabId]
+
+    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
+    if (-not $targetTab) {
+        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
+    }
+    if (-not $targetTab) { return }
+
+    # Save state of previously active tab before switching
+    if ($state.ActiveTabId -and $state.ActiveTabId -ne $targetTab.Id) {
+        $prevTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+        if ($prevTab) {
+            Save-TabSessionState -Tab $prevTab
+        }
+    }
+
+    $state.ActiveTabId = $targetTab.Id
+    $PanelName = $targetTab.PanelName
+
+    if (-not [string]::IsNullOrWhiteSpace($PanelName) -and $state.DetachedWindows.ContainsKey($PanelName)) {
+        $detached = $state.DetachedWindows[$PanelName]
         if ($detached) {
             if ($detached.WindowState -eq [System.Windows.WindowState]::Minimized) {
                 $detached.WindowState = [System.Windows.WindowState]::Normal
@@ -1408,9 +1814,10 @@ function Select-WorkspaceTab {
         }
     }
 
-    $state.ActiveTabId = $TabId
+    # Restore session state for the selected tab
+    Restore-TabSessionState -Tab $targetTab
 
-    $targetCtrlName = "Panel$TabId"
+    $targetCtrlName = "Panel$PanelName"
     if ($controls['ViewportContainer'] -and $controls[$targetCtrlName]) {
         foreach ($child in $controls['ViewportContainer'].Children) {
             if ($child -is [System.Windows.UIElement]) {
@@ -1425,7 +1832,7 @@ function Select-WorkspaceTab {
 
     $state.IsSelectingTab = $true
     try {
-        $radio = $controls["Nav$TabId"]
+        $radio = $controls["Nav$PanelName"]
         if ($radio -and -not $radio.IsChecked) {
             $radio.IsChecked = $true
         }
@@ -1433,7 +1840,7 @@ function Select-WorkspaceTab {
         $state.IsSelectingTab = $false
     }
 
-    Record-NavHistory -PanelName $TabId
+    Record-NavHistory -PanelName $PanelName
     Update-WorkspaceTabStrip
 }
 
@@ -1686,6 +2093,30 @@ function Show-WorkspaceLayoutMenu {
     $secWindows.FontWeight = [System.Windows.FontWeights]::Bold
     [void]$cm.Items.Add($secWindows)
 
+    # Open New Application Window
+    $miNewAppWin = [System.Windows.Controls.MenuItem]::new()
+    $miNewAppWin.Header = "🗖  Open New Application Window"
+    $miNewAppWin.InputGestureText = "Ctrl+N"
+    $miNewAppWin.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        Launch-NewApplicationWindow
+    })
+    [void]$cm.Items.Add($miNewAppWin)
+
+    # Open Active Tool in Independent Window
+    $miNewToolWin = [System.Windows.Controls.MenuItem]::new()
+    $miNewToolWin.Header = "🗖  Open Active Tool in Independent Window"
+    $miNewToolWin.IsEnabled = [bool]($state.ActiveTabId)
+    $miNewToolWin.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+        $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+        if (-not [string]::IsNullOrWhiteSpace($p)) {
+            Launch-NewApplicationWindow -ToolName $p
+        }
+    })
+    [void]$cm.Items.Add($miNewToolWin)
+
     # Detach Current Tab
     $miDetachCur = [System.Windows.Controls.MenuItem]::new()
     $miDetachCur.Header = "⧉  Detach Current Tool to Separate Window"
@@ -1693,8 +2124,10 @@ function Show-WorkspaceLayoutMenu {
     $miDetachCur.IsEnabled = [bool]($state.ActiveTabId -and -not $state.DetachedWindows.ContainsKey($state.ActiveTabId))
     $miDetachCur.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
-        if (-not [string]::IsNullOrWhiteSpace($state.ActiveTabId)) {
-            Detach-PanelToWindow -PanelName $state.ActiveTabId
+        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+        $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+        if (-not [string]::IsNullOrWhiteSpace($p)) {
+            Detach-PanelToWindow -PanelName $p
         }
     })
     [void]$cm.Items.Add($miDetachCur)
@@ -1748,6 +2181,21 @@ function Show-WorkspaceLayoutMenu {
         }
     })
     [void]$cm.Items.Add($miNewTab)
+
+    # Duplicate Active Tab
+    $miDupActive = [System.Windows.Controls.MenuItem]::new()
+    $miDupActive.Header = "➕  Duplicate Active Tab (New Instance)"
+    $miDupActive.InputGestureText = "Ctrl+Shift+N"
+    $miDupActive.IsEnabled = [bool]($state.ActiveTabId)
+    $miDupActive.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+        $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+        if (-not [string]::IsNullOrWhiteSpace($p)) {
+            Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
+        }
+    })
+    [void]$cm.Items.Add($miDupActive)
 
     $miResetTabs = [System.Windows.Controls.MenuItem]::new()
     $miResetTabs.Header = "🔄  Reset Workspace to Default Tabs (Dashboard, Users, Groups, Computers)"
@@ -1803,7 +2251,7 @@ function Init-SidebarNavigationContextMenus {
             $cm.Style = $window.TryFindResource("ModernContextMenu")
 
             $miTab = [System.Windows.Controls.MenuItem]::new()
-            $miTab.Header = "🗂️ Open in New Tab"
+            $miTab.Header = "🗂️ Open in Tab"
             $miTab.Tag = $p
             $miTab.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
@@ -1814,8 +2262,20 @@ function Init-SidebarNavigationContextMenus {
             })
             [void]$cm.Items.Add($miTab)
 
+            $miTabNew = [System.Windows.Controls.MenuItem]::new()
+            $miTabNew.Header = "➕ Open New Instance in Tab"
+            $miTabNew.Tag = $p
+            $miTabNew.Add_Click([System.Windows.RoutedEventHandler]{
+                param($s, $e)
+                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                if (-not [string]::IsNullOrWhiteSpace($target)) {
+                    Add-WorkspaceTab -PanelName $target -NewInstance -Activate $true
+                }
+            })
+            [void]$cm.Items.Add($miTabNew)
+
             $miWin = [System.Windows.Controls.MenuItem]::new()
-            $miWin.Header = "⧉ Open in Separate Window"
+            $miWin.Header = "⧉ Detach to Separate Window"
             $miWin.Tag = $p
             $miWin.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
@@ -1825,6 +2285,18 @@ function Init-SidebarNavigationContextMenus {
                 }
             })
             [void]$cm.Items.Add($miWin)
+
+            $miIndWin = [System.Windows.Controls.MenuItem]::new()
+            $miIndWin.Header = "🗖 Open in New Independent Window"
+            $miIndWin.Tag = $p
+            $miIndWin.Add_Click([System.Windows.RoutedEventHandler]{
+                param($s, $e)
+                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                if (-not [string]::IsNullOrWhiteSpace($target)) {
+                    Launch-NewApplicationWindow -ToolName $target
+                }
+            })
+            [void]$cm.Items.Add($miIndWin)
 
             $radio.ContextMenu = $cm
         }
@@ -1891,17 +2363,55 @@ if ($controls['BtnWorkspaceNewTab']) {
 
             foreach ($pName in $categories[$cat]) {
                 $meta = $global:PanelCatalog[$pName]
-                $mi = [System.Windows.Controls.MenuItem]::new()
-                $mi.Header = "$($meta.Icon)  $($meta.Title)"
-                $mi.Tag = $pName
-                $mi.Add_Click([System.Windows.RoutedEventHandler]{
-                    param($s, $e)
-                    $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                    if (-not [string]::IsNullOrWhiteSpace($target)) {
-                        Add-WorkspaceTab -PanelName $target -Activate $true
-                    }
-                })
-                [void]$cm.Items.Add($mi)
+                $isOpen = [bool]($state.OpenTabs | Where-Object { $_.PanelName -eq $pName })
+                if ($isOpen) {
+                    $mi = [System.Windows.Controls.MenuItem]::new()
+                    $mi.Header = "$($meta.Icon)  $($meta.Title)"
+
+                    $subSwitch = [System.Windows.Controls.MenuItem]::new()
+                    $subSwitch.Header = "🗂️  Switch to Tab"
+                    $subSwitch.Tag = $pName
+                    $subSwitch.Add_Click([System.Windows.RoutedEventHandler]{
+                        param($s, $e)
+                        $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace($t)) { Add-WorkspaceTab -PanelName $t -Activate $true }
+                    })
+                    [void]$mi.Items.Add($subSwitch)
+
+                    $subNew = [System.Windows.Controls.MenuItem]::new()
+                    $subNew.Header = "➕  Open Another Instance in Tab"
+                    $subNew.Tag = $pName
+                    $subNew.Add_Click([System.Windows.RoutedEventHandler]{
+                        param($s, $e)
+                        $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace($t)) { Add-WorkspaceTab -PanelName $t -NewInstance -Activate $true }
+                    })
+                    [void]$mi.Items.Add($subNew)
+
+                    $subWin = [System.Windows.Controls.MenuItem]::new()
+                    $subWin.Header = "🗖  Open in New Independent Window"
+                    $subWin.Tag = $pName
+                    $subWin.Add_Click([System.Windows.RoutedEventHandler]{
+                        param($s, $e)
+                        $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace($t)) { Launch-NewApplicationWindow -ToolName $t }
+                    })
+                    [void]$mi.Items.Add($subWin)
+
+                    [void]$cm.Items.Add($mi)
+                } else {
+                    $mi = [System.Windows.Controls.MenuItem]::new()
+                    $mi.Header = "$($meta.Icon)  $($meta.Title)"
+                    $mi.Tag = $pName
+                    $mi.Add_Click([System.Windows.RoutedEventHandler]{
+                        param($s, $e)
+                        $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace($target)) {
+                            Add-WorkspaceTab -PanelName $target -Activate $true
+                        }
+                    })
+                    [void]$cm.Items.Add($mi)
+                }
             }
 
             $sep = [System.Windows.Controls.Separator]::new()
@@ -1915,7 +2425,11 @@ if ($controls['BtnWorkspaceNewTab']) {
 if ($controls['BtnWorkspaceDetachCurrent']) {
     $controls['BtnWorkspaceDetachCurrent'].Add_Click({
         if (-not [string]::IsNullOrWhiteSpace($state.ActiveTabId)) {
-            Detach-PanelToWindow -PanelName $state.ActiveTabId
+            $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+            if (-not [string]::IsNullOrWhiteSpace($p)) {
+                Detach-PanelToWindow -PanelName $p
+            }
         }
     })
 }
@@ -10867,11 +11381,13 @@ $window.Add_Loaded({
     Init-SidebarNavigationContextMenus
 
     # Initialize Workspace Tabs
-    if ($state.RestoreTabsOnStartup -and $appConfig.UI.OpenTabs -and ($appConfig.UI.OpenTabs.Count -gt 0)) {
+    if (-not [string]::IsNullOrWhiteSpace($InitialTool)) {
+        Add-WorkspaceTab -PanelName $InitialTool -Activate $true
+    } elseif ($state.RestoreTabsOnStartup -and $appConfig.UI.OpenTabs -and ($appConfig.UI.OpenTabs.Count -gt 0)) {
         foreach ($tabName in $appConfig.UI.OpenTabs) {
             Add-WorkspaceTab -PanelName $tabName -Activate $false
         }
-        $firstTab = $appConfig.UI.OpenTabs[0]
+        $firstTab = if ($state.OpenTabs.Count -gt 0) { $state.OpenTabs[0].Id } else { "Dashboard" }
         Select-WorkspaceTab -TabId $firstTab
     } else {
         Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
@@ -10912,7 +11428,7 @@ $window.Add_SizeChanged({
     Update-HeaderLayoutResponsive
 })
 
-# Keyboard shortcuts: Ctrl+T theme, Ctrl+R Resolver, Ctrl+W close tab, Ctrl+Tab cycle tabs, Ctrl+Shift+D detach
+# Keyboard shortcuts: Ctrl+T theme, Ctrl+R Resolver, Ctrl+W close tab, Ctrl+Tab cycle tabs, Ctrl+Shift+D detach, Ctrl+N new window, Ctrl+Shift+N duplicate tab
 $window.Add_KeyDown({
     param($sender, $e)
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
@@ -10934,7 +11450,7 @@ $window.Add_KeyDown({
         if ($state.WorkspaceMode -eq "Tabs" -and $state.OpenTabs.Count -gt 1) {
             $currIdx = -1
             for ($i = 0; $i -lt $state.OpenTabs.Count; $i++) {
-                if ($state.OpenTabs[$i].PanelName -eq $state.ActiveTabId) { $currIdx = $i; break }
+                if ($state.OpenTabs[$i].Id -eq $state.ActiveTabId) { $currIdx = $i; break }
             }
             if ($currIdx -ge 0) {
                 $isShift = [bool]([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)
@@ -10943,14 +11459,28 @@ $window.Add_KeyDown({
                 } else {
                     ($currIdx + 1) % $state.OpenTabs.Count
                 }
-                Select-WorkspaceTab -TabId $state.OpenTabs[$nextIdx].PanelName
+                Select-WorkspaceTab -TabId $state.OpenTabs[$nextIdx].Id
                 $e.Handled = $true
             }
         }
     }
     if ($e.Key -eq [System.Windows.Input.Key]::D -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
         if ($state.ActiveTabId) {
-            Detach-PanelToWindow -PanelName $state.ActiveTabId
+            $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+            Detach-PanelToWindow -PanelName $p
+            $e.Handled = $true
+        }
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::N -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and -not ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        Launch-NewApplicationWindow
+        $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::N -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        if ($state.ActiveTabId) {
+            $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
+            Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
             $e.Handled = $true
         }
     }
