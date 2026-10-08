@@ -1,0 +1,180 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Active Directory Access Control &amp; Permissions Browser"
+    Height="680" Width="920"
+    MinHeight="500" MinWidth="700"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="{DynamicResource BgDark}"
+    Foreground="{DynamicResource TextPrimary}"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="tabBorder" Background="{DynamicResource NavHoverBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Margin="0,0,4,0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource BgCard}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="🛡️" FontSize="26" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Name="TxtAclTargetTitle" Text="Security Descriptor &amp; Effective Permissions" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                    <TextBlock Name="TxtAclTargetDn" Text="CN=...,DC=corp,DC=local" FontSize="11" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Name="BrdInheritanceBadge" Background="#107C41" CornerRadius="3" Padding="8,3" Margin="0,0,8,0">
+                        <TextBlock Name="TxtInheritanceBadge" Text="Inheritance Enabled" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Trustee Selector Bar for Effective Rights -->
+        <Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Inspect Trustee:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0"/>
+                <TextBox Name="TxtAclTrustee" Grid.Column="1" Background="{DynamicResource InputBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" Padding="8,4" VerticalAlignment="Center" Text="Domain Admins"/>
+                <Button Name="BtnCalculateEffective" Grid.Column="2" Content="⚡ Calculate Effective Rights" Style="{StaticResource ModernButton}" Margin="10,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Main Tabs -->
+        <TabControl Grid.Row="2" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+            <!-- Tab 1: DACL (Permissions) -->
+            <TabItem Header="DACL (Permissions)" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DataGrid Name="GridDaclAces" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" Background="Transparent" BorderThickness="0" RowBackground="{DynamicResource GridRowBg}" AlternatingRowBackground="{DynamicResource GridRowAltBg}" Foreground="{DynamicResource TextPrimary}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource GridLineBrush}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Type" Binding="{Binding AccessType}" Width="120"/>
+                            <DataGridTextColumn Header="Trustee" Binding="{Binding Trustee}" Width="200"/>
+                            <DataGridTextColumn Header="Permissions Granted" Binding="{Binding Permissions}" Width="*"/>
+                            <DataGridTextColumn Header="Inherited" Binding="{Binding InheritanceScope}" Width="160"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <TextBlock Text="Color Legend: " VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,8,0" FontSize="11"/>
+                        <Border Background="#D13438" CornerRadius="2" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="Full Control / Deny" Foreground="White" FontSize="10"/></Border>
+                        <Border Background="#8E5AA5" CornerRadius="2" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="Modify / Write" Foreground="White" FontSize="10"/></Border>
+                        <Border Background="#107C41" CornerRadius="2" Padding="6,2"><TextBlock Text="Read Access" Foreground="White" FontSize="10"/></Border>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 2: Effective Rights Matrix -->
+            <TabItem Header="Effective Rights" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource NavHoverBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,10">
+                        <TextBlock Name="TxtEffectiveSummary" Text="Click 'Calculate Effective Rights' to evaluate rights for the selected trustee." TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold"/>
+                    </Border>
+                    <ListBox Name="LstEffectiveRights" Grid.Row="1" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimary}"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 3: SACL (Auditing) -->
+            <TabItem Header="SACL (Auditing)" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <DataGrid Name="GridSaclAces" AutoGenerateColumns="False" IsReadOnly="True" Background="Transparent" BorderThickness="0" RowBackground="{DynamicResource GridRowBg}" AlternatingRowBackground="{DynamicResource GridRowAltBg}" Foreground="{DynamicResource TextPrimary}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource GridLineBrush}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Audit Type" Binding="{Binding AccessType}" Width="120"/>
+                            <DataGridTextColumn Header="Trustee" Binding="{Binding Trustee}" Width="200"/>
+                            <DataGridTextColumn Header="Audited Access" Binding="{Binding Permissions}" Width="*"/>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding InheritanceScope}" Width="160"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 4: Raw SDDL String -->
+            <TabItem Header="SDDL String" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBox Name="TxtRawSddl" Grid.Row="0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="{DynamicResource InputBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" FontFamily="Consolas, Courier New" FontSize="12" Padding="10"/>
+                    <Button Name="BtnCopySddl" Grid.Row="1" Content="📋 Copy SDDL to Clipboard" Style="{StaticResource ModernButton}" HorizontalAlignment="Right" Margin="0,10,0,0"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer Actions -->
+        <Border Grid.Row="3" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="BtnCloseAclDialog" Content="Close" Style="{StaticResource ModernButton}" Width="90"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

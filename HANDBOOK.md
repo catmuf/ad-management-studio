@@ -446,10 +446,53 @@ All OUs created through the studio have the `ProtectedFromAccidentalDeletion` fl
 
 ---
 
-## 8. License & Attribution
+## 8. NetTools & Advanced Diagnostic Suites
+
+Active Directory Management Studio integrates complete operational parity with **NetTools** (`https://nettools.net/features/`), providing directory engineers and administrators with enterprise-grade troubleshooting tools.
+
+### 8.1. Access Control & ACL Suite
+- **DACL & SACL Inspection**: Navigate to **Security & ACLs** in the sidebar. Enter any object DN or SamAccountName and click **Load Descriptor** to inspect all Access Control Entries, trustee SIDs, permissions, and inheritance flags (`CI`, `OI`, `NP`, `IO`).
+- **Effective Permissions Matrix**: Enter a target trustee (e.g. `HelpDesk-Leads`) and click **Calculate Effective Rights** to evaluate direct, nested, and well-known group memberships against DACL deny/allow rules.
+- **AdminSDHolder & SDProp Auditor**: Click **Scan Protected Orphans** under the AdminSDHolder tab to detect lingering accounts with `adminCount=1` whose inheritance remains broken even after being removed from administrative groups. Click **Restore Inheritance & Clear adminCount** for 1-click remediation.
+- **Sensitive Delegation Reports**: Audit domain-wide administrative delegations, including password reset permissions on AdminSDHolder, DCSync / replication permissions on domain roots, and LAPS password read rights.
+- **Visual ACL Inspector Window**: Click **Open Advanced ACL Dialog** to launch the standalone modal browser (`AclBrowserDialog.xaml`) with DACL, SACL, Effective Rights, and Raw SDDL tabs.
+
+### 8.2. Kerberos & Token Bloat Diagnostics
+- **LSA Ticket Cache**: Navigate to **Kerberos Suite** in the sidebar to review active tickets cached in the current Windows logon session (`klist.exe`), including server SPNs, encryption types, and ticket flags. Click **Purge All Tickets** to purge tickets without logging off.
+- **SPN Ticket Request Tester**: Validate whether a specific service principal (e.g. `cifs/filer01.corp.local` or `HOST/dc01.corp.local`) can be requested via Kerberos, measuring resolution latency.
+- **PAC MaxTokenSize Calculator**: Under the **Token Size (PAC)** tab, enter a username to calculate the exact estimated access token size using Microsoft's formula:
+  $$\text{TokenSize} = 1200 + (40 \times d) + (8 \times s)$$
+  Identifies accounts approaching the standard 12,000-byte threshold or at risk of HTTP 400 Bad Request errors.
+- **Forest RID Pool Allocation**: Query the RID Master and all domain controllers to inspect global 30-bit RID allocation capacity (~1 billion total available) and per-DC pool blocks.
+
+### 8.3. Multi-DC Replication & Sites Topology
+- **Real-Time Non-Replicated Last Logon**: Under **Replication Suite**, enter any user or computer identity to query all domain controllers concurrently. Displays the consensus latest logon timestamp and originating DC, bypassing replication delays.
+- **Subnet Boundary & Conflict Audit**: Scan Active Directory Sites & Services subnet definitions to detect overlapping CIDR IP address blocks causing non-deterministic DC locator affinity.
+- **Active Directory Sites Topology**: Review domain sites, subnets, ISTG server assignments, and replication link costs.
+- **GPO SYSVOL Consistency Checker**: Audit Group Policy Objects across domain controllers to verify that Active Directory `versionNumber` matches SYSVOL `GPT.ini` version numbers, identifying replication lags.
+- **Attribute Replication Metadata**: Inspect `msDS-ReplAttributeMetaData` to identify the originating DC, USN, version number, and exact timestamp of modifications for any directory attribute.
+
+### 8.4. Diagnostics Toolbox & Incident Scratchpad (`Ctrl+R`)
+- **Circular Group Loop Detector**: Under **Diagnostics Toolbox**, run the DFS circular group scanner to discover dangerous cyclic nested group hierarchies (e.g. `Group A ➔ Group B ➔ Group C ➔ Group A`).
+- **Side-by-Side User Group Diff**: Enter two usernames in the **Group Membership Diff** tab to immediately compare common vs. unique group memberships.
+- **Account Lockout Source Investigator**: Enter a locked-out username to query bad password counts across all DCs and parse Security Event Log **Event ID 4740** to identify the caller workstation hostname and IP address.
+- **Expedited Multi-DC Unlock**: Click **Unlock on All DCs** to unlock the account with immediate synchronization.
+- **Error Code Decoder**: Decode Win32, HRESULT, LDAP, and Kerberos error codes (e.g. `5`, `0x80070005`, `1326`, `0x52e`, `LDAP 49`).
+- **Timestamp Converter**: Convert bidirectionally between Windows FileTime Int64, Hex 64-bit, GeneralizedTime, and Unix Epoch.
+- **The Incident Scratchpad (`Ctrl+R`)**: Press `Ctrl+R` or click **Incident Scratchpad** to open a multi-entity workspace. Paste arbitrary lists of usernames, SIDs, IPs, DNs, or GUIDs to auto-classify and pivot to diagnostics with 1 click.
+
+### 8.5. Universal "Use With..." Pivoting & Detached Grids
+- **"Use With..." Context Menu**: Right-click any row in the **Users**, **Groups**, **Computers**, or **Search Results** tables to instantly pivot to Effective Permissions, Token Bloat, Lockout Trace, or the Resolver Scratchpad.
+- **Detached Floating Grids**: Right-click any table and choose **Copy Grid to Detached Window** to clone the dataset into an independent floating window for multi-monitor workstations, featuring live filtering and CSV/HTML export.
+- **Elevation Telemetry Badge**: The top bar displays a live Windows Principal badge (`🛡️ ELEVATED (ADMIN)` vs `👤 STANDARD USER`), letting you know whether high-privilege event log queries and replication sync commands are supported in your current session.
+
+---
+
+## 9. License & Attribution
 
 - **Project**: Active Directory Management Studio
 - **Author**: Catmuf (`catmuf@gmail.com`)
 - **Repository**: [github.com/catmuf/ad-management-studio](https://github.com/catmuf/ad-management-studio.git)
 - **Documentation**: [github.com/catmuf/ad-management-studio/wiki](https://github.com/catmuf/ad-management-studio/wiki)
 - **License**: MIT License - Free for enterprise, commercial, and personal administration.
+

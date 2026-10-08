@@ -488,6 +488,51 @@
             <Setter Property="Height" Value="1"/>
             <Setter Property="Margin" Value="4,3"/>
         </Style>
+
+        <!-- TabControl & TabItem Modern Styles (NetTools Parity) -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0,6,0,0"/>
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="TabBorder" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}" Margin="{TemplateBinding Margin}">
+                            <ContentPresenter Name="TabContent" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource BgSurface}"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="GroupBox">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+        </Style>
     </Window.Resources>
 
     <Grid Background="{DynamicResource BgDark}">
@@ -541,6 +586,11 @@
                         <Border Name="BorderReadOnlyBadge" Background="#D97706" CornerRadius="10" Padding="8,1" Margin="8,0,0,0" Visibility="Collapsed" ToolTip="Directory modifications are locked for this server profile">
                             <TextBlock Text="🔒 READ-ONLY" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"/>
                         </Border>
+
+                        <!-- Process Elevation Status Badge (NetTools Parity) -->
+                        <Border Name="BorderElevationBadge" Background="#107C41" CornerRadius="10" Padding="8,1" Margin="8,0,0,0" ToolTip="Process security privilege token status">
+                            <TextBlock Name="TxtElevationStatus" Text="🛡️ ELEVATED" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -580,6 +630,22 @@
                             </Border>
                         </Popup>
                     </Grid>
+
+                    <!-- Resolver Scratchpad Quick Button (Ctrl+R) -->
+                    <Button Name="BtnHeaderResolver" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Open Resolver Scratchpad: Bulk parse and resolve entities (Ctrl+R)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📝" Margin="0,0,5,0"/>
+                            <TextBlock Text="Resolver"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Quick Lockout Investigator -->
+                    <Button Name="BtnHeaderLockout" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5" ToolTip="Quick Account Lockout Investigator &amp; Unlocker">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔓" Margin="0,0,5,0"/>
+                            <TextBlock Text="Lockout"/>
+                        </StackPanel>
+                    </Button>
 
                     <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Margin="0,0,6,0" Padding="10,5">
                         <StackPanel Orientation="Horizontal">
@@ -723,7 +789,36 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <!-- Group 3: SYSTEM -->
+                        <!-- Group 3: NETTOOLS & DIAGNOSTICS -->
+                        <Separator Background="#252936" Margin="12,8"/>
+                        <TextBlock Text="NETTOOLS &amp; DIAGNOSTICS" FontSize="10" FontWeight="Bold" Foreground="#10B981" Margin="14,4,14,4"/>
+
+                        <RadioButton Name="NavSecurityAcl" Style="{StaticResource NavTabButton}" ToolTip="Visual ACL Explorer, Effective Rights &amp; AdminSDHolder">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🛡️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Security &amp; ACLs"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavKerberosSuite" Style="{StaticResource NavTabButton}" ToolTip="Kerberos Tickets, SPN Tester &amp; MaxTokenSize Bloat">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🎟️" Margin="0,0,8,0"/>
+                                <TextBlock Text="Kerberos &amp; Auth"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavReplicationSuite" Style="{StaticResource NavTabButton}" ToolTip="Multi-DC Last Logon, USN Counters, Subnet Overlaps &amp; GPO Sync">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔄" Margin="0,0,8,0"/>
+                                <TextBlock Text="AD Replication"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Name="NavDiagnosticsToolbox" Style="{StaticResource NavTabButton}" ToolTip="Circular Groups, Group Diff, Lockout Trace &amp; Codecs">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🧰" Margin="0,0,8,0"/>
+                                <TextBlock Text="Diagnostics Hub"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Group 4: SYSTEM -->
                         <Separator Background="#252936" Margin="12,8"/>
                         <TextBlock Text="SYSTEM" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="14,4,14,4"/>
 
@@ -1002,6 +1097,16 @@
                                     <MenuItem Name="CtxUserViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
                                     <MenuItem Name="CtxUserOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                     <MenuItem Name="CtxUserExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
+                                    <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                    <MenuItem Name="CtxUserUseWith" Style="{StaticResource ModernMenuItem}" Header="⚡ Use With (NetTools)...">
+                                        <MenuItem Name="CtxUserUseWithAcl" Style="{StaticResource ModernMenuItem}" Header="🛡️ Inspect ACL &amp; Effective Rights"/>
+                                        <MenuItem Name="CtxUserUseWithTokenSize" Style="{StaticResource ModernMenuItem}" Header="🎟️ Calculate MaxTokenSize / PAC"/>
+                                        <MenuItem Name="CtxUserUseWithLockout" Style="{StaticResource ModernMenuItem}" Header="🔓 Trace Account Lockout Across DCs"/>
+                                        <MenuItem Name="CtxUserUseWithReplication" Style="{StaticResource ModernMenuItem}" Header="🔄 Check Multi-DC Last Logon / USN"/>
+                                        <MenuItem Name="CtxUserUseWithResolver" Style="{StaticResource ModernMenuItem}" Header="📝 Send to Resolver Scratchpad"/>
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                        <MenuItem Name="CtxUserCopyToDetached" Style="{StaticResource ModernMenuItem}" Header="🗗 Detach Grid to Floating Window"/>
+                                    </MenuItem>
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
@@ -1217,6 +1322,15 @@
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxGroupViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
                                 <MenuItem Name="CtxGroupOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxGroupUseWith" Style="{StaticResource ModernMenuItem}" Header="⚡ Use With (NetTools)...">
+                                    <MenuItem Name="CtxGroupUseWithAcl" Style="{StaticResource ModernMenuItem}" Header="🛡️ Inspect ACL &amp; Permissions"/>
+                                    <MenuItem Name="CtxGroupUseWithCircular" Style="{StaticResource ModernMenuItem}" Header="🔄 Scan for Circular Loop References"/>
+                                    <MenuItem Name="CtxGroupUseWithDiff" Style="{StaticResource ModernMenuItem}" Header="⚖️ Compare Group Lineage"/>
+                                    <MenuItem Name="CtxGroupUseWithResolver" Style="{StaticResource ModernMenuItem}" Header="📝 Send to Resolver Scratchpad"/>
+                                    <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                    <MenuItem Name="CtxGroupCopyToDetached" Style="{StaticResource ModernMenuItem}" Header="🗗 Detach Grid to Floating Window"/>
+                                </MenuItem>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -1437,6 +1551,15 @@
                                 <MenuItem Name="CtxCompViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
                                 <MenuItem Name="CtxCompOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                 <MenuItem Name="CtxCompExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxCompUseWith" Style="{StaticResource ModernMenuItem}" Header="⚡ Use With (NetTools)...">
+                                    <MenuItem Name="CtxCompUseWithAcl" Style="{StaticResource ModernMenuItem}" Header="🛡️ Inspect ACL &amp; Permissions"/>
+                                    <MenuItem Name="CtxCompUseWithSpn" Style="{StaticResource ModernMenuItem}" Header="🎟️ Test Host Kerberos SPN Ticket"/>
+                                    <MenuItem Name="CtxCompUseWithReplication" Style="{StaticResource ModernMenuItem}" Header="🔄 Check Multi-DC Last Logon / USN"/>
+                                    <MenuItem Name="CtxCompUseWithResolver" Style="{StaticResource ModernMenuItem}" Header="📝 Send to Resolver Scratchpad"/>
+                                    <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                    <MenuItem Name="CtxCompCopyToDetached" Style="{StaticResource ModernMenuItem}" Header="🗗 Detach Grid to Floating Window"/>
+                                </MenuItem>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -1637,6 +1760,13 @@
                                 <MenuItem Name="CtxSearchViewHtml" Style="{StaticResource ModernMenuItem}" Header="📄 View HTML Dossier (In-App)"/>
                                 <MenuItem Name="CtxSearchOpenBrowser" Style="{StaticResource ModernMenuItem}" Header="🌐 Open HTML in External Browser"/>
                                 <MenuItem Name="CtxSearchExternalTools" Style="{StaticResource ModernMenuItem}" Header="🚀 External Tools"/>
+                                <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                <MenuItem Name="CtxSearchUseWith" Style="{StaticResource ModernMenuItem}" Header="⚡ Use With (NetTools)...">
+                                    <MenuItem Name="CtxSearchUseWithAcl" Style="{StaticResource ModernMenuItem}" Header="🛡️ Inspect ACL &amp; Permissions"/>
+                                    <MenuItem Name="CtxSearchUseWithResolver" Style="{StaticResource ModernMenuItem}" Header="📝 Send to Resolver Scratchpad"/>
+                                    <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                    <MenuItem Name="CtxSearchCopyToDetached" Style="{StaticResource ModernMenuItem}" Header="🗗 Detach Grid to Floating Window"/>
+                                </MenuItem>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -2739,6 +2869,717 @@
                     <Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6">
                         <WebBrowser Name="BrowserHtmlView"/>
                     </Border>
+                </Grid>
+
+                <!-- 19. ACCESS CONTROL & ACL SUITE (NETTOOLS PARITY) -->
+                <Grid Name="PanelSecurityAcl" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🛡️ Access Control &amp; ACL Suite" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Visual DACL/SACL Explorer, Effective Rights Calculator, AdminSDHolder Orphan Auditor &amp; Delegation Matrix." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Name="BtnSecLaunchDialog" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Open Full ACL Browser Window..." Padding="12,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TabControl Grid.Row="1">
+                        <TabItem Header="🛡️ Visual ACL &amp; Effective Rights">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Target Object:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtAclTargetDN" Style="{StaticResource ModernTextBox}" Width="320" Height="28" Tag="DN or username (e.g. CN=Finance,OU=...)" Margin="0,0,8,0"/>
+                                        <Button Name="BtnAclLoad" Style="{StaticResource PrimaryButton}" Height="28" Content="Inspect ACL" Padding="10,0" Margin="0,0,16,0"/>
+
+                                        <TextBlock Text="Trustee:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtAclTrustee" Style="{StaticResource ModernTextBox}" Width="200" Height="28" Tag="User or Group (e.g. jdoe)" Margin="0,0,8,0"/>
+                                        <Button Name="BtnAclCalcEffective" Style="{StaticResource ModernButton}" Height="28" Content="⚡ Calculate Effective" Padding="10,0"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Owner: " FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Name="TxtAclOwner" Text="--" Foreground="#38BDF8" Margin="0,0,16,0"/>
+                                            <TextBlock Text="Group: " FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Name="TxtAclGroup" Text="--" Foreground="{DynamicResource TextSecondary}" Margin="0,0,16,0"/>
+                                            <TextBlock Text="Inheritance: " FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Name="TxtAclInheritance" Text="--" Foreground="#10B981" Margin="0,0,16,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Name="BtnAclCopySddl" Style="{StaticResource ModernButton}" Height="24" Content="📋 Copy SDDL" Padding="8,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="340"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <GroupBox Grid.Column="0" Header="Access Control Entries (DACL)" Foreground="{DynamicResource TextPrimary}" Margin="0,0,6,0" BorderBrush="{DynamicResource BorderBrushColor}">
+                                        <DataGrid Name="GridAclAces" Style="{StaticResource ModernDataGrid}" Margin="4">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="75"/>
+                                                <DataGridTextColumn Header="Trustee / Principal" Binding="{Binding IdentityReference}" Width="160"/>
+                                                <DataGridTextColumn Header="Permissions" Binding="{Binding ActiveDirectoryRights}" Width="160"/>
+                                                <DataGridTextColumn Header="Inheritance" Binding="{Binding Inheritance}" Width="110"/>
+                                                <DataGridTextColumn Header="Applies To" Binding="{Binding InheritedObjectType}" Width="*"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </GroupBox>
+
+                                    <GroupBox Grid.Column="1" Header="Effective Permissions Result" Foreground="{DynamicResource TextPrimary}" Margin="6,0,0,0" BorderBrush="{DynamicResource BorderBrushColor}">
+                                        <Grid Margin="4">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Name="TxtEffectiveStatus" Text="Specify trustee and click 'Calculate Effective'" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="2,0,2,6"/>
+                                            <DataGrid Grid.Row="1" Name="GridAclEffective" Style="{StaticResource ModernDataGrid}">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="Right" Binding="{Binding RightName}" Width="140"/>
+                                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="80"/>
+                                                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*"/>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                        </Grid>
+                                    </GroupBox>
+                                </Grid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="⚠️ AdminSDHolder Orphans">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="AdminSDHolder Orphan Detection &amp; Remediation" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Find accounts with adminCount=1 and disabled inheritance that are no longer members of protected administrative groups." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Name="BtnScanAdminSdHolder" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Scan Domain Orphans" Margin="0,0,8,0"/>
+                                            <Button Name="BtnFixAdminSdHolder" Style="{StaticResource DangerButton}" Height="30" Content="⚡ 1-Click Restore Inheritance" ToolTip="Reset adminCount to 0 and re-enable ACL inheritance for selected orphan"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridAdminSdOrphans" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Account Name" Binding="{Binding Name}" Width="160"/>
+                                        <DataGridTextColumn Header="sAMAccountName" Binding="{Binding SamAccountName}" Width="130"/>
+                                        <DataGridTextColumn Header="Class" Binding="{Binding ObjectClass}" Width="80"/>
+                                        <DataGridTextColumn Header="adminCount" Binding="{Binding AdminCount}" Width="80"/>
+                                        <DataGridTextColumn Header="Inheritance" Binding="{Binding InheritanceBlocked}" Width="120"/>
+                                        <DataGridTextColumn Header="Protected Member" Binding="{Binding IsProtectedMember}" Width="120"/>
+                                        <DataGridTextColumn Header="Recommendation" Binding="{Binding ActionRequired}" Width="180"/>
+                                        <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="📜 Delegation Matrix">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Delegation Audit Scope:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox Name="CmbDelegationScope" Style="{StaticResource ModernComboBox}" Width="260" Height="28" Margin="0,0,10,0">
+                                            <ComboBoxItem Content="All Sensitive Delegations" IsSelected="True"/>
+                                            <ComboBoxItem Content="DCSync Rights (DS-Replication-Get-Changes)"/>
+                                            <ComboBoxItem Content="Password Reset Rights On Admins"/>
+                                            <ComboBoxItem Content="LAPS Password Read Delegation"/>
+                                            <ComboBoxItem Content="Unconstrained Kerberos Delegation"/>
+                                        </ComboBox>
+                                        <Button Name="BtnRunDelegationReport" Style="{StaticResource PrimaryButton}" Height="28" Content="📊 Run Delegation Audit" Margin="0,0,8,0"/>
+                                        <Button Name="BtnExportDelegationReport" Style="{StaticResource ModernButton}" Height="28" Content="📤 Export CSV"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridDelegationReport" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Severity" Binding="{Binding SeverityBadge}" Width="90"/>
+                                        <DataGridTextColumn Header="Target Object" Binding="{Binding TargetObject}" Width="200"/>
+                                        <DataGridTextColumn Header="Trustee" Binding="{Binding Trustee}" Width="160"/>
+                                        <DataGridTextColumn Header="Delegated Right" Binding="{Binding DelegatedRight}" Width="220"/>
+                                        <DataGridTextColumn Header="Inherited" Binding="{Binding IsInherited}" Width="80"/>
+                                        <DataGridTextColumn Header="Target Path" Binding="{Binding TargetDN}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+
+                <!-- 20. KERBEROS & AUTHENTICATION SUITE (NETTOOLS PARITY) -->
+                <Grid Name="PanelKerberosSuite" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🎟️ Authentication &amp; Kerberos Suite" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Live Ticket Cache (klist parity), SPN Ticket Request Tester, MaxTokenSize / PAC Token Bloat &amp; RID Pool Monitor." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Name="BtnPurgeTickets" Style="{StaticResource DangerButton}" Height="30" Content="🧹 Purge Tickets (klist purge)" Margin="0,0,8,0" ToolTip="Purge all cached Kerberos tickets for current logon session"/>
+                                <Button Name="BtnRefreshTickets" Style="{StaticResource PrimaryButton}" Height="30" Content="🔄 Refresh Tickets"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <TabControl Grid.Row="1">
+                        <TabItem Header="🎟️ Kerberos Ticket Cache">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Target Service Principal Name (SPN):" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtTestSpn" Style="{StaticResource ModernTextBox}" Width="320" Height="28" Tag="e.g. HOST/dc1.contoso.local or MSSQLSvc/sql01" Margin="0,0,8,0"/>
+                                        <Button Name="BtnTestSpnTicket" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Request SPN Ticket" Margin="0,0,12,0"/>
+                                        <TextBlock Name="TxtTestSpnResult" Text="Ready to test SPN ticket acquisition" FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridKerberosTickets" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Server / SPN" Binding="{Binding Server}" Width="260"/>
+                                        <DataGridTextColumn Header="Client Principal" Binding="{Binding Client}" Width="160"/>
+                                        <DataGridTextColumn Header="Encryption Type" Binding="{Binding EncryptionType}" Width="160"/>
+                                        <DataGridTextColumn Header="Ticket Flags" Binding="{Binding TicketFlags}" Width="150"/>
+                                        <DataGridTextColumn Header="Start Time" Binding="{Binding StartTime}" Width="140"/>
+                                        <DataGridTextColumn Header="End Time" Binding="{Binding EndTime}" Width="140"/>
+                                        <DataGridTextColumn Header="Renew Time" Binding="{Binding RenewTime}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <Border Grid.Row="2" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,8,0,0">
+                                    <TextBlock Name="TxtTicketCacheSummary" Text="Tickets loaded: 0 active tickets in session cache" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                </Border>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🧮 MaxTokenSize &amp; PAC Bloat">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Target User:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtTokenUser" Style="{StaticResource ModernTextBox}" Width="260" Height="28" Tag="sAMAccountName or UPN (e.g. jdoe)" Margin="0,0,8,0"/>
+                                        <Button Name="BtnCalcTokenSize" Style="{StaticResource PrimaryButton}" Height="28" Content="🧮 Calculate Token Size" Margin="0,0,12,0"/>
+                                        <TextBlock Text="Evaluates PAC expansion formula: 1200 + 40d + 8s" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,4,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Estimated Token Size" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtTokenSizeBytes" Text="-- Bytes" FontSize="18" FontWeight="Bold" Foreground="#38BDF8" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,4,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Domain Groups" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtTokenDomainGroups" Text="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,4,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Extra / SID History" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtTokenExtraSids" Text="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="HTTP 400 Risk Level" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtTokenRiskBadge" Text="Normal (OK)" FontSize="16" FontWeight="Bold" Foreground="#10B981" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <GroupBox Grid.Row="2" Header="Contributing Nested Groups to User Token" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}">
+                                    <DataGrid Name="GridTokenGroups" Style="{StaticResource ModernDataGrid}" Margin="4">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Group Name" Binding="{Binding Name}" Width="220"/>
+                                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="120"/>
+                                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="120"/>
+                                            <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </GroupBox>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🔢 RID Pool &amp; Privileges">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="RID Master Pool Status &amp; Domain Exhaustion" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Inspect rIDNextRID counters, remaining pool headroom, and domain controller RID allocation block sizes." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Name="BtnRefreshRidPool" Style="{StaticResource PrimaryButton}" Height="30" Content="🔄 Query RID Pool" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridRidPool" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="220"/>
+                                        <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="200"/>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="120"/>
+                                        <DataGridTextColumn Header="Details / Description" Binding="{Binding Description}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+
+                <!-- 21. REPLICATION & TOPOLOGY SUITE (NETTOOLS PARITY) -->
+                <Grid Name="PanelReplicationSuite" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🔄 AD Replication &amp; Topology Suite" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Multi-DC Real-Time Last Logon, Highest USN Counters, Subnet Overlap Boundary Scanner &amp; GPO GPT.ini Consistency." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Name="BtnRefreshReplicationSuite" Style="{StaticResource PrimaryButton}" Height="30" Content="🔄 Refresh Topology" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <TabControl Grid.Row="1">
+                        <TabItem Header="🌐 Multi-DC Last Logon">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Target User / Computer:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtMultiDcTarget" Style="{StaticResource ModernTextBox}" Width="260" Height="28" Tag="sAMAccountName (e.g. jdoe or dc1$)" Margin="0,0,8,0"/>
+                                        <Button Name="BtnScanMultiDcLogon" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Query All Domain Controllers" Margin="0,0,12,0"/>
+                                        <TextBlock Name="TxtMultiDcSummary" Text="Queries non-replicated lastLogon attribute directly from every DC" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridMultiDcLogon" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Domain Controller" Binding="{Binding DCName}" Width="180"/>
+                                        <DataGridTextColumn Header="Site" Binding="{Binding Site}" Width="120"/>
+                                        <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="130"/>
+                                        <DataGridTextColumn Header="Real-Time Last Logon" Binding="{Binding LastLogonFormatted}" Width="160"/>
+                                        <DataGridTextColumn Header="Bad Pwd Count" Binding="{Binding BadPwdCount}" Width="100"/>
+                                        <DataGridTextColumn Header="Committed USN" Binding="{Binding HighestUSN}" Width="120"/>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="100"/>
+                                        <DataGridTextColumn Header="Response Time" Binding="{Binding Latency}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <Border Grid.Row="2" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,8,0,0">
+                                    <TextBlock Name="TxtMultiDcConsensus" Text="Most recent logon consensus: --" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                                </Border>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🗺️ Subnet Boundary Overlaps">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="AD Sites &amp; Subnets Overlap Auditor" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Detect conflicting, duplicate, or overlapping IP subnet boundaries that cause incorrect DC locator binding." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Name="BtnScanSubnetOverlaps" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Audit All Subnets" Margin="0,0,8,0"/>
+                                            <Button Name="BtnExportSubnets" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export CSV"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridSubnetOverlaps" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
+                                        <DataGridTextColumn Header="Subnet (CIDR)" Binding="{Binding SubnetCIDR}" Width="150"/>
+                                        <DataGridTextColumn Header="Start IP" Binding="{Binding StartIP}" Width="130"/>
+                                        <DataGridTextColumn Header="End IP" Binding="{Binding EndIP}" Width="130"/>
+                                        <DataGridTextColumn Header="Assigned Site" Binding="{Binding SiteName}" Width="140"/>
+                                        <DataGridTextColumn Header="Conflict / Overlap With" Binding="{Binding ConflictWith}" Width="200"/>
+                                        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="📜 GPO SYSVOL Sync">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="GPO Active Directory vs SYSVOL GPT.ini Consistency" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Verify version parity between the Group Policy Container in AD and the GPT.ini file in the SYSVOL share." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Name="BtnCheckGpoSync" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Audit GPO Consistency" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridGpoSync" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
+                                        <DataGridTextColumn Header="GPO Display Name" Binding="{Binding DisplayName}" Width="220"/>
+                                        <DataGridTextColumn Header="AD Version (User/Comp)" Binding="{Binding ADVersionFormatted}" Width="160"/>
+                                        <DataGridTextColumn Header="SYSVOL Version" Binding="{Binding SysvolVersionFormatted}" Width="140"/>
+                                        <DataGridTextColumn Header="Parity State" Binding="{Binding ConsistencyState}" Width="130"/>
+                                        <DataGridTextColumn Header="GPO GUID" Binding="{Binding GpoGuid}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🏷️ Replication Metadata">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Target Object DN:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtReplMetaTarget" Style="{StaticResource ModernTextBox}" Width="380" Height="28" Tag="Distinguished Name (e.g. CN=Administrator,CN=Users,DC=...)" Margin="0,0,8,0"/>
+                                        <Button Name="BtnGetReplMetadata" Style="{StaticResource PrimaryButton}" Height="28" Content="Inspect Attribute Metadata" Margin="0,0,12,0"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridReplMetadata" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Attribute Name" Binding="{Binding AttributeName}" Width="180"/>
+                                        <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
+                                        <DataGridTextColumn Header="Last Change Time" Binding="{Binding LastChangeTime}" Width="160"/>
+                                        <DataGridTextColumn Header="Originating DC" Binding="{Binding OriginatingDC}" Width="200"/>
+                                        <DataGridTextColumn Header="Originating USN" Binding="{Binding OriginatingUSN}" Width="130"/>
+                                        <DataGridTextColumn Header="Local USN" Binding="{Binding LocalUSN}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+
+                <!-- 22. DIAGNOSTICS & ADVANCED UTILITIES SUITE (NETTOOLS PARITY) -->
+                <Grid Name="PanelDiagnosticsToolbox" Visibility="Collapsed" Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="🧰 Advanced Diagnostics &amp; Utility Suite" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Circular Group Cycle Scanner, Side-by-Side User Group Diff, Multi-DC Lockout Tracer &amp; Multi-Codec Hub." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Name="BtnDiagOpenResolver" Style="{StaticResource PrimaryButton}" Height="30" Content="📝 Open Resolver Scratchpad (Ctrl+R)" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <TabControl Grid.Row="1">
+                        <TabItem Header="🔄 Circular Group Loops">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Cyclic Group Nesting Loop Detector" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Executes depth-first search (DFS) directed cycle detection to uncover infinite loops (e.g. Group A ➔ Group B ➔ Group A)." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Name="BtnScanCircularGroups" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Scan Entire Domain" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="1" Name="GridCircularGroups" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
+                                        <DataGridTextColumn Header="Root Group" Binding="{Binding RootGroup}" Width="180"/>
+                                        <DataGridTextColumn Header="Cycle Path" Binding="{Binding CyclePath}" Width="340"/>
+                                        <DataGridTextColumn Header="Depth" Binding="{Binding Depth}" Width="70"/>
+                                        <DataGridTextColumn Header="Recommended Remediation" Binding="{Binding Action}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="⚖️ User Group Diff">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="User A:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtDiffUserA" Style="{StaticResource ModernTextBox}" Width="180" Height="28" Tag="e.g. jdoe" Margin="0,0,16,0"/>
+                                        <TextBlock Text="User B:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtDiffUserB" Style="{StaticResource ModernTextBox}" Width="180" Height="28" Tag="e.g. asmith" Margin="0,0,16,0"/>
+                                        <Button Name="BtnCompareUserGroups" Style="{StaticResource PrimaryButton}" Height="28" Content="⚖️ Compare Memberships"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                                    <TextBlock Name="TxtDiffSummary" Text="Enter two usernames and click Compare to evaluate membership parity" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                </Border>
+
+                                <DataGrid Grid.Row="2" Name="GridDiffResults" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Comparison Status" Binding="{Binding StatusBadge}" Width="140"/>
+                                        <DataGridTextColumn Header="Group Name" Binding="{Binding GroupName}" Width="220"/>
+                                        <DataGridTextColumn Header="User A Member" Binding="{Binding UserAHas}" Width="110"/>
+                                        <DataGridTextColumn Header="User B Member" Binding="{Binding UserBHas}" Width="110"/>
+                                        <DataGridTextColumn Header="Scope" Binding="{Binding GroupScope}" Width="100"/>
+                                        <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🔓 Lockout Investigator">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Locked Account Username:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtLockoutTargetUser" Style="{StaticResource ModernTextBox}" Width="220" Height="28" Tag="e.g. jdoe" Margin="0,0,8,0"/>
+                                        <Button Name="BtnTraceLockout" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Trace Lockout Across DCs" Margin="0,0,8,0"/>
+                                        <Button Name="BtnUnlockUserAllDCs" Style="{StaticResource DangerButton}" Height="28" Content="🔓 1-Click Unlock On All DCs" ToolTip="Reset lockout counters and unlock account across all domain controllers"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,4,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Account Status" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtLockoutStateBadge" Text="Not Scanned" FontSize="16" FontWeight="Bold" Foreground="#38BDF8" Margin="0,4,0,0"/>
+                                            <TextBlock Name="TxtLockoutDetails" Text="Enter username to inspect bad password counts and lockout time." FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Originating Caller Machine (Event ID 4740)" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtLockoutCallerHost" Text="-- Host Not Detected --" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
+                                            <TextBlock Name="TxtLockoutCallerIp" Text="IP: -- | Timestamp: --" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <DataGrid Grid.Row="2" Name="GridLockoutDcs" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Domain Controller" Binding="{Binding DCName}" Width="180"/>
+                                        <DataGridTextColumn Header="Site" Binding="{Binding Site}" Width="120"/>
+                                        <DataGridTextColumn Header="Locked Status" Binding="{Binding StatusBadge}" Width="110"/>
+                                        <DataGridTextColumn Header="Bad Pwd Attempts" Binding="{Binding BadPwdCount}" Width="130"/>
+                                        <DataGridTextColumn Header="Last Bad Password Attempt" Binding="{Binding LastBadPwdAttempt}" Width="180"/>
+                                        <DataGridTextColumn Header="Lockout Time" Binding="{Binding LockoutTime}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="🔢 Codecs &amp; Decoders">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,6,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                            <TextBlock Text="Win32 / HRESULT / LDAP Error Decoder" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Translate error codes into symbolic names and human-readable descriptions." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+
+                                        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                                            <TextBox Name="TxtErrorCodeInput" Style="{StaticResource ModernTextBox}" Width="150" Height="28" Tag="e.g. 0x80070005, 1326, 0x52e" Margin="0,0,8,0"/>
+                                            <ComboBox Name="CmbErrorCodeType" Style="{StaticResource ModernComboBox}" Width="110" Height="28" Margin="0,0,8,0">
+                                                <ComboBoxItem Content="Auto-Detect" IsSelected="True"/>
+                                                <ComboBoxItem Content="Win32"/>
+                                                <ComboBoxItem Content="HRESULT"/>
+                                                <ComboBoxItem Content="LDAP"/>
+                                                <ComboBoxItem Content="Kerberos"/>
+                                            </ComboBox>
+                                            <Button Name="BtnDecodeErrorCode" Style="{StaticResource PrimaryButton}" Height="28" Content="Decode"/>
+                                        </WrapPanel>
+
+                                        <Border Grid.Row="2" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10">
+                                            <TextBox Name="TxtErrorDecodeOutput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Foreground="#38BDF8"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Column="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="6,0,0,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                            <TextBlock Text="Active Directory Timestamp Converter" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Bidirectionally convert Windows FileTime 64-bit, Unix Epoch, and GeneralizedTime." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+
+                                        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                                            <TextBox Name="TxtTimestampInput" Style="{StaticResource ModernTextBox}" Width="180" Height="28" Tag="e.g. 133500000000000000" Margin="0,0,8,0"/>
+                                            <ComboBox Name="CmbTimestampFormat" Style="{StaticResource ModernComboBox}" Width="130" Height="28" Margin="0,0,8,0">
+                                                <ComboBoxItem Content="Auto-Detect" IsSelected="True"/>
+                                                <ComboBoxItem Content="Windows FileTime"/>
+                                                <ComboBoxItem Content="Unix Epoch"/>
+                                                <ComboBoxItem Content="GeneralizedTime"/>
+                                            </ComboBox>
+                                            <Button Name="BtnConvertTimestamp" Style="{StaticResource PrimaryButton}" Height="28" Content="Convert"/>
+                                        </WrapPanel>
+
+                                        <Border Grid.Row="2" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10">
+                                            <TextBox Name="TxtTimestampOutput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Foreground="#10B981"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
                 </Grid>
 
             </Grid>

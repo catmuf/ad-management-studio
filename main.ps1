@@ -29,6 +29,10 @@ Import-Module (Join-Path $modulesPath "ConfigService.psm1") -Force
 Import-Module (Join-Path $modulesPath "ValidationService.psm1") -Force
 Import-Module (Join-Path $modulesPath "ExportService.psm1") -Force
 Import-Module (Join-Path $modulesPath "ADService.psm1") -Force
+Import-Module (Join-Path $modulesPath "AclService.psm1") -Force
+Import-Module (Join-Path $modulesPath "KerberosService.psm1") -Force
+Import-Module (Join-Path $modulesPath "DiagnosticService.psm1") -Force
+Import-Module (Join-Path $modulesPath "ReplicationService.psm1") -Force
 
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
@@ -1084,7 +1088,8 @@ function Show-Panel {
         'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
         'PanelBasket', 'PanelRequestLog',
         'PanelRecycleBin', 'PanelServerMonitor',
-        'PanelConnections', 'PanelSettings'
+        'PanelConnections', 'PanelSettings',
+        'PanelSecurityAcl', 'PanelKerberosSuite', 'PanelReplicationSuite', 'PanelDiagnosticsToolbox'
     )
     $targetName = "Panel$PanelName"
     foreach ($p in $panels) {
@@ -1133,26 +1138,31 @@ if ($controls['BtnNavForward']) {
 }
 
 # Wire Sidebar Navigation RadioButtons
-if ($controls['NavDashboard'])       { $controls['NavDashboard'].Add_Checked({ Show-Panel "Dashboard"; Refresh-Dashboard }) }
-if ($controls['NavUsers'])           { $controls['NavUsers'].Add_Checked({ Show-Panel "Users"; Refresh-Users }) }
-if ($controls['NavGroups'])          { $controls['NavGroups'].Add_Checked({ Show-Panel "Groups"; Refresh-Groups }) }
-if ($controls['NavOUs'])             { $controls['NavOUs'].Add_Checked({ Show-Panel "OUs"; Refresh-OUs }) }
-if ($controls['NavComputers'])       { $controls['NavComputers'].Add_Checked({ Show-Panel "Computers"; Refresh-Computers }) }
-if ($controls['NavDirectorySearch']) { $controls['NavDirectorySearch'].Add_Checked({ Show-Panel "DirectorySearch"; Init-DirectorySearch }) }
-if ($controls['NavLdapSql'])         { $controls['NavLdapSql'].Add_Checked({ Show-Panel "LdapSql" }) }
-if ($controls['NavAttributeEditor']) { $controls['NavAttributeEditor'].Add_Checked({ Show-Panel "AttributeEditor" }) }
-if ($controls['NavHtmlView'])        { $controls['NavHtmlView'].Add_Checked({ Show-Panel "HtmlView"; Init-HtmlViewUI }) }
-if ($controls['NavObjectCompare'])   { $controls['NavObjectCompare'].Add_Checked({ Show-Panel "ObjectCompare" }) }
-if ($controls['NavLdifStudio'])      { $controls['NavLdifStudio'].Add_Checked({ Show-Panel "LdifStudio"; Init-LdifStudio }) }
-if ($controls['NavAuditReports'])    { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports"; Refresh-CustomReportsDropdown }) }
-if ($controls['NavSchemaBrowser'])   { $controls['NavSchemaBrowser'].Add_Checked({ Show-Panel "SchemaBrowser"; Refresh-Schema }) }
-if ($controls['NavBulkEditor'])      { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
-if ($controls['NavBasket'])          { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
-if ($controls['NavRequestLog'])      { $controls['NavRequestLog'].Add_Checked({ Show-Panel "RequestLog" }) }
-if ($controls['NavRecycleBin'])      { $controls['NavRecycleBin'].Add_Checked({ Show-Panel "RecycleBin"; Refresh-RecycleBin }) }
-if ($controls['NavServerMonitor'])   { $controls['NavServerMonitor'].Add_Checked({ Show-Panel "ServerMonitor"; Refresh-ServerMonitor }) }
-if ($controls['NavConnections'])     { $controls['NavConnections'].Add_Checked({ Show-Panel "Connections"; Refresh-Connections }) }
-if ($controls['NavSettings'])        { $controls['NavSettings'].Add_Checked({ Show-Panel "Settings"; Load-SettingsPanel }) }
+if ($controls['NavDashboard'])          { $controls['NavDashboard'].Add_Checked({ Show-Panel "Dashboard"; Refresh-Dashboard }) }
+if ($controls['NavUsers'])              { $controls['NavUsers'].Add_Checked({ Show-Panel "Users"; Refresh-Users }) }
+if ($controls['NavGroups'])             { $controls['NavGroups'].Add_Checked({ Show-Panel "Groups"; Refresh-Groups }) }
+if ($controls['NavOUs'])                { $controls['NavOUs'].Add_Checked({ Show-Panel "OUs"; Refresh-OUs }) }
+if ($controls['NavComputers'])          { $controls['NavComputers'].Add_Checked({ Show-Panel "Computers"; Refresh-Computers }) }
+if ($controls['NavDirectorySearch'])    { $controls['NavDirectorySearch'].Add_Checked({ Show-Panel "DirectorySearch"; Init-DirectorySearch }) }
+if ($controls['NavLdapSql'])            { $controls['NavLdapSql'].Add_Checked({ Show-Panel "LdapSql" }) }
+if ($controls['NavAttributeEditor'])    { $controls['NavAttributeEditor'].Add_Checked({ Show-Panel "AttributeEditor" }) }
+if ($controls['NavHtmlView'])           { $controls['NavHtmlView'].Add_Checked({ Show-Panel "HtmlView"; Init-HtmlViewUI }) }
+if ($controls['NavObjectCompare'])      { $controls['NavObjectCompare'].Add_Checked({ Show-Panel "ObjectCompare" }) }
+if ($controls['NavLdifStudio'])         { $controls['NavLdifStudio'].Add_Checked({ Show-Panel "LdifStudio"; Init-LdifStudio }) }
+if ($controls['NavAuditReports'])       { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports"; Refresh-CustomReportsDropdown }) }
+if ($controls['NavSchemaBrowser'])      { $controls['NavSchemaBrowser'].Add_Checked({ Show-Panel "SchemaBrowser"; Refresh-Schema }) }
+if ($controls['NavBulkEditor'])         { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
+if ($controls['NavBasket'])             { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
+if ($controls['NavRequestLog'])         { $controls['NavRequestLog'].Add_Checked({ Show-Panel "RequestLog" }) }
+if ($controls['NavRecycleBin'])         { $controls['NavRecycleBin'].Add_Checked({ Show-Panel "RecycleBin"; Refresh-RecycleBin }) }
+if ($controls['NavServerMonitor'])      { $controls['NavServerMonitor'].Add_Checked({ Show-Panel "ServerMonitor"; Refresh-ServerMonitor }) }
+if ($controls['NavConnections'])        { $controls['NavConnections'].Add_Checked({ Show-Panel "Connections"; Refresh-Connections }) }
+if ($controls['NavSettings'])           { $controls['NavSettings'].Add_Checked({ Show-Panel "Settings"; Load-SettingsPanel }) }
+# NetTools Suite Navigators
+if ($controls['NavSecurityAcl'])        { $controls['NavSecurityAcl'].Add_Checked({ Show-Panel "SecurityAcl"; Init-SecurityAclUI }) }
+if ($controls['NavKerberosSuite'])      { $controls['NavKerberosSuite'].Add_Checked({ Show-Panel "KerberosSuite"; Refresh-KerberosTickets }) }
+if ($controls['NavReplicationSuite'])   { $controls['NavReplicationSuite'].Add_Checked({ Show-Panel "ReplicationSuite"; Refresh-ReplicationTopology }) }
+if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].Add_Checked({ Show-Panel "DiagnosticsToolbox" }) }
 #endregion
 
 #region 1. Dashboard Functions
@@ -8345,6 +8355,939 @@ if ($controls['TreeOUs']) {
         }
     })
 }
+#region 21. NetTools & Advanced Suite Logic
+
+function Init-ElevationBadge {
+    try {
+        $ident = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $princ = [Security.Principal.WindowsPrincipal]$ident
+        $isElevated = $princ.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        if ($controls['BorderElevationBadge']) {
+            if ($isElevated) {
+                $controls['BorderElevationBadge'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#107C41")
+                if ($controls['TxtElevationStatus']) { $controls['TxtElevationStatus'].Text = "🛡️ ELEVATED (ADMIN)" }
+                $controls['BorderElevationBadge'].ToolTip = "Process running with full Administrative privileges and SeDebugPrivilege token."
+            } else {
+                $controls['BorderElevationBadge'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4B5563")
+                if ($controls['TxtElevationStatus']) { $controls['TxtElevationStatus'].Text = "👤 STANDARD USER" }
+                $controls['BorderElevationBadge'].ToolTip = "Running as Standard User. Advanced multi-DC event log searches or replication sync may require elevation."
+            }
+        }
+    } catch {
+        # Fallback
+    }
+}
+
+function Show-AclBrowserDialog {
+    param([string]$TargetDN = "")
+    try {
+        $dlgPath = Join-Path $viewsPath "AclBrowserDialog.xaml"
+        $dlg = Load-XamlWindow -XamlPath $dlgPath
+        $dlg.Owner = $window
+
+        $dlgControls = @{}
+        $r = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw -Encoding UTF8))
+        while ($r.Read()) {
+            if ($r.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+                $name = $r.GetAttribute("Name")
+                if (-not [string]::IsNullOrWhiteSpace($name)) {
+                    $dlgControls[$name] = $dlg.FindName($name)
+                }
+            }
+        }
+        $r.Close()
+
+        $loadAclData = {
+            param([string]$dn)
+            if ([string]::IsNullOrWhiteSpace($dn)) { return }
+            if ($dlgControls['TxtAclTargetDn']) { $dlgControls['TxtAclTargetDn'].Text = $dn }
+            $acl = Get-ADObjectAcl -Identity $dn
+            if ($acl) {
+                if ($dlgControls['GridDaclAces']) { $dlgControls['GridDaclAces'].ItemsSource = $acl.Dacl }
+                elseif ($dlgControls['GridDacl']) { $dlgControls['GridDacl'].ItemsSource = $acl.Dacl }
+                if ($dlgControls['GridSaclAces']) { $dlgControls['GridSaclAces'].ItemsSource = $acl.Sacl }
+                elseif ($dlgControls['GridSacl']) { $dlgControls['GridSacl'].ItemsSource = $acl.Sacl }
+                if ($dlgControls['TxtRawSddl']) { $dlgControls['TxtRawSddl'].Text = $acl.Sddl }
+                elseif ($dlgControls['TxtSddlBox']) { $dlgControls['TxtSddlBox'].Text = $acl.Sddl }
+                if ($dlgControls['TxtInheritanceBadge']) {
+                    $dlgControls['TxtInheritanceBadge'].Text = if ($acl.InheritanceBlocked) { "Inheritance Blocked" } else { "Inheritance Enabled" }
+                }
+                if ($dlgControls['BrdInheritanceBadge']) {
+                    $inhColor = if ($acl.InheritanceBlocked) { "#DC2626" } else { "#107C41" }
+                    $dlgControls['BrdInheritanceBadge'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString($inhColor)
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($TargetDN)) {
+            & $loadAclData $TargetDN
+        } elseif ($controls['TxtAclTargetDN'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtAclTargetDN'].Text)) {
+            & $loadAclData $controls['TxtAclTargetDN'].Text.Trim()
+        }
+
+        if ($dlgControls['BtnCalculateEffective']) {
+            $dlgControls['BtnCalculateEffective'].Add_Click({
+                $trustee = if ($dlgControls['TxtAclTrustee']) { $dlgControls['TxtAclTrustee'].Text.Trim() } else { "Domain Admins" }
+                $target = if ($dlgControls['TxtAclTargetDn']) { $dlgControls['TxtAclTargetDn'].Text.Trim() } else { "" }
+                if ($target -and $trustee) {
+                    $eff = Get-ADEffectivePermissions -Identity $target -Trustee $trustee
+                    if ($eff) {
+                        if ($dlgControls['GridEffective']) {
+                            $dlgControls['GridEffective'].ItemsSource = $eff.Permissions
+                        }
+                        if ($dlgControls['LstEffectiveRights']) {
+                            $dlgControls['LstEffectiveRights'].ItemsSource = $eff.GrantedRights
+                        }
+                        if ($dlgControls['TxtEffectiveSummary']) {
+                            $dlgControls['TxtEffectiveSummary'].Text = $eff.EvaluationDetails
+                        }
+                    }
+                }
+            })
+        }
+
+        if ($dlgControls['BtnCopySddl']) {
+            $dlgControls['BtnCopySddl'].Add_Click({
+                $sddlText = if ($dlgControls['TxtRawSddl']) { $dlgControls['TxtRawSddl'].Text } elseif ($dlgControls['TxtSddlBox']) { $dlgControls['TxtSddlBox'].Text } else { "" }
+                if (-not [string]::IsNullOrWhiteSpace($sddlText)) {
+                    [System.Windows.Clipboard]::SetText($sddlText)
+                    [System.Windows.MessageBox]::Show("SDDL copied to clipboard.", "Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                }
+            })
+        }
+
+        if ($dlgControls['BtnCloseAclDialog']) {
+            $dlgControls['BtnCloseAclDialog'].Add_Click({ $dlg.Close() })
+        }
+        if ($dlgControls['BtnCloseAcl']) {
+            $dlgControls['BtnCloseAcl'].Add_Click({ $dlg.Close() })
+        }
+
+        [void]$dlg.ShowDialog()
+    } catch {
+        [System.Windows.MessageBox]::Show("Failed to open ACL Browser: $($_.Exception.Message)", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+}
+
+function Show-ResolverDialog {
+    param([string]$InitialInput = "")
+    try {
+        $dlgPath = Join-Path $viewsPath "ResolverDialog.xaml"
+        $dlg = Load-XamlWindow -XamlPath $dlgPath
+        $dlg.Owner = $window
+
+        $dlgControls = @{}
+        $r = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw -Encoding UTF8))
+        while ($r.Read()) {
+            if ($r.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+                $name = $r.GetAttribute("Name")
+                if (-not [string]::IsNullOrWhiteSpace($name)) {
+                    $dlgControls[$name] = $dlg.FindName($name)
+                }
+            }
+        }
+        $r.Close()
+
+        if ($InitialInput -and $dlgControls['TxtResolverInput']) {
+            $dlgControls['TxtResolverInput'].Text = $InitialInput
+        }
+
+        $resolveAction = {
+            $rawText = if ($dlgControls['TxtResolverInput']) { $dlgControls['TxtResolverInput'].Text } else { "" }
+            if ([string]::IsNullOrWhiteSpace($rawText)) { return }
+            $lines = $rawText -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 }
+            
+            $results = [System.Collections.Generic.List[PSObject]]::new()
+            foreach ($line in $lines) {
+                $entityType = "sAMAccountName"
+                if ($line -match '^S-1-5-') { $entityType = "SID" }
+                elseif ($line -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') { $entityType = "IP Address" }
+                elseif ($line -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-') { $entityType = "GUID" }
+                elseif ($line -match '^(?i)(CN|OU|DC)=') { $entityType = "DistinguishedName" }
+                elseif ($line -match '@') { $entityType = "UPN / Email" }
+
+                # Query Directory or resolve heuristic
+                $resolvedName = $line
+                $statusBadge = "Active"
+                $details = ""
+
+                if ($entityType -eq "IP Address") {
+                    $resolvedName = "Subnet / Host: $line"
+                    $statusBadge = "Network Host"
+                    $details = "IPv4 Endpoint"
+                } elseif ($entityType -eq "SID") {
+                    $resolvedName = "Security Principal ($line)"
+                    $statusBadge = "Resolved SID"
+                    $details = "Domain Trustee"
+                } else {
+                    $u = Search-ADObjects -FilterTerm $line | Select-Object -First 1
+                    if ($u) {
+                        $resolvedName = if ($u.DisplayName) { $u.DisplayName } else { $u.Name }
+                        $statusBadge = if ($u.Enabled -eq $false) { "Disabled" } else { "Active" }
+                        $details = $u.DistinguishedName
+                    } else {
+                        $statusBadge = "Heuristic Match"
+                        $details = "Local / Uncommitted Term"
+                    }
+                }
+
+                $results.Add([PSCustomObject]@{
+                    InputTerm    = $line
+                    EntityType   = $entityType
+                    ResolvedName = $resolvedName
+                    StatusBadge  = $statusBadge
+                    Details      = $details
+                })
+            }
+
+            if ($dlgControls['GridResolverResults']) {
+                $dlgControls['GridResolverResults'].ItemsSource = $results
+            }
+        }
+
+        if ($dlgControls['BtnResolverResolve']) {
+            $dlgControls['BtnResolverResolve'].Add_Click({ & $resolveAction })
+        }
+
+        if ($dlgControls['BtnResolverClear']) {
+            $dlgControls['BtnResolverClear'].Add_Click({
+                if ($dlgControls['TxtResolverInput']) { $dlgControls['TxtResolverInput'].Text = "" }
+                if ($dlgControls['GridResolverResults']) { $dlgControls['GridResolverResults'].ItemsSource = $null }
+            })
+        }
+
+        if ($dlgControls['BtnResolverAcl']) {
+            $dlgControls['BtnResolverAcl'].Add_Click({
+                $sel = $dlgControls['GridResolverResults'].SelectedItem
+                if ($sel -and $sel.Details) {
+                    $dlg.Close()
+                    Show-Panel "SecurityAcl"
+                    if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+                    if ($controls['TxtAclTargetDN']) {
+                        $controls['TxtAclTargetDN'].Text = $sel.Details
+                        if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                    }
+                }
+            })
+        }
+
+        if ($dlgControls['BtnResolverLockout']) {
+            $dlgControls['BtnResolverLockout'].Add_Click({
+                $sel = $dlgControls['GridResolverResults'].SelectedItem
+                if ($sel) {
+                    $dlg.Close()
+                    Show-Panel "DiagnosticsToolbox"
+                    if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+                    if ($controls['TxtLockoutTargetUser']) {
+                        $controls['TxtLockoutTargetUser'].Text = $sel.InputTerm
+                        if ($controls['BtnTraceLockout']) { $controls['BtnTraceLockout'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                    }
+                }
+            })
+        }
+
+        if ($dlgControls['BtnResolverToken']) {
+            $dlgControls['BtnResolverToken'].Add_Click({
+                $sel = $dlgControls['GridResolverResults'].SelectedItem
+                if ($sel) {
+                    $dlg.Close()
+                    Show-Panel "KerberosSuite"
+                    if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
+                    if ($controls['TxtTokenUser']) {
+                        $controls['TxtTokenUser'].Text = $sel.InputTerm
+                        if ($controls['BtnCalcTokenSize']) { $controls['BtnCalcTokenSize'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                    }
+                }
+            })
+        }
+
+        if ($dlgControls['BtnCloseResolverDialog']) {
+            $dlgControls['BtnCloseResolverDialog'].Add_Click({ $dlg.Close() })
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($InitialInput)) {
+            & $resolveAction
+        }
+
+        [void]$dlg.ShowDialog()
+    } catch {
+        [System.Windows.MessageBox]::Show("Failed to open Resolver Scratchpad: $($_.Exception.Message)", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+}
+
+function Show-DetachedGridDialog {
+    param(
+        $ItemsSource,
+        [string]$Title = "Detached Grid Analysis"
+    )
+    try {
+        $dlgPath = Join-Path $viewsPath "DetachedGridDialog.xaml"
+        $dlg = Load-XamlWindow -XamlPath $dlgPath
+        $dlg.Title = "$Title (Active Directory Studio)"
+
+        $dlgControls = @{}
+        $r = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw -Encoding UTF8))
+        while ($r.Read()) {
+            if ($r.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+                $name = $r.GetAttribute("Name")
+                if (-not [string]::IsNullOrWhiteSpace($name)) {
+                    $dlgControls[$name] = $dlg.FindName($name)
+                }
+            }
+        }
+        $r.Close()
+
+        $rawList = @($ItemsSource)
+        if ($dlgControls['GridDetachedData']) {
+            $dlgControls['GridDetachedData'].ItemsSource = $rawList
+        }
+        if ($dlgControls['TxtDetachedCount']) {
+            $dlgControls['TxtDetachedCount'].Text = "$($rawList.Count) items"
+        }
+
+        if ($dlgControls['TxtDetachedFilter']) {
+            $dlgControls['TxtDetachedFilter'].Add_TextChanged({
+                $term = $dlgControls['TxtDetachedFilter'].Text.Trim()
+                if ([string]::IsNullOrWhiteSpace($term)) {
+                    $dlgControls['GridDetachedData'].ItemsSource = $rawList
+                    $dlgControls['TxtDetachedCount'].Text = "$($rawList.Count) items"
+                } else {
+                    $filtered = $rawList | Where-Object {
+                        $row = $_
+                        ($row.PSObject.Properties | ForEach-Object { $_.Value }) -join " " -match [regex]::Escape($term)
+                    }
+                    $fList = @($filtered)
+                    $dlgControls['GridDetachedData'].ItemsSource = $fList
+                    $dlgControls['TxtDetachedCount'].Text = "$($fList.Count) items"
+                }
+            })
+        }
+
+        if ($dlgControls['BtnExportCsvDetached']) {
+            $dlgControls['BtnExportCsvDetached'].Add_Click({
+                $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+                $saveDlg.FileName = "Detached_Grid_$((Get-Date).ToString('yyyyMMdd_HHmm')).csv"
+                $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+                if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                    $dataToExport = @($dlgControls['GridDetachedData'].ItemsSource)
+                    $res = Export-ADDataToCsv -Data $dataToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter)
+                    if ($res.Success) {
+                        [System.Windows.MessageBox]::Show($res.Message, "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                    }
+                }
+            })
+        }
+
+        if ($dlgControls['BtnExportHtmlDetached']) {
+            $dlgControls['BtnExportHtmlDetached'].Add_Click({
+                $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+                $saveDlg.FileName = "Detached_Grid_$((Get-Date).ToString('yyyyMMdd_HHmm')).html"
+                $saveDlg.Filter = "HTML files (*.html)|*.html|All files (*.*)|*.*"
+                if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                    $dataToExport = @($dlgControls['GridDetachedData'].ItemsSource)
+                    $html = $dataToExport | ConvertTo-Html -Title $Title -CssUri "" | Out-String
+                    [System.IO.File]::WriteAllText($saveDlg.FileName, $html, [System.Text.Encoding]::UTF8)
+                    [System.Windows.MessageBox]::Show("HTML report saved successfully.", "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                }
+            })
+        }
+
+        if ($dlgControls['BtnCloseDetached']) {
+            $dlgControls['BtnCloseDetached'].Add_Click({ $dlg.Close() })
+        }
+
+        $dlg.Show()
+    } catch {
+        [System.Windows.MessageBox]::Show("Failed to open detached grid: $($_.Exception.Message)", "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+}
+
+# --- 19. Access Control & ACL Suite Handlers ---
+function Init-SecurityAclUI {
+    if ($controls['TxtAclTargetDN'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTargetDN'].Text)) {
+        $controls['TxtAclTargetDN'].Text = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "DC=corp,DC=local" }
+    }
+    if ($controls['TxtAclTrustee'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTrustee'].Text)) {
+        $controls['TxtAclTrustee'].Text = "Domain Admins"
+    }
+}
+
+if ($controls['BtnSecLaunchDialog']) {
+    $controls['BtnSecLaunchDialog'].Add_Click({
+        $dn = if ($controls['TxtAclTargetDN']) { $controls['TxtAclTargetDN'].Text.Trim() } else { "" }
+        Show-AclBrowserDialog -TargetDN $dn
+    })
+}
+
+if ($controls['BtnAclLoad']) {
+    $controls['BtnAclLoad'].Add_Click({
+        $target = if ($controls['TxtAclTargetDN']) { $controls['TxtAclTargetDN'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            [System.Windows.MessageBox]::Show("Please enter a valid target object Distinguished Name or username.", "Target Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Inspecting security descriptor for $target..."
+        $aclRes = Get-ADObjectAcl -Identity $target
+        if ($aclRes) {
+            if ($controls['TxtAclOwner']) { $controls['TxtAclOwner'].Text = $aclRes.Owner }
+            if ($controls['TxtAclGroup']) { $controls['TxtAclGroup'].Text = $aclRes.Group }
+            if ($controls['TxtAclInheritance']) {
+                $controls['TxtAclInheritance'].Text = if ($aclRes.InheritanceBlocked) { "Blocked (Explicit Only)" } else { "Enabled (Inherits from Parent)" }
+            }
+            $state.CurrentAclSddl = $aclRes.Sddl
+            if ($controls['GridAclAces']) { $controls['GridAclAces'].ItemsSource = $aclRes.Dacl }
+            Set-Status -Message "Security descriptor loaded ($($aclRes.Dacl.Count) DACL ACEs)."
+        }
+    })
+}
+
+if ($controls['BtnAclCopySddl']) {
+    $controls['BtnAclCopySddl'].Add_Click({
+        if ($state.CurrentAclSddl) {
+            [System.Windows.Clipboard]::SetText($state.CurrentAclSddl)
+            [System.Windows.MessageBox]::Show("SDDL string copied to clipboard.", "SDDL Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        } else {
+            [System.Windows.MessageBox]::Show("No SDDL string loaded yet. Inspect an object first.", "Information", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+
+if ($controls['BtnAclCalcEffective']) {
+    $controls['BtnAclCalcEffective'].Add_Click({
+        $target = if ($controls['TxtAclTargetDN']) { $controls['TxtAclTargetDN'].Text.Trim() } else { "" }
+        $trustee = if ($controls['TxtAclTrustee']) { $controls['TxtAclTrustee'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($target) -or [string]::IsNullOrWhiteSpace($trustee)) {
+            [System.Windows.MessageBox]::Show("Please specify both a target object and a trustee.", "Parameters Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Calculating effective permissions for $trustee on $target..."
+        $effRes = Get-ADEffectivePermissions -Identity $target -Trustee $trustee
+        if ($effRes) {
+            if ($controls['GridAclEffective']) { $controls['GridAclEffective'].ItemsSource = $effRes.Permissions }
+            if ($controls['TxtEffectiveStatus']) {
+                $controls['TxtEffectiveStatus'].Text = "Trustee: $($effRes.Trustee) | $($effRes.GrantedCount) Granted, $($effRes.DeniedCount) Denied"
+            }
+            Set-Status -Message "Effective permissions computed for $trustee."
+        }
+    })
+}
+
+if ($controls['BtnScanAdminSdHolder']) {
+    $controls['BtnScanAdminSdHolder'].Add_Click({
+        Set-Status -Message "Scanning domain for AdminSDHolder protected orphans..."
+        $orphans = Find-AdminSDHolderOrphans
+        if ($controls['GridAdminSdOrphans']) {
+            $controls['GridAdminSdOrphans'].ItemsSource = $orphans
+        }
+        Set-Status -Message "AdminSDHolder scan complete. Found $($orphans.Count) orphan accounts."
+    })
+}
+
+if ($controls['BtnFixAdminSdHolder']) {
+    $controls['BtnFixAdminSdHolder'].Add_Click({
+        $sel = if ($controls['GridAdminSdOrphans']) { $controls['GridAdminSdOrphans'].SelectedItem } else { $null }
+        if (-not $sel) {
+            [System.Windows.MessageBox]::Show("Please select an orphan account from the grid to remediate.", "Select Orphan", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $confirm = [System.Windows.MessageBox]::Show("Reset adminCount to 0 and re-enable ACL inheritance for '$($sel.Name)'?", "Confirm Remediation", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            $fixRes = Reset-AdminSDHolderOrphan -Identity $sel.DistinguishedName
+            if ($fixRes.Success) {
+                [System.Windows.MessageBox]::Show($fixRes.Message, "Remediation Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                if ($controls['BtnScanAdminSdHolder']) { $controls['BtnScanAdminSdHolder'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            } else {
+                [System.Windows.MessageBox]::Show($fixRes.Message, "Remediation Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
+}
+
+if ($controls['BtnRunDelegationReport']) {
+    $controls['BtnRunDelegationReport'].Add_Click({
+        $scope = if ($controls['CmbDelegationScope']) { $controls['CmbDelegationScope'].Text } else { "All Sensitive Delegations" }
+        Set-Status -Message "Generating delegation report for scope: $scope..."
+        $rep = Get-ADDelegationReport -Scope $scope
+        if ($controls['GridDelegationReport']) { $controls['GridDelegationReport'].ItemsSource = $rep }
+        Set-Status -Message "Delegation report complete: $($rep.Count) entries located."
+    })
+}
+
+if ($controls['BtnExportDelegationReport']) {
+    $controls['BtnExportDelegationReport'].Add_Click({
+        $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDlg.FileName = "Delegation_Report_$((Get-Date).ToString('yyyyMMdd_HHmm')).csv"
+        $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+        if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $dataToExport = @($controls['GridDelegationReport'].ItemsSource)
+            $res = Export-ADDataToCsv -Data $dataToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter)
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        }
+    })
+}
+
+# --- 20. Kerberos & Authentication Suite Handlers ---
+function Refresh-KerberosTickets {
+    Set-Status -Message "Querying LSA Kerberos ticket cache..."
+    $tickets = Get-KerberosTicketCache
+    if ($controls['GridKerberosTickets']) { $controls['GridKerberosTickets'].ItemsSource = $tickets }
+    if ($controls['TxtTicketCacheSummary']) {
+        $controls['TxtTicketCacheSummary'].Text = "Cached tickets: $($tickets.Count) active tickets in Kerberos LSA session cache."
+    }
+    Set-Status -Message "Kerberos ticket cache refreshed ($($tickets.Count) tickets)."
+}
+
+if ($controls['BtnRefreshTickets']) {
+    $controls['BtnRefreshTickets'].Add_Click({ Refresh-KerberosTickets })
+}
+
+if ($controls['BtnPurgeTickets']) {
+    $controls['BtnPurgeTickets'].Add_Click({
+        $confirm = [System.Windows.MessageBox]::Show("Purge all cached Kerberos tickets for current session? (Equivalent to 'klist purge')", "Confirm Purge", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            Clear-KerberosTicketCache
+            Refresh-KerberosTickets
+            [System.Windows.MessageBox]::Show("Kerberos ticket cache purged.", "Purged", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
+    })
+}
+
+if ($controls['BtnTestSpnTicket']) {
+    $controls['BtnTestSpnTicket'].Add_Click({
+        $spn = if ($controls['TxtTestSpn']) { $controls['TxtTestSpn'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($spn)) {
+            [System.Windows.MessageBox]::Show("Please enter an SPN to test (e.g. HOST/dc1.corp.local).", "SPN Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Requesting Kerberos ticket for SPN $spn..."
+        $res = Test-KerberosSpnTicket -Spn $spn
+        if ($controls['TxtTestSpnResult']) {
+            $controls['TxtTestSpnResult'].Text = "Status: $($res.Status) | Enc: $($res.EncryptionType) | Latency: $($res.Latency) | $($res.Message)"
+        }
+        Set-Status -Message "SPN ticket test: $($res.Status)."
+    })
+}
+
+if ($controls['BtnCalcTokenSize']) {
+    $controls['BtnCalcTokenSize'].Add_Click({
+        $user = if ($controls['TxtTokenUser']) { $controls['TxtTokenUser'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($user)) {
+            [System.Windows.MessageBox]::Show("Please enter a username or DN to calculate token size.", "User Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Calculating access token PAC size for $user..."
+        $tRes = Measure-ADUserTokenSize -Identity $user
+        if ($tRes) {
+            if ($controls['TxtTokenSizeBytes']) { $controls['TxtTokenSizeBytes'].Text = "$($tRes.EstimatedTokenSizeBytes.ToString('N0')) Bytes" }
+            if ($controls['TxtTokenDomainGroups']) { $controls['TxtTokenDomainGroups'].Text = $tRes.DomainGroupCount.ToString() }
+            if ($controls['TxtTokenExtraSids']) { $controls['TxtTokenExtraSids'].Text = $tRes.SidHistoryCount.ToString() }
+            if ($controls['TxtTokenRiskBadge']) {
+                $controls['TxtTokenRiskBadge'].Text = $tRes.RiskLevel
+                $riskColor = if ($tRes.RiskLevel -match 'Critical') { "#EF4444" } elseif ($tRes.RiskLevel -match 'Elevated') { "#F59E0B" } else { "#10B981" }
+                $controls['TxtTokenRiskBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($riskColor)
+            }
+            if ($controls['GridTokenGroups']) { $controls['GridTokenGroups'].ItemsSource = $tRes.ContributingGroups }
+            Set-Status -Message "Token PAC calculated: $($tRes.EstimatedTokenSizeBytes) Bytes ($($tRes.RiskLevel))."
+        }
+    })
+}
+
+if ($controls['BtnRefreshRidPool']) {
+    $controls['BtnRefreshRidPool'].Add_Click({
+        Set-Status -Message "Querying RID Master pool allocation..."
+        $rids = Get-ADRidPoolStatus
+        if ($controls['GridRidPool']) { $controls['GridRidPool'].ItemsSource = $rids }
+        Set-Status -Message "RID pool allocation refreshed."
+    })
+}
+
+# --- 21. Replication & Topology Suite Handlers ---
+function Refresh-ReplicationTopology {
+    Set-Status -Message "Refreshing Active Directory Sites topology..."
+    $sites = Get-ADSitesTopology
+    if ($controls['BtnScanSubnetOverlaps']) {
+        $controls['BtnScanSubnetOverlaps'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    }
+}
+
+if ($controls['BtnRefreshReplicationSuite']) {
+    $controls['BtnRefreshReplicationSuite'].Add_Click({ Refresh-ReplicationTopology })
+}
+
+if ($controls['BtnScanMultiDcLogon']) {
+    $controls['BtnScanMultiDcLogon'].Add_Click({
+        $target = if ($controls['TxtMultiDcTarget']) { $controls['TxtMultiDcTarget'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            [System.Windows.MessageBox]::Show("Please enter a username or computer name to scan across DCs.", "Target Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Querying all domain controllers for real-time lastLogon for $target..."
+        $res = Get-ADMultiDCRealTimeLastLogon -Identity $target
+        if ($res) {
+            if ($controls['GridMultiDcLogon']) { $controls['GridMultiDcLogon'].ItemsSource = $res.DCResults }
+            if ($controls['TxtMultiDcConsensus']) {
+                $controls['TxtMultiDcConsensus'].Text = "Most recent logon consensus: $($res.ConsensusLastLogon) | Originating DC: $($res.OriginatingDC) ($($res.DCResults.Count) DCs scanned)"
+            }
+            Set-Status -Message "Multi-DC logon scan complete for $target."
+        }
+    })
+}
+
+if ($controls['BtnScanSubnetOverlaps']) {
+    $controls['BtnScanSubnetOverlaps'].Add_Click({
+        Set-Status -Message "Auditing AD subnet boundaries for conflicts and overlaps..."
+        $subs = Test-ADSubnetOverlap
+        if ($controls['GridSubnetOverlaps']) { $controls['GridSubnetOverlaps'].ItemsSource = $subs }
+        Set-Status -Message "Subnet boundary audit complete: $($subs.Count) subnets analyzed."
+    })
+}
+
+if ($controls['BtnExportSubnets']) {
+    $controls['BtnExportSubnets'].Add_Click({
+        $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+        $saveDlg.FileName = "AD_Subnets_$((Get-Date).ToString('yyyyMMdd_HHmm')).csv"
+        $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+        if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $dataToExport = @($controls['GridSubnetOverlaps'].ItemsSource)
+            $res = Export-ADDataToCsv -Data $dataToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter)
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        }
+    })
+}
+
+if ($controls['BtnCheckGpoSync']) {
+    $controls['BtnCheckGpoSync'].Add_Click({
+        Set-Status -Message "Auditing GPO Active Directory vs SYSVOL GPT.ini version consistency..."
+        $gpos = Test-GpoReplicationConsistency
+        if ($controls['GridGpoSync']) { $controls['GridGpoSync'].ItemsSource = $gpos }
+        Set-Status -Message "GPO consistency audit complete: $($gpos.Count) policies checked."
+    })
+}
+
+if ($controls['BtnGetReplMetadata']) {
+    $controls['BtnGetReplMetadata'].Add_Click({
+        $target = if ($controls['TxtReplMetaTarget']) { $controls['TxtReplMetaTarget'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            [System.Windows.MessageBox]::Show("Please enter a target object DN to inspect replication attribute metadata.", "DN Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Fetching msDS-ReplAttributeMetaData for $target..."
+        $meta = Get-ADReplicationAttributeMetadata -Identity $target
+        if ($controls['GridReplMetadata']) { $controls['GridReplMetadata'].ItemsSource = $meta }
+        Set-Status -Message "Replication metadata loaded ($($meta.Count) attributes)."
+    })
+}
+
+# --- 22. Diagnostics & Advanced Utilities Handlers ---
+if ($controls['BtnDiagOpenResolver']) {
+    $controls['BtnDiagOpenResolver'].Add_Click({ Show-ResolverDialog })
+}
+
+if ($controls['BtnScanCircularGroups']) {
+    $controls['BtnScanCircularGroups'].Add_Click({
+        Set-Status -Message "Scanning domain group hierarchies for circular reference cycles..."
+        $cycles = Find-CircularGroupReferences
+        if ($controls['GridCircularGroups']) { $controls['GridCircularGroups'].ItemsSource = $cycles }
+        Set-Status -Message "Cycle scan finished. $($cycles.Count) cyclic loops identified."
+    })
+}
+
+if ($controls['BtnCompareUserGroups']) {
+    $controls['BtnCompareUserGroups'].Add_Click({
+        $uA = if ($controls['TxtDiffUserA']) { $controls['TxtDiffUserA'].Text.Trim() } else { "" }
+        $uB = if ($controls['TxtDiffUserB']) { $controls['TxtDiffUserB'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($uA) -or [string]::IsNullOrWhiteSpace($uB)) {
+            [System.Windows.MessageBox]::Show("Please specify both User A and User B to compare.", "Users Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Comparing group memberships between $uA and $uB..."
+        $diff = Compare-ADUserGroupMemberships -UserA $uA -UserB $uB
+        if ($diff) {
+            if ($controls['TxtDiffSummary']) {
+                $controls['TxtDiffSummary'].Text = "Unique to ${uA}: $($diff.UniqueToUserACount) | Common Memberships: $($diff.CommonCount) | Unique to ${uB}: $($diff.UniqueToUserBCount)"
+            }
+            if ($controls['GridDiffResults']) { $controls['GridDiffResults'].ItemsSource = $diff.ComparisonRows }
+            Set-Status -Message "Group diff complete: $($diff.ComparisonRows.Count) groups evaluated."
+        }
+    })
+}
+
+if ($controls['BtnTraceLockout']) {
+    $controls['BtnTraceLockout'].Add_Click({
+        $user = if ($controls['TxtLockoutTargetUser']) { $controls['TxtLockoutTargetUser'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($user)) {
+            [System.Windows.MessageBox]::Show("Please specify a target username to investigate lockout.", "Username Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Set-Status -Message "Tracing lockout and Event 4740 for $user across all domain controllers..."
+        $lockRes = Find-ADAccountLockoutSource -Identity $user
+        if ($lockRes) {
+            if ($controls['TxtLockoutStateBadge']) {
+                $controls['TxtLockoutStateBadge'].Text = if ($lockRes.IsLocked) { "LOCKED OUT" } else { "NOT LOCKED (ACTIVE)" }
+                $lockColor = if ($lockRes.IsLocked) { "#EF4444" } else { "#10B981" }
+                $controls['TxtLockoutStateBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($lockColor)
+            }
+            if ($controls['TxtLockoutDetails']) {
+                $controls['TxtLockoutDetails'].Text = "Bad Password Attempts: $($lockRes.BadPasswordAttempts) | Lockout Time: $($lockRes.LockoutTime)"
+            }
+            if ($controls['TxtLockoutCallerHost']) {
+                $controls['TxtLockoutCallerHost'].Text = if ($lockRes.CallerWorkstation) { "Host: $($lockRes.CallerWorkstation)" } else { "-- Workstation Not Logged --" }
+            }
+            if ($controls['TxtLockoutCallerIp']) {
+                $controls['TxtLockoutCallerIp'].Text = "IP: $($lockRes.CallerIP) | Timestamp: $($lockRes.EventTime)"
+            }
+            if ($controls['GridLockoutDcs']) { $controls['GridLockoutDcs'].ItemsSource = $lockRes.DCSummary }
+            Set-Status -Message "Lockout investigation complete for $user."
+        }
+    })
+}
+
+if ($controls['BtnUnlockUserAllDCs']) {
+    $controls['BtnUnlockUserAllDCs'].Add_Click({
+        $user = if ($controls['TxtLockoutTargetUser']) { $controls['TxtLockoutTargetUser'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($user)) {
+            [System.Windows.MessageBox]::Show("Please specify a target username to unlock.", "Username Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $confirm = [System.Windows.MessageBox]::Show("Unlock account '$user' across all domain controllers?", "Confirm Unlock", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            $unlRes = Unlock-ADUserAcrossDCs -Identity $user
+            if ($unlRes.Success) {
+                [System.Windows.MessageBox]::Show($unlRes.Message, "Account Unlocked", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                if ($controls['BtnTraceLockout']) { $controls['BtnTraceLockout'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            } else {
+                [System.Windows.MessageBox]::Show($unlRes.Message, "Unlock Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
+}
+
+if ($controls['BtnDecodeErrorCode']) {
+    $controls['BtnDecodeErrorCode'].Add_Click({
+        $code = if ($controls['TxtErrorCodeInput']) { $controls['TxtErrorCodeInput'].Text.Trim() } else { "" }
+        $cat = if ($controls['CmbErrorCodeType']) { $controls['CmbErrorCodeType'].Text } else { "Auto-Detect" }
+        if ([string]::IsNullOrWhiteSpace($code)) { return }
+        $dec = Resolve-ADErrorCode -ErrorCode $code -Category $cat
+        if ($controls['TxtErrorDecodeOutput']) {
+            $controls['TxtErrorDecodeOutput'].Text = "Symbolic Name: $($dec.SymbolicName)`r`nHex Code:      $($dec.HexCode)`r`nDecimal:       $($dec.DecimalCode)`r`nCategory:      $($dec.Category)`r`nDescription:   $($dec.Description)"
+        }
+    })
+}
+
+if ($controls['BtnConvertTimestamp']) {
+    $controls['BtnConvertTimestamp'].Add_Click({
+        $val = if ($controls['TxtTimestampInput']) { $controls['TxtTimestampInput'].Text.Trim() } else { "" }
+        $fmt = if ($controls['CmbTimestampFormat']) { $controls['CmbTimestampFormat'].Text } else { "Auto-Detect" }
+        if ([string]::IsNullOrWhiteSpace($val)) { return }
+        $timeRes = Convert-ADTimestamp -Value $val -Format $fmt
+        if ($controls['TxtTimestampOutput']) {
+            $controls['TxtTimestampOutput'].Text = "UTC Time:   $($timeRes.UtcTime)`r`nLocal Time: $($timeRes.LocalTime)`r`nElapsed:    $($timeRes.AgeDescription)`r`nDetected:   $($timeRes.DetectedFormat)"
+        }
+    })
+}
+
+# --- Header Quick Action Buttons ---
+if ($controls['BtnHeaderResolver']) {
+    $controls['BtnHeaderResolver'].Add_Click({ Show-ResolverDialog })
+}
+
+if ($controls['BtnHeaderLockout']) {
+    $controls['BtnHeaderLockout'].Add_Click({
+        Show-Panel "DiagnosticsToolbox"
+        if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+    })
+}
+
+# --- Universal "Use With..." Context Menus ---
+# Users DataGrid
+if ($controls['CtxUserUseWithAcl']) {
+    $controls['CtxUserUseWithAcl'].Add_Click({
+        $u = $controls['GridUsers'].SelectedItem
+        if ($u) {
+            Show-Panel "SecurityAcl"
+            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+            if ($controls['TxtAclTargetDN']) {
+                $controls['TxtAclTargetDN'].Text = if ($u.DistinguishedName) { $u.DistinguishedName } else { $u.SamAccountName }
+                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxUserUseWithTokenSize']) {
+    $controls['CtxUserUseWithTokenSize'].Add_Click({
+        $u = $controls['GridUsers'].SelectedItem
+        if ($u) {
+            Show-Panel "KerberosSuite"
+            if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
+            if ($controls['TxtTokenUser']) {
+                $controls['TxtTokenUser'].Text = $u.SamAccountName
+                if ($controls['BtnCalcTokenSize']) { $controls['BtnCalcTokenSize'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxUserUseWithLockout']) {
+    $controls['CtxUserUseWithLockout'].Add_Click({
+        $u = $controls['GridUsers'].SelectedItem
+        if ($u) {
+            Show-Panel "DiagnosticsToolbox"
+            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+            if ($controls['TxtLockoutTargetUser']) {
+                $controls['TxtLockoutTargetUser'].Text = $u.SamAccountName
+                if ($controls['BtnTraceLockout']) { $controls['BtnTraceLockout'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxUserUseWithReplication']) {
+    $controls['CtxUserUseWithReplication'].Add_Click({
+        $u = $controls['GridUsers'].SelectedItem
+        if ($u) {
+            Show-Panel "ReplicationSuite"
+            if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
+            if ($controls['TxtMultiDcTarget']) {
+                $controls['TxtMultiDcTarget'].Text = $u.SamAccountName
+                if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxUserUseWithResolver']) {
+    $controls['CtxUserUseWithResolver'].Add_Click({
+        $u = $controls['GridUsers'].SelectedItem
+        if ($u) { Show-ResolverDialog -InitialInput "$($u.SamAccountName)`r`n$($u.DistinguishedName)" }
+    })
+}
+if ($controls['CtxUserCopyToDetached']) {
+    $controls['CtxUserCopyToDetached'].Add_Click({
+        Show-DetachedGridDialog -ItemsSource $controls['GridUsers'].ItemsSource -Title "Users Directory Dataset"
+    })
+}
+
+# Groups DataGrid
+if ($controls['CtxGroupUseWithAcl']) {
+    $controls['CtxGroupUseWithAcl'].Add_Click({
+        $g = $controls['GridGroups'].SelectedItem
+        if ($g) {
+            Show-Panel "SecurityAcl"
+            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+            if ($controls['TxtAclTargetDN']) {
+                $controls['TxtAclTargetDN'].Text = if ($g.DistinguishedName) { $g.DistinguishedName } else { $g.Name }
+                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxGroupUseWithCircular']) {
+    $controls['CtxGroupUseWithCircular'].Add_Click({
+        Show-Panel "DiagnosticsToolbox"
+        if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+        if ($controls['BtnScanCircularGroups']) { $controls['BtnScanCircularGroups'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+    })
+}
+if ($controls['CtxGroupUseWithDiff']) {
+    $controls['CtxGroupUseWithDiff'].Add_Click({
+        $g = $controls['GridGroups'].SelectedItem
+        if ($g) {
+            Show-Panel "DiagnosticsToolbox"
+            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+            if ($controls['TxtDiffUserA']) { $controls['TxtDiffUserA'].Text = $g.Name }
+        }
+    })
+}
+if ($controls['CtxGroupUseWithResolver']) {
+    $controls['CtxGroupUseWithResolver'].Add_Click({
+        $g = $controls['GridGroups'].SelectedItem
+        if ($g) { Show-ResolverDialog -InitialInput "$($g.Name)`r`n$($g.DistinguishedName)" }
+    })
+}
+if ($controls['CtxGroupCopyToDetached']) {
+    $controls['CtxGroupCopyToDetached'].Add_Click({
+        Show-DetachedGridDialog -ItemsSource $controls['GridGroups'].ItemsSource -Title "Groups Directory Dataset"
+    })
+}
+
+# Computers DataGrid
+if ($controls['CtxCompUseWithAcl']) {
+    $controls['CtxCompUseWithAcl'].Add_Click({
+        $c = $controls['GridComputers'].SelectedItem
+        if ($c) {
+            Show-Panel "SecurityAcl"
+            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+            if ($controls['TxtAclTargetDN']) {
+                $controls['TxtAclTargetDN'].Text = if ($c.DistinguishedName) { $c.DistinguishedName } else { "$($c.Name)$" }
+                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxCompUseWithSpn']) {
+    $controls['CtxCompUseWithSpn'].Add_Click({
+        $c = $controls['GridComputers'].SelectedItem
+        if ($c) {
+            Show-Panel "KerberosSuite"
+            if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
+            if ($controls['TxtTestSpn']) {
+                $controls['TxtTestSpn'].Text = if ($c.DNSHostName) { "HOST/$($c.DNSHostName)" } else { "HOST/$($c.Name)" }
+                if ($controls['BtnTestSpnTicket']) { $controls['BtnTestSpnTicket'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxCompUseWithReplication']) {
+    $controls['CtxCompUseWithReplication'].Add_Click({
+        $c = $controls['GridComputers'].SelectedItem
+        if ($c) {
+            Show-Panel "ReplicationSuite"
+            if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
+            if ($controls['TxtMultiDcTarget']) {
+                $controls['TxtMultiDcTarget'].Text = "$($c.Name)$"
+                if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxCompUseWithResolver']) {
+    $controls['CtxCompUseWithResolver'].Add_Click({
+        $c = $controls['GridComputers'].SelectedItem
+        if ($c) { Show-ResolverDialog -InitialInput "$($c.Name)`r`n$($c.DNSHostName)" }
+    })
+}
+if ($controls['CtxCompCopyToDetached']) {
+    $controls['CtxCompCopyToDetached'].Add_Click({
+        Show-DetachedGridDialog -ItemsSource $controls['GridComputers'].ItemsSource -Title "Computers Inventory Dataset"
+    })
+}
+
+# Search Results DataGrid
+if ($controls['CtxSearchUseWithAcl']) {
+    $controls['CtxSearchUseWithAcl'].Add_Click({
+        $s = $controls['GridSearchResults'].SelectedItem
+        if ($s) {
+            Show-Panel "SecurityAcl"
+            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+            if ($controls['TxtAclTargetDN']) {
+                $controls['TxtAclTargetDN'].Text = if ($s.DistinguishedName) { $s.DistinguishedName } else { $s.SamAccountName }
+                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+            }
+        }
+    })
+}
+if ($controls['CtxSearchUseWithResolver']) {
+    $controls['CtxSearchUseWithResolver'].Add_Click({
+        $s = $controls['GridSearchResults'].SelectedItem
+        if ($s) { Show-ResolverDialog -InitialInput "$($s.SamAccountName)`r`n$($s.DistinguishedName)" }
+    })
+}
+if ($controls['CtxSearchCopyToDetached']) {
+    $controls['CtxSearchCopyToDetached'].Add_Click({
+        Show-DetachedGridDialog -ItemsSource $controls['GridSearchResults'].ItemsSource -Title "Directory Search Dataset"
+    })
+}
 #endregion
 
 #region 15. Settings Panel Logic
@@ -8554,18 +9497,23 @@ $window.Add_Loaded({
     if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
         Set-ApplicationTheme -Theme "Light" -AccentTone $appConfig.UI.AccentTone
     }
+    Init-ElevationBadge
     Refresh-All
     Refresh-Connections
     Populate-SearchAttributeDropdowns
     Populate-AllExternalToolsMenus
 })
 
-# Keyboard shortcut: Ctrl+T for quick theme toggle
+# Keyboard shortcuts: Ctrl+T for quick theme toggle, Ctrl+R for Resolver Scratchpad
 $window.Add_KeyDown({
     param($sender, $e)
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
         Set-ApplicationTheme -Theme $newTheme -SavePreference
+        $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+        Show-ResolverDialog
         $e.Handled = $true
     }
 })

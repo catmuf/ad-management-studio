@@ -1,0 +1,100 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Active Directory Incident Resolver &amp; Scratchpad (Ctrl+R)"
+    Height="600" Width="850"
+    MinHeight="450" MinWidth="600"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="{DynamicResource BgDark}"
+    Foreground="{DynamicResource TextPrimary}"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="120"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="📋" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Incident Scratchpad &amp; Multi-Entity Resolver" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                    <TextBlock Text="Paste arbitrary lists of Usernames, SIDs, IPs, DNs, or GUIDs to auto-classify and launch diagnostics." FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                </StackPanel>
+                <Button Name="BtnResolverClear" Grid.Column="2" Content="Clear" Style="{StaticResource ModernButton}"/>
+            </Grid>
+        </Border>
+
+        <!-- Input Multi-line Scratchpad -->
+        <TextBox Name="TxtResolverInput" Grid.Row="1" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="{DynamicResource InputBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" FontFamily="Consolas, Segoe UI" FontSize="12" Padding="8" Margin="0,0,0,10"/>
+
+        <!-- Action Ribbon -->
+        <Border Grid.Row="2" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <Button Name="BtnResolverResolve" Content="🔍 Resolve &amp; Classify Entities" Style="{StaticResource ModernButton}" Margin="0,0,8,0"/>
+                <Button Name="BtnResolverAcl" Content="🛡️ Check ACL" Style="{StaticResource ModernButton}" Margin="0,0,8,0"/>
+                <Button Name="BtnResolverLockout" Content="🔒 Lockout Trace" Style="{StaticResource ModernButton}" Margin="0,0,8,0"/>
+                <Button Name="BtnResolverToken" Content="🎫 Token Bloat" Style="{StaticResource ModernButton}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Results Grid -->
+        <Border Grid.Row="3" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="8">
+            <DataGrid Name="GridResolverResults" AutoGenerateColumns="False" IsReadOnly="True" Background="Transparent" BorderThickness="0" RowBackground="{DynamicResource GridRowBg}" AlternatingRowBackground="{DynamicResource GridRowAltBg}" Foreground="{DynamicResource TextPrimary}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource GridLineBrush}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Input Term" Binding="{Binding InputTerm}" Width="160"/>
+                    <DataGridTextColumn Header="Entity Type" Binding="{Binding EntityType}" Width="120"/>
+                    <DataGridTextColumn Header="Resolved Name" Binding="{Binding ResolvedName}" Width="200"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="140"/>
+                    <DataGridTextColumn Header="Details / DN" Binding="{Binding Details}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- Footer -->
+        <Border Grid.Row="4" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="BtnCloseResolverDialog" Content="Close" Style="{StaticResource ModernButton}" Width="80"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,4 +1,4 @@
-﻿# Active Directory Management Studio - Feature Enhancements & Competitor Parity
+# Active Directory Management Studio - Feature Enhancements & Competitor Parity
 
 ## Overview
 
@@ -340,8 +340,65 @@ The automated STA UI harness verified the new features with 100% success:
   - **Syntax & AST**: 0 errors.
   - **E2E Theme Toggling**: Verified seamless switching between Light and Dark modes without visual artifacts.
   - **Controls Audited**: All 15 theme and HTML view controls verified.
-  - **Quick Search Verification**: Verified single-element, multi-element, and empty collection bindings without exceptions.
+  - **Quick Search Verification**: Verified single-element, multi-element, and empty collection bindings without exceptions.---
 
+## 7. NetTools (nettools.net) Competitor Parity Implementation
 
+### A. Executive Summary
+A comprehensive competitor benchmarking and parity implementation was conducted against the **NetTools** application suite (`https://nettools.net/features/`), covering all 16 tool categories, submenus, diagnostic workflows, and UX innovations. Active Directory Management Studio now features complete parity across all core troubleshooting disciplines: Access Control, Kerberos & Authentication, Topology & Replication, and Incident Diagnostics.
 
+### B. Newly Implemented Modules & Architecture
+
+#### 1. Access Control & ACL Suite (`Modules/AclService.psm1`, `Views/AclBrowserDialog.xaml`)
+* **Security Descriptor Decoder**: Implemented `ConvertFrom-ADSecurityDescriptorString` and `Get-ADObjectAcl` to parse raw binary and SDDL format strings, identifying Trustee SIDs, canonical ACE ordering, inheritance flags (`CI`, `OI`, `NP`, `IO`), and color-coded permission tiers.
+* **Effective Permissions Engine**: Implemented `Get-ADEffectivePermissions` evaluating token groups and deny/allow ACE precedence to determine granted vs. denied permissions (Full Control, Write DACL, Reset Password, DCSync).
+* **AdminSDHolder & SDProp Auditor**: Implemented `Find-AdminSDHolderOrphans` and `Reset-AdminSDHolderOrphan` to identify accounts with `adminCount=1` that were removed from protected groups, offering 1-click inheritance restoration.
+* **Sensitive Delegation Reporter**: Implemented `Get-ADDelegationReport` querying for dangerous privilege delegations across the domain (Password Resets on AdminSDHolder, DCSync / Replication Rights, and LAPS password read access).
+* **Standalone Modal ACL Inspector**: Added `AclBrowserDialog.xaml` providing dedicated tabs for DACL ACEs, SACL Auditing, Effective Rights Matrix, and Raw SDDL with clipboard export.
+
+#### 2. Kerberos & Token Diagnostics Suite (`Modules/KerberosService.psm1`)
+* **LSA Kerberos Ticket Cache Explorer**: Implemented `Get-KerberosTicketCache` and `Clear-KerberosTicketCache` wrapping `klist.exe` to inspect cached TGT and service tickets (SPN, client, encryption type, flags, lifetime) with 1-click purge.
+* **SPN Ticket Request Tester**: Implemented `Test-KerberosSpnTicket` to validate Kerberos authentication paths for arbitrary service principals and measure acquisition latency.
+* **PAC Token Size Bloat Calculator**: Implemented `Measure-ADUserTokenSize` using Microsoft's PAC token formula (`EstimatedTokenSize = 1200 + 40d + 8s`) evaluating risk thresholds against standard HTTP 400 and MaxTokenSize limits.
+* **Forest RID Pool Capacity Monitor**: Implemented `Get-ADRidPoolStatus` inspecting the domain RID Master and all domain controllers to evaluate remaining forest RID capacity (~1 billion pool) and per-DC allocations.
+
+#### 3. Replication & Topology Suite (`Modules/ReplicationService.psm1`)
+* **Multi-DC Real-Time Last Logon Scanner**: Implemented `Get-ADMultiDCRealTimeLastLogon` querying all reachable DCs concurrently to discover true non-replicated logon timestamps (`lastLogon`), bad password counters, and originating DC consensus.
+* **Subnet Boundary & CIDR Conflict Detector**: Implemented `Test-ADSubnetOverlap` converting subnet names to numeric 32-bit IP ranges to detect overlapping boundary definitions and misconfigured site affinities.
+* **Active Directory Sites Topology**: Implemented `Get-ADSitesTopology` mapping corporate sites, subnets, ISTG role holders, and inter-site transit links.
+* **GPO SYSVOL Consistency Auditor**: Implemented `Test-GpoReplicationConsistency` comparing Active Directory `versionNumber` against SYSVOL `GPT.ini` version across DCs to flag replication delays.
+* **Attribute Replication Metadata**: Implemented `Get-ADReplicationAttributeMetadata` inspecting `msDS-ReplAttributeMetaData` (originating DC, USN, version, timestamp).
+
+#### 4. Diagnostics & Troubleshooting Toolbox (`Modules/DiagnosticService.psm1`)
+* **Circular Group Loop Detector**: Implemented `Find-CircularGroupReferences` executing Depth-First Search (DFS) graph cycle detection across all domain groups with recursion stack tracking.
+* **Side-by-Side User Group Membership Diff**: Implemented `Compare-ADUserGroupMemberships` comparing direct and recursive group rosters of two accounts side-by-side.
+* **Account Lockout Source Investigator**: Implemented `Find-ADAccountLockoutSource` scanning all DCs for bad password activity and parsing Security Event Log **Event ID 4740** on the culprit DC to uncover the calling workstation hostname and IP address.
+* **Multi-DC Account Unlocker**: Implemented `Unlock-ADUserAcrossDCs` offering 1-click expedited account unlocking.
+* **Win32 / HRESULT / LDAP / Kerberos Codec**: Implemented `Resolve-ADErrorCode` translating numeric and hexadecimal error codes into human-readable definitions.
+* **Multi-Format Timestamp Converter**: Implemented `Convert-ADTimestamp` bidirectionally converting between Windows FileTime Int64, Hex 64-bit, GeneralizedTime (LDAP), and Unix Epoch.
+
+### C. Signature UX Innovations & Integration
+
+#### 1. Universal "Use With..." Pivoting Across Grids
+Every major entity grid in Active Directory Studio (`GridUsers`, `GridGroups`, `GridComputers`, `GridSearchResults`) features a dedicated **"Use With..."** context submenu enabling 1-click diagnostic pivoting:
+- **Users**: Check ACL / Effective Rights, Calculate PAC Token Size, Trace Lockout (Event 4740), Real-Time Multi-DC Logon, Send to Resolver Scratchpad, Copy to Detached Grid.
+- **Groups**: Check Security Descriptor, Circular Reference Scan, Compare Group Memberships, Send to Resolver, Copy to Detached Grid.
+- **Computers**: Check Object ACL, Test SPN Ticket, Multi-DC Last Logon, Send to Resolver, Copy to Detached Grid.
+- **Search Results**: Check ACL, Send to Resolver Scratchpad, Copy to Detached Grid.
+
+#### 2. The Incident Scratchpad (`Ctrl+R`, `Views/ResolverDialog.xaml`)
+A multi-line freeform workspace accessible globally via the header button or `Ctrl+R`. Administrators can paste raw dumps of text containing usernames, SIDs, IPv4 addresses, GUIDs, UPNs, or DNs. The resolver automatically classifies each entity, looks up directory attributes, and provides 1-click pivoting to ACL inspection, Lockout traces, and Token Bloat analysis.
+
+#### 3. Detached Floating Analysis Grids (`Views/DetachedGridDialog.xaml`)
+Allows any grid dataset to be cloned into an independent, modeless floating window for multi-monitor workstations. Features a live omnibar filter and 1-click CSV/HTML export.
+
+#### 4. Process Elevation Telemetry Badge
+Header badge actively displaying Windows Principal security tokens (`🛡️ ELEVATED (ADMIN)` with green badge vs. `👤 STANDARD USER` with gray badge), warning administrators when elevation is recommended for raw Event Log queries or Kerberos operations.
+
+### D. Automated Verification & Quality Assurance
+- **AST Parsing**: All 10 PowerShell script and module files parsed cleanly with 0 syntax errors.
+- **XAML Parsing**: All 14 XAML dialog and window files verified with `[System.Windows.Markup.XamlReader]::Load`.
+- **UTF-8 BOM**: Verified and enforced `EF BB BF` encoding on all `.ps1` and `.psm1` files.
+- **Privacy Compliance**: Zero personal usernames found across all codebase files, diffs, and commits.
+- **Commit Author**: Set strictly to `Catmuf <catmuf@gmail.com>`.
 
