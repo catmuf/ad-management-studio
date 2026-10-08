@@ -43,7 +43,23 @@ function Load-XamlWindow {
     $rawXaml = Get-Content -Path $XamlPath -Raw -Encoding UTF8
     [xml]$xmlDoc = $rawXaml
     $reader = New-Object System.Xml.XmlNodeReader $xmlDoc
-    return [System.Windows.Markup.XamlReader]::Load($reader)
+    $loadedWin = [System.Windows.Markup.XamlReader]::Load($reader)
+
+    # If application is in Light theme, ensure newly loaded modal dialog inherits active theme
+    if ($state -and $state.CurrentTheme -eq "Light") {
+        if ($window -and $loadedWin -ne $window) {
+            foreach ($key in $window.Resources.Keys) {
+                if ($loadedWin.Resources.Contains($key)) {
+                    $loadedWin.Resources[$key] = $window.Resources[$key]
+                }
+            }
+        }
+        if (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue) {
+            Apply-ThemeNode $loadedWin "Light"
+        }
+    }
+
+    return $loadedWin
 }
 
 # Load Main Window
@@ -260,39 +276,65 @@ $script:BrushConverter = New-Object System.Windows.Media.BrushConverter
 function Convert-BrushToHex ($brush) {
     if (-not $brush) { return "" }
     if ($brush -is [System.Windows.Media.SolidColorBrush]) {
-        return "#" + $brush.Color.ToString().Substring(3).ToUpper()
+        if ($brush.Color.A -eq 0) { return "TRANSPARENT" }
+        return ("#{0:X2}{1:X2}{2:X2}" -f $brush.Color.R, $brush.Color.G, $brush.Color.B).ToUpper()
     }
     return ""
 }
 
-$script:ColorMapLight = @{
-    '#14161C' = '#F8FAFC'
+$script:ColorMapBgLight = @{
     '#0F1015' = '#F1F5F9'
+    '#111319' = '#FFFFFF'
+    '#111827' = '#F8FAFC'
     '#13151D' = '#F1F5F9'
+    '#14161C' = '#F8FAFC'
+    '#14161F' = '#F8FAFC'
     '#161820' = '#F1F5F9'
     '#161821' = '#F8FAFC'
     '#161822' = '#F8FAFC'
-    '#1A1D27' = '#FFFFFF'
     '#181A22' = '#FFFFFF'
-    '#1E212B' = '#F1F5F9'
-    '#1E212D' = '#F1F5F9'
-    '#252936' = '#FFFFFF'
-    '#111319' = '#FFFFFF'
+    '#1A1D27' = '#FFFFFF'
     '#1B1E28' = '#F8FAFC'
-    '#292E3E' = '#CBD5E1'
-    '#252A3A' = '#CBD5E1'
-    '#2F3446' = '#CBD5E1'
-    '#334155' = '#CBD5E1'
-    '#2E3345' = '#CBD5E1'
-    '#4B526D' = '#94A3B8'
+    '#1E212B' = '#F1F5F9'
+    '#1E212D' = '#FFFFFF'
+    '#1E2232' = '#FFFFFF'
+    '#1E293B' = '#F1F5F9'
+    '#252936' = '#FFFFFF'
+    '#252A3A' = '#F1F5F9'
+    '#292E3E' = '#F1F5F9'
+    '#323749' = '#E2E8F0'
+}
+
+$script:ColorMapFgLight = @{
     '#FFFFFF' = '#0F172A'
+    '#F8FAFC' = '#0F172A'
     '#F3F4F6' = '#0F172A'
     '#F1F5F9' = '#0F172A'
     '#E5E7EB' = '#1E293B'
-    '#9CA3AF' = '#475569'
     '#D1D5DB' = '#334155'
+    '#9CA3AF' = '#475569'
     '#6B7280' = '#64748B'
-    '#1E293B' = '#E2E8F0'
+    '#60A5FA' = '#2563EB'
+    '#38BDF8' = '#0284C7'
+    '#93C5FD' = '#1D4ED8'
+    '#A78BFA' = '#7C3AED'
+    '#34D399' = '#059669'
+    '#10B981' = '#047857'
+    '#FBBF24' = '#D97706'
+    '#F59E0B' = '#B45309'
+    '#EF4444' = '#DC2626'
+}
+
+$script:ColorMapBorderLight = @{
+    '#1F2937' = '#CBD5E1'
+    '#252936' = '#CBD5E1'
+    '#252A3A' = '#CBD5E1'
+    '#292E3E' = '#CBD5E1'
+    '#2E3345' = '#CBD5E1'
+    '#2F3446' = '#CBD5E1'
+    '#334155' = '#CBD5E1'
+    '#383E54' = '#CBD5E1'
+    '#4B526D' = '#94A3B8'
 }
 
 function Apply-ThemeNode ($node, [string]$targetTheme) {
@@ -300,7 +342,7 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
     $id = $node.GetHashCode()
 
     if ($targetTheme -eq "Light") {
-        # Cache original brushes if not already cached
+        # Cache original dark brushes if not already cached
         if (-not $script:OriginalBrushes.ContainsKey($id)) {
             $script:OriginalBrushes[$id] = @{
                 Bg = $node.Background
@@ -308,32 +350,47 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
                 Border = if ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control]) { $node.BorderBrush } else { $null }
             }
         }
+        $orig = $script:OriginalBrushes[$id]
 
         # Apply Light Background
-        if ($node.Background) {
-            $hex = Convert-BrushToHex $node.Background
-            if ($script:ColorMapLight.ContainsKey($hex)) {
-                $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
+        if ($orig.Bg) {
+            $hex = Convert-BrushToHex $orig.Bg
+            if ($hex -ne "TRANSPARENT" -and $script:ColorMapBgLight.ContainsKey($hex)) {
+                $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgLight[$hex])
             }
         }
 
-        # Apply Light Foreground
-        if ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock]) {
-            if ($node.Foreground) {
-                $hex = Convert-BrushToHex $node.Foreground
-                if ($script:ColorMapLight.ContainsKey($hex)) {
-                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
+        # Apply Light Foreground (protect primary/accent/danger/warning action buttons & badges)
+        if ($orig.Fg -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+            $isAccentHost = $false
+            
+            # Check if this element or its parent button has an accent background
+            $checkBg = $node.Background
+            if (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Button]) {
+                $checkBg = $node.Parent.Background
+            } elseif (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Panel] -and $node.Parent.Parent -is [System.Windows.Controls.Button]) {
+                $checkBg = $node.Parent.Parent.Background
+            }
+            if ($checkBg) {
+                $bgHex = Convert-BrushToHex $checkBg
+                if ($bgHex -in @('#0078D4', '#107C41', '#D13438', '#D97706', '#4F46E5', '#0284C7', '#DC2626', '#064E3B')) {
+                    $isAccentHost = $true
+                }
+            }
+
+            if (-not $isAccentHost) {
+                $hex = Convert-BrushToHex $orig.Fg
+                if ($hex -ne "TRANSPARENT" -and $script:ColorMapFgLight.ContainsKey($hex)) {
+                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapFgLight[$hex])
                 }
             }
         }
 
         # Apply Light BorderBrush
-        if ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control]) {
-            if ($node.BorderBrush) {
-                $hex = Convert-BrushToHex $node.BorderBrush
-                if ($script:ColorMapLight.ContainsKey($hex)) {
-                    $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapLight[$hex])
-                }
+        if ($orig.Border -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+            $hex = Convert-BrushToHex $orig.Border
+            if ($hex -ne "TRANSPARENT" -and $script:ColorMapBorderLight.ContainsKey($hex)) {
+                $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderLight[$hex])
             }
         }
 
@@ -343,6 +400,7 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
             $node.RowBackground = $script:BrushConverter.ConvertFromString("#FFFFFF")
             $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#F8FAFC")
             $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
+            $node.VerticalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
         }
     } else {
         # Restore Dark Mode from cached originals
@@ -361,6 +419,7 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
             $node.RowBackground = $script:BrushConverter.ConvertFromString("#161820")
             $node.AlternatingRowBackground = $script:BrushConverter.ConvertFromString("#1B1E28")
             $node.HorizontalGridLinesBrush = $script:BrushConverter.ConvertFromString("#252936")
+            $node.VerticalGridLinesBrush = $script:BrushConverter.ConvertFromString("#252936")
         }
     }
 
@@ -386,25 +445,66 @@ function Set-ApplicationTheme {
     $state.CurrentTheme = $Theme
 
     # 1. Update Window Resource Brushes
-    $bgDarkVal     = if ($isLight) { "#F1F5F9" } else { "#0F1015" }
-    $bgSidebarVal  = if ($isLight) { "#F1F5F9" } else { "#161820" }
-    $bgSurfaceVal  = if ($isLight) { "#F8FAFC" } else { "#1E212B" }
-    $bgCardVal     = if ($isLight) { "#FFFFFF" } else { "#252936" }
-    $bgInputVal    = if ($isLight) { "#FFFFFF" } else { "#181A22" }
-    $borderVal     = if ($isLight) { "#CBD5E1" } else { "#2F3446" }
-    $textPriVal    = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
-    $textSecVal    = if ($isLight) { "#475569" } else { "#9CA3AF" }
-    $textMutVal    = if ($isLight) { "#64748B" } else { "#6B7280" }
+    $bgDarkVal           = if ($isLight) { "#F8FAFC" } else { "#0F1015" }
+    $bgSidebarVal        = if ($isLight) { "#F1F5F9" } else { "#161820" }
+    $bgSurfaceVal        = if ($isLight) { "#FFFFFF" } else { "#1E212B" }
+    $bgCardVal           = if ($isLight) { "#FFFFFF" } else { "#252936" }
+    $bgInputVal          = if ($isLight) { "#FFFFFF" } else { "#181A22" }
+    $borderVal           = if ($isLight) { "#CBD5E1" } else { "#2F3446" }
+    $textPriVal          = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
+    $textSecVal          = if ($isLight) { "#475569" } else { "#9CA3AF" }
+    $textMutVal          = if ($isLight) { "#64748B" } else { "#6B7280" }
 
-    $window.Resources["BgDark"]           = $script:BrushConverter.ConvertFromString($bgDarkVal)
-    $window.Resources["BgSidebar"]        = $script:BrushConverter.ConvertFromString($bgSidebarVal)
-    $window.Resources["BgSurface"]        = $script:BrushConverter.ConvertFromString($bgSurfaceVal)
-    $window.Resources["BgCard"]           = $script:BrushConverter.ConvertFromString($bgCardVal)
-    $window.Resources["BgInput"]          = $script:BrushConverter.ConvertFromString($bgInputVal)
-    $window.Resources["BorderBrushColor"] = $script:BrushConverter.ConvertFromString($borderVal)
-    $window.Resources["TextPrimary"]      = $script:BrushConverter.ConvertFromString($textPriVal)
-    $window.Resources["TextSecondary"]    = $script:BrushConverter.ConvertFromString($textSecVal)
-    $window.Resources["TextMuted"]        = $script:BrushConverter.ConvertFromString($textMutVal)
+    # Component Dynamic Brushes
+    $navHoverBgVal       = if ($isLight) { "#E2E8F0" } else { "#1E212B" }
+    $navSelectedBgVal    = if ($isLight) { "#E2E8F0" } else { "#252936" }
+    $dropDownBgVal       = if ($isLight) { "#FFFFFF" } else { "#181A22" }
+    $dropDownBorderVal   = if ($isLight) { "#CBD5E1" } else { "#383E54" }
+    $dropDownItemHoverBg = if ($isLight) { "#F1F5F9" } else { "#282D3E" }
+    $dropDownItemHoverFg = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
+    $buttonBgVal         = if ($isLight) { "#F1F5F9" } else { "#252936" }
+    $buttonHoverBgVal    = if ($isLight) { "#E2E8F0" } else { "#323749" }
+    $buttonHoverBorderVal= if ($isLight) { "#94A3B8" } else { "#4B526D" }
+    $dataGridHeaderBgVal = if ($isLight) { "#F1F5F9" } else { "#1F232F" }
+    $dataGridHeaderFgVal = if ($isLight) { "#1E293B" } else { "#D1D5DB" }
+    $dataGridRowBgVal    = if ($isLight) { "#FFFFFF" } else { "#161820" }
+    $dataGridAltRowBgVal = if ($isLight) { "#F8FAFC" } else { "#1B1E28" }
+    $dataGridGridLinesVal= if ($isLight) { "#E2E8F0" } else { "#262A38" }
+    $contextMenuBgVal    = if ($isLight) { "#FFFFFF" } else { "#181A22" }
+
+    $resourceMap = @{
+        "BgDark"              = $bgDarkVal
+        "BgSidebar"           = $bgSidebarVal
+        "BgSurface"           = $bgSurfaceVal
+        "BgCard"              = $bgCardVal
+        "BgInput"             = $bgInputVal
+        "BorderBrushColor"    = $borderVal
+        "TextPrimary"         = $textPriVal
+        "TextSecondary"       = $textSecVal
+        "TextMuted"           = $textMutVal
+        "NavHoverBg"          = $navHoverBgVal
+        "NavSelectedBg"       = $navSelectedBgVal
+        "DropDownBg"          = $dropDownBgVal
+        "DropDownBorderBrush" = $dropDownBorderVal
+        "DropDownItemHoverBg" = $dropDownItemHoverBg
+        "DropDownItemHoverFg" = $dropDownItemHoverFg
+        "ButtonBg"            = $buttonBgVal
+        "ButtonHoverBg"       = $buttonHoverBgVal
+        "ButtonHoverBorder"   = $buttonHoverBorderVal
+        "DataGridHeaderBg"    = $dataGridHeaderBgVal
+        "DataGridHeaderFg"    = $dataGridHeaderFgVal
+        "DataGridRowBg"       = $dataGridRowBgVal
+        "DataGridAltRowBg"    = $dataGridAltRowBgVal
+        "DataGridGridLines"   = $dataGridGridLinesVal
+        "ContextMenuBg"       = $contextMenuBgVal
+    }
+
+    foreach ($k in $resourceMap.Keys) {
+        $window.Resources[$k] = $script:BrushConverter.ConvertFromString($resourceMap[$k])
+        if ([System.Windows.Application]::Current -and [System.Windows.Application]::Current.Resources) {
+            [System.Windows.Application]::Current.Resources[$k] = $window.Resources[$k]
+        }
+    }
 
     # Accent tone handling
     $accentHex = switch -Wildcard ($AccentTone) {
@@ -415,9 +515,19 @@ function Set-ApplicationTheme {
         default     { "#0078D4" }
     }
     $window.Resources["AccentPrimary"] = $script:BrushConverter.ConvertFromString($accentHex)
+    if ([System.Windows.Application]::Current -and [System.Windows.Application]::Current.Resources) {
+        [System.Windows.Application]::Current.Resources["AccentPrimary"] = $window.Resources["AccentPrimary"]
+    }
 
-    # 2. Apply theme recursively across visual tree
+    # 2. Apply theme recursively across visual tree and all registered controls
     Apply-ThemeNode $window $Theme
+    if ($controls) {
+        foreach ($ctrl in $controls.Values) {
+            if ($ctrl -is [System.Windows.FrameworkElement]) {
+                Apply-ThemeNode $ctrl $Theme
+            }
+        }
+    }
 
     # 3. Update Quick Theme Toggle button
     if ($controls['TxtQuickThemeIcon']) {

@@ -311,4 +311,32 @@ The automated STA UI harness verified the new features with 100% success:
 * **In-App WebBrowser**: Rendered object dossier, switched all 4 templates, and copied HTML without exceptions.
 * **Settings Persistence**: Verified configuration save and reload round-trip for Light Mode and accent tone.
 
+---
+
+## 6. Comprehensive UI Theme Audit & Light Mode Visual Harmonization
+
+### A. Root Causes Identified & Fixed
+1. **Sidebar Navigation RadioButtons turning black**:
+   - `Convert-BrushToHex` was converting transparent brushes (`#00FFFFFF`) to `#FFFFFF` via naive substring slicing.
+   - The unified color map mapped `#FFFFFF` to `#0F172A` (intended for text), turning transparent sidebar buttons into pitch-black solid boxes.
+   - **Fix**: Updated `Convert-BrushToHex` to return `"TRANSPARENT"` whenever `$brush.Color.A -eq 0`, and split the unified color map into three dedicated maps: `$script:ColorMapBgLight`, `$script:ColorMapFgLight`, and `$script:ColorMapBorderLight`.
+2. **ComboBox Dropdowns & Popups Rendering Dark with Unreadable Text**:
+   - WPF `Popup` controls render in a separate Win32 HWND outside the primary visual tree before being opened.
+   - In `MainWindow.xaml`, `DropDownBorder` and `ComboBoxItem` had hardcoded dark hex colors.
+   - **Fix**: Upgraded `ModernComboBox` and `ComboBoxItem` control templates to bind dynamically to `{DynamicResource DropDownBg}`, `{DynamicResource DropDownBorderBrush}`, `{DynamicResource DropDownItemHoverBg}`, and `{DynamicResource DropDownItemHoverFg}`. Updated `Set-ApplicationTheme` to register dynamic brushes at both the Window and Application resource levels.
+3. **Hardcoded Container Backgrounds & Card Borders**:
+   - Top App Bar, Status Bar, Left Sidebar, and Settings panel borders were bound to hardcoded dark hex values (`#111319`, `#0F1015`, `#13151D`, `#1A1D27`).
+   - **Fix**: Replaced hardcoded values with `{DynamicResource BgSurface}`, `{DynamicResource BgSidebar}`, `{DynamicResource BgCard}`, and `{DynamicResource BorderBrushColor}`.
+4. **Action Button & Badge Foreground Contrast Protection**:
+   - `Apply-ThemeNode` now checks whether an element or its parent button uses an accent or danger background (`#0078D4`, `#107C41`, `#D13438`, `#D97706`), preserving crisp white text (`#FFFFFF`) on colored action buttons in both Light and Dark modes.
+5. **Modal Dialog Theme Inheritance**:
+   - `Load-XamlWindow` now propagates active theme resources and applies `Apply-ThemeNode` so modal dialogs opened during runtime inherit the selected theme automatically.
+
+### B. Automated Verification
+- Full STA integration test harness executed via Windows PowerShell 5.1 and PowerShell 7+:
+  - **Syntax & AST**: 0 errors.
+  - **E2E Theme Toggling**: Verified seamless switching between Light and Dark modes without visual artifacts.
+  - **Controls Audited**: All 15 theme and HTML view controls verified.
+
+
 

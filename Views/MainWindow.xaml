@@ -33,11 +33,47 @@
         <SolidColorBrush x:Key="WarningColor" Color="#F59E0B"/>
         <SolidColorBrush x:Key="InfoColor" Color="#0EA5E9"/>
 
+        <!-- Dynamic Theme Component Brushes -->
+        <SolidColorBrush x:Key="NavHoverBg" Color="#1E212B"/>
+        <SolidColorBrush x:Key="NavSelectedBg" Color="#252936"/>
+        <SolidColorBrush x:Key="DropDownBg" Color="#181A22"/>
+        <SolidColorBrush x:Key="DropDownBorderBrush" Color="#383E54"/>
+        <SolidColorBrush x:Key="DropDownItemHoverBg" Color="#282D3E"/>
+        <SolidColorBrush x:Key="DropDownItemHoverFg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ButtonBg" Color="#252936"/>
+        <SolidColorBrush x:Key="ButtonHoverBg" Color="#323749"/>
+        <SolidColorBrush x:Key="ButtonHoverBorder" Color="#4B526D"/>
+        <SolidColorBrush x:Key="DataGridHeaderBg" Color="#1F232F"/>
+        <SolidColorBrush x:Key="DataGridHeaderFg" Color="#D1D5DB"/>
+        <SolidColorBrush x:Key="DataGridRowBg" Color="#161820"/>
+        <SolidColorBrush x:Key="DataGridAltRowBg" Color="#1B1E28"/>
+        <SolidColorBrush x:Key="DataGridGridLines" Color="#262A38"/>
+        <SolidColorBrush x:Key="ContextMenuBg" Color="#181A22"/>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="Height" Value="1"/>
+        </Style>
+
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D4"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+            </Style.Resources>
+        </Style>
+
         <!-- Standard Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="#252936"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,4,10,4"/>
             <Setter Property="MinHeight" Value="30"/>
@@ -54,11 +90,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#323749"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#4B526D"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1E212B"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource BgSurface}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Opacity" Value="0.45"/>
@@ -71,8 +107,9 @@
 
         <!-- Primary Accent Button -->
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="#0078D4"/>
-            <Setter Property="BorderBrush" Value="#0078D4"/>
+            <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -81,10 +118,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1084D9"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHover}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#006CBE"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentActive}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Opacity" Value="0.45"/>
@@ -119,9 +156,9 @@
 
         <!-- Modern Input TextBox -->
         <Style x:Key="ModernTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#181A22"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -133,7 +170,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#0078D4"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -141,12 +178,12 @@
             </Setter>
         </Style>
 
-        <!-- ComboBoxItem Dark Style -->
+        <!-- ComboBoxItem Style -->
         <Style TargetType="ComboBoxItem">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -160,11 +197,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#282D3E"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource DropDownItemHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource DropDownItemHoverFg}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#0078D4"/>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentPrimary}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -185,31 +222,31 @@
                         <ColumnDefinition Width="24"/>
                     </Grid.ColumnDefinitions>
                     <Path Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Data="M 0 0 L 4 4 L 8 0 Z" Fill="#9CA3AF" Margin="0,1,0,0"/>
+                          Data="M 0 0 L 4 4 L 8 0 Z" Fill="{DynamicResource TextSecondary}" Margin="0,1,0,0"/>
                 </Grid>
             </Border>
             <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="ToggleBorder" Property="Background" Value="#222634"/>
-                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="#4B526D"/>
-                    <Setter TargetName="Arrow" Property="Fill" Value="#FFFFFF"/>
+                    <Setter TargetName="ToggleBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="{DynamicResource TextPrimary}"/>
                 </Trigger>
                 <Trigger Property="IsChecked" Value="True">
-                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="#0078D4"/>
-                    <Setter TargetName="Arrow" Property="Fill" Value="#38BDF8"/>
+                    <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="{DynamicResource AccentPrimary}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                     <Setter TargetName="ToggleBorder" Property="Opacity" Value="0.5"/>
-                    <Setter TargetName="Arrow" Property="Fill" Value="#6B7280"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="{DynamicResource TextMuted}"/>
                 </Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate>
 
         <!-- Modern ComboBox (Dark Mode Aero Replacement) -->
         <Style x:Key="ModernComboBox" TargetType="ComboBox">
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="Background" Value="#181A22"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
@@ -241,7 +278,7 @@
                                      Focusable="True"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     CaretBrush="#FFFFFF"
+                                     CaretBrush="{DynamicResource TextPrimary}"
                                      Foreground="{TemplateBinding Foreground}"
                                      Visibility="Hidden"
                                      IsReadOnly="{TemplateBinding IsReadOnly}"/>
@@ -250,8 +287,8 @@
                                    AllowsTransparency="True"
                                    Focusable="False"
                                    PopupAnimation="Slide">
-                                <Border Name="DropDownBorder" Background="#181A22"
-                                        BorderBrush="#383E54" BorderThickness="1"
+                                <Border Name="DropDownBorder" Background="{DynamicResource DropDownBg}"
+                                        BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Margin="0,2,0,0"
                                         MinWidth="{TemplateBinding ActualWidth}"
                                         MaxHeight="{TemplateBinding MaxDropDownHeight}">
@@ -271,7 +308,7 @@
                                 <Setter TargetName="DropDownBorder" Property="MinHeight" Value="40"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#6B7280"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -284,7 +321,7 @@
 
         <!-- Nav RadioButton Style (Sidebar Tabs) -->
         <Style x:Key="NavTabButton" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Height" Value="38"/>
@@ -303,13 +340,13 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="navBorder" Property="Background" Value="#1E212B"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter TargetName="navBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="navBorder" Property="Background" Value="#252936"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
-                                <Setter TargetName="navIndicator" Property="Foreground" Value="#0078D4"/>
+                                <Setter TargetName="navBorder" Property="Background" Value="{DynamicResource NavSelectedBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                                <Setter TargetName="navIndicator" Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -319,14 +356,14 @@
 
         <!-- Modern DataGrid Style -->
         <Style x:Key="ModernDataGrid" TargetType="DataGrid">
-            <Setter Property="Background" Value="#161820"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Background" Value="{DynamicResource BgCard}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="RowBackground" Value="#161820"/>
-            <Setter Property="AlternatingRowBackground" Value="#1B1E28"/>
+            <Setter Property="RowBackground" Value="{DynamicResource DataGridRowBg}"/>
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource DataGridAltRowBg}"/>
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="HorizontalGridLinesBrush" Value="#262A38"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DataGridGridLines}"/>
             <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
             <Setter Property="AutoGenerateColumns" Value="False"/>
@@ -339,12 +376,12 @@
         </Style>
 
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#1F232F"/>
-            <Setter Property="Foreground" Value="#D1D5DB"/>
+            <Setter Property="Background" Value="{DynamicResource DataGridHeaderBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource DataGridHeaderFg}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
         </Style>
 
@@ -353,7 +390,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#0078D4"/>
+                    <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
                     <Setter Property="Foreground" Value="#FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
@@ -361,9 +398,9 @@
 
         <!-- Filter Chip RadioButton -->
         <Style x:Key="FilterChip" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="#9CA3AF"/>
-            <Setter Property="Background" Value="#181A22"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -377,12 +414,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="chipBorder" Property="Background" Value="#252936"/>
-                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter TargetName="chipBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="chipBorder" Property="Background" Value="#0078D4"/>
-                                <Setter TargetName="chipBorder" Property="BorderBrush" Value="#0078D4"/>
+                                <Setter TargetName="chipBorder" Property="Background" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter TargetName="chipBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -393,9 +430,9 @@
 
         <!-- Modern ContextMenu Styles (Softerra & Apache Studio Parity) -->
         <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
-            <Setter Property="Background" Value="#181A22"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#2F3446"/>
+            <Setter Property="Background" Value="{DynamicResource ContextMenuBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="4,4"/>
             <Setter Property="HasDropShadow" Value="True"/>
@@ -412,7 +449,7 @@
 
         <Style x:Key="ModernMenuItem" TargetType="MenuItem">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="8,6"/>
@@ -429,16 +466,16 @@
                                 </Grid.ColumnDefinitions>
                                 <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="#6B7280" FontSize="11" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextMuted}" FontSize="11" Margin="14,0,0,0" VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="itemBorder" Property="Background" Value="#252936"/>
-                                <Setter Property="Foreground" Value="#38BDF8"/>
+                                <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#4B5563"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -447,13 +484,13 @@
         </Style>
 
         <Style x:Key="ModernMenuSeparator" TargetType="Separator">
-            <Setter Property="Background" Value="#2F3446"/>
+            <Setter Property="Background" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="Height" Value="1"/>
             <Setter Property="Margin" Value="4,3"/>
         </Style>
     </Window.Resources>
 
-    <Grid Background="#14161C">
+    <Grid Background="{DynamicResource BgDark}">
         <Grid.RowDefinitions>
             <RowDefinition Height="54"/>  <!-- Top App Bar / Telemetry -->
             <RowDefinition Height="*"/>   <!-- Main Body: Navigation + Viewport -->
@@ -461,7 +498,7 @@
         </Grid.RowDefinitions>
 
         <!-- TOP APP BAR -->
-        <Border Grid.Row="0" Background="#111319" BorderBrush="#252936" BorderThickness="0,0,0,1" Padding="16,0">
+        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/> <!-- Logo, Profiles & Bookmarks -->
@@ -475,7 +512,7 @@
                     <Button Name="BtnNavForward" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Content="▶" Margin="0,0,10,0" ToolTip="Navigate Forward (Alt+Right)" IsEnabled="False"/>
                     <TextBlock Text="⚡" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimary}"/>
                         <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="10" Foreground="#60A5FA"/>
                     </StackPanel>
 
@@ -491,13 +528,13 @@
                 </StackPanel>
 
                 <!-- Center: Connection Telemetry Badge -->
-                <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#1B1E28" BorderBrush="#2F3446" BorderThickness="1" CornerRadius="16" Padding="14,4">
+                <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="16" Padding="14,4">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Name="StatusDot" Width="8" Height="8" Fill="#107C41" Margin="0,0,8,0"/>
-                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="#E5E7EB" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text=" | DC: " FontSize="12" Foreground="#9CA3AF"/>
-                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="#9CA3AF" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text=" | " FontSize="12" Foreground="#6B7280"/>
+                        <TextBlock Name="TxtDomainBadge" Text="Active Directory" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text=" | DC: " FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
+                        <TextBlock Name="TxtDCBadge" Text="Detecting..." FontSize="12" Foreground="{DynamicResource TextSecondary}" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text=" | " FontSize="12" Foreground="{DynamicResource TextMuted}"/>
                         <TextBlock Name="TxtLatencyBadge" Text="⚡ -- ms" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
 
                         <!-- Read-Only Profile Mode Badge (Softerra Parity) -->
@@ -573,11 +610,11 @@
             </Grid.ColumnDefinitions>
 
             <!-- LEFT SIDEBAR -->
-            <Border Grid.Column="0" Background="#13151D" BorderBrush="#252936" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,8,0,12">
                         <!-- Group 1: DIRECTORY SERVICES -->
-                        <TextBlock Text="DIRECTORY SERVICES" FontSize="10" FontWeight="Bold" Foreground="#6B7280" Margin="14,10,14,4"/>
+                        <TextBlock Text="DIRECTORY SERVICES" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="14,10,14,4"/>
                         <RadioButton Name="NavDashboard" Style="{StaticResource NavTabButton}" IsChecked="True">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📊" Margin="0,0,8,0"/>
@@ -713,15 +750,15 @@
             </Border>
 
             <!-- MAIN VIEWPORT CONTENT TABS -->
-            <Grid Grid.Column="1" Background="#161821">
+            <Grid Grid.Column="1" Background="{DynamicResource BgDark}">
 
                 <!-- 1. DASHBOARD PANEL -->
                 <Grid Name="PanelDashboard" Visibility="Visible" Margin="18">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,0,8,16">
                             <StackPanel Margin="0,0,0,16">
-                                <TextBlock Text="Active Directory Overview &amp; Health" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                <TextBlock Text="Real-time directory statistics, security alerts, and quick administration launchpads." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                                <TextBlock Text="Active Directory Overview &amp; Health" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Real-time directory statistics, security alerts, and quick administration launchpads." FontSize="13" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                             </StackPanel>
 
                             <!-- KPI Cards WrapPanel -->
@@ -2345,21 +2382,21 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                        <TextBlock Text="Application Settings &amp; Preferences" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Configure directory defaults, naming conventions, password policies, and CSV exports." FontSize="13" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                        <TextBlock Text="Application Settings &amp; Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                        <TextBlock Text="Configure directory defaults, naming conventions, password policies, and CSV exports." FontSize="13" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <Border Grid.Row="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="8" Padding="20">
+                    <Border Grid.Row="1" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="8" Padding="20">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel MaxWidth="700" HorizontalAlignment="Left">
                                 <TextBlock Text="Active Directory Configuration" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
 
-                                <CheckBox Name="ChkAutoDetect" Content="Auto-detect Active Directory domain and primary controller" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,10"/>
+                                <CheckBox Name="ChkAutoDetect" Content="Auto-detect Active Directory domain and primary controller" IsChecked="True" Margin="0,0,0,10"/>
 
                                 <TextBlock Text="Default SearchBase DN (optional override):" Margin="0,0,0,4"/>
                                 <TextBox Name="TxtCfgSearchBase" Style="{StaticResource ModernTextBox}" Margin="0,0,0,14"/>
 
-                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="User Provisioning Defaults" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
 
                                 <TextBlock Text="Default Username Format:" Margin="0,0,0,4"/>
@@ -2373,9 +2410,9 @@
                                 <TextBlock Text="Generated Password Length:" Margin="0,0,0,4"/>
                                 <TextBox Name="TxtCfgPasswordLength" Style="{StaticResource ModernTextBox}" Text="16" Margin="0,0,0,12"/>
 
-                                <CheckBox Name="ChkCfgRequirePwChange" Content="Require password change at next logon by default" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+                                <CheckBox Name="ChkCfgRequirePwChange" Content="Require password change at next logon by default" IsChecked="True" Margin="0,0,0,14"/>
 
-                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="Export Preferences" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
 
                                 <TextBlock Text="CSV Delimiter:" Margin="0,0,0,4"/>
@@ -2384,7 +2421,7 @@
                                     <ComboBoxItem Content=", (Comma - Standard CSV)"/>
                                 </ComboBox>
 
-                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="🎨 Appearance &amp; Visual Theme" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
 
                                 <TextBlock Text="Interface Theme Mode:" Margin="0,0,0,4"/>
@@ -2402,9 +2439,9 @@
                                     <ComboBoxItem Content="⚡ Amber Gold (#D97706)"/>
                                 </ComboBox>
 
-                                <CheckBox Name="ChkThemeAutoSync" Content="Synchronize in-app HTML View styling with active theme" IsChecked="True" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+                                <CheckBox Name="ChkThemeAutoSync" Content="Synchronize in-app HTML View styling with active theme" IsChecked="True" Margin="0,0,0,14"/>
 
-                                <Separator Background="#252936" Margin="0,10,0,14"/>
+                                <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="🚀 External Tools &amp; Admin Integrations (Softerra Ch22s02)" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,6"/>
                                 <TextBlock Text="Configure external tools and scripts with token replacement (%dNSHostName%, %sAMAccountName%, %distinguishedName%, %mail%)." FontSize="12" Foreground="#9CA3AF" Margin="0,0,0,10"/>
 
@@ -2643,7 +2680,7 @@
                         <RowDefinition Height="*"/>    <!-- WebBrowser -->
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -2657,10 +2694,10 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="📄 In-App HTML Dossier View" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                    <TextBlock Text="Render rich, responsive Active Directory object dossiers, organizational cards, and technical reports." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                                    <TextBlock Text="📄 In-App HTML Dossier View" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                    <TextBlock Text="Render rich, responsive Active Directory object dossiers, organizational cards, and technical reports." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                                 </StackPanel>
-                                <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4" VerticalAlignment="Center">
+                                <Border Grid.Column="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,4" VerticalAlignment="Center">
                                     <TextBlock Name="TxtHtmlViewStatusBadge" Text="No Object Loaded" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
                                 </Border>
                             </Grid>
@@ -2699,7 +2736,7 @@
                     </Border>
 
                     <!-- Embedded WebBrowser Control -->
-                    <Border Grid.Row="1" Background="#161821" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6">
+                    <Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6">
                         <WebBrowser Name="BrowserHtmlView"/>
                     </Border>
                 </Grid>
@@ -2708,15 +2745,15 @@
         </Grid>
 
         <!-- BOTTOM STATUS BAR -->
-        <Border Grid.Row="2" Background="#0F1015" BorderBrush="#252936" BorderThickness="0,1,0,0" Padding="14,0">
+        <Border Grid.Row="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="14,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Name="TxtStatusMessage" Text="Ready: Active Directory Management Studio initialized." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Name="TxtStatusMessage" Text="Ready: Active Directory Management Studio initialized." FontSize="12" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
             </Grid>
         </Border>
     </Grid>
