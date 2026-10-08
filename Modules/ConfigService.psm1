@@ -26,6 +26,10 @@ function Get-AppSettings {
             AutoRefresh            = $false
             RefreshIntervalSeconds = 60
             PageSize               = 500
+            WorkspaceMode          = "Tabs"
+            AllowMultiWindow       = $true
+            RestoreTabsOnStartup   = $true
+            OpenTabs               = @("Dashboard")
         }
         Defaults = [PSCustomObject]@{
             PasswordLength        = 16
@@ -79,6 +83,10 @@ function Get-AppSettings {
                 if (-not $jsonContent.UI.Theme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "Theme" -Value "Dark" -Force }
                 if (-not $jsonContent.UI.AccentTone) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AccentTone" -Value "Blue" -Force }
                 if ($null -eq $jsonContent.UI.SyncHtmlViewTheme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "SyncHtmlViewTheme" -Value $true -Force }
+                if (-not $jsonContent.UI.WorkspaceMode) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "WorkspaceMode" -Value "Tabs" -Force }
+                if ($null -eq $jsonContent.UI.AllowMultiWindow) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AllowMultiWindow" -Value $true -Force }
+                if ($null -eq $jsonContent.UI.RestoreTabsOnStartup) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "RestoreTabsOnStartup" -Value $true -Force }
+                if (-not $jsonContent.UI.OpenTabs) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "OpenTabs" -Value @("Dashboard") -Force }
             }
             if (-not $jsonContent.ExternalTools) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "ExternalTools" -Value $defaultConfig.ExternalTools -Force

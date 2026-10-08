@@ -354,6 +354,63 @@
             </Setter>
         </Style>
 
+        <!-- Workspace Tab Close Button Style -->
+        <Style x:Key="WorkspaceTabCloseBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="closeBorder" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="closeBorder" Property="Background" Value="#DC2626"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Workspace Tab Detach Button Style -->
+        <Style x:Key="WorkspaceTabDetachBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="detachBorder" Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="detachBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Modern DataGrid Style -->
         <Style x:Key="ModernDataGrid" TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource BgCard}"/>
@@ -872,8 +929,51 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- MAIN VIEWPORT CONTENT TABS -->
+            <!-- MAIN VIEWPORT HOST -->
             <Grid Grid.Column="1" Background="{DynamicResource BgDark}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Workspace Tab Strip Bar -->
+                    <RowDefinition Height="*"/>    <!-- Viewport Container for Panels -->
+                </Grid.RowDefinitions>
+
+                <!-- WORKSPACE TAB STRIP BAR -->
+                <Border Grid.Row="0" Name="WorkspaceTabBar" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" MinHeight="36" Visibility="Visible">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Scrollable Tab Buttons Host -->
+                        <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" PanningMode="HorizontalOnly" Focusable="False">
+                            <StackPanel Name="WorkspaceTabHost" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,4"/>
+                        </ScrollViewer>
+
+                        <!-- Tab Strip Toolbar (Right side) -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                            <!-- New Tab Button (+) -->
+                            <Button Name="BtnWorkspaceNewTab" Style="{StaticResource ModernButton}" Width="28" Height="26" Margin="2,0" Padding="0" ToolTip="Open New Tool Tab (+)">
+                                <TextBlock Text="➕" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <!-- Detach Current Tab Button (⧉) -->
+                            <Button Name="BtnWorkspaceDetachCurrent" Style="{StaticResource ModernButton}" Width="28" Height="26" Margin="2,0" Padding="0" ToolTip="Detach Current Tab into Separate Window (⧉)">
+                                <TextBlock Text="⧉" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <!-- Workspace Layout Mode Switcher Toggle -->
+                            <Button Name="BtnWorkspaceModeToggle" Style="{StaticResource ModernButton}" Height="26" Margin="4,0,2,0" Padding="8,2" ToolTip="Toggle Workspace Layout: Multi-Tab Workspace vs Single Window Viewport">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Name="TxtWorkspaceModeIcon" Text="🗂️" FontSize="11" Margin="0,0,4,0"/>
+                                    <TextBlock Name="TxtWorkspaceModeLabel" Text="Tabs" FontSize="11" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- VIEWPORT CONTAINER (Row 1) -->
+                <Grid Grid.Row="1" Name="ViewportContainer">
 
                 <!-- 1. DASHBOARD PANEL -->
                 <Grid Name="PanelDashboard" Visibility="Visible" Margin="18">
@@ -2600,6 +2700,18 @@
                                 <CheckBox Name="ChkThemeAutoSync" Content="Synchronize in-app HTML View styling with active theme" IsChecked="True" Margin="0,0,0,14"/>
 
                                 <Separator Margin="0,10,0,14"/>
+                                <TextBlock Text="🗂️ Workspace &amp; Window Layout" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,12"/>
+
+                                <TextBlock Text="Workspace Display Mode:" Margin="0,0,0,4"/>
+                                <ComboBox Name="CmbWorkspaceMode" Style="{StaticResource ModernComboBox}" Margin="0,0,0,12">
+                                    <ComboBoxItem Content="🗂️ Multi-Tab Workspace (Dynamic tabs with quick switching &amp; closing) - Recommended" IsSelected="True"/>
+                                    <ComboBoxItem Content="🔲 Single Viewport Mode (Classic single-panel view without tab bar)"/>
+                                </ComboBox>
+
+                                <CheckBox Name="ChkAllowMultiWindow" Content="Enable Detachable Multi-Windows (Undock panels to separate monitors)" IsChecked="True" Margin="0,0,0,10"/>
+                                <CheckBox Name="ChkRestoreTabsOnStartup" Content="Remember and restore open tabs on application restart" IsChecked="True" Margin="0,0,0,14"/>
+
+                                <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="🚀 External Tools &amp; Admin Integrations (Softerra Ch22s02)" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,6"/>
                                 <TextBlock Text="Configure external tools and scripts with token replacement (%dNSHostName%, %sAMAccountName%, %distinguishedName%, %mail%)." FontSize="12" Foreground="#9CA3AF" Margin="0,0,0,10"/>
 
@@ -4019,8 +4131,9 @@
                     </TabControl>
                 </Grid>
 
-            </Grid>
-        </Grid>
+                </Grid> <!-- ViewportContainer -->
+            </Grid> <!-- Grid.Column="1" -->
+        </Grid> <!-- Grid.Row="1" Main Body -->
 
         <!-- BOTTOM STATUS BAR -->
         <Border Grid.Row="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="14,0">

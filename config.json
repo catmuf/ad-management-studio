@@ -1,86 +1,95 @@
 ﻿{
-  "Domain": {
-    "AutoDetect": true,
-    "DomainName": "",
-    "DomainController": "",
-    "SearchBase": "",
-    "DisableOU": ""
-  },
-  "Ldap": {
-    "Port": 389,
-    "UseSSL": false,
-    "TimeoutSeconds": 30,
-    "PageSize": 1000
-  },
-  "Profiles": [
-    {
-      "Name": "Default (Auto-Detect)",
-      "Server": "",
-      "Port": 389,
-      "UseSSL": false,
-      "SearchBase": "",
-      "UseCurrentCredentials": true,
-      "Username": ""
-    }
-  ],
-  "UI": {
-    "Theme": "Light",
-    "AutoRefresh": false,
-    "RefreshIntervalSeconds": 60,
-    "PageSize": 500,
-    "AccentTone": "Blue",
-    "SyncHtmlViewTheme": true
-  },
-  "Defaults": {
-    "PasswordLength": 16,
-    "PasswordRequireChange": true,
-    "UsernameFormat": "first.last",
-    "ExportDelimiter": ";",
-    "ExportPath": ""
-  },
-  "ExternalTools": [
-    {
-      "Name": "Ping Hostname",
-      "Command": "ping.exe",
-      "Arguments": "%dNSHostName% -t"
-    },
-    {
-      "Name": "Remote Desktop (RDP)",
-      "Command": "mstsc.exe",
-      "Arguments": "/v:%dNSHostName%"
-    },
-    {
-      "Name": "PowerShell AD Inspector",
-      "Command": "powershell.exe",
-      "Arguments": "-NoExit -Command \"Get-ADObject -Identity '%distinguishedName%' -Properties * | Format-List\""
-    },
-    {
-      "Name": "Test LDAP Port 389",
-      "Command": "powershell.exe",
-      "Arguments": "-NoExit -Command \"Test-NetConnection '%dNSHostName%' -Port 389\""
-    },
-    {
-      "Name": "DNS Lookup (nslookup)",
-      "Command": "cmd.exe",
-      "Arguments": "/k nslookup %dNSHostName%"
-    },
-    {
-      "Name": "Computer Management",
-      "Command": "mmc.exe",
-      "Arguments": "compmgmt.msc /computer=%dNSHostName%"
-    },
-    {
-      "Name": "Event Viewer",
-      "Command": "mmc.exe",
-      "Arguments": "eventvwr.msc %dNSHostName%"
-    }
-  ],
-  "CustomReports": [
-    {
-      "Name": "Active Administrators",
-      "Description": "All enabled administrative accounts in the domain",
-      "Filter": "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(adminCount=1))",
-      "ObjectClass": "User"
-    }
-  ]
+    "Domain":  {
+                   "AutoDetect":  true,
+                   "DomainName":  "",
+                   "DomainController":  "",
+                   "SearchBase":  "",
+                   "DisableOU":  ""
+               },
+    "Ldap":  {
+                 "Port":  389,
+                 "UseSSL":  false,
+                 "TimeoutSeconds":  30,
+                 "PageSize":  1000
+             },
+    "Profiles":  [
+                     {
+                         "Name":  "Default (Auto-Detect)",
+                         "Server":  "",
+                         "Port":  389,
+                         "UseSSL":  false,
+                         "SearchBase":  "",
+                         "UseCurrentCredentials":  true,
+                         "Username":  ""
+                     }
+                 ],
+    "UI":  {
+               "Theme":  "Light",
+               "AutoRefresh":  false,
+               "RefreshIntervalSeconds":  60,
+               "PageSize":  500,
+               "AccentTone":  "Blue",
+               "SyncHtmlViewTheme":  true,
+               "WorkspaceMode":  "Tabs",
+               "AllowMultiWindow":  true,
+               "RestoreTabsOnStartup":  true,
+               "OpenTabs":  [
+                                "Dashboard",
+                                "Users",
+                                "SecurityAcl",
+                                "ReplicationSuite"
+                            ]
+           },
+    "Defaults":  {
+                     "PasswordLength":  16,
+                     "PasswordRequireChange":  true,
+                     "UsernameFormat":  "first.last",
+                     "ExportDelimiter":  ";",
+                     "ExportPath":  ""
+                 },
+    "ExternalTools":  [
+                          {
+                              "Name":  "Ping Hostname",
+                              "Command":  "ping.exe",
+                              "Arguments":  "%dNSHostName% -t"
+                          },
+                          {
+                              "Name":  "Remote Desktop (RDP)",
+                              "Command":  "mstsc.exe",
+                              "Arguments":  "/v:%dNSHostName%"
+                          },
+                          {
+                              "Name":  "PowerShell AD Inspector",
+                              "Command":  "powershell.exe",
+                              "Arguments":  "-NoExit -Command \"Get-ADObject -Identity \u0027%distinguishedName%\u0027 -Properties * | Format-List\""
+                          },
+                          {
+                              "Name":  "Test LDAP Port 389",
+                              "Command":  "powershell.exe",
+                              "Arguments":  "-NoExit -Command \"Test-NetConnection \u0027%dNSHostName%\u0027 -Port 389\""
+                          },
+                          {
+                              "Name":  "DNS Lookup (nslookup)",
+                              "Command":  "cmd.exe",
+                              "Arguments":  "/k nslookup %dNSHostName%"
+                          },
+                          {
+                              "Name":  "Computer Management",
+                              "Command":  "mmc.exe",
+                              "Arguments":  "compmgmt.msc /computer=%dNSHostName%"
+                          },
+                          {
+                              "Name":  "Event Viewer",
+                              "Command":  "mmc.exe",
+                              "Arguments":  "eventvwr.msc %dNSHostName%"
+                          }
+                      ],
+    "CustomReports":  [
+                          {
+                              "Name":  "Active Administrators",
+                              "Description":  "All enabled administrative accounts in the domain",
+                              "Filter":  "(\u0026(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(adminCount=1))",
+                              "ObjectClass":  "User"
+                          }
+                      ]
 }

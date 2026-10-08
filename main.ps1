@@ -137,6 +137,42 @@ $state = [PSCustomObject]@{
     CurrentHtmlTemplate    = "Technical"
     CurrentHtmlRaw         = ""
     CurrentTheme           = if ($appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Dark" }
+    WorkspaceMode          = if ($appConfig.UI.WorkspaceMode) { $appConfig.UI.WorkspaceMode } else { "Tabs" }
+    AllowMultiWindow       = if ($null -ne $appConfig.UI.AllowMultiWindow) { $appConfig.UI.AllowMultiWindow } else { $true }
+    RestoreTabsOnStartup   = if ($null -ne $appConfig.UI.RestoreTabsOnStartup) { $appConfig.UI.RestoreTabsOnStartup } else { $true }
+    OpenTabs               = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
+    ActiveTabId            = "Dashboard"
+    DetachedWindows        = @{}
+    IsSelectingTab         = $false
+}
+
+# Master Directory & Tools Catalog for Tabs, Detached Windows, and Navigation
+$global:PanelCatalog = [ordered]@{
+    'Dashboard'            = [PSCustomObject]@{ Title = 'Dashboard';            Icon = '📊'; Category = 'Directory Services'; ToolTip = 'Overview & directory health dashboard' }
+    'Users'                = [PSCustomObject]@{ Title = 'Users';                Icon = '👥'; Category = 'Directory Services'; ToolTip = 'User accounts, provisioning & security attributes' }
+    'Groups'               = [PSCustomObject]@{ Title = 'Groups';               Icon = '🛡️'; Category = 'Directory Services'; ToolTip = 'Security & distribution group membership manager' }
+    'OUs'                  = [PSCustomObject]@{ Title = 'Org. Units (OUs)';     Icon = '📁'; Category = 'Directory Services'; ToolTip = 'Organizational Units hierarchy & containment tree' }
+    'Computers'            = [PSCustomObject]@{ Title = 'Computers';            Icon = '💻'; Category = 'Directory Services'; ToolTip = 'Domain joined workstations, servers & DCs' }
+    'RecycleBin'           = [PSCustomObject]@{ Title = 'AD Recycle Bin';       Icon = '♻️'; Category = 'Directory Services'; ToolTip = 'Tombstone reanimation & deleted object restore' }
+    'DirectorySearch'      = [PSCustomObject]@{ Title = 'Directory Search';     Icon = '🔍'; Category = 'Softerra LDAP Suite'; ToolTip = 'Advanced LDAP search filter builder & tree browser' }
+    'LdapSql'              = [PSCustomObject]@{ Title = 'LDAP-SQL Console';     Icon = '⚡'; Category = 'Softerra LDAP Suite'; ToolTip = 'SQL query engine for LDAP directory databases' }
+    'AttributeEditor'      = [PSCustomObject]@{ Title = 'Attribute Editor';     Icon = '📋'; Category = 'Softerra LDAP Suite'; ToolTip = 'Raw multi-syntax attribute inspector & hex editor' }
+    'HtmlView'             = [PSCustomObject]@{ Title = 'HTML Dossier View';    Icon = '📄'; Category = 'Softerra LDAP Suite'; ToolTip = 'Rich HTML object dossiers & report generator' }
+    'ObjectCompare'        = [PSCustomObject]@{ Title = 'Object Compare';       Icon = '⚖️'; Category = 'Softerra LDAP Suite'; ToolTip = 'Side-by-side attribute difference analyzer' }
+    'LdifStudio'           = [PSCustomObject]@{ Title = 'LDIF Import/Export';   Icon = '📝'; Category = 'Softerra LDAP Suite'; ToolTip = 'LDIF syntax validator, bulk export & batch engine' }
+    'AuditReports'         = [PSCustomObject]@{ Title = 'Audit & Reports';      Icon = '📑'; Category = 'Softerra LDAP Suite'; ToolTip = 'Pre-configured compliance & directory security audits' }
+    'SchemaBrowser'        = [PSCustomObject]@{ Title = 'Schema Browser';       Icon = '🧬'; Category = 'Softerra LDAP Suite'; ToolTip = 'Active Directory schema classes, syntax & OIDs' }
+    'BulkEditor'           = [PSCustomObject]@{ Title = 'Bulk Modify Studio';   Icon = '✏️'; Category = 'Softerra LDAP Suite'; ToolTip = 'Bulk attribute modifiers & batch operations' }
+    'Basket'               = [PSCustomObject]@{ Title = 'Selection Basket';     Icon = '🧺'; Category = 'Softerra LDAP Suite'; ToolTip = 'Multi-object staging basket for bulk operations' }
+    'RequestLog'           = [PSCustomObject]@{ Title = 'LDAP Request Log';     Icon = '📜'; Category = 'Softerra LDAP Suite'; ToolTip = 'Real-time protocol request & diagnostic logger' }
+    'SecurityAcl'          = [PSCustomObject]@{ Title = 'Security & ACL';       Icon = '🔒'; Category = 'Advanced Tools';      ToolTip = 'Visual DACL, Effective Permissions & SDProp inspector' }
+    'KerberosSuite'        = [PSCustomObject]@{ Title = 'Kerberos & Auth';      Icon = '🎟️'; Category = 'Advanced Tools';      ToolTip = 'Kerberos tickets, SPN analyzer & User Rights Assignment' }
+    'ReplicationSuite'     = [PSCustomObject]@{ Title = 'AD Replication';       Icon = '🔄'; Category = 'Advanced Tools';      ToolTip = 'Multi-DC replication latency, metadata & USN sync' }
+    'DiagnosticsToolbox'   = [PSCustomObject]@{ Title = 'Diagnostics Hub';      Icon = '🧰'; Category = 'Advanced Tools';      ToolTip = 'Circular group detection, lockout traces & encoders' }
+    'NetworkDiagnostics'   = [PSCustomObject]@{ Title = 'Network & Shares';     Icon = '📡'; Category = 'Advanced Tools';      ToolTip = 'UNC share tester, certificate chains & DC port scanner' }
+    'ServerMonitor'        = [PSCustomObject]@{ Title = 'Server Monitor';       Icon = '🖥️'; Category = 'System';              ToolTip = 'RootDSE metadata, active connections & telemetry' }
+    'Connections'          = [PSCustomObject]@{ Title = 'Connections';          Icon = '🌐'; Category = 'System';              ToolTip = 'Directory server connection profiles & credentials' }
+    'Settings'             = [PSCustomObject]@{ Title = 'Settings';             Icon = '⚙️'; Category = 'System';              ToolTip = 'Application configuration & workspace preferences' }
 }
 
 function Test-CanModifyDirectory {
@@ -592,6 +628,22 @@ function Set-ApplicationTheme {
                 Apply-ThemeNode $ctrl $Theme
             }
         }
+    }
+
+    # Propagate theme to all active detached windows
+    if ($state -and $state.DetachedWindows) {
+        foreach ($dWin in $state.DetachedWindows.Values) {
+            if ($dWin) {
+                foreach ($k in $resourceMap.Keys) {
+                    $dWin.Resources[$k] = $window.Resources[$k]
+                }
+                $dWin.Resources["AccentPrimary"] = $window.Resources["AccentPrimary"]
+                Apply-ThemeNode $dWin $Theme
+            }
+        }
+    }
+    if (Get-Command Update-WorkspaceTabStrip -ErrorAction SilentlyContinue) {
+        Update-WorkspaceTabStrip
     }
 
     # 3. Update Quick Theme Toggle button
@@ -1081,26 +1133,537 @@ function Record-NavHistory {
     Update-NavButtons
 }
 
-#region Panel Switching & Navigation
+#region Workspace Engine (Multi-Tabs & Detachable Multi-Windows)
+
+function Update-WorkspaceTabStrip {
+    if (-not $controls['WorkspaceTabHost']) { return }
+    $tabHost = $controls['WorkspaceTabHost']
+    $tabHost.Children.Clear()
+    
+    # If in Single mode, hide tab bar
+    if ($state.WorkspaceMode -eq "Single") {
+        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🔲" }
+        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Single" }
+        return
+    } else {
+        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Visible }
+        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🗂️" }
+        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Tabs" }
+    }
+
+    foreach ($tab in $state.OpenTabs) {
+        $pName = $tab.PanelName
+        $meta = if ($global:PanelCatalog.Contains($pName)) { $global:PanelCatalog[$pName] } else { [PSCustomObject]@{ Title = $pName; Icon = "📄"; Category = "Tool" } }
+        $isActive = ($state.ActiveTabId -eq $pName)
+        $isDetached = $state.DetachedWindows.ContainsKey($pName)
+
+        # Tab Outer Border
+        $tabBorder = [System.Windows.Controls.Border]::new()
+        $tabBorder.Height = 28
+        $tabBorder.CornerRadius = [System.Windows.CornerRadius]::new(4)
+        $tabBorder.Margin = [System.Windows.Thickness]::new(0, 0, 4, 0)
+        $tabBorder.Padding = [System.Windows.Thickness]::new(8, 2, 6, 2)
+        $tabBorder.Cursor = [System.Windows.Input.Cursors]::Hand
+        $tabBorder.ToolTip = if ($isDetached) { "$($meta.Title) (Detached Window) - Click to focus" } else { "$($meta.Title) - Click to view" }
+
+        # Dynamic theming for tab border
+        if ($isActive) {
+            $tabBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BgCard")
+            $tabBorder.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "AccentPrimary")
+            $tabBorder.BorderThickness = [System.Windows.Thickness]::new(1, 1, 1, 2)
+        } else {
+            $tabBorder.Background = [System.Windows.Media.Brushes]::Transparent
+            $tabBorder.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+            $tabBorder.BorderThickness = [System.Windows.Thickness]::new(1)
+        }
+
+        # Tab Inner Content
+        $tabPanel = [System.Windows.Controls.StackPanel]::new()
+        $tabPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+        $tabPanel.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+
+        # Icon
+        $tbIcon = [System.Windows.Controls.TextBlock]::new()
+        $tbIcon.Text = if ($isDetached) { "⧉ $($meta.Icon)" } else { $meta.Icon }
+        $tbIcon.FontSize = 11
+        $tbIcon.Margin = [System.Windows.Thickness]::new(0, 0, 5, 0)
+        $tbIcon.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        [void]$tabPanel.Children.Add($tbIcon)
+
+        # Title
+        $tbTitle = [System.Windows.Controls.TextBlock]::new()
+        $tbTitle.Text = $meta.Title
+        $tbTitle.FontSize = 11.5
+        $tbTitle.FontWeight = if ($isActive) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
+        $tbTitle.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        if ($isActive) {
+            $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
+        } else {
+            $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
+        }
+        [void]$tabPanel.Children.Add($tbTitle)
+
+        # Detach Button
+        if ($state.AllowMultiWindow) {
+            $btnDetach = [System.Windows.Controls.Button]::new()
+            $btnDetach.Style = $window.TryFindResource("WorkspaceTabDetachBtn")
+            $btnDetach.Content = if ($isDetached) { [string][char]0x2B07 } else { [string][char]0x29C9 }
+            $btnDetach.ToolTip = if ($isDetached) { "Dock back into main window" } else { "Detach to separate window" }
+            $targetPName = $pName
+            $btnDetach.Add_Click([System.Windows.RoutedEventHandler]{
+                param($s, $e)
+                $e.Handled = $true
+                if ($state.DetachedWindows.ContainsKey($targetPName)) {
+                    Dock-PanelToMainWindow -PanelName $targetPName
+                } else {
+                    Detach-PanelToWindow -PanelName $targetPName
+                }
+            })
+            [void]$tabPanel.Children.Add($btnDetach)
+        }
+
+        # Close Button (X)
+        $btnClose = [System.Windows.Controls.Button]::new()
+        $btnClose.Style = $window.TryFindResource("WorkspaceTabCloseBtn")
+        $btnClose.Content = [string][char]0x2715
+        $btnClose.ToolTip = "Close tab (Ctrl+W)"
+        $targetPNameClose = $pName
+        $btnClose.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            $e.Handled = $true
+            Remove-WorkspaceTab -TabId $targetPNameClose
+        })
+        [void]$tabPanel.Children.Add($btnClose)
+
+        $tabBorder.Child = $tabPanel
+
+        # Tab Click Handlers
+        $targetPNameTab = $pName
+        $tabBorder.Add_MouseLeftButtonDown([System.Windows.Input.MouseButtonEventHandler]{
+            param($s, $e)
+            Select-WorkspaceTab -TabId $targetPNameTab
+        })
+
+        # Middle Click to close
+        $tabBorder.Add_MouseDown([System.Windows.Input.MouseButtonEventHandler]{
+            param($s, $e)
+            if ($e.ChangedButton -eq [System.Windows.Input.MouseButton]::Middle) {
+                Remove-WorkspaceTab -TabId $targetPNameTab
+            }
+        })
+
+        # Tab Context Menu
+        $cm = [System.Windows.Controls.ContextMenu]::new()
+        $cm.Style = $window.TryFindResource("ModernContextMenu")
+
+        $miDetach = [System.Windows.Controls.MenuItem]::new()
+        $miDetach.Header = if ($isDetached) { "$([char]0x2B07) Dock Back into Main Window" } else { "$([char]0x29C9) Detach to Separate Window" }
+        $miDetach.Add_Click({
+            if ($state.DetachedWindows.ContainsKey($targetPNameTab)) {
+                Dock-PanelToMainWindow -PanelName $targetPNameTab
+            } else {
+                Detach-PanelToWindow -PanelName $targetPNameTab
+            }
+        })
+        [void]$cm.Items.Add($miDetach)
+
+        $sep = [System.Windows.Controls.Separator]::new()
+        [void]$cm.Items.Add($sep)
+
+        $miClose = [System.Windows.Controls.MenuItem]::new()
+        $miClose.Header = "✕ Close Tab"
+        $miClose.Add_Click({ Remove-WorkspaceTab -TabId $targetPNameTab })
+        [void]$cm.Items.Add($miClose)
+
+        $miCloseOthers = [System.Windows.Controls.MenuItem]::new()
+        $miCloseOthers.Header = "Close Other Tabs"
+        $miCloseOthers.Add_Click({
+            $toClose = @($state.OpenTabs | Where-Object { $_.PanelName -ne $targetPNameTab })
+            foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.PanelName }
+        })
+        [void]$cm.Items.Add($miCloseOthers)
+
+        $miCloseAll = [System.Windows.Controls.MenuItem]::new()
+        $miCloseAll.Header = "Close All Tabs"
+        $miCloseAll.Add_Click({
+            $toClose = @($state.OpenTabs)
+            foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.PanelName }
+        })
+        [void]$cm.Items.Add($miCloseAll)
+
+        $tabBorder.ContextMenu = $cm
+        [void]$tabHost.Children.Add($tabBorder)
+    }
+}
+
+function Add-WorkspaceTab {
+    param (
+        [string]$PanelName,
+        [bool]$Activate = $true
+    )
+    if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
+    $existing = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName } | Select-Object -First 1
+    if (-not $existing) {
+        $meta = if ($global:PanelCatalog.Contains($PanelName)) { $global:PanelCatalog[$PanelName] } else { [PSCustomObject]@{ Title = $PanelName; Icon = "📄" } }
+        $tabObj = [PSCustomObject]@{
+            Id        = $PanelName
+            PanelName = $PanelName
+            Title     = $meta.Title
+            Icon      = $meta.Icon
+        }
+        $state.OpenTabs.Add($tabObj)
+    }
+    if ($Activate) {
+        Select-WorkspaceTab -TabId $PanelName
+    } else {
+        Update-WorkspaceTabStrip
+    }
+}
+
+function Remove-WorkspaceTab {
+    param ([string]$TabId)
+    $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
+    if (-not $targetTab) { return }
+
+    if ($state.DetachedWindows.ContainsKey($TabId)) {
+        Dock-PanelToMainWindow -PanelName $TabId
+    }
+
+    $idx = $state.OpenTabs.IndexOf($targetTab)
+    [void]$state.OpenTabs.Remove($targetTab)
+
+    if ($state.ActiveTabId -eq $TabId) {
+        if ($state.OpenTabs.Count -gt 0) {
+            $newIdx = [Math]::Min($idx, $state.OpenTabs.Count - 1)
+            $nextTab = $state.OpenTabs[$newIdx]
+            Select-WorkspaceTab -TabId $nextTab.PanelName
+        } else {
+            Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
+        }
+    } else {
+        Update-WorkspaceTabStrip
+    }
+}
+
+function Select-WorkspaceTab {
+    param ([string]$TabId)
+    if ([string]::IsNullOrWhiteSpace($TabId)) { return }
+    
+    if ($state.DetachedWindows.ContainsKey($TabId)) {
+        $detached = $state.DetachedWindows[$TabId]
+        if ($detached) {
+            if ($detached.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                $detached.WindowState = [System.Windows.WindowState]::Normal
+            }
+            [void]$detached.Activate()
+            $detached.Focus()
+        }
+    }
+
+    $state.ActiveTabId = $TabId
+
+    $targetCtrlName = "Panel$TabId"
+    if ($controls['ViewportContainer'] -and $controls[$targetCtrlName]) {
+        foreach ($child in $controls['ViewportContainer'].Children) {
+            if ($child -is [System.Windows.UIElement]) {
+                $child.Visibility = if ($child.Name -eq $targetCtrlName) {
+                    [System.Windows.Visibility]::Visible
+                } else {
+                    [System.Windows.Visibility]::Collapsed
+                }
+            }
+        }
+    }
+
+    $state.IsSelectingTab = $true
+    try {
+        $radio = $controls["Nav$TabId"]
+        if ($radio -and -not $radio.IsChecked) {
+            $radio.IsChecked = $true
+        }
+    } finally {
+        $state.IsSelectingTab = $false
+    }
+
+    Record-NavHistory -PanelName $TabId
+    Update-WorkspaceTabStrip
+}
+
+function Detach-PanelToWindow {
+    param ([string]$PanelName)
+    if (-not $state.AllowMultiWindow) {
+        [System.Windows.MessageBox]::Show("Multi-Window workspace is currently disabled in Settings.", "Workspace Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+    if ($state.DetachedWindows.ContainsKey($PanelName)) {
+        $win = $state.DetachedWindows[$PanelName]
+        if ($win.WindowState -eq [System.Windows.WindowState]::Minimized) { $win.WindowState = [System.Windows.WindowState]::Normal }
+        [void]$win.Activate()
+        $win.Focus()
+        return
+    }
+
+    $panelKey = "Panel$PanelName"
+    $panel = $controls[$panelKey]
+    if (-not $panel) { return }
+
+    $meta = if ($global:PanelCatalog.Contains($PanelName)) { $global:PanelCatalog[$PanelName] } else { [PSCustomObject]@{ Title = $PanelName; Icon = "📋"; Category = "Tool Window" } }
+
+    $detachedXamlPath = Join-Path $PSScriptRoot "Views\DetachedPanelWindow.xaml"
+    if (-not (Test-Path $detachedXamlPath)) {
+        $detachedXamlPath = "$PSScriptRoot\Views\DetachedPanelWindow.xaml"
+    }
+    $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $detachedXamlPath -Raw))
+    $detachedWindow = [System.Windows.Markup.XamlReader]::Load($reader)
+    $reader.Close()
+
+    foreach ($key in $window.Resources.Keys) {
+        $detachedWindow.Resources[$key] = $window.Resources[$key]
+    }
+
+    $detachedWindow.Title = "Active Directory Management Studio - $($meta.Title)"
+    $txtIcon = $detachedWindow.FindName("TxtDetachedIcon")
+    if ($txtIcon) { $txtIcon.Text = $meta.Icon }
+    $txtTitle = $detachedWindow.FindName("TxtDetachedTitle")
+    if ($txtTitle) { $txtTitle.Text = $meta.Title }
+    $txtCategory = $detachedWindow.FindName("TxtDetachedCategory")
+    if ($txtCategory) { $txtCategory.Text = $meta.Category }
+    $txtScope = $detachedWindow.FindName("TxtDetachedScope")
+    if ($txtScope) { $txtScope.Text = if ($adContext.DomainName) { "Domain: $($adContext.DomainName)" } else { "Multi-Window Active" } }
+
+    if ($controls['ViewportContainer'].Children.Contains($panel)) {
+        $controls['ViewportContainer'].Children.Remove($panel)
+    }
+
+    $contentHost = $detachedWindow.FindName("DetachedContentHost")
+    if ($contentHost) {
+        [void]$contentHost.Children.Add($panel)
+        $panel.Visibility = [System.Windows.Visibility]::Visible
+    }
+
+    $state.DetachedWindows[$PanelName] = $detachedWindow
+
+    $btnDock = $detachedWindow.FindName("BtnDockBack")
+    if ($btnDock) {
+        $targetP = $PanelName
+        $btnDock.Add_Click({
+            Dock-PanelToMainWindow -PanelName $targetP
+        })
+    }
+
+    $targetPWin = $PanelName
+    $detachedWindow.Add_Closing([System.ComponentModel.CancelEventHandler]{
+        param($s, $e)
+        if ($state.DetachedWindows.ContainsKey($targetPWin)) {
+            Dock-PanelToMainWindow -PanelName $targetPWin
+        }
+    })
+
+    $detachedWindow.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
+        param($s, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+            $e.Handled = $true
+            Dock-PanelToMainWindow -PanelName $targetPWin
+        }
+    })
+
+    $detachedWindow.Show()
+    Update-WorkspaceTabStrip
+
+    $remainingDocked = $state.OpenTabs | Where-Object { -not $state.DetachedWindows.ContainsKey($_.PanelName) }
+    if ($remainingDocked -and ($remainingDocked.Count -gt 0)) {
+        Select-WorkspaceTab -TabId $remainingDocked[0].PanelName
+    }
+}
+
+function Dock-PanelToMainWindow {
+    param ([string]$PanelName)
+    if (-not $state.DetachedWindows.ContainsKey($PanelName)) { return }
+    $detachedWindow = $state.DetachedWindows[$PanelName]
+    $panelKey = "Panel$PanelName"
+    $panel = $controls[$panelKey]
+
+    if ($detachedWindow -and $panel) {
+        $contentHost = $detachedWindow.FindName("DetachedContentHost")
+        if ($contentHost -and $contentHost.Children.Contains($panel)) {
+            $contentHost.Children.Remove($panel)
+        }
+        if (-not $controls['ViewportContainer'].Children.Contains($panel)) {
+            [void]$controls['ViewportContainer'].Children.Add($panel)
+        }
+        $state.DetachedWindows.Remove($PanelName)
+        try {
+            $detachedWindow.Close()
+        } catch {}
+    }
+
+    Add-WorkspaceTab -PanelName $PanelName -Activate $true
+    if ($window) {
+        if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
+            $window.WindowState = [System.Windows.WindowState]::Normal
+        }
+        [void]$window.Activate()
+        $window.Focus()
+    }
+}
+
+function Set-WorkspaceMode {
+    param ([string]$Mode)
+    if ($Mode -notin @("Tabs", "Single")) { $Mode = "Tabs" }
+    $state.WorkspaceMode = $Mode
+    $appConfig.UI.WorkspaceMode = $Mode
+
+    if ($controls['CmbWorkspaceMode']) {
+        $controls['CmbWorkspaceMode'].SelectedIndex = if ($Mode -eq "Tabs") { 0 } else { 1 }
+    }
+
+    if ($Mode -eq "Single") {
+        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🔲" }
+        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Single" }
+    } else {
+        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Visible }
+        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🗂️" }
+        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Tabs" }
+    }
+    Update-WorkspaceTabStrip
+}
+
+function Init-SidebarNavigationContextMenus {
+    $panels = @(
+        'Dashboard', 'Users', 'Groups', 'OUs', 'Computers',
+        'DirectorySearch', 'LdapSql', 'AttributeEditor', 'HtmlView', 'ObjectCompare',
+        'LdifStudio', 'AuditReports', 'SchemaBrowser', 'BulkEditor',
+        'Basket', 'RequestLog',
+        'RecycleBin', 'ServerMonitor',
+        'Connections', 'Settings',
+        'SecurityAcl', 'KerberosSuite', 'ReplicationSuite', 'DiagnosticsToolbox', 'NetworkDiagnostics'
+    )
+    foreach ($p in $panels) {
+        $radio = $controls["Nav$p"]
+        if ($radio) {
+            $cm = [System.Windows.Controls.ContextMenu]::new()
+            $cm.Style = $window.TryFindResource("ModernContextMenu")
+
+            $miTab = [System.Windows.Controls.MenuItem]::new()
+            $miTab.Header = "🗂️ Open in New Tab"
+            $targetP = $p
+            $miTab.Add_Click([System.Windows.RoutedEventHandler]{
+                param($s, $e)
+                Add-WorkspaceTab -PanelName $targetP -Activate $true
+            })
+            [void]$cm.Items.Add($miTab)
+
+            $miWin = [System.Windows.Controls.MenuItem]::new()
+            $miWin.Header = "⧉ Open in Separate Window"
+            $miWin.Add_Click([System.Windows.RoutedEventHandler]{
+                param($s, $e)
+                Detach-PanelToWindow -PanelName $targetP
+            })
+            [void]$cm.Items.Add($miWin)
+
+            $radio.ContextMenu = $cm
+        }
+    }
+}
+
 function Show-Panel {
     param ([string]$PanelName)
-    $panels = @(
-        'PanelDashboard', 'PanelUsers', 'PanelGroups', 'PanelOUs', 'PanelComputers',
-        'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelHtmlView', 'PanelObjectCompare',
-        'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
-        'PanelBasket', 'PanelRequestLog',
-        'PanelRecycleBin', 'PanelServerMonitor',
-        'PanelConnections', 'PanelSettings',
-        'PanelSecurityAcl', 'PanelKerberosSuite', 'PanelReplicationSuite', 'PanelDiagnosticsToolbox', 'PanelNetworkDiagnostics'
-    )
-    $targetName = "Panel$PanelName"
-    foreach ($p in $panels) {
-        if ($controls[$p]) {
-            $controls[$p].Visibility = if ($p -eq $targetName) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
+
+    if ($state.WorkspaceMode -eq "Tabs") {
+        if ($state.DetachedWindows.ContainsKey($PanelName)) {
+            $dWin = $state.DetachedWindows[$PanelName]
+            if ($dWin) {
+                if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) { $dWin.WindowState = [System.Windows.WindowState]::Normal }
+                [void]$dWin.Activate()
+                $dWin.Focus()
+            }
+        } else {
+            Add-WorkspaceTab -PanelName $PanelName -Activate $true
         }
+    } else {
+        $panels = @(
+            'PanelDashboard', 'PanelUsers', 'PanelGroups', 'PanelOUs', 'PanelComputers',
+            'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelHtmlView', 'PanelObjectCompare',
+            'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
+            'PanelBasket', 'PanelRequestLog',
+            'PanelRecycleBin', 'PanelServerMonitor',
+            'PanelConnections', 'PanelSettings',
+            'PanelSecurityAcl', 'PanelKerberosSuite', 'PanelReplicationSuite', 'PanelDiagnosticsToolbox', 'PanelNetworkDiagnostics'
+        )
+        $targetName = "Panel$PanelName"
+        foreach ($p in $panels) {
+            if ($controls[$p]) {
+                $controls[$p].Visibility = if ($p -eq $targetName) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+            }
+        }
+        $state.ActiveTabId = $PanelName
     }
     Record-NavHistory -PanelName $PanelName
 }
+
+# Wire TabBar Action Buttons
+if ($controls['BtnWorkspaceNewTab']) {
+    $controls['BtnWorkspaceNewTab'].Add_Click({
+        $cm = [System.Windows.Controls.ContextMenu]::new()
+        $cm.Style = $window.TryFindResource("ModernContextMenu")
+        $cm.PlacementTarget = $controls['BtnWorkspaceNewTab']
+        $cm.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+
+        $categories = [ordered]@{
+            "Directory Services" = @('Dashboard', 'Users', 'Groups', 'OUs', 'Computers', 'RecycleBin')
+            "Softerra LDAP Suite" = @('DirectorySearch', 'LdapSql', 'AttributeEditor', 'HtmlView', 'ObjectCompare', 'LdifStudio', 'AuditReports', 'SchemaBrowser', 'BulkEditor', 'Basket', 'RequestLog')
+            "Advanced Tools" = @('SecurityAcl', 'KerberosSuite', 'ReplicationSuite', 'DiagnosticsToolbox', 'NetworkDiagnostics')
+            "System" = @('ServerMonitor', 'Connections', 'Settings')
+        }
+
+        foreach ($cat in $categories.Keys) {
+            $subHeader = [System.Windows.Controls.MenuItem]::new()
+            $subHeader.Header = "📂 $cat"
+            $subHeader.IsEnabled = $false
+            $subHeader.FontWeight = [System.Windows.FontWeights]::Bold
+            [void]$cm.Items.Add($subHeader)
+
+            foreach ($pName in $categories[$cat]) {
+                $meta = $global:PanelCatalog[$pName]
+                $mi = [System.Windows.Controls.MenuItem]::new()
+                $mi.Header = "$($meta.Icon)  $($meta.Title)"
+                $targetP = $pName
+                $mi.Add_Click([System.Windows.RoutedEventHandler]{
+                    param($s, $e)
+                    Add-WorkspaceTab -PanelName $targetP -Activate $true
+                })
+                [void]$cm.Items.Add($mi)
+            }
+
+            $sep = [System.Windows.Controls.Separator]::new()
+            [void]$cm.Items.Add($sep)
+        }
+
+        $cm.IsOpen = $true
+    })
+}
+
+if ($controls['BtnWorkspaceDetachCurrent']) {
+    $controls['BtnWorkspaceDetachCurrent'].Add_Click({
+        if ($state.ActiveTabId) {
+            Detach-PanelToWindow -PanelName $state.ActiveTabId
+        }
+    })
+}
+
+if ($controls['BtnWorkspaceModeToggle']) {
+    $controls['BtnWorkspaceModeToggle'].Add_Click({
+        $newMode = if ($state.WorkspaceMode -eq "Tabs") { "Single" } else { "Tabs" }
+        Set-WorkspaceMode -Mode $newMode
+        Save-AppSettings -Config $appConfig
+        Set-Status -Message "Workspace mode changed to: $(if ($newMode -eq 'Tabs') { 'Multi-Tab Workspace' } else { 'Single Viewport' })"
+    })
+}
+
+#endregion
 
 # Wire Header Navigation Buttons
 if ($controls['BtnNavBack']) {
@@ -1140,32 +1703,32 @@ if ($controls['BtnNavForward']) {
 }
 
 # Wire Sidebar Navigation RadioButtons
-if ($controls['NavDashboard'])          { $controls['NavDashboard'].Add_Checked({ Show-Panel "Dashboard"; Refresh-Dashboard }) }
-if ($controls['NavUsers'])              { $controls['NavUsers'].Add_Checked({ Show-Panel "Users"; Refresh-Users }) }
-if ($controls['NavGroups'])             { $controls['NavGroups'].Add_Checked({ Show-Panel "Groups"; Refresh-Groups }) }
-if ($controls['NavOUs'])                { $controls['NavOUs'].Add_Checked({ Show-Panel "OUs"; Refresh-OUs }) }
-if ($controls['NavComputers'])          { $controls['NavComputers'].Add_Checked({ Show-Panel "Computers"; Refresh-Computers }) }
-if ($controls['NavDirectorySearch'])    { $controls['NavDirectorySearch'].Add_Checked({ Show-Panel "DirectorySearch"; Init-DirectorySearch }) }
-if ($controls['NavLdapSql'])            { $controls['NavLdapSql'].Add_Checked({ Show-Panel "LdapSql" }) }
-if ($controls['NavAttributeEditor'])    { $controls['NavAttributeEditor'].Add_Checked({ Show-Panel "AttributeEditor" }) }
-if ($controls['NavHtmlView'])           { $controls['NavHtmlView'].Add_Checked({ Show-Panel "HtmlView"; Init-HtmlViewUI }) }
-if ($controls['NavObjectCompare'])      { $controls['NavObjectCompare'].Add_Checked({ Show-Panel "ObjectCompare" }) }
-if ($controls['NavLdifStudio'])         { $controls['NavLdifStudio'].Add_Checked({ Show-Panel "LdifStudio"; Init-LdifStudio }) }
-if ($controls['NavAuditReports'])       { $controls['NavAuditReports'].Add_Checked({ Show-Panel "AuditReports"; Refresh-CustomReportsDropdown }) }
-if ($controls['NavSchemaBrowser'])      { $controls['NavSchemaBrowser'].Add_Checked({ Show-Panel "SchemaBrowser"; Refresh-Schema }) }
-if ($controls['NavBulkEditor'])         { $controls['NavBulkEditor'].Add_Checked({ Show-Panel "BulkEditor" }) }
-if ($controls['NavBasket'])             { $controls['NavBasket'].Add_Checked({ Show-Panel "Basket"; Refresh-BasketUI }) }
-if ($controls['NavRequestLog'])         { $controls['NavRequestLog'].Add_Checked({ Show-Panel "RequestLog" }) }
-if ($controls['NavRecycleBin'])         { $controls['NavRecycleBin'].Add_Checked({ Show-Panel "RecycleBin"; Refresh-RecycleBin }) }
-if ($controls['NavServerMonitor'])      { $controls['NavServerMonitor'].Add_Checked({ Show-Panel "ServerMonitor"; Refresh-ServerMonitor }) }
-if ($controls['NavConnections'])        { $controls['NavConnections'].Add_Checked({ Show-Panel "Connections"; Refresh-Connections }) }
-if ($controls['NavSettings'])           { $controls['NavSettings'].Add_Checked({ Show-Panel "Settings"; Load-SettingsPanel }) }
+if ($controls['NavDashboard'])          { $controls['NavDashboard'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Dashboard"; Refresh-Dashboard } }) }
+if ($controls['NavUsers'])              { $controls['NavUsers'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Users"; Refresh-Users } }) }
+if ($controls['NavGroups'])             { $controls['NavGroups'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Groups"; Refresh-Groups } }) }
+if ($controls['NavOUs'])                { $controls['NavOUs'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "OUs"; Refresh-OUs } }) }
+if ($controls['NavComputers'])          { $controls['NavComputers'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Computers"; Refresh-Computers } }) }
+if ($controls['NavDirectorySearch'])    { $controls['NavDirectorySearch'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "DirectorySearch"; Init-DirectorySearch } }) }
+if ($controls['NavLdapSql'])            { $controls['NavLdapSql'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "LdapSql" } }) }
+if ($controls['NavAttributeEditor'])    { $controls['NavAttributeEditor'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "AttributeEditor" } }) }
+if ($controls['NavHtmlView'])           { $controls['NavHtmlView'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "HtmlView"; Init-HtmlViewUI } }) }
+if ($controls['NavObjectCompare'])      { $controls['NavObjectCompare'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "ObjectCompare" } }) }
+if ($controls['NavLdifStudio'])         { $controls['NavLdifStudio'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "LdifStudio"; Init-LdifStudio } }) }
+if ($controls['NavAuditReports'])       { $controls['NavAuditReports'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "AuditReports"; Refresh-CustomReportsDropdown } }) }
+if ($controls['NavSchemaBrowser'])      { $controls['NavSchemaBrowser'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "SchemaBrowser"; Refresh-Schema } }) }
+if ($controls['NavBulkEditor'])         { $controls['NavBulkEditor'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "BulkEditor" } }) }
+if ($controls['NavBasket'])             { $controls['NavBasket'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Basket"; Refresh-BasketUI } }) }
+if ($controls['NavRequestLog'])         { $controls['NavRequestLog'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "RequestLog" } }) }
+if ($controls['NavRecycleBin'])         { $controls['NavRecycleBin'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "RecycleBin"; Refresh-RecycleBin } }) }
+if ($controls['NavServerMonitor'])      { $controls['NavServerMonitor'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "ServerMonitor"; Refresh-ServerMonitor } }) }
+if ($controls['NavConnections'])        { $controls['NavConnections'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Connections"; Refresh-Connections } }) }
+if ($controls['NavSettings'])           { $controls['NavSettings'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "Settings"; Load-SettingsPanel } }) }
 # NetTools Suite Navigators
-if ($controls['NavSecurityAcl'])        { $controls['NavSecurityAcl'].Add_Checked({ Show-Panel "SecurityAcl"; Init-SecurityAclUI }) }
-if ($controls['NavKerberosSuite'])      { $controls['NavKerberosSuite'].Add_Checked({ Show-Panel "KerberosSuite"; Refresh-KerberosTickets }) }
-if ($controls['NavReplicationSuite'])   { $controls['NavReplicationSuite'].Add_Checked({ Show-Panel "ReplicationSuite"; Refresh-ReplicationTopology }) }
-if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].Add_Checked({ Show-Panel "DiagnosticsToolbox" }) }
-if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].Add_Checked({ Show-Panel "NetworkDiagnostics"; Init-NetworkDiagnosticsUI }) }
+if ($controls['NavSecurityAcl'])        { $controls['NavSecurityAcl'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "SecurityAcl"; Init-SecurityAclUI } }) }
+if ($controls['NavKerberosSuite'])      { $controls['NavKerberosSuite'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "KerberosSuite"; Refresh-KerberosTickets } }) }
+if ($controls['NavReplicationSuite'])   { $controls['NavReplicationSuite'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "ReplicationSuite"; Refresh-ReplicationTopology } }) }
+if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "DiagnosticsToolbox" } }) }
+if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "NetworkDiagnostics"; Init-NetworkDiagnosticsUI } }) }
 #endregion
 
 #region 1. Dashboard Functions
@@ -9804,6 +10367,15 @@ function Load-SettingsPanel {
     if ($controls['ChkThemeAutoSync']) {
         $controls['ChkThemeAutoSync'].IsChecked = if ($null -ne $appConfig.UI.SyncHtmlViewTheme) { [bool]$appConfig.UI.SyncHtmlViewTheme } else { $true }
     }
+    if ($controls['CmbWorkspaceMode']) {
+        $controls['CmbWorkspaceMode'].SelectedIndex = if ($appConfig.UI.WorkspaceMode -eq "Single") { 1 } else { 0 }
+    }
+    if ($controls['ChkAllowMultiWindow']) {
+        $controls['ChkAllowMultiWindow'].IsChecked = if ($null -ne $appConfig.UI.AllowMultiWindow) { [bool]$appConfig.UI.AllowMultiWindow } else { $true }
+    }
+    if ($controls['ChkRestoreTabsOnStartup']) {
+        $controls['ChkRestoreTabsOnStartup'].IsChecked = if ($null -ne $appConfig.UI.RestoreTabsOnStartup) { [bool]$appConfig.UI.RestoreTabsOnStartup } else { $true }
+    }
     if ($controls['GridExternalTools']) {
         $controls['GridExternalTools'].ItemsSource = $null
         $controls['GridExternalTools'].ItemsSource = $state.ExternalTools
@@ -9954,6 +10526,20 @@ if ($controls['BtnSaveSettings']) {
             $appConfig.UI.SyncHtmlViewTheme = [bool]$controls['ChkThemeAutoSync'].IsChecked
         }
 
+        if ($controls['CmbWorkspaceMode']) {
+            $newMode = if ($controls['CmbWorkspaceMode'].SelectedIndex -eq 1) { "Single" } else { "Tabs" }
+            $appConfig.UI.WorkspaceMode = $newMode
+            Set-WorkspaceMode -Mode $newMode
+        }
+        if ($controls['ChkAllowMultiWindow']) {
+            $appConfig.UI.AllowMultiWindow = [bool]$controls['ChkAllowMultiWindow'].IsChecked
+            $state.AllowMultiWindow = $appConfig.UI.AllowMultiWindow
+        }
+        if ($controls['ChkRestoreTabsOnStartup']) {
+            $appConfig.UI.RestoreTabsOnStartup = [bool]$controls['ChkRestoreTabsOnStartup'].IsChecked
+            $state.RestoreTabsOnStartup = $appConfig.UI.RestoreTabsOnStartup
+        }
+
         $appConfig.ExternalTools = @($state.ExternalTools)
 
         $saved = Save-AppSettings -Config $appConfig
@@ -10000,6 +10586,20 @@ $window.Add_Loaded({
         Set-ApplicationTheme -Theme "Light" -AccentTone $appConfig.UI.AccentTone
     }
     Init-ElevationBadge
+    Init-SidebarNavigationContextMenus
+
+    # Initialize Workspace Tabs
+    if ($state.RestoreTabsOnStartup -and $appConfig.UI.OpenTabs -and ($appConfig.UI.OpenTabs.Count -gt 0)) {
+        foreach ($tabName in $appConfig.UI.OpenTabs) {
+            Add-WorkspaceTab -PanelName $tabName -Activate $false
+        }
+        $firstTab = $appConfig.UI.OpenTabs[0]
+        Select-WorkspaceTab -TabId $firstTab
+    } else {
+        Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
+    }
+    Set-WorkspaceMode -Mode $state.WorkspaceMode
+
     Refresh-All
     Refresh-Connections
     Populate-SearchAttributeDropdowns
@@ -10007,12 +10607,34 @@ $window.Add_Loaded({
     Update-HeaderLayoutResponsive
 })
 
+$window.Add_Closing({
+    param($sender, $e)
+    # Persist open tabs if enabled
+    if ($state.RestoreTabsOnStartup) {
+        $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
+        if ($openNames.Count -gt 0) {
+            $appConfig.UI.OpenTabs = $openNames
+            [void](Save-AppSettings -Config $appConfig)
+        }
+    }
+    # Safely close all detached child windows
+    if ($state.DetachedWindows) {
+        $keys = @($state.DetachedWindows.Keys)
+        foreach ($k in $keys) {
+            $dWin = $state.DetachedWindows[$k]
+            if ($dWin) {
+                try { $dWin.Close() } catch {}
+            }
+        }
+    }
+})
+
 $window.Add_SizeChanged({
     param($sender, $e)
     Update-HeaderLayoutResponsive
 })
 
-# Keyboard shortcuts: Ctrl+T for quick theme toggle, Ctrl+R for Resolver Scratchpad
+# Keyboard shortcuts: Ctrl+T theme, Ctrl+R Resolver, Ctrl+W close tab, Ctrl+Tab cycle tabs, Ctrl+Shift+D detach
 $window.Add_KeyDown({
     param($sender, $e)
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
@@ -10023,6 +10645,36 @@ $window.Add_KeyDown({
     if ($e.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         Show-ResolverDialog
         $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::W -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+        if ($state.WorkspaceMode -eq "Tabs" -and $state.ActiveTabId) {
+            Remove-WorkspaceTab -TabId $state.ActiveTabId
+            $e.Handled = $true
+        }
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::Tab -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+        if ($state.WorkspaceMode -eq "Tabs" -and $state.OpenTabs.Count -gt 1) {
+            $currIdx = -1
+            for ($i = 0; $i -lt $state.OpenTabs.Count; $i++) {
+                if ($state.OpenTabs[$i].PanelName -eq $state.ActiveTabId) { $currIdx = $i; break }
+            }
+            if ($currIdx -ge 0) {
+                $isShift = [bool]([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)
+                $nextIdx = if ($isShift) {
+                    if ($currIdx -eq 0) { $state.OpenTabs.Count - 1 } else { $currIdx - 1 }
+                } else {
+                    ($currIdx + 1) % $state.OpenTabs.Count
+                }
+                Select-WorkspaceTab -TabId $state.OpenTabs[$nextIdx].PanelName
+                $e.Handled = $true
+            }
+        }
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::D -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        if ($state.ActiveTabId) {
+            Detach-PanelToWindow -PanelName $state.ActiveTabId
+            $e.Handled = $true
+        }
     }
 })
 
