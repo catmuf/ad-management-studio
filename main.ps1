@@ -1588,6 +1588,178 @@ function Dock-PanelToMainWindow {
     }
 }
 
+function Dock-AllDetachedWindows {
+    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
+        Set-Status -Message "No detached tool windows are currently open."
+        return
+    }
+    $panelNames = @($state.DetachedWindows.Keys)
+    foreach ($p in $panelNames) {
+        Dock-PanelToMainWindow -PanelName $p -NoActivate
+    }
+    if ($state.ActiveTabId) {
+        Select-WorkspaceTab -TabId $state.ActiveTabId
+    }
+    Set-Status -Message "All detached tool windows docked back into main window."
+}
+
+function Show-AllDetachedWindows {
+    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
+        Set-Status -Message "No detached tool windows are currently open."
+        return
+    }
+    foreach ($win in $state.DetachedWindows.Values) {
+        if ($win) {
+            if ($win.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                $win.WindowState = [System.Windows.WindowState]::Normal
+            }
+            [void]$win.Activate()
+            $win.Focus()
+        }
+    }
+    Set-Status -Message "All detached tool windows brought to front."
+}
+
+function Reset-WorkspaceLayout {
+    Dock-AllDetachedWindows
+    $defaultTabs = @("Dashboard", "Users", "Groups", "Computers")
+    $state.OpenTabs.Clear()
+    foreach ($t in $defaultTabs) {
+        Add-WorkspaceTab -PanelName $t -Activate $false
+    }
+    Select-WorkspaceTab -TabId "Dashboard"
+    Set-WorkspaceMode -Mode "Tabs"
+    Save-AppSettings -Config $appConfig
+    Set-Status -Message "Workspace layout reset to default multi-tab layout."
+}
+
+function Show-WorkspaceLayoutMenu {
+    param ($targetElement)
+    $cm = [System.Windows.Controls.ContextMenu]::new()
+    $cm.Style = $window.TryFindResource("ModernContextMenu")
+    if ($targetElement) {
+        $cm.PlacementTarget = $targetElement
+        $cm.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    }
+
+    # SECTION 1: WORKSPACE VIEWPORT LAYOUT
+    $secWorkspace = [System.Windows.Controls.MenuItem]::new()
+    $secWorkspace.Header = "🗂️ WORKSPACE MODE"
+    $secWorkspace.IsEnabled = $false
+    $secWorkspace.FontWeight = [System.Windows.FontWeights]::Bold
+    [void]$cm.Items.Add($secWorkspace)
+
+    # Item: Multi-Tab Workspace
+    $miTabs = [System.Windows.Controls.MenuItem]::new()
+    $isTabs = ($state.WorkspaceMode -eq "Tabs")
+    $miTabs.Header = if ($isTabs) { "✔  🗂️ Multi-Tab Workspace (Active)" } else { "    🗂️ Multi-Tab Workspace" }
+    $miTabs.FontWeight = if ($isTabs) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
+    $miTabs.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        Set-WorkspaceMode -Mode "Tabs"
+        Save-AppSettings -Config $appConfig
+        Set-Status -Message "Workspace layout changed to: Multi-Tab Workspace"
+    })
+    [void]$cm.Items.Add($miTabs)
+
+    # Item: Single Window Viewport
+    $miSingle = [System.Windows.Controls.MenuItem]::new()
+    $isSingle = ($state.WorkspaceMode -eq "Single")
+    $miSingle.Header = if ($isSingle) { "✔  🔲 Single Window Viewport (Active)" } else { "    🔲 Single Window Viewport" }
+    $miSingle.FontWeight = if ($isSingle) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
+    $miSingle.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        Set-WorkspaceMode -Mode "Single"
+        Save-AppSettings -Config $appConfig
+        Set-Status -Message "Workspace layout changed to: Single Window Viewport"
+    })
+    [void]$cm.Items.Add($miSingle)
+
+    # SEPARATOR
+    [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
+
+    # SECTION 2: WINDOW LAYOUT & DETACHED WINDOWS
+    $secWindows = [System.Windows.Controls.MenuItem]::new()
+    $detachedCount = if ($state.DetachedWindows) { $state.DetachedWindows.Count } else { 0 }
+    $secWindows.Header = "⧉ WINDOW & MULTI-WINDOW LAYOUT"
+    $secWindows.IsEnabled = $false
+    $secWindows.FontWeight = [System.Windows.FontWeights]::Bold
+    [void]$cm.Items.Add($secWindows)
+
+    # Detach Current Tab
+    $miDetachCur = [System.Windows.Controls.MenuItem]::new()
+    $miDetachCur.Header = "⧉  Detach Current Tool to Separate Window"
+    $miDetachCur.InputGestureText = "Ctrl+Shift+D"
+    $miDetachCur.IsEnabled = [bool]($state.ActiveTabId -and -not $state.DetachedWindows.ContainsKey($state.ActiveTabId))
+    $miDetachCur.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        if (-not [string]::IsNullOrWhiteSpace($state.ActiveTabId)) {
+            Detach-PanelToWindow -PanelName $state.ActiveTabId
+        }
+    })
+    [void]$cm.Items.Add($miDetachCur)
+
+    # Dock All Windows Back
+    $miDockAll = [System.Windows.Controls.MenuItem]::new()
+    $miDockAll.Header = if ($detachedCount -gt 0) { "⬇️  Dock All Windows Back into Main Window ($detachedCount detached)" } else { "⬇️  Dock All Windows Back into Main Window" }
+    $miDockAll.IsEnabled = ($detachedCount -gt 0)
+    $miDockAll.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        Dock-AllDetachedWindows
+    })
+    [void]$cm.Items.Add($miDockAll)
+
+    if ($detachedCount -gt 0) {
+        $miFocusAll = [System.Windows.Controls.MenuItem]::new()
+        $miFocusAll.Header = "🪟  Bring All Detached Windows to Front"
+        $miFocusAll.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            Show-AllDetachedWindows
+        })
+        [void]$cm.Items.Add($miFocusAll)
+    }
+
+    # Toggle Multi-Window Allowed
+    $miAllowMulti = [System.Windows.Controls.MenuItem]::new()
+    $miAllowMulti.Header = if ($state.AllowMultiWindow) { "✔  Allow Multi-Window (Detached Windows Enabled)" } else { "    Allow Multi-Window (Detached Windows Disabled)" }
+    $miAllowMulti.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        $state.AllowMultiWindow = -not $state.AllowMultiWindow
+        $appConfig.UI.AllowMultiWindow = $state.AllowMultiWindow
+        Save-AppSettings -Config $appConfig
+        if (-not $state.AllowMultiWindow) {
+            Dock-AllDetachedWindows
+        }
+        Update-WorkspaceTabStrip
+        Set-Status -Message "Multi-Window workspace is now $(if ($state.AllowMultiWindow) { 'Enabled' } else { 'Disabled' })."
+    })
+    [void]$cm.Items.Add($miAllowMulti)
+
+    # SEPARATOR
+    [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
+
+    # SECTION 3: TABS & LAYOUT PRESETS
+    $miNewTab = [System.Windows.Controls.MenuItem]::new()
+    $miNewTab.Header = "➕  Open Tool in New Tab..."
+    $miNewTab.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        if ($controls['BtnWorkspaceNewTab']) {
+            $controls['BtnWorkspaceNewTab'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    })
+    [void]$cm.Items.Add($miNewTab)
+
+    $miResetTabs = [System.Windows.Controls.MenuItem]::new()
+    $miResetTabs.Header = "🔄  Reset Workspace to Default Tabs (Dashboard, Users, Groups, Computers)"
+    $miResetTabs.Add_Click([System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        Reset-WorkspaceLayout
+    })
+    [void]$cm.Items.Add($miResetTabs)
+
+    $cm.IsOpen = $true
+}
+
 function Set-WorkspaceMode {
     param ([string]$Mode)
     if ($Mode -notin @("Tabs", "Single")) { $Mode = "Tabs" }
@@ -1602,10 +1774,14 @@ function Set-WorkspaceMode {
         if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Collapsed }
         if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🔲" }
         if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Single" }
+        if ($controls['TxtHeaderLayoutIcon']) { $controls['TxtHeaderLayoutIcon'].Text = "🔲" }
+        if ($controls['BtnWorkspaceLayoutMenu']) { $controls['BtnWorkspaceLayoutMenu'].ToolTip = "Switch Workspace & Window Layout (Single Viewport active - Ctrl+Shift+M)" }
     } else {
         if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Visible }
         if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🗂️" }
         if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Tabs" }
+        if ($controls['TxtHeaderLayoutIcon']) { $controls['TxtHeaderLayoutIcon'].Text = "🗂️" }
+        if ($controls['BtnWorkspaceLayoutMenu']) { $controls['BtnWorkspaceLayoutMenu'].ToolTip = "Switch Workspace & Window Layout (Multi-Tab Workspace active - Ctrl+Shift+M)" }
     }
     Update-WorkspaceTabStrip
 }
@@ -1744,12 +1920,23 @@ if ($controls['BtnWorkspaceDetachCurrent']) {
     })
 }
 
+if ($controls['BtnWorkspaceLayoutMenu']) {
+    $controls['BtnWorkspaceLayoutMenu'].Add_Click({
+        Show-WorkspaceLayoutMenu -targetElement $controls['BtnWorkspaceLayoutMenu']
+    })
+}
+
 if ($controls['BtnWorkspaceModeToggle']) {
     $controls['BtnWorkspaceModeToggle'].Add_Click({
         $newMode = if ($state.WorkspaceMode -eq "Tabs") { "Single" } else { "Tabs" }
         Set-WorkspaceMode -Mode $newMode
         Save-AppSettings -Config $appConfig
         Set-Status -Message "Workspace mode changed to: $(if ($newMode -eq 'Tabs') { 'Multi-Tab Workspace' } else { 'Single Viewport' })"
+    })
+    $controls['BtnWorkspaceModeToggle'].Add_MouseRightButtonUp([System.Windows.Input.MouseButtonEventHandler]{
+        param($s, $e)
+        $e.Handled = $true
+        Show-WorkspaceLayoutMenu -targetElement $controls['BtnWorkspaceModeToggle']
     })
 }
 
@@ -10661,8 +10848,9 @@ function Update-HeaderLayoutResponsive {
     if ($controls['TxtHeaderGpo'])      { $controls['TxtHeaderGpo'].Visibility      = $labelVis }
     if ($controls['TxtHeaderAsn1'])     { $controls['TxtHeaderAsn1'].Visibility     = $labelVis }
     if ($controls['TxtHeaderDiff'])     { $controls['TxtHeaderDiff'].Visibility     = $labelVis }
-    if ($controls['TxtHeaderDiag'])     { $controls['TxtHeaderDiag'].Visibility     = $labelVis }
-    if ($controls['TxtHeaderRefresh'])  { $controls['TxtHeaderRefresh'].Visibility  = $labelVis }
+    if ($controls['TxtHeaderDiag'])       { $controls['TxtHeaderDiag'].Visibility       = $labelVis }
+    if ($controls['TxtHeaderRefresh'])    { $controls['TxtHeaderRefresh'].Visibility    = $labelVis }
+    if ($controls['TxtHeaderLayoutText']) { $controls['TxtHeaderLayoutText'].Visibility = $labelVis }
 
     # Telemetry badge in center only displays when there is ample width (>= 1380px)
     if ($controls['BorderTelemetryBadge']) {
@@ -10765,6 +10953,17 @@ $window.Add_KeyDown({
             Detach-PanelToWindow -PanelName $state.ActiveTabId
             $e.Handled = $true
         }
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::M -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        $newMode = if ($state.WorkspaceMode -eq "Tabs") { "Single" } else { "Tabs" }
+        Set-WorkspaceMode -Mode $newMode
+        Save-AppSettings -Config $appConfig
+        Set-Status -Message "Workspace mode changed to: $(if ($newMode -eq 'Tabs') { 'Multi-Tab Workspace' } else { 'Single Viewport' })"
+        $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::L -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        Show-WorkspaceLayoutMenu -targetElement $controls['BtnWorkspaceLayoutMenu']
+        $e.Handled = $true
     }
 })
 

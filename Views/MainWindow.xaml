@@ -740,6 +740,14 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Workspace & Window Layout Switcher Button -->
+                    <Button Name="BtnWorkspaceLayoutMenu" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Switch Workspace &amp; Window Layout: Multi-Tab Workspace, Single Viewport, Detach &amp; Dock Windows (Ctrl+Shift+M)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Name="TxtHeaderLayoutIcon" Text="🗂️" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="TxtHeaderLayoutText" Text="Layout" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
                     <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Width="28" Height="28" Margin="2,0,0,0" Padding="0" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
                         <TextBlock Name="TxtQuickThemeIcon" Text="🌙" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
