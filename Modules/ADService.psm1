@@ -3748,7 +3748,7 @@ function Find-ADObjectsQuickSearch {
         Write-Warning "Quick search query failed: $_"
     }
 
-    return @($results)
+    return ,@($results.ToArray())
 }
 
 function Get-ADSchemaClassDetail {

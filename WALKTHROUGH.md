@@ -331,12 +331,17 @@ The automated STA UI harness verified the new features with 100% success:
    - `Apply-ThemeNode` now checks whether an element or its parent button uses an accent or danger background (`#0078D4`, `#107C41`, `#D13438`, `#D97706`), preserving crisp white text (`#FFFFFF`) on colored action buttons in both Light and Dark modes.
 5. **Modal Dialog Theme Inheritance**:
    - `Load-XamlWindow` now propagates active theme resources and applies `Apply-ThemeNode` so modal dialogs opened during runtime inherit the selected theme automatically.
+6. **Global Quick Search Omnibar Exception & Contrast Harmonization**:
+   - **SetValueInvocationException**: Fixed single-element array unrolling by wrapping `Find-ADObjectsQuickSearch` results in `@(...)` and clearing `.ItemsSource = $null` before re-binding. In [Modules/ADService.psm1](./Modules/ADService.psm1), updated `return ,@($results.ToArray())` with unary comma to prevent PowerShell pipeline collection flattening.
+   - **Light Theme Contrast**: Replaced hardcoded `#FFFFFF` on `{Binding Name}` in `PopupGlobalSearch` DataTemplate with `{DynamicResource TextPrimary}` (`#0F172A` in Light Mode) and `#9CA3AF` on `{Binding DistinguishedName}` with `{DynamicResource TextSecondary}` (`#475569`). Upgraded popup container to `{DynamicResource DropDownBg}` and `{DynamicResource DropDownBorderBrush}` with subtle drop shadow, ensuring 100% crisp readability.
 
 ### B. Automated Verification
 - Full STA integration test harness executed via Windows PowerShell 5.1 and PowerShell 7+:
   - **Syntax & AST**: 0 errors.
   - **E2E Theme Toggling**: Verified seamless switching between Light and Dark modes without visual artifacts.
   - **Controls Audited**: All 15 theme and HTML view controls verified.
+  - **Quick Search Verification**: Verified single-element, multi-element, and empty collection bindings without exceptions.
+
 
 
 

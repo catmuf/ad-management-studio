@@ -1132,8 +1132,10 @@ if ($controls['TxtGlobalSearch']) {
     $controls['TxtGlobalSearch'].Add_TextChanged({
         $q = $controls['TxtGlobalSearch'].Text.Trim()
         if ($q.Length -ge 2) {
-            $results = Find-ADObjectsQuickSearch -Query $q -MaxResults 15
+            $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 15
+            $results = @($rawResults)
             if ($controls['ListGlobalSearchResults']) {
+                $controls['ListGlobalSearchResults'].ItemsSource = $null
                 $controls['ListGlobalSearchResults'].ItemsSource = $results
             }
             if ($controls['TxtGlobalSearchStatus']) {
@@ -1145,6 +1147,9 @@ if ($controls['TxtGlobalSearch']) {
         } else {
             if ($controls['PopupGlobalSearch']) {
                 $controls['PopupGlobalSearch'].IsOpen = $false
+            }
+            if ($controls['ListGlobalSearchResults']) {
+                $controls['ListGlobalSearchResults'].ItemsSource = $null
             }
         }
     })
@@ -1726,7 +1731,7 @@ function Render-PagedUsers {
     }
 
     if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = $pagedItems
+        $controls['GridUsers'].ItemsSource = @($pagedItems)
         Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
     }
 
@@ -4389,7 +4394,7 @@ function Render-PagedSearchResults {
     }
 
     if ($controls['GridSearchResults']) {
-        $controls['GridSearchResults'].ItemsSource = $pagedItems
+        $controls['GridSearchResults'].ItemsSource = @($pagedItems)
         Sync-DataGridColumnsProperties -DataGrid $controls['GridSearchResults']
     }
 
