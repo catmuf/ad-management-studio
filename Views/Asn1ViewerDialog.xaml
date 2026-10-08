@@ -1,0 +1,149 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="ASN.1 Data Structure &amp; Synchronized Hex Dump Viewer"
+    Height="640" Width="960"
+    MinHeight="480" MinWidth="700"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="{DynamicResource BgDark}"
+    Foreground="{DynamicResource TextPrimary}"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="{DynamicResource GridRowBg}"/>
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource GridRowAltBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLineBrush}"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="120"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="🔬" FontSize="26" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="ASN.1 Data Structure &amp; Hex Dump Viewer" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                    <TextBlock Text="Dual-pane DER/PEM/Hex ASN.1 decoder with synchronized byte stream hex view and tag breakdown." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Name="BtnAsn1LoadSample" Style="{StaticResource ModernButton}" Height="30" Content="Load X.509 Sample" Margin="0,0,8,0"/>
+                    <Button Name="BtnAsn1Close" Style="{StaticResource ModernButton}" Height="30" Content="Close"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Input Box -->
+        <Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Input Data (PEM, Base64, Hex stream, or DER):" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Name="BtnDecodeAsn1" Style="{StaticResource PrimaryButton}" Height="26" Content="⚡ Decode ASN.1 Structure" Padding="10,0"/>
+                </Grid>
+                <TextBox Grid.Row="1" Name="TxtAsn1Input" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+            </Grid>
+        </Border>
+
+        <!-- Dual Pane: Left ASN.1 Nodes DataGrid, Right Hex Dump -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="380"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Tag Structure Tree / Grid -->
+            <GroupBox Grid.Column="0" Header="ASN.1 Structure (Tags, Lengths &amp; Offsets)" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}" Margin="0,0,6,0">
+                <DataGrid Name="GridAsn1Nodes" Style="{StaticResource ModernDataGrid}" Margin="4">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}" Width="75"/>
+                        <DataGridTextColumn Header="Tag" Binding="{Binding TagHex}" Width="65"/>
+                        <DataGridTextColumn Header="Type / Name" Binding="{Binding TagName}" Width="150"/>
+                        <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="95"/>
+                        <DataGridTextColumn Header="Format" Binding="{Binding Constructed}" Width="85"/>
+                        <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="70"/>
+                        <DataGridTextColumn Header="Data Slice (Hex)" Binding="{Binding DataHex}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+
+            <!-- Right: Synchronized Hex Dump -->
+            <GroupBox Grid.Column="1" Header="Byte Stream Hex Dump" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrushColor}" Margin="6,0,0,0">
+                <TextBox Name="TxtAsn1HexDump" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" Foreground="#38BDF8"/>
+            </GroupBox>
+        </Grid>
+
+        <!-- Footer -->
+        <Border Grid.Row="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
+            <TextBlock Name="TxtAsn1Status" Text="Ready: Paste PEM, Base64 or Hex stream to decode." FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+        </Border>
+    </Grid>
+</Window>

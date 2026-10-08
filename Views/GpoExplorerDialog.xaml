@@ -1,0 +1,247 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Group Policy Explorer &amp; GPOTool Multi-DC Replication Suite"
+    Height="680" Width="980"
+    MinHeight="500" MinWidth="750"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="{DynamicResource BgDark}"
+    Foreground="{DynamicResource TextPrimary}"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style x:Key="ModernTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="tabBorder" Background="{DynamicResource NavHoverBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Margin="0,0,4,0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource BgCard}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="{DynamicResource GridRowBg}"/>
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource GridRowAltBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLineBrush}"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="📜" FontSize="26" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Group Policy Explorer &amp; GPOTool Replication Suite" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                    <TextBlock Text="OU GPO link inheritance, binary registry.pol parser, GPOTool multi-DC GPT.ini parity &amp; WMI filters." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Name="BtnGpoRefresh" Style="{StaticResource PrimaryButton}" Height="30" Content="🔄 Refresh Hierarchy" Padding="12,0" Margin="0,0,8,0"/>
+                    <Button Name="BtnGpoClose" Style="{StaticResource ModernButton}" Height="30" Content="Close" Padding="12,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Tabs -->
+        <TabControl Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+            <!-- TAB 1: OU ALLOCATION & LINKED GPOS -->
+            <TabItem Header="📂 OU Allocation &amp; Linked GPOs" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Filter OU / GPO:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Name="TxtGpoFilter" Style="{StaticResource ModernTextBox}" Width="260" Height="28" Tag="Filter by OU name or GPO..." Margin="0,0,12,0"/>
+                            <TextBlock Name="TxtGpoLinkSummary" Text="Showing linked GPO objects" FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" Name="GridGpoHierarchy" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="140"/>
+                            <DataGridTextColumn Header="GPO Name" Binding="{Binding DisplayName}" Width="240"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="90"/>
+                            <DataGridTextColumn Header="Order" Binding="{Binding Order}" Width="60"/>
+                            <DataGridTextColumn Header="Target Container / OU" Binding="{Binding TargetOU}" Width="*"/>
+                            <DataGridTextColumn Header="GPO GUID" Binding="{Binding GpoGuid}" Width="280"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 2: BINARY REGISTRY.POL PARSER -->
+            <TabItem Header="⚙️ Binary Registry.pol Settings" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Policy File Path:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Name="TxtRegistryPolPath" Style="{StaticResource ModernTextBox}" Width="360" Height="28" Tag="SYSVOL registry.pol path or local file" Margin="0,0,8,0"/>
+                                <Button Name="BtnBrowseRegistryPol" Style="{StaticResource ModernButton}" Height="28" Content="Browse..." Margin="0,0,8,0"/>
+                                <Button Name="BtnParseRegistryPol" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Decode PReg Binary"/>
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" Name="GridRegistryPol" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
+                            <DataGridTextColumn Header="Value Name" Binding="{Binding Value}" Width="200"/>
+                            <DataGridTextColumn Header="Configured Value / Data" Binding="{Binding DataFormatted}" Width="240"/>
+                            <DataGridTextColumn Header="Registry Key Path" Binding="{Binding Key}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 3: MULTI-DC GPOTOOL REPLICATION PARITY -->
+            <TabItem Header="🔄 GPOTool Multi-DC Consistency" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="GPOTool Replication Validator" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Compares Active Directory versionNumber against SYSVOL GPT.ini version across all domain controllers." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Name="BtnAuditGpoReplication" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Run GPOTool Audit" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" Name="GridGpoMultiDc" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="100"/>
+                            <DataGridTextColumn Header="Domain Controller" Binding="{Binding DomainController}" Width="170"/>
+                            <DataGridTextColumn Header="GPO Name" Binding="{Binding GpoName}" Width="220"/>
+                            <DataGridTextColumn Header="AD Version" Binding="{Binding ADVersionFormatted}" Width="160"/>
+                            <DataGridTextColumn Header="SYSVOL Version" Binding="{Binding SysvolVersion}" Width="110"/>
+                            <DataGridTextColumn Header="Replication Discrepancy" Binding="{Binding Discrepancy}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 4: WMI FILTERS -->
+            <TabItem Header="🛡️ WMI Filters" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                        <TextBlock Text="Active Directory WMI Filters (CN=SOM,CN=WMIFilter,CN=System)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}"/>
+                    </Border>
+
+                    <DataGrid Grid.Row="1" Name="GridWmiFilters" Style="{StaticResource ModernDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Filter Name" Binding="{Binding Name}" Width="180"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="200"/>
+                            <DataGridTextColumn Header="WQL Query" Binding="{Binding Query}" Width="*"/>
+                            <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="180"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer -->
+        <Border Grid.Row="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
+            <TextBlock Name="TxtGpoStatus" Text="Ready: GPO Explorer initialized." FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+        </Border>
+    </Grid>
+</Window>
