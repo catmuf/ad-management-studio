@@ -45,15 +45,19 @@ function Load-XamlWindow {
     $reader = New-Object System.Xml.XmlNodeReader $xmlDoc
     $loadedWin = [System.Windows.Markup.XamlReader]::Load($reader)
 
-    # If application is in Light theme, ensure newly loaded modal dialog inherits active theme
-    if ($state -and $state.CurrentTheme -eq "Light") {
-        if ($window -and $loadedWin -ne $window) {
-            foreach ($key in $window.Resources.Keys) {
-                if ($loadedWin.Resources.Contains($key)) {
-                    $loadedWin.Resources[$key] = $window.Resources[$key]
-                }
-            }
+    # Inherit window resources and ensure newly loaded modal dialog inherits active theme
+    if ($window -and $loadedWin -ne $window) {
+        foreach ($key in $window.Resources.Keys) {
+            $loadedWin.Resources[$key] = $window.Resources[$key]
         }
+        $loadedWin.Add_Loaded({
+            $currTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+            if ($currTheme -eq "Light" -and (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue)) {
+                Apply-ThemeNode $this "Light"
+            }
+        })
+    }
+    if ($state -and $state.CurrentTheme -eq "Light") {
         if (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue) {
             Apply-ThemeNode $loadedWin "Light"
         }
@@ -292,17 +296,34 @@ $script:ColorMapBgLight = @{
     '#161820' = '#F1F5F9'
     '#161821' = '#F8FAFC'
     '#161822' = '#F8FAFC'
+    '#18191D' = '#F8FAFC'
+    '#181A20' = '#F8FAFC'
     '#181A22' = '#FFFFFF'
+    '#181B24' = '#FFFFFF'
+    '#1A1C23' = '#FFFFFF'
     '#1A1D27' = '#FFFFFF'
     '#1B1E28' = '#F8FAFC'
     '#1E212B' = '#F1F5F9'
     '#1E212D' = '#FFFFFF'
+    '#1E222D' = '#FFFFFF'
     '#1E2232' = '#FFFFFF'
     '#1E293B' = '#F1F5F9'
+    '#1F232E' = '#F1F5F9'
+    '#22252F' = '#F1F5F9'
+    '#222634' = '#F1F5F9'
     '#252936' = '#FFFFFF'
     '#252A3A' = '#F1F5F9'
+    '#253352' = '#E2E8F0'
+    '#282D3E' = '#F1F5F9'
     '#292E3E' = '#F1F5F9'
+    '#292F42' = '#F1F5F9'
+    '#2A2D3A' = '#FFFFFF'
+    '#2B2F3E' = '#F1F5F9'
+    '#2D313F' = '#F1F5F9'
     '#323749' = '#E2E8F0'
+    '#334155' = '#E2E8F0'
+    '#373B4D' = '#E2E8F0'
+    '#3A1C20' = '#FEF2F2'
 }
 
 $script:ColorMapFgLight = @{
@@ -323,6 +344,8 @@ $script:ColorMapFgLight = @{
     '#FBBF24' = '#D97706'
     '#F59E0B' = '#B45309'
     '#EF4444' = '#DC2626'
+    '#4B5563' = '#475569'
+    '#FFA3A8' = '#DC2626'
 }
 
 $script:ColorMapBorderLight = @{
@@ -330,30 +353,66 @@ $script:ColorMapBorderLight = @{
     '#252936' = '#CBD5E1'
     '#252A3A' = '#CBD5E1'
     '#292E3E' = '#CBD5E1'
+    '#2D313F' = '#CBD5E1'
     '#2E3345' = '#CBD5E1'
     '#2F3446' = '#CBD5E1'
     '#334155' = '#CBD5E1'
+    '#373B4D' = '#CBD5E1'
+    '#374151' = '#CBD5E1'
     '#383E54' = '#CBD5E1'
     '#4B526D' = '#94A3B8'
+}
+
+function Test-IsDynamicExpression ($node, $prop) {
+    if (-not $node -or -not $prop) { return $false }
+    try {
+        $source = [System.Windows.DependencyPropertyHelper]::GetValueSource($node, $prop)
+        return [bool]$source.IsExpression
+    } catch {
+        return $false
+    }
 }
 
 function Apply-ThemeNode ($node, [string]$targetTheme) {
     if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
     $id = $node.GetHashCode()
 
+    $bgProp = switch ($node) {
+        { $_ -is [System.Windows.Controls.Border] }    { [System.Windows.Controls.Border]::BackgroundProperty }
+        { $_ -is [System.Windows.Controls.Control] }   { [System.Windows.Controls.Control]::BackgroundProperty }
+        { $_ -is [System.Windows.Controls.Panel] }     { [System.Windows.Controls.Panel]::BackgroundProperty }
+        { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::BackgroundProperty }
+        default { $null }
+    }
+    $isBgDynamic = ($bgProp -and (Test-IsDynamicExpression $node $bgProp))
+
+    $fgProp = switch ($node) {
+        { $_ -is [System.Windows.Controls.Control] }   { [System.Windows.Controls.Control]::ForegroundProperty }
+        { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::ForegroundProperty }
+        default { $null }
+    }
+    $isFgDynamic = ($fgProp -and (Test-IsDynamicExpression $node $fgProp))
+
+    $borderProp = switch ($node) {
+        { $_ -is [System.Windows.Controls.Border] }  { [System.Windows.Controls.Border]::BorderBrushProperty }
+        { $_ -is [System.Windows.Controls.Control] } { [System.Windows.Controls.Control]::BorderBrushProperty }
+        default { $null }
+    }
+    $isBorderDynamic = ($borderProp -and (Test-IsDynamicExpression $node $borderProp))
+
     if ($targetTheme -eq "Light") {
         # Cache original dark brushes if not already cached
         if (-not $script:OriginalBrushes.ContainsKey($id)) {
             $script:OriginalBrushes[$id] = @{
-                Bg = $node.Background
-                Fg = if ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock]) { $node.Foreground } else { $null }
-                Border = if ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control]) { $node.BorderBrush } else { $null }
+                Bg = if (-not $isBgDynamic) { $node.Background } else { $null }
+                Fg = if (-not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) { $node.Foreground } else { $null }
+                Border = if (-not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) { $node.BorderBrush } else { $null }
             }
         }
         $orig = $script:OriginalBrushes[$id]
 
-        # Apply Light Background
-        if ($orig.Bg) {
+        # Apply Light Background for static properties
+        if ($orig.Bg -and -not $isBgDynamic) {
             $hex = Convert-BrushToHex $orig.Bg
             if ($hex -ne "TRANSPARENT" -and $script:ColorMapBgLight.ContainsKey($hex)) {
                 $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgLight[$hex])
@@ -361,14 +420,14 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
         }
 
         # Apply Light Foreground (protect primary/accent/danger/warning action buttons & badges)
-        if ($orig.Fg -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+        if ($orig.Fg -and -not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
             $isAccentHost = $false
             
-            # Check if this element or its parent button has an accent background
+            # Check if this element or its parent button or border has an accent background
             $checkBg = $node.Background
-            if (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Button]) {
+            if (-not $checkBg -and ($node.Parent -is [System.Windows.Controls.Button] -or $node.Parent -is [System.Windows.Controls.Border])) {
                 $checkBg = $node.Parent.Background
-            } elseif (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Panel] -and $node.Parent.Parent -is [System.Windows.Controls.Button]) {
+            } elseif (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Panel] -and ($node.Parent.Parent -is [System.Windows.Controls.Button] -or $node.Parent.Parent -is [System.Windows.Controls.Border])) {
                 $checkBg = $node.Parent.Parent.Background
             }
             if ($checkBg) {
@@ -387,7 +446,7 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
         }
 
         # Apply Light BorderBrush
-        if ($orig.Border -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+        if ($orig.Border -and -not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
             $hex = Convert-BrushToHex $orig.Border
             if ($hex -ne "TRANSPARENT" -and $script:ColorMapBorderLight.ContainsKey($hex)) {
                 $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderLight[$hex])
@@ -403,14 +462,14 @@ function Apply-ThemeNode ($node, [string]$targetTheme) {
             $node.VerticalGridLinesBrush = $script:BrushConverter.ConvertFromString("#E2E8F0")
         }
     } else {
-        # Restore Dark Mode from cached originals
+        # Restore Dark Mode from cached originals for static properties
         if ($script:OriginalBrushes.ContainsKey($id)) {
             $saved = $script:OriginalBrushes[$id]
-            if ($null -ne $saved.Bg) { $node.Background = $saved.Bg }
-            if ($null -ne $saved.Fg -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
+            if ($null -ne $saved.Bg -and -not $isBgDynamic) { $node.Background = $saved.Bg }
+            if ($null -ne $saved.Fg -and -not $isFgDynamic -and ($node -is [System.Windows.Controls.Control] -or $node -is [System.Windows.Controls.TextBlock])) {
                 $node.Foreground = $saved.Fg
             }
-            if ($null -ne $saved.Border -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
+            if ($null -ne $saved.Border -and -not $isBorderDynamic -and ($node -is [System.Windows.Controls.Border] -or $node -is [System.Windows.Controls.Control])) {
                 $node.BorderBrush = $saved.Border
             }
         }
@@ -2266,7 +2325,14 @@ function Open-UserDetailDialog {
     $dControls['ValSID'].Text            = $u.SID
     $dControls['ValDN'].Text             = $u.DistinguishedName
 
-    $dControls['ListGroups'].ItemsSource = $detail.Groups
+    if ($dControls['ListGroups']) {
+        $dControls['ListGroups'].ItemsSource = $null
+        $groupsList = [System.Collections.ArrayList]::new()
+        if ($detail.Groups) {
+            foreach ($g in $detail.Groups) { [void]$groupsList.Add($g) }
+        }
+        $dControls['ListGroups'].ItemsSource = $groupsList
+    }
 
     $dControls['BtnClose'].Add_Click({ $dlg.Close() })
     [void]$dlg.ShowDialog()
@@ -5985,7 +6051,7 @@ function Run-AuditReportsUI {
 
     if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($report.Title) - $($report.Description)" }
     if ($controls['TxtAuditCount']) { $controls['TxtAuditCount'].Text = "$($report.Count) Findings" }
-    if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = $report.Findings }
+    if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = @($report.Findings) }
 
     Set-Status -Message "Security audit finished. Found $($report.Count) item(s)." -Count "$($report.Count) findings"
 }
@@ -6301,7 +6367,7 @@ function Refresh-Schema {
             }
             $controls['GridSchema'].Columns.Add($col)
         }
-        $controls['GridSchema'].ItemsSource = $items
+        $controls['GridSchema'].ItemsSource = @($items)
     }
     Set-Status -Message "Schema loaded: $($items.Count) definition(s) displayed." -Count "$($items.Count) schema items"
 }
@@ -6410,8 +6476,8 @@ if ($controls['GridSchema']) {
                     $chain = if ($detail.InheritanceChain) { $detail.InheritanceChain } elseif ($sel.SubClassOf) { "$($sel.SubClassOf) ➔ $($sel.Name)" } else { "top" }
                     $controls['TxtSchemaDetailInheritance'].Text = $chain
                 }
-                if ($controls['ListSchemaMust']) { $controls['ListSchemaMust'].ItemsSource = $detail.MustContain }
-                if ($controls['ListSchemaMay']) { $controls['ListSchemaMay'].ItemsSource = $detail.MayContain }
+                if ($controls['ListSchemaMust']) { $controls['ListSchemaMust'].ItemsSource = @($detail.MustContain) }
+                if ($controls['ListSchemaMay']) { $controls['ListSchemaMay'].ItemsSource = @($detail.MayContain) }
             } else {
                 if ($controls['TxtSchemaDetailName']) { $controls['TxtSchemaDetailName'].Text = "$($sel.Name)" }
                 if ($controls['TxtSchemaDetailOID']) { $controls['TxtSchemaDetailOID'].Text = "$($sel.OID)" }
