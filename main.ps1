@@ -468,6 +468,10 @@ function Test-IsDynamicExpression ($node, $prop) {
 
 function Apply-ThemeNode ($node, [string]$targetTheme) {
     if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
+    # Search attribute outcome badge has dedicated theme management via Set-SearchAttrOutcomeBadge
+    if ($node.Name -in @('BorderSearchAttrOutcome', 'TxtSearchAttrOutcomeLabel', 'TxtSearchAttrOutcome')) {
+        return
+    }
     $id = $node.GetHashCode()
 
     $bgProp = switch ($node) {
@@ -725,6 +729,9 @@ function Set-ApplicationTheme {
     }
     if (Get-Command Update-WorkspaceTabStrip -ErrorAction SilentlyContinue) {
         Update-WorkspaceTabStrip
+    }
+    if (Get-Command Set-SearchAttrOutcomeBadge -ErrorAction SilentlyContinue) {
+        Set-SearchAttrOutcomeBadge
     }
 
     # 3. Update Quick Theme Toggle button
@@ -1982,6 +1989,9 @@ function Detach-PanelToWindow {
     }
 
     $state.DetachedWindows[$PanelName] = $detachedWindow
+    if ($PanelName -eq "DirectorySearch" -and (Get-Command Set-SearchAttrOutcomeBadge -ErrorAction SilentlyContinue)) {
+        Set-SearchAttrOutcomeBadge
+    }
 
     $btnDock = $detachedWindow.FindName("BtnDockBack")
     if ($btnDock) {
@@ -5184,6 +5194,95 @@ if ($controls['BtnExportComputers']) {
 #endregion
 
 #region 6. Directory Search (Visual LDAP Filter Builder)
+function global:Set-SearchAttrOutcomeBadge {
+    param(
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Info", "Match", "NoMatch")]
+        [string]$Status,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Message,
+
+        [System.Windows.Controls.Border]$OutcomeBorder = $null,
+        [System.Windows.Controls.TextBlock]$OutcomeText = $null,
+        [System.Windows.Controls.TextBlock]$OutcomeLabel = $null
+    )
+
+    if (-not $OutcomeBorder -and $controls -and $controls['BorderSearchAttrOutcome']) {
+        $OutcomeBorder = $controls['BorderSearchAttrOutcome']
+    }
+    if (-not $OutcomeText -and $controls -and $controls['TxtSearchAttrOutcome']) {
+        $OutcomeText = $controls['TxtSearchAttrOutcome']
+    }
+    if (-not $OutcomeLabel -and $controls -and $controls['TxtSearchAttrOutcomeLabel']) {
+        $OutcomeLabel = $controls['TxtSearchAttrOutcomeLabel']
+    }
+    if (-not $OutcomeLabel -and $OutcomeBorder) {
+        $OutcomeLabel = $OutcomeBorder.FindName("TxtSearchAttrOutcomeLabel")
+        if (-not $OutcomeLabel -and $OutcomeBorder.Child -and ($OutcomeBorder.Child -is [System.Windows.Controls.Panel])) {
+            foreach ($ch in $OutcomeBorder.Child.Children) {
+                if ($ch -is [System.Windows.Controls.TextBlock] -and $ch -ne $OutcomeText) {
+                    $OutcomeLabel = $ch
+                    break
+                }
+            }
+        }
+    }
+
+    if ($Status) {
+        $state.SearchAttrOutcomeStatus = $Status
+    } elseif ($state.SearchAttrOutcomeStatus) {
+        $Status = $state.SearchAttrOutcomeStatus
+    } else {
+        $Status = "Info"
+        $state.SearchAttrOutcomeStatus = "Info"
+    }
+
+    if ($PSBoundParameters.ContainsKey('Message')) {
+        $state.SearchAttrOutcomeMessage = $Message
+    } elseif ($state.SearchAttrOutcomeMessage) {
+        $Message = $state.SearchAttrOutcomeMessage
+    }
+
+    $isLight = ($state.CurrentTheme -eq "Light")
+
+    switch ($Status) {
+        "Match" {
+            $bgHex     = if ($isLight) { "#F0FDF4" } else { "#064E3B" }
+            $borderHex = if ($isLight) { "#BBF7D0" } else { "#065F46" }
+            $labelHex  = if ($isLight) { "#166534" } else { "#A7F3D0" }
+            $textHex   = if ($isLight) { "#15803D" } else { "#4ADE80" }
+        }
+        "NoMatch" {
+            $bgHex     = if ($isLight) { "#FEFCE8" } else { "#451A03" }
+            $borderHex = if ($isLight) { "#FEF08A" } else { "#78350F" }
+            $labelHex  = if ($isLight) { "#854D0E" } else { "#FDE68A" }
+            $textHex   = if ($isLight) { "#B45309" } else { "#FBBF24" }
+        }
+        default { # "Info"
+            $bgHex     = if ($isLight) { "#F0F9FF" } else { "#1E293B" }
+            $borderHex = if ($isLight) { "#BAE6FD" } else { "#334155" }
+            $labelHex  = if ($isLight) { "#075985" } else { "#94A3B8" }
+            $textHex   = if ($isLight) { "#0284C7" } else { "#38BDF8" }
+        }
+    }
+
+    $conv = [System.Windows.Media.BrushConverter]::new()
+    if ($OutcomeBorder) {
+        $OutcomeBorder.Background = $conv.ConvertFromString($bgHex)
+        $OutcomeBorder.BorderBrush = $conv.ConvertFromString($borderHex)
+    }
+    if ($OutcomeLabel) {
+        $OutcomeLabel.Foreground = $conv.ConvertFromString($labelHex)
+    }
+    if ($OutcomeText) {
+        if ($null -ne $Message) {
+            $OutcomeText.Text = $Message
+        }
+        $OutcomeText.Foreground = $conv.ConvertFromString($textHex)
+    }
+}
+
 function global:Filter-ComboAttributes {
     param(
         [System.Windows.Controls.ComboBox]$Combo,
@@ -5225,13 +5324,9 @@ function global:Filter-ComboAttributes {
                 $editBox.CaretIndex = 0
             }
 
-            if ($OutcomeText) {
-                $OutcomeText.Text = "Displaying all $($fullList.Count) attributes (type directly in dropdown to search)"
-                $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
-            }
-            if ($OutcomeBorder) {
-                $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
-            }
+            Set-SearchAttrOutcomeBadge -Status "Info" `
+                -Message "Displaying all $($fullList.Count) attributes (type directly in dropdown to search)" `
+                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
             return
         }
 
@@ -5264,19 +5359,15 @@ function global:Filter-ComboAttributes {
                 $editBox.CaretIndex = [Math]::Min($caret, $Query.Length)
             }
 
-            if ($OutcomeText) {
-                $plural = if ($matched.Count -eq 1) { "attribute" } else { "attributes" }
-                $preview = if ($matched.Count -le 3) {
-                    " ($([string]::Join(', ', $matched)))"
-                } else {
-                    " (e.g. $($matched[0]), $($matched[1]), $($matched[2])...)"
-                }
-                $OutcomeText.Text = "Found $($matched.Count) matching $plural for '$trimmed'$preview"
-                $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#4ADE80")
+            $plural = if ($matched.Count -eq 1) { "attribute" } else { "attributes" }
+            $preview = if ($matched.Count -le 3) {
+                " ($([string]::Join(', ', $matched)))"
+            } else {
+                " (e.g. $($matched[0]), $($matched[1]), $($matched[2])...)"
             }
-            if ($OutcomeBorder) {
-                $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#064E3B")
-            }
+            Set-SearchAttrOutcomeBadge -Status "Match" `
+                -Message "Found $($matched.Count) matching $plural for '$trimmed'$preview" `
+                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         } else {
             if ($null -eq $Combo.ItemsSource -and $Combo.Items.Count -gt 0) {
                 $Combo.Items.Clear()
@@ -5289,13 +5380,9 @@ function global:Filter-ComboAttributes {
                 $editBox.CaretIndex = [Math]::Min($caret, $Query.Length)
             }
 
-            if ($OutcomeText) {
-                $OutcomeText.Text = "No attributes matched '$trimmed' (custom attribute allowed)"
-                $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24")
-            }
-            if ($OutcomeBorder) {
-                $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#451A03")
-            }
+            Set-SearchAttrOutcomeBadge -Status "NoMatch" `
+                -Message "No attributes matched '$trimmed' (custom attribute allowed)" `
+                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         }
     }
     finally {
@@ -5456,13 +5543,9 @@ function Attach-SearchableAttributeDropdown {
 
         if (-not [string]::IsNullOrWhiteSpace($sel)) {
             $Combo.IsDropDownOpen = $false
-            if ($OutcomeText) {
-                $OutcomeText.Text = "Selected attribute: $sel (Ready to insert condition)"
-                $OutcomeText.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
-            }
-            if ($OutcomeBorder) {
-                $OutcomeBorder.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
-            }
+            Set-SearchAttrOutcomeBadge -Status "Info" `
+                -Message "Selected attribute: $sel (Ready to insert condition)" `
+                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         }
     }.GetNewClosure())
 }
@@ -5571,13 +5654,8 @@ function Populate-SearchAttributeDropdowns {
                 -IncludeAnyOption $true
         }
 
-        if ($controls['TxtSearchAttrOutcome']) {
-            $controls['TxtSearchAttrOutcome'].Text = "Displaying all $($allAttrNames.Count) attributes (type directly in dropdown to search)"
-            $controls['TxtSearchAttrOutcome'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
-        }
-        if ($controls['BorderSearchAttrOutcome']) {
-            $controls['BorderSearchAttrOutcome'].Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1E293B")
-        }
+        Set-SearchAttrOutcomeBadge -Status "Info" `
+            -Message "Displaying all $($allAttrNames.Count) attributes (type directly in dropdown to search)"
     }
     finally {
         $state.IsFilteringAttributes = $false

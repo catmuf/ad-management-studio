@@ -1862,7 +1862,7 @@
 
                                 <Border Name="BorderSearchAttrOutcome" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,5" VerticalAlignment="Center" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Outcome: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        <TextBlock Name="TxtSearchAttrOutcomeLabel" Text="Outcome: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold" VerticalAlignment="Center"/>
                                         <TextBlock Name="TxtSearchAttrOutcome" Text="Displaying all attributes (type directly in dropdown to search)" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
