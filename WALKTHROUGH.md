@@ -402,3 +402,61 @@ Header badge actively displaying Windows Principal security tokens (`🛡️ ELE
 - **Privacy Compliance**: Zero personal usernames found across all codebase files, diffs, and commits.
 - **Commit Author**: Set strictly to `Catmuf <catmuf@gmail.com>`.
 
+---
+
+## 2. Enterprise Identity, Schema & Automation Enhancements
+
+### A. Headless Batch Export & Automation CLI (`Export-ADToolCli.ps1`)
+* **Parity Benchmark**: Softerra LDAP Administrator `laimex.exe` command-line utility.
+* **Capabilities**:
+  - Full unattended batch export for CSV, LDIF, JSON, and RFC 7643 SCIM 2.0 formats.
+  - Arbitrary RFC 4515 LDAP search filters (`-Filter`), search base DN scoping (`-SearchBase`), and custom attribute projections (`-Attributes`).
+  - Supports argument file ingestion via PowerShell `@args.txt` parameter splatting.
+  - Native integration with `config.json` and automatic RootDSE naming context fallback when connected to domain controllers.
+
+### B. Kerberos PAC Token Size ($1200 + 40d + 8s$) & Bloat Forensics
+* **Parity Benchmark**: NetTools Token Size & Bloat Calculator.
+* **Architecture & Metrics**:
+  - Exact implementation of Microsoft's PAC token size equation:
+    $$\text{TokenSize} = 1200 + 40d + 8s$$
+    where $d$ represents Domain Local and intra-domain Universal groups, and $s$ represents Global groups, foreign security principals, and SID History items.
+  - Comprehensive operational threshold classification:
+    - *Healthy* ($< 12,000$ bytes)
+    - *Warning / Elevated* ($12,000 - 48,000$ bytes)
+    - *Critical / MaxTokenSize Limit Reached* ($\ge 48,000$ bytes or $> 1015$ total security groups)
+  - Dedicated 5-column metric dashboard in `PanelKerberosSuite` showing PAC Size, Domain Groups ($d$), Extra SIDs ($s$), Formula Breakdown, and Risk Badge.
+
+### C. SDProp Instant PDC Trigger & Bulk AdminSDHolder Remediation
+* **Parity Benchmark**: NetTools SDProp & Access Control Forensics.
+* **Architecture & Mechanics**:
+  - **Manual SDProp Trigger (`Invoke-ADSDPropTask`)**: Modifies `RootDSE` with operational attribute `runProtectAdminGroupTask=1` against the Primary Domain Controller (PDC) Emulator, forcing instantaneous propagation of AdminSDHolder DACLs without waiting for the default 60-minute background cycle.
+  - **Bulk Orphan Remediation (`Reset-AllAdminSDHolderOrphans`)**: Identifies all domain principals retaining orphaned `adminCount=1` flags and automatically clears the flag while resetting ACL inheritance flags (`SE_DACL_PROTECTED` -> inherited).
+
+### D. Dynamic Attribute Pattern Placeholder Engine
+* **Parity Benchmark**: Softerra LDAP Administrator Entry Creation & Bulk Modification Templates.
+* **Syntax**: `%[transform:]attrName[:length[:padChar]]%`
+* **Features**:
+  - Transforms: `lower:`, `upper:`, `cap:` (Capitalize first letter).
+  - Truncation & character limits: `:length`.
+  - Padding: `:padChar` (e.g. `%lower:givenName:1%%lower:sn:7:_ %`).
+  - Seamlessly integrated into `Invoke-ADBulkUpdate` and entry creation workflows.
+
+### E. Schema Inheritance Hierarchy & Reverse Usage Indexer
+* **Parity Benchmark**: Apache Directory Studio Schema Editor & NetTools Schema Class Browser.
+* **Features**:
+  - Superclass inheritance resolution traversal (`top` $\leftarrow$ parent $\leftarrow$ class) for all schema classes.
+  - Class category badges: `[Abs]` (Abstract), `[Str]` (Structural), `[Aux]` (Auxiliary), `[88]` (1988).
+  - Reverse attribute usage indexer (`Get-ADSchemaAttributeUsage`): Discovers all classes requiring (`mustContain`) or optionally referencing (`mayContain`) a given attribute.
+
+### F. Bidirectional SCIM 2.0 (RFC 7644) $\leftrightarrow$ LDAP (RFC 4515) Filter Translator
+* **Parity Benchmark**: Apache SCIMple & Cloud Identity Federation.
+* **Features**:
+  - Translates RFC 7644 SCIM operators (`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `ge`, `lt`, `le`, `and`, `or`, `not`) to RFC 4515 LDAP search filters.
+  - Bidirectional translation from LDAP filters back into RFC 7644 SCIM query filter syntax.
+  - Direct 1-click modal conversion assistant in Directory Search (`BtnConvertScim`).
+
+### G. Directory Basket Persistence & "Locate in Directory Tree" Jump-to
+* **Parity Benchmark**: Softerra LDAP Administrator Directory Basket & Apache Directory Studio Quick Locate.
+* **Features**:
+  - **"Keep Contents Across Sessions"**: Config-backed persistence of basket items in `config.json` with dynamic reload on launch.
+  - **"📍 Locate in Directory Tree"**: Context menu option across Users, Groups, Computers, Search Results, Basket, and Raw Attribute Grid to instantly navigate to the container OU in the tree view and highlight the object.

@@ -596,6 +596,234 @@ function Test-ADPasswordComplexity {
     return (Test-PasswordComplexity -Password $Password -MinLength $MinLength)
 }
 
+function Expand-ADAttributePattern {
+    <#
+    .SYNOPSIS
+        Expands template placeholder strings using Softerra-compatible pattern syntax.
+    .DESCRIPTION
+        Parses %[transform:]attr[:length[:pad]]% tokens against an attribute dictionary or object.
+        Supports lower:, upper:, cap: transforms, maximum character limits, and padding.
+    .EXAMPLE
+        Expand-ADAttributePattern -Pattern "%lower:givenName:1%%lower:sn:7:_ %" -Attributes @{ givenName="John"; sn="Doe" }
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Pattern,
+
+        [Parameter(Mandatory = $true)]
+        $Attributes
+    )
+
+    if ([string]::IsNullOrEmpty($Pattern)) { return "" }
+    if ($null -eq $Attributes) { return $Pattern }
+
+    # Helper to retrieve attribute value case-insensitively
+    $getAttrValue = {
+        param([string]$name)
+        if ($Attributes -is [System.Collections.IDictionary]) {
+            foreach ($key in $Attributes.Keys) {
+                if ($key -ieq $name) {
+                    $v = $Attributes[$key]
+                    if ($v -is [System.Collections.IEnumerable] -and $v -isnot [string]) {
+                        return ($v | Select-Object -First 1)
+                    }
+                    return [string]$v
+                }
+            }
+        } elseif ($Attributes -is [psobject]) {
+            $prop = $Attributes.PSObject.Properties | Where-Object { $_.Name -ieq $name } | Select-Object -First 1
+            if ($prop) {
+                $v = $prop.Value
+                if ($v -is [System.Collections.IEnumerable] -and $v -isnot [string]) {
+                    return ($v | Select-Object -First 1)
+                }
+                return [string]$v
+            }
+        }
+        return ""
+    }
+
+    # Match tokens: % ... %
+    $tokenRegex = [regex]::new('%([^%]+)%')
+    $result = $tokenRegex.Replace($Pattern, [System.Text.RegularExpressions.MatchEvaluator]{
+        param([System.Text.RegularExpressions.Match]$match)
+        $raw = $match.Groups[1].Value
+        if ([string]::IsNullOrWhiteSpace($raw)) { return "" }
+
+        # Check for transform prefix: lower:, upper:, cap:
+        $transform = $null
+        $body = $raw
+        if ($body -match '^(lower|upper|cap):(.*)$') {
+            $transform = $matches[1].ToLowerInvariant()
+            $body = $matches[2]
+        }
+
+        # Check for length and pad: attr[:length[:pad]]
+        $parts = $body.Split(':')
+        $attrName = $parts[0]
+        $maxLen = $null
+        $padChar = $null
+
+        if ($parts.Length -ge 2 -and [int]::TryParse($parts[1], [ref]$maxLen)) {
+            if ($parts.Length -ge 3) {
+                $padChar = $parts[2]
+            }
+        }
+
+        $val = & $getAttrValue $attrName
+        if ($null -eq $val) { $val = "" }
+
+        # Apply transform
+        switch ($transform) {
+            "lower" { $val = $val.ToLowerInvariant() }
+            "upper" { $val = $val.ToUpperInvariant() }
+            "cap" {
+                if ($val.Length -gt 0) {
+                    $val = [char]::ToUpperInvariant($val[0]) + (if ($val.Length -gt 1) { $val.Substring(1).ToLowerInvariant() } else { "" })
+                }
+            }
+        }
+
+        # Apply length limit
+        if ($null -ne $maxLen -and $maxLen -gt 0) {
+            if ($val.Length -gt $maxLen) {
+                $val = $val.Substring(0, $maxLen)
+            } elseif ($val.Length -lt $maxLen -and $null -ne $padChar -and $padChar.Length -gt 0) {
+                $diff = $maxLen - $val.Length
+                $padStr = [string]::Join("", (1..$diff | ForEach-Object { $padChar[0] }))
+                $val = $val + $padStr
+            }
+        }
+
+        return $val
+    })
+
+    return $result
+}
+
+function Normalize-LdapFilter {
+    <#
+    .SYNOPSIS
+        Normalizes, optimizes, and minifies an RFC 4515 LDAP search filter (Softerra Ctrl+R parity).
+    .DESCRIPTION
+        Eliminates duplicate sibling clauses, flattens redundant single-child nesting,
+        removes unnecessary grouping, and standardizes whitespace and operator syntax.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Filter
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Filter)) { return "" }
+    $trimmed = $Filter.Trim()
+
+    # Enforce basic parenthesized filter check
+    if (-not ($trimmed.StartsWith("(") -and $trimmed.EndsWith(")"))) {
+        $trimmed = "($trimmed)"
+    }
+
+    # Recursive AST simplifier
+    function Simplify-Branch {
+        param([string]$expr)
+        $expr = $expr.Trim()
+        if (-not ($expr.StartsWith("(") -and $expr.EndsWith(")"))) { return $expr }
+
+        $inner = $expr.Substring(1, $expr.Length - 2).Trim()
+        if ([string]::IsNullOrWhiteSpace($inner)) { return "" }
+
+        $op = $inner[0]
+        if ($op -eq '&' -or $op -eq '|') {
+            $children = [System.Collections.Generic.List[string]]::new()
+            $payload = $inner.Substring(1).Trim()
+            
+            # Parse top-level sibling clauses in payload
+            $depth = 0
+            $start = -1
+            for ($i = 0; $i -lt $payload.Length; $i++) {
+                if ($payload[$i] -eq '(') {
+                    if ($depth -eq 0) { $start = $i }
+                    $depth++
+                } elseif ($payload[$i] -eq ')') {
+                    $depth--
+                    if ($depth -eq 0 -and $start -ge 0) {
+                        $chunk = $payload.Substring($start, $i - $start + 1)
+                        $simplifiedChunk = Simplify-Branch $chunk
+                        if (-not [string]::IsNullOrWhiteSpace($simplifiedChunk)) {
+                            # If child has same operator as parent (e.g. & inside &), flatten its children directly
+                            if ($simplifiedChunk.StartsWith("($op") -and $simplifiedChunk.EndsWith(")")) {
+                                $subPayload = $simplifiedChunk.Substring(2, $simplifiedChunk.Length - 3).Trim()
+                                $subSimplified = Simplify-Branch "($op$subPayload)"
+                                # Extract subchildren
+                                $subDepth = 0; $subStart = -1
+                                for ($j = 0; $j -lt $subPayload.Length; $j++) {
+                                    if ($subPayload[$j] -eq '(') { if ($subDepth -eq 0) { $subStart = $j }; $subDepth++ }
+                                    elseif ($subPayload[$j] -eq ')') {
+                                        $subDepth--
+                                        if ($subDepth -eq 0 -and $subStart -ge 0) {
+                                            $children.Add($subPayload.Substring($subStart, $j - $subStart + 1))
+                                            $subStart = -1
+                                        }
+                                    }
+                                }
+                            } else {
+                                $children.Add($simplifiedChunk)
+                            }
+                        }
+                        $start = -1
+                    }
+                }
+            }
+
+            # Deduplicate identical clauses while preserving order
+            $uniqueChildren = [System.Collections.Generic.List[string]]::new()
+            $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($child in $children) {
+                if (-not $seen.Contains($child)) {
+                    [void]$seen.Add($child)
+                    $uniqueChildren.Add($child)
+                }
+            }
+
+            if ($uniqueChildren.Count -eq 0) { return "" }
+            if ($uniqueChildren.Count -eq 1) {
+                # Single child under & or | collapses to the child itself: (&(cn=A)) -> (cn=A)
+                return $uniqueChildren[0]
+            }
+
+            return "($op" + [string]::Join("", $uniqueChildren) + ")"
+        } elseif ($op -eq '!') {
+            $child = $inner.Substring(1).Trim()
+            $simplifiedChild = Simplify-Branch $child
+            if ([string]::IsNullOrWhiteSpace($simplifiedChild)) { return "" }
+            # Double negation: (!(!(cn=A))) -> (cn=A)
+            if ($simplifiedChild.StartsWith("(!") -and $simplifiedChild.EndsWith(")")) {
+                $grandChild = $simplifiedChild.Substring(2, $simplifiedChild.Length - 3).Trim()
+                return (Simplify-Branch $grandChild)
+            }
+            return "(!$simplifiedChild)"
+        }
+
+        # Terminal leaf item (e.g. cn=John, objectClass=user)
+        # Normalize whitespace around equal/relational operator
+        if ($inner -match '^([a-zA-Z0-9_\-\.\;]+)\s*(=|<=|>=|~=)\s*(.*)$') {
+            $attr = $matches[1]
+            $comp = $matches[2]
+            $val = $matches[3]
+            return "($attr$comp$val)"
+        }
+
+        return "($inner)"
+    }
+
+    try {
+        return (Simplify-Branch $trimmed)
+    } catch {
+        return $trimmed
+    }
+}
+
 Export-ModuleMember -Function `
     Remove-Diacritics, `
     New-SecurePassword, `
@@ -614,5 +842,7 @@ Export-ModuleMember -Function `
     Test-LdifSyntax, `
     Test-ADSamAccountName, `
     Test-ADEmail, `
-    Test-ADPasswordComplexity
+    Test-ADPasswordComplexity, `
+    Expand-ADAttributePattern, `
+    Normalize-LdapFilter
 

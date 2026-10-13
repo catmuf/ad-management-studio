@@ -177,12 +177,15 @@ function Test-KerberosSpnTicket {
 function Measure-ADUserTokenSize {
     <#
     .SYNOPSIS
-        Estimates the PAC access token size for an Active Directory user or computer.
+        Estimates the PAC access token size for an Active Directory user or computer (NetTools parity).
     .DESCRIPTION
         Uses Microsoft's Token Size formula:
         EstimatedTokenSize = 1200 + (40 * d) + (8 * s)
-        where d = direct and nested security groups in domain + universal groups,
-        s = cross-domain / security identifiers in SID History.
+        where:
+        d = Domain local groups + Universal groups in user's home domain (40 bytes each)
+        s = Global groups + Domain security principals + Foreign Universal groups + SID History (8 or 40 bytes)
+        InheritedSize = 40d + 8s
+        BaseOverhead = 1200 bytes
     .PARAMETER Identity
         SamAccountName or DistinguishedName of the user.
     #>
@@ -192,18 +195,23 @@ function Measure-ADUserTokenSize {
     )
 
     $result = [PSCustomObject]@{
-        Identity               = $Identity
-        SamAccountName         = ""
-        DirectGroupsCount      = 0
-        NestedGroupsCount      = 0
-        TotalSecurityGroups    = 0
-        SidHistoryCount        = 0
-        EstimatedTokenSizeBytes= 1200
-        MaxTokenSizeRegistry   = 48000
-        DefaultThresholdBytes  = 12000
-        BloatRiskLevel         = "Normal"
-        RiskDescription        = "Token size is within standard safe operational boundaries."
-        GroupsBreakdown        = [System.Collections.Generic.List[PSCustomObject]]::new()
+        Identity                = $Identity
+        SamAccountName          = ""
+        DirectGroupsCount       = 0
+        NestedGroupsCount       = 0
+        TotalSecurityGroups     = 0
+        DomainLocalAndUnivCount = 0 # d
+        GlobalAndForeignCount   = 0 # s
+        SidHistoryCount         = 0
+        BaseOverheadBytes       = 1200
+        InheritedTokenSizeBytes = 0
+        EstimatedTokenSizeBytes = 1200
+        MaxTokenSizeRegistry    = 48000
+        DefaultThresholdBytes   = 12000
+        BloatRiskLevel          = "Normal"
+        RiskBadge               = "Normal"
+        RiskDescription         = "Token size is within standard safe operational boundaries."
+        GroupsBreakdown         = [System.Collections.Generic.List[PSCustomObject]]::new()
     }
 
     try {
@@ -225,33 +233,65 @@ function Measure-ADUserTokenSize {
         $result.TotalSecurityGroups = $totalGroups
         $result.NestedGroupsCount = [Math]::Max(0, ($totalGroups - $result.DirectGroupsCount))
 
-        # Microsoft Token Size Formula: 1200 + (40 * d) + (8 * s)
-        $tokenSize = 1200 + (40 * $totalGroups) + (8 * $result.SidHistoryCount)
-        $result.EstimatedTokenSizeBytes = $tokenSize
+        # Decompose into d and s parameters
+        $dCount = 0
+        $sCount = 0
 
-        # Populate groups breakdown
         if ($tokenGroups) {
             foreach ($grp in $tokenGroups) {
                 $isDirect = ($directGroups -contains $grp.DistinguishedName)
+                $scope = if ($grp.GroupScope) { [string]$grp.GroupScope } else { "Global" }
+                
+                # In Microsoft formula:
+                # d = domain local + universal groups in home domain
+                # s = global groups + domain security principals + cross-domain universal
+                $isD = ($scope -match 'DomainLocal|Universal')
+                $bytes = if ($isD) { 40 } else { 8 }
+
+                if ($isD) { $dCount++ } else { $sCount++ }
+
                 $result.GroupsBreakdown.Add([PSCustomObject]@{
                     GroupName       = $grp.Name
-                    GroupScope      = $grp.GroupScope
+                    GroupScope      = $scope
+                    FormulaCategory = if ($isD) { "d (DomainLocal/Universal)" } else { "s (Global/Principal)" }
                     IsDirectMember  = $isDirect
-                    Contribution    = "40 bytes"
+                    Contribution    = "$bytes bytes"
+                    DistinguishedName = $grp.DistinguishedName
                 })
             }
+        } else {
+            $dCount = [int]($totalGroups * 0.4)
+            $sCount = $totalGroups - $dCount
         }
 
-        # Risk evaluation
-        if ($tokenSize -ge 32000) {
-            $result.BloatRiskLevel = "Critical (MaxTokenSize Limit Risk)"
-            $result.RiskDescription = "Token exceeds 32,000 bytes. High probability of logon failures, Kerberos ticket rejection, and HTTP 400 Bad Request errors on web applications."
+        # Add SID History to sCount
+        $sTotal = $sCount + $result.SidHistoryCount
+        $result.DomainLocalAndUnivCount = $dCount
+        $result.GlobalAndForeignCount = $sTotal
+
+        # Microsoft Token Size Formula: 1200 + (40 * d) + (8 * s)
+        $inheritedSize = (40 * $dCount) + (8 * $sTotal)
+        $tokenSize = 1200 + $inheritedSize
+        $result.InheritedTokenSizeBytes = $inheritedSize
+        $result.EstimatedTokenSizeBytes = $tokenSize
+
+        # Risk evaluation based on operational thresholds
+        if ($tokenSize -ge 48000 -or $totalGroups -ge 1015) {
+            $result.BloatRiskLevel = "Critical (MaxTokenSize Limit Reached)"
+            $result.RiskBadge = "Critical"
+            $result.RiskDescription = "Token exceeds 48,000 bytes or 1,015 groups. Authentication will fail completely across domain systems."
+        } elseif ($totalGroups -ge 300) {
+            $result.BloatRiskLevel = "Warning (SharePoint / Multi-Tier Bloat)"
+            $result.RiskBadge = "Warning"
+            $result.RiskDescription = "Account belongs to $($totalGroups) groups (>= 300). Prone to SharePoint token truncation, DCOM, and RPC buffer errors."
         } elseif ($tokenSize -ge 12000) {
-            $result.BloatRiskLevel = "Warning (Approaching Standard Threshold)"
-            $result.RiskDescription = "Token exceeds standard 12,000 bytes threshold. May cause HTTP authentication failures on default IIS / SharePoint servers without custom MaxTokenSize registry keys."
+            $result.BloatRiskLevel = "Warning (IIS HTTP 400 Buffer Risk)"
+            $result.RiskBadge = "Warning"
+            $result.RiskDescription = "Token ($tokenSize bytes) exceeds default 12,000 bytes threshold. May cause HTTP 400 Bad Request on IIS web servers without custom MaxFieldLength."
         } else {
             $result.BloatRiskLevel = "Healthy"
-            $result.RiskDescription = "Token size ($tokenSize bytes) is well below the 12,000 byte standard threshold."
+            $result.RiskBadge = "Healthy"
+            $result.RiskDescription = "Token size ($tokenSize bytes) is well below the standard 12,000 byte threshold ($($result.TotalSecurityGroups) security groups)."
         }
 
         $result | Add-Member -MemberType NoteProperty -Name "DomainGroupCount" -Value $result.TotalSecurityGroups -Force
@@ -266,9 +306,29 @@ function Measure-ADUserTokenSize {
         $result.NestedGroupsCount = 45
         $result.TotalSecurityGroups = 73
         $result.SidHistoryCount = 3
-        $result.EstimatedTokenSizeBytes = 1200 + (40 * 73) + (8 * 3)
+        $result.DomainLocalAndUnivCount = 31 # d
+        $result.GlobalAndForeignCount = 45   # s (42 global + 3 sid history)
+        $result.InheritedTokenSizeBytes = (40 * 31) + (8 * 45) # 1240 + 360 = 1600
+        $result.EstimatedTokenSizeBytes = 1200 + $result.InheritedTokenSizeBytes # 2800
         $result.BloatRiskLevel = "Healthy"
-        $result.RiskDescription = "Simulated evaluation: Token size is healthy ($($result.EstimatedTokenSizeBytes) bytes)."
+        $result.RiskBadge = "Healthy"
+        $result.RiskDescription = "Simulated evaluation: Token size is healthy ($($result.EstimatedTokenSizeBytes) bytes, $($result.TotalSecurityGroups) groups)."
+
+        # Mock sample groups breakdown
+        $sampleScopes = @("Global", "DomainLocal", "Universal")
+        for ($i = 1; $i -le 15; $i++) {
+            $sc = $sampleScopes[$i % 3]
+            $isD = ($sc -match 'DomainLocal|Universal')
+            $result.GroupsBreakdown.Add([PSCustomObject]@{
+                GroupName         = "SEC-Role-Level$i"
+                GroupScope        = $sc
+                FormulaCategory   = if ($isD) { "d (DomainLocal/Universal)" } else { "s (Global/Principal)" }
+                IsDirectMember    = ($i -le 6)
+                Contribution      = if ($isD) { "40 bytes" } else { "8 bytes" }
+                DistinguishedName = "CN=SEC-Role-Level$i,OU=Roles,DC=ad,DC=local"
+            })
+        }
+
         $result | Add-Member -MemberType NoteProperty -Name "DomainGroupCount" -Value 73 -Force
         $result | Add-Member -MemberType NoteProperty -Name "RiskLevel" -Value "Healthy" -Force
         return $result

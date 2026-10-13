@@ -72,6 +72,10 @@ function Get-AppSettings {
                 ObjectClass = "User"
             }
         )
+        Basket = [PSCustomObject]@{
+            KeepContents = $true
+            Items        = @()
+        }
     }
 
     if (Test-Path $ConfigPath) {
@@ -87,6 +91,12 @@ function Get-AppSettings {
                 if ($null -eq $jsonContent.UI.AllowMultiWindow) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AllowMultiWindow" -Value $true -Force }
                 if ($null -eq $jsonContent.UI.RestoreTabsOnStartup) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "RestoreTabsOnStartup" -Value $true -Force }
                 if (-not $jsonContent.UI.OpenTabs) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "OpenTabs" -Value @("Dashboard") -Force }
+            }
+            if (-not $jsonContent.Basket) {
+                $jsonContent | Add-Member -MemberType NoteProperty -Name "Basket" -Value $defaultConfig.Basket -Force
+            } else {
+                if ($null -eq $jsonContent.Basket.KeepContents) { $jsonContent.Basket | Add-Member -MemberType NoteProperty -Name "KeepContents" -Value $true -Force }
+                if (-not $jsonContent.Basket.Items) { $jsonContent.Basket | Add-Member -MemberType NoteProperty -Name "Items" -Value @() -Force }
             }
             if (-not $jsonContent.ExternalTools) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "ExternalTools" -Value $defaultConfig.ExternalTools -Force

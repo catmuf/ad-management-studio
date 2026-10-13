@@ -168,6 +168,19 @@ $state = [PSCustomObject]@{
     }
 }
 
+if ($appConfig.Basket -and ($appConfig.Basket.KeepContents -ne $false) -and $appConfig.Basket.Items) {
+    foreach ($it in $appConfig.Basket.Items) {
+        $state.BasketItems.Add([PSCustomObject]@{
+            Class             = if ($it.Class) { $it.Class } else { "Object" }
+            Name              = if ($it.Name) { $it.Name } else { "" }
+            SamAccountName    = if ($it.SamAccountName) { $it.SamAccountName } else { "--" }
+            Status            = if ($it.Status) { $it.Status } else { "Active" }
+            OUPath            = if ($it.OUPath) { $it.OUPath } else { "--" }
+            DistinguishedName = if ($it.DistinguishedName) { $it.DistinguishedName } else { "" }
+        })
+    }
+}
+
 # Master Directory & Tools Catalog for Tabs, Detached Windows, and Navigation
 $global:PanelCatalog = [ordered]@{
     'Dashboard'            = [PSCustomObject]@{ Title = 'Dashboard';            Icon = '📊'; Category = 'Directory Services'; ToolTip = 'Overview & directory health dashboard' }
@@ -4749,6 +4762,91 @@ if ($controls['BtnGroupRawAttributes']) {
 #endregion
 
 #region 4. Organizational Units (OUs) Management Logic
+function Navigate-ToDirectoryObject {
+    param (
+        [string]$DistinguishedName
+    )
+    if ([string]::IsNullOrWhiteSpace($DistinguishedName)) { return }
+    $dn = $DistinguishedName.Trim()
+
+    try {
+        $targetOU = $null
+        $targetName = $null
+        if ($dn -match '^(?:CN|OU)=([^,]+),(.*)$') {
+            $targetName = $matches[1]
+            $parentCandidate = $matches[2]
+            if ($dn -match '^OU=') {
+                $targetOU = $dn
+            } else {
+                $targetOU = $parentCandidate
+            }
+        } else {
+            $targetOU = $dn
+        }
+
+        # Switch to OUs panel
+        Show-Panel "OUs"
+        if ($controls['NavOUs']) { $controls['NavOUs'].IsChecked = $true }
+
+        if (-not $state.CachedOUTree -or ($controls['TreeOUs'] -and -not $controls['TreeOUs'].ItemsSource)) {
+            Refresh-OUs
+        }
+
+        function Find-NodeByDNRecursive ($nodes, [string]$searchDN) {
+            if (-not $nodes) { return $null }
+            foreach ($n in $nodes) {
+                if ($n.DistinguishedName -and $n.DistinguishedName -ieq $searchDN) { return $n }
+                if ($n.Children) {
+                    $found = Find-NodeByDNRecursive $n.Children $searchDN
+                    if ($found) { return $found }
+                }
+            }
+            return $null
+        }
+
+        $matchedNode = Find-NodeByDNRecursive $state.CachedOUTree $targetOU
+        if (-not $matchedNode -and $targetOU -ne $dn) {
+            $matchedNode = Find-NodeByDNRecursive $state.CachedOUTree $dn
+        }
+
+        if ($matchedNode -and $controls['TreeOUs']) {
+            if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $matchedNode.Name }
+            if ($controls['TxtSelectedOUDN'])   { $controls['TxtSelectedOUDN'].Text   = $matchedNode.DistinguishedName }
+
+            try {
+                $scope = "OneLevel"
+                if ($controls['CmbOUSearchScope'] -and $controls['CmbOUSearchScope'].SelectedItem) {
+                    $scope = $controls['CmbOUSearchScope'].SelectedItem.Content.ToString()
+                }
+                $rawItems = Get-ADObjectsInOU -SearchBase $matchedNode.DistinguishedName -SearchScope $scope
+                $flatItems = @($rawItems | ForEach-Object { $_ })
+                if ($controls['GridOUObjects']) {
+                    $controls['GridOUObjects'].ItemsSource = $flatItems
+                    Sync-DataGridColumnsProperties -DataGrid $controls['GridOUObjects']
+
+                    foreach ($row in $flatItems) {
+                        if ($row.DistinguishedName -ieq $dn -or ($targetName -and ($row.Name -ieq $targetName -or $row.SamAccountName -ieq $targetName))) {
+                            $controls['GridOUObjects'].SelectedItem = $row
+                            $controls['GridOUObjects'].ScrollIntoView($row)
+                            break
+                        }
+                    }
+                }
+                if ($controls['TxtSelectedOUObjectsCount']) {
+                    $controls['TxtSelectedOUObjectsCount'].Text = "$($flatItems.Count) object(s)"
+                }
+                Set-Status -Message "Navigated to $dn in Directory Tree."
+            } catch {
+                Set-Status -Message "Loaded target container $targetOU."
+            }
+        } else {
+            Set-Status -Message "Located object in directory: $dn"
+        }
+    } catch {
+        Set-Status -Message "Navigation failed: $($_.Exception.Message)"
+    }
+}
+
 function Filter-OUTreeNodes {
     param ([string]$Query)
     if ([string]::IsNullOrWhiteSpace($Query)) {
@@ -6132,6 +6230,37 @@ if ($controls['BtnVerifyFilterSyntax']) {
     })
 }
 
+if ($controls['BtnNormalizeFilter']) {
+    $controls['BtnNormalizeFilter'].Add_Click({
+        $filter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($filter)) { return }
+        $normalized = Normalize-LdapFilter -Filter $filter
+        if ($controls['TxtRawLdapFilter']) {
+            $controls['TxtRawLdapFilter'].Text = $normalized
+        }
+        Set-Status -Message "Normalized LDAP filter (Softerra Ctrl+R parity)."
+    })
+}
+
+if ($controls['BtnConvertScim']) {
+    $controls['BtnConvertScim'].Add_Click({
+        $currFilter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "(objectClass=user)" }
+        $scimEquiv = Convert-LdapFilterToScim -LdapFilter $currFilter
+        $userPrompt = [Microsoft.VisualBasic.Interaction]::InputBox(
+            "RFC 7644 SCIM 2.0 ↔ RFC 4515 LDAP Filter Translator`r`n`r`nEquivalent SCIM 2.0 query for current LDAP filter:`r`n$scimEquiv`r`n`r`nEnter a SCIM filter to translate to LDAP, or press OK to keep active:",
+            "SCIM 2.0 Filter Translator",
+            $scimEquiv
+        )
+        if (-not [string]::IsNullOrWhiteSpace($userPrompt) -and $userPrompt -ne $scimEquiv) {
+            $translatedLdap = Convert-ScimFilterToLdap -ScimFilter $userPrompt
+            if ($controls['TxtRawLdapFilter']) {
+                $controls['TxtRawLdapFilter'].Text = $translatedLdap
+                Set-Status -Message "Translated SCIM filter to LDAP: $translatedLdap"
+            }
+        }
+    })
+}
+
 if ($controls['TxtRawLdapFilter']) {
     $controls['TxtRawLdapFilter'].Add_TextChanged({
         $filter = $controls['TxtRawLdapFilter'].Text.Trim()
@@ -6149,7 +6278,16 @@ if ($controls['TxtRawLdapFilter']) {
 if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ Invoke-LdapSearchUI }) }
 if ($controls['TxtRawLdapFilter']) {
     $controls['TxtRawLdapFilter'].Add_KeyDown({
-        if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Invoke-LdapSearchUI }
+        if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
+            Invoke-LdapSearchUI
+        } elseif ($_.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+            $filter = $controls['TxtRawLdapFilter'].Text.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($filter)) {
+                $controls['TxtRawLdapFilter'].Text = Normalize-LdapFilter -Filter $filter
+                Set-Status -Message "Normalized LDAP filter via Ctrl+R."
+            }
+            $_.Handled = $true
+        }
     })
 }
 
@@ -7215,6 +7353,22 @@ if ($controls['MenuCtxSearchAttrValue']) {
     })
 }
 
+if ($controls['MenuCtxLocateInTree']) {
+    $controls['MenuCtxLocateInTree'].Add_Click({
+        $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($sel -and $sel.Value) {
+            $val = "$($sel.Value)".Trim()
+            if ($val -match '(?:CN|OU)=.+?,DC=') {
+                Navigate-ToDirectoryObject -DistinguishedName $val
+            } elseif ($controls['TxtAttrEditorDN'] -and $controls['TxtAttrEditorDN'].Text) {
+                Navigate-ToDirectoryObject -DistinguishedName $controls['TxtAttrEditorDN'].Text.Trim()
+            }
+        } elseif ($controls['TxtAttrEditorDN'] -and $controls['TxtAttrEditorDN'].Text) {
+            Navigate-ToDirectoryObject -DistinguishedName $controls['TxtAttrEditorDN'].Text.Trim()
+        }
+    })
+}
+
 if ($controls['MenuCtxViewAttrSchema']) {
     $controls['MenuCtxViewAttrSchema'].Add_Click({
         $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
@@ -7947,11 +8101,13 @@ function Refresh-Schema {
         $controls['GridSchema'].Columns.Clear()
         if ($isClasses) {
             $colDefs = @(
-                @{ Header = "Class Name"; Binding = "Name"; Width = 190 },
+                @{ Header = "Badge"; Binding = "CategoryBadge"; Width = 70 },
+                @{ Header = "Class Name"; Binding = "Name"; Width = 180 },
+                @{ Header = "Category"; Binding = "CategoryName"; Width = 110 },
                 @{ Header = "Subclass Of"; Binding = "SubClassOf"; Width = 140 },
-                @{ Header = "OID (governsID)"; Binding = "OID"; Width = 200 },
-                @{ Header = "Mandatory"; Binding = "MandatoryCount"; Width = 90 },
-                @{ Header = "Optional"; Binding = "OptionalCount"; Width = 90 },
+                @{ Header = "OID (governsID)"; Binding = "OID"; Width = 190 },
+                @{ Header = "Mandatory"; Binding = "MandatoryCount"; Width = 80 },
+                @{ Header = "Optional"; Binding = "OptionalCount"; Width = 80 },
                 @{ Header = "Distinguished Name"; Binding = "DistinguishedName"; Width = 1 }
             )
         } else {
@@ -8077,26 +8233,47 @@ if ($controls['GridSchema']) {
         if ($sel) {
             $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
             if ($isClasses) {
+                $hier = Get-ADSchemaClassHierarchy -ClassName $sel.Name
                 $detail = Get-ADSchemaClassDetail -ClassName $sel.Name
                 if ($controls['TxtSchemaDetailName']) { $controls['TxtSchemaDetailName'].Text = if ($detail.Name) { $detail.Name } else { "$($sel.Name)" } }
                 if ($controls['TxtSchemaDetailOID']) { $controls['TxtSchemaDetailOID'].Text = if ($detail.OID) { $detail.OID } else { "$($sel.OID)" } }
-                if ($controls['TxtSchemaDetailCategory']) { $controls['TxtSchemaDetailCategory'].Text = if ($detail.ClassType) { $detail.ClassType } else { "Structural Class" } }
+                if ($controls['TxtSchemaDetailCategory']) {
+                    $catText = if ($sel.CategoryName) { "$($sel.CategoryBadge) $($sel.CategoryName)" } elseif ($detail.ClassType) { $detail.ClassType } else { "Structural Class" }
+                    $controls['TxtSchemaDetailCategory'].Text = $catText
+                }
                 if ($controls['TxtSchemaDetailInheritance']) {
-                    $chain = if ($detail.InheritanceChain) { $detail.InheritanceChain } elseif ($sel.SubClassOf) { "$($sel.SubClassOf) ➔ $($sel.Name)" } else { "top" }
+                    $chain = if ($hier -and $hier.ChainString) { $hier.ChainString } elseif ($detail.InheritanceChain) { $detail.InheritanceChain } elseif ($sel.SubClassOf) { "top ➔ $($sel.SubClassOf) ➔ $($sel.Name)" } else { "top" }
                     $controls['TxtSchemaDetailInheritance'].Text = $chain
                 }
                 if ($controls['ListSchemaMust']) { $controls['ListSchemaMust'].ItemsSource = @($detail.MustContain) }
                 if ($controls['ListSchemaMay']) { $controls['ListSchemaMay'].ItemsSource = @($detail.MayContain) }
             } else {
+                $usage = Get-ADSchemaAttributeUsage -AttributeName $sel.Name
                 if ($controls['TxtSchemaDetailName']) { $controls['TxtSchemaDetailName'].Text = "$($sel.Name)" }
                 if ($controls['TxtSchemaDetailOID']) { $controls['TxtSchemaDetailOID'].Text = "$($sel.OID)" }
                 if ($controls['TxtSchemaDetailCategory']) { $controls['TxtSchemaDetailCategory'].Text = "Attribute Type" }
                 if ($controls['TxtSchemaDetailInheritance']) { $controls['TxtSchemaDetailInheritance'].Text = "Syntax: $($sel.Syntax)" }
                 if ($controls['ListSchemaMust']) {
-                    $controls['ListSchemaMust'].ItemsSource = @("Single-Valued: $($sel.IsSingleValued)", "Global Catalog: $($sel.InGlobalCatalog)")
+                    $mustItems = [System.Collections.Generic.List[string]]::new()
+                    $mustItems.Add("--- REQUIRED BY (MUST) ---")
+                    if ($usage -and $usage.MustUsedBy -and $usage.MustUsedBy.Count -gt 0) {
+                        foreach ($cls in $usage.MustUsedBy) { $mustItems.Add($cls) }
+                    } else {
+                        $mustItems.Add("(None)")
+                    }
+                    $mustItems.Add("Single-Valued: $($sel.IsSingleValued)")
+                    $controls['ListSchemaMust'].ItemsSource = @($mustItems)
                 }
                 if ($controls['ListSchemaMay']) {
-                    $controls['ListSchemaMay'].ItemsSource = @("Distinguished Name: $($sel.DistinguishedName)")
+                    $mayItems = [System.Collections.Generic.List[string]]::new()
+                    $mayItems.Add("--- OPTIONAL IN (MAY) ---")
+                    if ($usage -and $usage.MayUsedBy -and $usage.MayUsedBy.Count -gt 0) {
+                        foreach ($cls in $usage.MayUsedBy) { $mayItems.Add($cls) }
+                    } else {
+                        $mayItems.Add("(None)")
+                    }
+                    $mayItems.Add("In Global Catalog: $($sel.InGlobalCatalog)")
+                    $controls['ListSchemaMay'].ItemsSource = @($mayItems)
                 }
             }
         }
@@ -8153,6 +8330,32 @@ $($bulkRes.Log -join "`r`n")
 #endregion
 
 #region 14. Directory Basket Engine Logic (Softerra Parity)
+function Save-BasketPersistence {
+    if (-not $appConfig) { return }
+    if (-not $appConfig.Basket) {
+        $appConfig.Basket = @{ KeepContents = $true; Items = @() }
+    }
+    $keep = if ($controls['ChkKeepBasketContents']) { [bool]$controls['ChkKeepBasketContents'].IsChecked } elseif ($null -ne $appConfig.Basket.KeepContents) { [bool]$appConfig.Basket.KeepContents } else { $true }
+    $appConfig.Basket.KeepContents = $keep
+    if ($keep -and $state.BasketItems) {
+        $itemsArr = @()
+        foreach ($b in $state.BasketItems) {
+            $itemsArr += @{
+                Class             = $b.Class
+                Name              = $b.Name
+                SamAccountName    = $b.SamAccountName
+                Status            = $b.Status
+                OUPath            = $b.OUPath
+                DistinguishedName = $b.DistinguishedName
+            }
+        }
+        $appConfig.Basket.Items = $itemsArr
+    } else {
+        $appConfig.Basket.Items = @()
+    }
+    Save-AppConfig -Config $appConfig
+}
+
 function Refresh-BasketUI {
     if ($controls['GridBasket']) {
         $controls['GridBasket'].ItemsSource = $null
@@ -8165,6 +8368,13 @@ function Refresh-BasketUI {
     if ($controls['TxtNavBasketLabel']) {
         $controls['TxtNavBasketLabel'].Text = "Directory Basket ($cnt)"
     }
+    Save-BasketPersistence
+}
+
+if ($controls['ChkKeepBasketContents']) {
+    $controls['ChkKeepBasketContents'].IsChecked = if ($appConfig.Basket -and $null -ne $appConfig.Basket.KeepContents) { [bool]$appConfig.Basket.KeepContents } else { $true }
+    $controls['ChkKeepBasketContents'].Add_Checked({ Save-BasketPersistence })
+    $controls['ChkKeepBasketContents'].Add_Unchecked({ Save-BasketPersistence })
 }
 
 function Add-ToBasket {
@@ -9219,6 +9429,12 @@ if ($controls['CtxUserMoveOU']) {
         if ($u) { Open-MoveOUDialog -ObjectDN $u.DistinguishedName }
     })
 }
+if ($controls['CtxUserLocateInTree']) {
+    $controls['CtxUserLocateInTree'].Add_Click({
+        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+        if ($u -and $u.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $u.DistinguishedName }
+    })
+}
 if ($controls['CtxUserRename']) {
     $controls['CtxUserRename'].Add_Click({
         $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
@@ -9392,6 +9608,12 @@ if ($controls['CtxGroupAddToBasket']) {
     $controls['CtxGroupAddToBasket'].Add_Click({
         $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
         if ($g) { Add-ObjectToBasket -DN $g.DistinguishedName -Name $g.Name -ObjectClass "group" }
+    })
+}
+if ($controls['CtxGroupLocateInTree']) {
+    $controls['CtxGroupLocateInTree'].Add_Click({
+        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+        if ($g -and $g.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $g.DistinguishedName }
     })
 }
 if ($controls['CtxGroupInspectAttr']) {
@@ -9675,6 +9897,12 @@ if ($controls['CtxCompAddToBasket']) {
         if ($c) { Add-ObjectToBasket -DN $c.DistinguishedName -Name $c.Name -ObjectClass "computer" }
     })
 }
+if ($controls['CtxCompLocateInTree']) {
+    $controls['CtxCompLocateInTree'].Add_Click({
+        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
+        if ($c -and $c.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $c.DistinguishedName }
+    })
+}
 if ($controls['CtxCompInspectAttr']) {
     $controls['CtxCompInspectAttr'].Add_Click({
         $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
@@ -9726,6 +9954,12 @@ if ($controls['CtxSearchAddToBasket']) {
     $controls['CtxSearchAddToBasket'].Add_Click({
         $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
         if ($s) { Add-ObjectToBasket -DN $s.DistinguishedName -Name ($s.DisplayName -or $s.Name -or $s.SamAccountName) -ObjectClass $s.ObjectClass }
+    })
+}
+if ($controls['CtxSearchLocateInTree']) {
+    $controls['CtxSearchLocateInTree'].Add_Click({
+        $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
+        if ($s -and $s.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $s.DistinguishedName }
     })
 }
 if ($controls['CtxSearchCopyDN']) {
@@ -9813,6 +10047,12 @@ if ($controls['CtxBasketCompare']) {
             if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $b.DistinguishedName }
             else { $controls['TxtCompareObjectB'].Text = $b.DistinguishedName }
         }
+    })
+}
+if ($controls['CtxBasketLocateInTree']) {
+    $controls['CtxBasketLocateInTree'].Add_Click({
+        $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
+        if ($b -and $b.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $b.DistinguishedName }
     })
 }
 if ($controls['CtxBasketRemove']) {
@@ -10502,6 +10742,25 @@ if ($controls['BtnAclCopySddl']) {
     })
 }
 
+$script:CurrentEffectivePerms = @()
+function Update-EffectiveAclGridFilter {
+    if (-not $controls['GridAclEffective']) { return }
+    $items = @($script:CurrentEffectivePerms)
+    if ($controls['RadEffFilterAllowed'] -and $controls['RadEffFilterAllowed'].IsChecked) {
+        $items = @($items | Where-Object { $_.IsGranted -eq $true })
+    } elseif ($controls['RadEffFilterDenied'] -and $controls['RadEffFilterDenied'].IsChecked) {
+        $items = @($items | Where-Object { $_.IsGranted -eq $false })
+    } elseif ($controls['RadEffFilterWrite'] -and $controls['RadEffFilterWrite'].IsChecked) {
+        $items = @($items | Where-Object { $_.CanWrite -eq $true })
+    }
+    $controls['GridAclEffective'].ItemsSource = $items
+}
+
+if ($controls['RadEffFilterAll'])     { $controls['RadEffFilterAll'].Add_Checked({ Update-EffectiveAclGridFilter }) }
+if ($controls['RadEffFilterAllowed']) { $controls['RadEffFilterAllowed'].Add_Checked({ Update-EffectiveAclGridFilter }) }
+if ($controls['RadEffFilterDenied'])  { $controls['RadEffFilterDenied'].Add_Checked({ Update-EffectiveAclGridFilter }) }
+if ($controls['RadEffFilterWrite'])   { $controls['RadEffFilterWrite'].Add_Checked({ Update-EffectiveAclGridFilter }) }
+
 if ($controls['BtnAclCalcEffective']) {
     $controls['BtnAclCalcEffective'].Add_Click({
         $target = if ($controls['TxtAclTargetDN']) { $controls['TxtAclTargetDN'].Text.Trim() } else { "" }
@@ -10513,7 +10772,8 @@ if ($controls['BtnAclCalcEffective']) {
         Set-Status -Message "Calculating effective permissions for $trustee on $target..."
         $effRes = Get-ADEffectivePermissions -Identity $target -Trustee $trustee
         if ($effRes) {
-            if ($controls['GridAclEffective']) { $controls['GridAclEffective'].ItemsSource = $effRes.Permissions }
+            $script:CurrentEffectivePerms = $effRes.Permissions
+            Update-EffectiveAclGridFilter
             if ($controls['TxtEffectiveStatus']) {
                 $controls['TxtEffectiveStatus'].Text = "Trustee: $($effRes.Trustee) | $($effRes.GrantedCount) Granted, $($effRes.DeniedCount) Denied"
             }
@@ -10548,6 +10808,52 @@ if ($controls['BtnFixAdminSdHolder']) {
                 if ($controls['BtnScanAdminSdHolder']) { $controls['BtnScanAdminSdHolder'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
             } else {
                 [System.Windows.MessageBox]::Show($fixRes.Message, "Remediation Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            }
+        }
+    })
+}
+
+if ($controls['BtnFixAllAdminSdHolder']) {
+    $controls['BtnFixAllAdminSdHolder'].Add_Click({
+        $confirm = [System.Windows.MessageBox]::Show(
+            "Batch remediate ALL detected AdminSDHolder orphans in the domain?`r`n`r`nThis will reset adminCount to 0 and re-enable ACL inheritance on all accounts that are no longer protected group members.",
+            "Confirm Batch Remediation",
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Warning
+        )
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            Set-Status -Message "Remediating all AdminSDHolder orphans..."
+            $res = Reset-AllAdminSDHolderOrphans
+            [System.Windows.MessageBox]::Show(
+                "Batch Remediation Summary:`r`nTotal Processed: $($res.RemediatedCount)`r`nSucceeded: $($res.SuccessCount)`r`nFailed: $($res.FailedCount)",
+                "Batch Remediation Complete",
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Information
+            )
+            if ($controls['BtnScanAdminSdHolder']) {
+                $controls['BtnScanAdminSdHolder'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+            }
+        }
+    })
+}
+
+if ($controls['BtnTriggerSdProp']) {
+    $controls['BtnTriggerSdProp'].Add_Click({
+        $confirm = [System.Windows.MessageBox]::Show(
+            "Immediately trigger the Security Descriptor Propagator (SDProp) background task on the PDC Emulator?`r`n`r`nThis forces AD to propagate AdminSDHolder ACLs and reset permissions across all protected accounts without waiting for the default 60-minute cycle.",
+            "Trigger SDProp Task",
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Question
+        )
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            Set-Status -Message "Invoking SDProp task on PDC Emulator..."
+            $res = Invoke-ADSDPropTask
+            if ($res.Success) {
+                [System.Windows.MessageBox]::Show($res.Message, "SDProp Task Triggered", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                Set-Status -Message "SDProp task triggered on $($res.TargetDC)."
+            } else {
+                [System.Windows.MessageBox]::Show($res.Message, "SDProp Trigger Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                Set-Status -Message "SDProp trigger failed: $($res.Message)"
             }
         }
     })
@@ -10694,11 +11000,12 @@ if ($controls['BtnCalcTokenSize']) {
         $tRes = Measure-ADUserTokenSize -Identity $user
         if ($tRes) {
             if ($controls['TxtTokenSizeBytes']) { $controls['TxtTokenSizeBytes'].Text = "$($tRes.EstimatedTokenSizeBytes.ToString('N0')) Bytes" }
-            if ($controls['TxtTokenDomainGroups']) { $controls['TxtTokenDomainGroups'].Text = $tRes.DomainGroupCount.ToString() }
-            if ($controls['TxtTokenExtraSids']) { $controls['TxtTokenExtraSids'].Text = $tRes.SidHistoryCount.ToString() }
+            if ($controls['TxtTokenDomainGroups']) { $controls['TxtTokenDomainGroups'].Text = "$($tRes.d_DomainLocalAndUniversal)" }
+            if ($controls['TxtTokenExtraSids']) { $controls['TxtTokenExtraSids'].Text = "$($tRes.s_GlobalAndForeignAndSidHistory)" }
+            if ($controls['TxtTokenFormulaSummary']) { $controls['TxtTokenFormulaSummary'].Text = if ($tRes.Formula) { $tRes.Formula } else { "1200 + 40d + 8s" } }
             if ($controls['TxtTokenRiskBadge']) {
                 $controls['TxtTokenRiskBadge'].Text = $tRes.RiskLevel
-                $riskColor = if ($tRes.RiskLevel -match 'Critical') { "#EF4444" } elseif ($tRes.RiskLevel -match 'Elevated') { "#F59E0B" } else { "#10B981" }
+                $riskColor = if ($tRes.RiskLevel -match 'Critical') { "#EF4444" } elseif ($tRes.RiskLevel -match 'Warning|Elevated') { "#F59E0B" } else { "#10B981" }
                 $controls['TxtTokenRiskBadge'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($riskColor)
             }
             if ($controls['GridTokenGroups']) { $controls['GridTokenGroups'].ItemsSource = $tRes.ContributingGroups }

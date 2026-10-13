@@ -1245,6 +1245,292 @@ function New-LdifChangeScript {
     return ($lines -join "`r`n")
 }
 
-Export-ModuleMember -Function Export-ADDataToCsv, Export-ADDataToLdif, Export-ADDataToJson, Export-ADSecurityAuditToHtml, Export-ADObjectToHtml, Get-ADObjectHtmlContent, Export-ADDataToDsml, Export-ADDataToScim, New-LdifChangeScript
+function Convert-ScimFilterToLdap {
+    <#
+    .SYNOPSIS
+        Translates an RFC 7644 SCIM 2.0 filter query into an RFC 4515 LDAP search filter.
+    .DESCRIPTION
+        Maps SCIM attributes (userName, emails, name.familyName, active, etc.) and operators
+        (eq, ne, co, sw, ew, pr, gt, ge, lt, le, and, or, not) into standard LDAP search filters.
+    .EXAMPLE
+        Convert-ScimFilterToLdap -ScimFilter 'userName sw "j" and emails co "@corp.com"'
+        # Output: (&(sAMAccountName=j*)(mail=*@corp.com*))
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$ScimFilter
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ScimFilter)) { return "(objectClass=*)" }
+    $f = $ScimFilter.Trim()
+
+    # Attribute translation dictionary
+    $attrMap = @{
+        "username"               = "sAMAccountName"
+        "displayname"            = "displayName"
+        "name.familyname"        = "sn"
+        "name.givenname"         = "givenName"
+        "name.formatted"         = "cn"
+        "emails"                 = "mail"
+        "emails.value"           = "mail"
+        "phonenumbers"           = "telephoneNumber"
+        "phonenumbers.value"     = "telephoneNumber"
+        "title"                  = "title"
+        "department"             = "department"
+        "organization"           = "company"
+        "employeenumber"         = "employeeID"
+        "manager"                = "manager"
+        "manager.value"          = "manager"
+        "addresses.streetaddress"= "streetAddress"
+        "addresses.locality"     = "l"
+        "addresses.region"       = "st"
+        "addresses.postalcode"   = "postalCode"
+        "addresses.country"      = "c"
+        "id"                     = "objectGUID"
+        "externalid"             = "employeeID"
+    }
+
+    # Handle value path brackets: emails[type eq "work" and value co "@corp.com"] -> simplify to emails.value co "@corp.com"
+    $f = [regex]::Replace($f, '(?i)(\w+)\[(?:[^\]]*\bvalue\s+(eq|co|sw|ew)\s+("[^"]+"))\]', '$1.value $2 $3')
+    $f = [regex]::Replace($f, '(?i)(\w+)\[(?:type\s+eq\s+"[^"]+")\]', '$1')
+
+    # Recursive SCIM expression translator
+    function Parse-ScimExpr {
+        param([string]$expr)
+        $expr = $expr.Trim()
+        if ([string]::IsNullOrWhiteSpace($expr)) { return "" }
+
+        # Check for top-level OR
+        $orParts = Split-ScimLogical $expr "or"
+        if ($orParts.Count -gt 1) {
+            $ldapSubs = $orParts | ForEach-Object { Parse-ScimExpr $_ } | Where-Object { $_ }
+            if ($ldapSubs.Count -eq 1) { return $ldapSubs[0] }
+            return "(|" + [string]::Join("", $ldapSubs) + ")"
+        }
+
+        # Check for top-level AND
+        $andParts = Split-ScimLogical $expr "and"
+        if ($andParts.Count -gt 1) {
+            $ldapSubs = $andParts | ForEach-Object { Parse-ScimExpr $_ } | Where-Object { $_ }
+            if ($ldapSubs.Count -eq 1) { return $ldapSubs[0] }
+            return "(&" + [string]::Join("", $ldapSubs) + ")"
+        }
+
+        # Check for NOT
+        if ($expr -match '^(?i)not\s*\((.+)\)$') {
+            $sub = Parse-ScimExpr $matches[1]
+            return "(!$sub)"
+        }
+        if ($expr -match '^(?i)not\s+(.+)$') {
+            $sub = Parse-ScimExpr $matches[1]
+            return "(!$sub)"
+        }
+
+        # Parenthesized group
+        if ($expr.StartsWith("(") -and $expr.EndsWith(")")) {
+            return (Parse-ScimExpr ($expr.Substring(1, $expr.Length - 2)))
+        }
+
+        # Special case: active eq true / false
+        if ($expr -match '^(?i)active\s+eq\s+true$') {
+            return "(!(userAccountControl:1.2.840.113556.1.4.803:=2))"
+        }
+        if ($expr -match '^(?i)active\s+eq\s+false$') {
+            return "(userAccountControl:1.2.840.113556.1.4.803:=2)"
+        }
+
+        # Comparison expression: <attr> <op> [<val>]
+        # e.g.: userName eq "john" or title pr
+        if ($expr -match '^(?i)([a-zA-Z0-9_\.\-]+)\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)(?:\s+(.+))?$') {
+            $scimAttr = $matches[1].ToLowerInvariant()
+            $op       = $matches[2].ToLowerInvariant()
+            $rawVal   = if ($matches[3]) { $matches[3].Trim().Trim('"').Trim("'") } else { "" }
+
+            $ldapAttr = if ($attrMap.ContainsKey($scimAttr)) { $attrMap[$scimAttr] } else { $matches[1] }
+
+            switch ($op) {
+                "eq" { return "($ldapAttr=$rawVal)" }
+                "ne" { return "(!($ldapAttr=$rawVal))" }
+                "co" { return "($ldapAttr=*$rawVal*)" }
+                "sw" { return "($ldapAttr=$rawVal*)" }
+                "ew" { return "($ldapAttr=*$rawVal)" }
+                "pr" { return "($ldapAttr=*)" }
+                "ge" { return "($ldapAttr>=$rawVal)" }
+                "le" { return "($ldapAttr<=$rawVal)" }
+                "gt" { return "(&($ldapAttr>=$rawVal)(!($ldapAttr=$rawVal)))" }
+                "lt" { return "(&($ldapAttr<=$rawVal)(!($ldapAttr=$rawVal)))" }
+            }
+        }
+
+        return "($expr)"
+    }
+
+    function Split-ScimLogical {
+        param([string]$text, [string]$op)
+        $result = [System.Collections.Generic.List[string]]::new()
+        $depth = 0
+        $inQuotes = $false
+        $lastIdx = 0
+
+        for ($i = 0; $i -lt $text.Length; $i++) {
+            $ch = $text[$i]
+            if ($ch -eq '"') { $inQuotes = -not $inQuotes }
+            elseif (-not $inQuotes) {
+                if ($ch -eq '(' -or $ch -eq '[') { $depth++ }
+                elseif ($ch -eq ')' -or $ch -eq ']') { $depth-- }
+                elseif ($depth -eq 0) {
+                    $sub = $text.Substring($i)
+                    if ($sub -match "^(?i)\s+$op\s+") {
+                        $chunk = $text.Substring($lastIdx, $i - $lastIdx).Trim()
+                        if ($chunk) { $result.Add($chunk) }
+                        $i += $matches[0].Length - 1
+                        $lastIdx = $i + 1
+                    }
+                }
+            }
+        }
+
+        $remaining = $text.Substring($lastIdx).Trim()
+        if ($remaining) { $result.Add($remaining) }
+        return $result
+    }
+
+    try {
+        $translated = Parse-ScimExpr $f
+        if (Get-Command Normalize-LdapFilter -ErrorAction SilentlyContinue) {
+            return (Normalize-LdapFilter -Filter $translated)
+        }
+        return $translated
+    }
+    catch {
+        return "($f)"
+    }
+}
+
+function Convert-LdapFilterToScim {
+    <#
+    .SYNOPSIS
+        Translates an RFC 4515 LDAP search filter into an RFC 7644 SCIM 2.0 query.
+    .EXAMPLE
+        Convert-LdapFilterToScim -LdapFilter "(&(sAMAccountName=j*)(mail=*@corp.com*))"
+        # Output: userName sw "j" and emails co "@corp.com"
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$LdapFilter
+    )
+
+    if ([string]::IsNullOrWhiteSpace($LdapFilter)) { return "" }
+    $f = $LdapFilter.Trim()
+
+    $revAttrMap = @{
+        "samaccountname"     = "userName"
+        "displayname"        = "displayName"
+        "sn"                 = "name.familyName"
+        "givenname"          = "name.givenName"
+        "cn"                 = "name.formatted"
+        "mail"               = "emails"
+        "telephonenumber"    = "phoneNumbers"
+        "title"              = "title"
+        "department"         = "department"
+        "company"            = "organization"
+        "employeeid"         = "employeeNumber"
+        "manager"            = "manager"
+    }
+
+    function Parse-LdapBranch {
+        param([string]$expr)
+        $expr = $expr.Trim()
+        if (-not ($expr.StartsWith("(") -and $expr.EndsWith(")"))) { return $expr }
+        $inner = $expr.Substring(1, $expr.Length - 2).Trim()
+
+        if ($inner.StartsWith("&")) {
+            $children = Extract-LdapChildren $inner.Substring(1)
+            $scimSubs = $children | ForEach-Object { Parse-LdapBranch $_ }
+            return [string]::Join(" and ", $scimSubs)
+        } elseif ($inner.StartsWith("|")) {
+            $children = Extract-LdapChildren $inner.Substring(1)
+            $scimSubs = $children | ForEach-Object { Parse-LdapBranch $_ }
+            return "(" + [string]::Join(" or ", $scimSubs) + ")"
+        } elseif ($inner.StartsWith("!")) {
+            $child = $inner.Substring(1).Trim()
+            $scimSub = Parse-LdapBranch $child
+            return "not ($scimSub)"
+        }
+
+        # Terminal leaf item: attr=val
+        if ($inner -match '^([a-zA-Z0-9_\-\.\;]+)\s*(=|<=|>=)\s*(.*)$') {
+            $attr = $matches[1].ToLowerInvariant()
+            $op = $matches[2]
+            $val = $matches[3]
+
+            $scimAttr = if ($revAttrMap.ContainsKey($attr)) { $revAttrMap[$attr] } else { $matches[1] }
+
+            if ($op -eq "=") {
+                if ($val -eq "*") { return "$scimAttr pr" }
+                if ($val.StartsWith("*") -and $val.EndsWith("*")) {
+                    $clean = $val.Substring(1, $val.Length - 2)
+                    return "$scimAttr co `"$clean`""
+                }
+                if ($val.EndsWith("*")) {
+                    $clean = $val.Substring(0, $val.Length - 1)
+                    return "$scimAttr sw `"$clean`""
+                }
+                if ($val.StartsWith("*")) {
+                    $clean = $val.Substring(1)
+                    return "$scimAttr ew `"$clean`""
+                }
+                return "$scimAttr eq `"$val`""
+            } elseif ($op -eq ">=") {
+                return "$scimAttr ge `"$val`""
+            } elseif ($op -eq "<=") {
+                return "$scimAttr le `"$val`""
+            }
+        }
+
+        return $inner
+    }
+
+    function Extract-LdapChildren {
+        param([string]$str)
+        $list = [System.Collections.Generic.List[string]]::new()
+        $depth = 0
+        $start = -1
+        for ($i = 0; $i -lt $str.Length; $i++) {
+            if ($str[$i] -eq '(') {
+                if ($depth -eq 0) { $start = $i }
+                $depth++
+            } elseif ($str[$i] -eq ')') {
+                $depth--
+                if ($depth -eq 0 -and $start -ge 0) {
+                    $list.Add($str.Substring($start, $i - $start + 1))
+                    $start = -1
+                }
+            }
+        }
+        return $list
+    }
+
+    try {
+        return (Parse-LdapBranch $f)
+    } catch {
+        return $f
+    }
+}
+
+Export-ModuleMember -Function `
+    Export-ADDataToCsv, `
+    Export-ADDataToLdif, `
+    Export-ADDataToJson, `
+    Export-ADSecurityAuditToHtml, `
+    Export-ADObjectToHtml, `
+    Get-ADObjectHtmlContent, `
+    Export-ADDataToDsml, `
+    Export-ADDataToScim, `
+    New-LdifChangeScript, `
+    Convert-ScimFilterToLdap, `
+    Convert-LdapFilterToScim
 
 

@@ -484,7 +484,21 @@ Active Directory Management Studio integrates complete operational parity with *
 ### 8.5. Universal "Use With..." Pivoting & Detached Grids
 - **"Use With..." Context Menu**: Right-click any row in the **Users**, **Groups**, **Computers**, or **Search Results** tables to instantly pivot to Effective Permissions, Token Bloat, Lockout Trace, or the Resolver Scratchpad.
 - **Detached Floating Grids**: Right-click any table and choose **Copy Grid to Detached Window** to clone the dataset into an independent floating window for multi-monitor workstations, featuring live filtering and CSV/HTML export.
-- **Elevation Telemetry Badge**: The top bar displays a live Windows Principal badge (`🛡️ ELEVATED (ADMIN)` vs `👤 STANDARD USER`), letting you know whether high-privilege event log queries and replication sync commands are supported in your current session.
+### 8.6. Headless CLI Automation & Advanced Identity Capabilities
+- **Headless Export Automation (`Export-ADToolCli.ps1`)**: Batch export Active Directory objects unattended without launching the GUI. Supports CSV, LDIF, JSON, and RFC 7643 SCIM 2.0 formats:
+  ```powershell
+  # Export active users to CSV
+  .\Export-ADToolCli.ps1 -Format CSV -FilePath "C:\Exports\users.csv" -Filter "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+  
+  # Export users to RFC 7643 SCIM 2.0 format
+  .\Export-ADToolCli.ps1 -Format SCIM -FilePath "C:\Exports\scim_users.json" -Filter "(department=Engineering)"
+  ```
+- **Instant SDProp PDC Trigger**: In **Security & ACLs**, click **⚡ Run SDProp Now (PDC)** to dispatch an operational task directly to the PDC Emulator (`runProtectAdminGroupTask=1`), enforcing AdminSDHolder security descriptor propagation immediately.
+- **Bulk AdminSDHolder Remediation**: Click **🛡️ Restore All Orphans** to automatically clear orphaned `adminCount=1` flags and re-enable DACL inheritance across all non-protected principals in the domain.
+- **SCIM ↔ LDAP Filter Translator**: Under **Directory Search**, use the **☁️ SCIM ↔ LDAP** dialog to convert RFC 7644 filter queries (`userName eq "john" and active eq true`) to RFC 4515 LDAP search filters and vice-versa.
+- **Schema Hierarchy & Reverse Usage**: Under **Schema Viewer**, selecting any class displays the complete inheritance tree (`top ➔ person ➔ organizationalPerson ➔ user`), while selecting any attribute reveals its reverse usage indexer (which classes require or optionally permit it).
+- **Directory Basket Persistence**: The Directory Basket supports **💾 Keep Contents Across Sessions**, automatically saving collected objects across different containers into `config.json` for ongoing batch operations.
+- **"📍 Locate in Directory Tree" Navigation**: Right-click any object in the Users, Groups, Computers, Search Results, Basket, or Raw Attribute grid to jump directly to its container OU in the tree view and highlight the object.
 
 ---
 

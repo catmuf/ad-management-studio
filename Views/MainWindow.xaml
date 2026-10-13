@@ -1285,6 +1285,7 @@
                                     <MenuItem Name="CtxUserUnlock" Style="{StaticResource ModernMenuItem}" Header="🔓 Unlock Account"/>
                                     <MenuItem Name="CtxUserToggleStatus" Style="{StaticResource ModernMenuItem}" Header="⚡ Toggle Enable / Disable"/>
                                     <MenuItem Name="CtxUserMoveOU" Style="{StaticResource ModernMenuItem}" Header="📂 Move to Another OU..."/>
+                                    <MenuItem Name="CtxUserLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                     <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                     <MenuItem Name="CtxUserCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
                                     <MenuItem Name="CtxUserCopyRdn" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Relative DN (RDN)"/>
@@ -1521,6 +1522,7 @@
                                 <MenuItem Name="CtxGroupCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxGroupAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxGroupLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                 <MenuItem Name="CtxGroupInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxGroupCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
@@ -1755,6 +1757,7 @@
                                 <MenuItem Name="CtxCompCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxCompAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxCompLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                 <MenuItem Name="CtxCompInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxCompCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
@@ -1903,13 +1906,17 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <TextBox Grid.Row="0" Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="34" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,8,0"/>
-                                <Button Grid.Row="0" Grid.Column="1" Name="BtnVerifyFilterSyntax" Style="{StaticResource ModernButton}" Height="34" Content="✓ Verify Filter" Margin="0,0,8,0" ToolTip="Validate RFC 4515 LDAP filter syntax"/>
-                                <Button Grid.Row="0" Grid.Column="2" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="34" Width="140" Padding="14,4" Content="🔍 Run Search"/>
+                                <Button Grid.Row="0" Grid.Column="1" Name="BtnNormalizeFilter" Style="{StaticResource ModernButton}" Height="34" Content="⚡ Normalize (Ctrl+R)" Margin="0,0,8,0" ToolTip="Simplify redundant nesting and deduplicate clauses (Softerra Ctrl+R parity)"/>
+                                <Button Grid.Row="0" Grid.Column="2" Name="BtnConvertScim" Style="{StaticResource ModernButton}" Height="34" Content="☁️ SCIM ↔ LDAP" Margin="0,0,8,0" ToolTip="Translate filter between RFC 7644 SCIM 2.0 and RFC 4515 LDAP"/>
+                                <Button Grid.Row="0" Grid.Column="3" Name="BtnVerifyFilterSyntax" Style="{StaticResource ModernButton}" Height="34" Content="✓ Verify Filter" Margin="0,0,8,0" ToolTip="Validate RFC 4515 LDAP filter syntax"/>
+                                <Button Grid.Row="0" Grid.Column="4" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="34" Width="140" Padding="14,4" Content="🔍 Run Search"/>
 
-                                <Border Grid.Row="1" Grid.ColumnSpan="3" Name="BorderFilterExplanation" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,6,0,0">
+                                <Border Grid.Row="1" Grid.ColumnSpan="5" Name="BorderFilterExplanation" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,6,0,0">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="💡 Filter Meaning: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold"/>
                                         <TextBlock Name="TxtFilterHumanExplanation" Text="All Active Directory user accounts" FontSize="11" Foreground="#38BDF8"/>
@@ -1959,6 +1966,7 @@
                             <ContextMenu Style="{StaticResource ModernContextMenu}">
                                 <MenuItem Name="CtxSearchInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxSearchAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxSearchLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxSearchCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
                                 <MenuItem Name="CtxSearchCopySam" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Username / RDN"/>
@@ -2106,6 +2114,7 @@
                                 <MenuItem Name="MenuCtxClearAttrValue" Style="{StaticResource ModernMenuItem}" Header="🗑️ Clear Attribute"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="MenuCtxSearchAttrValue" Style="{StaticResource ModernMenuItem}" Header="🔍 Search Directory for This Value"/>
+                                <MenuItem Name="MenuCtxLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate DN in Directory Tree"/>
                                 <MenuItem Name="MenuCtxViewAttrSchema" Style="{StaticResource ModernMenuItem}" Header="📖 View Attribute Schema Definition"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
@@ -2458,22 +2467,25 @@
                     </Grid.RowDefinitions>
 
                     <!-- Header & Information -->
-                    <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="🛒 Directory Basket (Cross-Tree Staging)" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
-                                <TextBlock Text="Stage objects from multiple OUs, searches, or categories into a unified workspace for batch operations, cross-container movement, and bulk export." FontSize="12" Foreground="#9CA3AF" Margin="0,4,0,0"/>
+                                <TextBlock Text="🛒 Directory Basket (Cross-Tree Staging)" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                <TextBlock Text="Stage objects from multiple OUs, searches, or categories into a unified workspace for batch operations, cross-container movement, and bulk export." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                             </StackPanel>
-                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="12,6" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Staged Objects: " FontSize="12" Foreground="#9CA3AF" FontWeight="Bold"/>
-                                    <TextBlock Name="TxtBasketCountBadge" Text="0 objects in basket" FontSize="12" Foreground="#38BDF8" FontWeight="Bold"/>
-                                </StackPanel>
-                            </Border>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Staged Objects: " FontSize="12" Foreground="{DynamicResource TextSecondary}" FontWeight="Bold"/>
+                                        <TextBlock Name="TxtBasketCountBadge" Text="0 objects in basket" FontSize="12" Foreground="#38BDF8" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <CheckBox Name="ChkKeepBasketContents" Content="💾 Keep Contents Across Sessions" IsChecked="True" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" ToolTip="Persist staged basket objects across application restarts"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -2495,6 +2507,7 @@
                             <ContextMenu Style="{StaticResource ModernContextMenu}">
                                 <MenuItem Name="CtxBasketInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxBasketCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
+                                <MenuItem Name="CtxBasketLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                 <MenuItem Name="CtxBasketRemove" Style="{StaticResource ModernMenuItem}" Header="✖ Remove from Basket"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxBasketCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
@@ -3180,14 +3193,22 @@
                                         <Grid Margin="4">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="*"/>
                                             </Grid.RowDefinitions>
                                             <TextBlock Grid.Row="0" Name="TxtEffectiveStatus" Text="Specify trustee and click 'Calculate Effective'" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="2,0,2,6"/>
-                                            <DataGrid Grid.Row="1" Name="GridAclEffective" Style="{StaticResource ModernDataGrid}">
+                                            <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                                <RadioButton Name="RadEffFilterAll" Style="{StaticResource FilterChip}" Content="All" IsChecked="True" Margin="0,0,4,4"/>
+                                                <RadioButton Name="RadEffFilterAllowed" Style="{StaticResource FilterChip}" Content="Granted" Margin="0,0,4,4"/>
+                                                <RadioButton Name="RadEffFilterDenied" Style="{StaticResource FilterChip}" Content="Denied" Margin="0,0,4,4"/>
+                                                <RadioButton Name="RadEffFilterWrite" Style="{StaticResource FilterChip}" Content="Write" Margin="0,0,4,4"/>
+                                            </WrapPanel>
+                                            <DataGrid Grid.Row="2" Name="GridAclEffective" Style="{StaticResource ModernDataGrid}">
                                                 <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="Right" Binding="{Binding RightName}" Width="140"/>
-                                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="80"/>
-                                                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*"/>
+                                                    <DataGridTextColumn Header="Right / Permission" Binding="{Binding RightName}" Width="150"/>
+                                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="95"/>
+                                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="75"/>
+                                                    <DataGridTextColumn Header="Source Trustee" Binding="{Binding SourceTrustee}" Width="*"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                         </Grid>
@@ -3215,7 +3236,9 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button Name="BtnScanAdminSdHolder" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Scan Domain Orphans" Margin="0,0,8,0"/>
-                                            <Button Name="BtnFixAdminSdHolder" Style="{StaticResource DangerButton}" Height="30" Content="⚡ 1-Click Restore Inheritance" ToolTip="Reset adminCount to 0 and re-enable ACL inheritance for selected orphan"/>
+                                            <Button Name="BtnFixAdminSdHolder" Style="{StaticResource DangerButton}" Height="30" Content="⚡ Restore Selected" Margin="0,0,8,0" ToolTip="Reset adminCount to 0 and re-enable ACL inheritance for selected orphan"/>
+                                            <Button Name="BtnFixAllAdminSdHolder" Style="{StaticResource DangerButton}" Height="30" Content="🛡️ Restore All Orphans" Margin="0,0,8,0" ToolTip="Batch remediate all detected AdminSDHolder orphans in domain"/>
+                                            <Button Name="BtnTriggerSdProp" Style="{StaticResource ModernButton}" Height="30" Content="⚡ Run SDProp Now (PDC)" ToolTip="Immediately force Security Descriptor Propagator (SDProp) on the PDC emulator via RootDSE runProtectAdminGroupTask=1"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -3411,27 +3434,34 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
                                     <Border Grid.Column="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,4,0">
                                         <StackPanel>
-                                            <TextBlock Text="Estimated Token Size" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Text="Estimated PAC Size" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                             <TextBlock Name="TxtTokenSizeBytes" Text="-- Bytes" FontSize="18" FontWeight="Bold" Foreground="#38BDF8" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Column="1" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,4,0">
                                         <StackPanel>
-                                            <TextBlock Text="Domain Groups" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Text="Domain / Universal (d)" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                             <TextBlock Name="TxtTokenDomainGroups" Text="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Column="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,4,0">
                                         <StackPanel>
-                                            <TextBlock Text="Extra / SID History" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Text="Global / SID History (s)" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                             <TextBlock Name="TxtTokenExtraSids" Text="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Grid.Column="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,0,0">
+                                    <Border Grid.Column="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,4,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Token PAC Formula" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Name="TxtTokenFormulaSummary" Text="1200 + 40d + 8s" FontSize="13" FontWeight="Bold" FontFamily="Consolas" Foreground="#93C5FD" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="4" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,0,0,0">
                                         <StackPanel>
                                             <TextBlock Text="HTTP 400 Risk Level" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                             <TextBlock Name="TxtTokenRiskBadge" Text="Normal (OK)" FontSize="16" FontWeight="Bold" Foreground="#10B981" Margin="0,4,0,0"/>

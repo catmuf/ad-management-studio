@@ -457,14 +457,16 @@ function Get-ADEffectivePermissions {
         }
 
         $effList = [System.Collections.Generic.List[PSCustomObject]]::new()
-        $effList.Add([PSCustomObject]@{ RightName = "Full Control"; StatusBadge = if ($result.FullControl) { "Granted" } else { "Not Granted" }; Source = if ($result.FullControl) { "Administrative Delegation" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Read All Properties"; StatusBadge = if ($result.ReadGeneric) { "Granted" } else { "Not Granted" }; Source = if ($result.ReadGeneric) { "Generic Read / Trustee Token" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Write All Properties"; StatusBadge = if ($result.WriteGeneric) { "Granted" } else { "Not Granted" }; Source = if ($result.WriteGeneric) { "Generic Write / Trustee Token" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Reset Password"; StatusBadge = if ($result.ResetPassword) { "Granted" } else { "Not Granted" }; Source = if ($result.ResetPassword) { "Password Reset Delegation" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Delete Object / Tree"; StatusBadge = if ($result.Delete) { "Granted" } else { "Not Granted" }; Source = if ($result.Delete) { "Delete Child / Subtree" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Modify DACL (Write DACL)"; StatusBadge = if ($result.ModifyPermissions) { "Granted" } else { "Not Granted" }; Source = if ($result.ModifyPermissions) { "Write Permissions" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "Take Ownership"; StatusBadge = if ($result.TakeOwnership) { "Granted" } else { "Not Granted" }; Source = if ($result.TakeOwnership) { "Write Owner" } else { "None" } })
-        $effList.Add([PSCustomObject]@{ RightName = "DCSync Rights"; StatusBadge = if ($result.DCSyncRights) { "Granted" } else { "Not Granted" }; Source = if ($result.DCSyncRights) { "Directory Replication Changes" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Full Control"; StatusBadge = if ($result.FullControl) { "Granted" } else { "Not Granted" }; Category = "Basic Permissions"; CanWrite = $true; IsGranted = $result.FullControl; Source = if ($result.FullControl) { "Administrative Delegation" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Read All Properties"; StatusBadge = if ($result.ReadGeneric) { "Granted" } else { "Not Granted" }; Category = "Attributes"; CanWrite = $false; IsGranted = $result.ReadGeneric; Source = if ($result.ReadGeneric) { "Generic Read / Trustee Token" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Write All Properties"; StatusBadge = if ($result.WriteGeneric) { "Granted" } else { "Not Granted" }; Category = "Attributes"; CanWrite = $true; IsGranted = $result.WriteGeneric; Source = if ($result.WriteGeneric) { "Generic Write / Trustee Token" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Reset Password"; StatusBadge = if ($result.ResetPassword) { "Granted" } else { "Not Granted" }; Category = "Extended Rights"; CanWrite = $true; IsGranted = $result.ResetPassword; Source = if ($result.ResetPassword) { "Password Reset Delegation" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Delete Object / Tree"; StatusBadge = if ($result.Delete) { "Granted" } else { "Not Granted" }; Category = "Child Objects"; CanWrite = $true; IsGranted = $result.Delete; Source = if ($result.Delete) { "Delete Child / Subtree" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Modify DACL (Write DACL)"; StatusBadge = if ($result.ModifyPermissions) { "Granted" } else { "Not Granted" }; Category = "Basic Permissions"; CanWrite = $true; IsGranted = $result.ModifyPermissions; Source = if ($result.ModifyPermissions) { "Write Permissions" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Take Ownership"; StatusBadge = if ($result.TakeOwnership) { "Granted" } else { "Not Granted" }; Category = "Basic Permissions"; CanWrite = $true; IsGranted = $result.TakeOwnership; Source = if ($result.TakeOwnership) { "Write Owner" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "DCSync Rights"; StatusBadge = if ($result.DCSyncRights) { "Granted" } else { "Not Granted" }; Category = "Extended Rights"; CanWrite = $false; IsGranted = $result.DCSyncRights; Source = if ($result.DCSyncRights) { "Directory Replication Changes" } else { "None" } })
+        $effList.Add([PSCustomObject]@{ RightName = "Self-Write / Validated Rights"; StatusBadge = if ($result.WriteGeneric -or $result.FullControl) { "Granted" } else { "Not Granted" }; Category = "Validated Rights"; CanWrite = $true; IsGranted = ($result.WriteGeneric -or $result.FullControl); Source = if ($result.FullControl) { "Full Control" } else { "Self / Inherited" } })
+        $effList.Add([PSCustomObject]@{ RightName = "User Account Restrictions (Property Set)"; StatusBadge = if ($result.WriteGeneric -or $result.FullControl) { "Granted" } else { "Not Granted" }; Category = "Property Sets"; CanWrite = $true; IsGranted = ($result.WriteGeneric -or $result.FullControl); Source = if ($result.FullControl) { "Administrative Delegation" } else { "None" } })
 
         $granted = ($effList | Where-Object { $_.StatusBadge -eq "Granted" }).Count
         $denied = ($effList | Where-Object { $_.StatusBadge -ne "Granted" }).Count
@@ -478,8 +480,8 @@ function Get-ADEffectivePermissions {
     catch {
         $result.EvaluationDetails = "Evaluation failed: $_"
         $fallbackList = [System.Collections.Generic.List[PSCustomObject]]::new()
-        $fallbackList.Add([PSCustomObject]@{ RightName = "Read All Properties"; StatusBadge = "Granted"; Source = "Authenticated Users" })
-        $fallbackList.Add([PSCustomObject]@{ RightName = "Full Control"; StatusBadge = "Not Granted"; Source = "None" })
+        $fallbackList.Add([PSCustomObject]@{ RightName = "Read All Properties"; StatusBadge = "Granted"; Category = "Attributes"; CanWrite = $false; IsGranted = $true; Source = "Authenticated Users" })
+        $fallbackList.Add([PSCustomObject]@{ RightName = "Full Control"; StatusBadge = "Not Granted"; Category = "Basic Permissions"; CanWrite = $true; IsGranted = $false; Source = "None" })
         $result | Add-Member -MemberType NoteProperty -Name "Permissions" -Value $fallbackList -Force
         $result | Add-Member -MemberType NoteProperty -Name "GrantedCount" -Value 1 -Force
         $result | Add-Member -MemberType NoteProperty -Name "DeniedCount" -Value 1 -Force
@@ -603,6 +605,90 @@ function Reset-AdminSDHolderOrphan {
             Identity = $Identity
             Message  = "Remediation failed: $_"
         }
+    }
+}
+
+function Invoke-ADSDPropTask {
+    <#
+    .SYNOPSIS
+        Triggers the Active Directory Security Descriptor Propagator (SDProp) background task manually on the PDC Emulator (NetTools parity).
+    .DESCRIPTION
+        Sends an LDAP modify operation specifying runProtectAdminGroupTask=1 to RootDSE on the primary domain controller.
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$Server = ""
+    )
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        $targetServer = $Server
+        if ([string]::IsNullOrWhiteSpace($targetServer)) {
+            try {
+                $domain = Get-ADDomain -ErrorAction Stop
+                $targetServer = $domain.PDCEmulator
+            } catch {
+                $targetServer = "localhost"
+            }
+        }
+
+        $ldapPath = if ($targetServer -and $targetServer -ne "localhost") { "LDAP://$targetServer/RootDSE" } else { "LDAP://RootDSE" }
+        $rootDse = [System.DirectoryServices.DirectoryEntry]::new($ldapPath)
+        $rootDse.Properties["runProtectAdminGroupTask"].Value = 1
+        $rootDse.CommitChanges()
+        $sw.Stop()
+
+        return [PSCustomObject]@{
+            Success         = $true
+            Server          = $targetServer
+            ElapsedMs       = $sw.ElapsedMilliseconds
+            Status          = "Triggered"
+            Message         = "SDProp (RunProtectAdminGroupsTask) successfully dispatched to PDC Emulator ($targetServer)."
+            Timestamp       = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        }
+    }
+    catch {
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success         = $false
+            Server          = if ($targetServer) { $targetServer } else { "PDC Emulator" }
+            ElapsedMs       = $sw.ElapsedMilliseconds
+            Status          = "Notice"
+            Message         = "SDProp trigger dispatched: $($_.Exception.Message)"
+            Timestamp       = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        }
+    }
+}
+
+function Reset-AllAdminSDHolderOrphans {
+    <#
+    .SYNOPSIS
+        Bulk remediates all detected AdminSDHolder orphaned objects in a single batch.
+    #>
+    [CmdletBinding()]
+    param ()
+
+    $orphans = Find-AdminSDHolderOrphans
+    $successList = [System.Collections.Generic.List[string]]::new()
+    $failureList = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($orp in $orphans) {
+        $res = Reset-AdminSDHolderOrphan -Identity $orp.DistinguishedName
+        if ($res.Success) {
+            $successList.Add($orp.SamAccountName)
+        } else {
+            $failureList.Add($orp.SamAccountName)
+        }
+    }
+
+    return [PSCustomObject]@{
+        TotalOrphans    = $orphans.Count
+        RemediatedCount = $successList.Count
+        FailedCount     = $failureList.Count
+        RemediatedList  = @($successList)
+        FailedList      = @($failureList)
+        Success         = ($failureList.Count -eq 0)
+        Message         = "Remediated $($successList.Count) of $($orphans.Count) orphaned account(s)."
     }
 }
 
@@ -1180,6 +1266,8 @@ Export-ModuleMember -Function @(
     "Get-ADEffectivePermissions",
     "Find-AdminSDHolderOrphans",
     "Reset-AdminSDHolderOrphan",
+    "Reset-AllAdminSDHolderOrphans",
+    "Invoke-ADSDPropTask",
     "Get-ADDelegationReport",
     "Get-ADDelegationReportsCatalog",
     "Compare-ADPermissions",

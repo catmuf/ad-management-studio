@@ -91,5 +91,11 @@
                               "Filter":  "(\u0026(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(adminCount=1))",
                               "ObjectClass":  "User"
                           }
-                      ]
+                      ],
+    "Basket":  {
+                   "KeepContents":  true,
+                   "Items":  [
+
+                             ]
+               }
 }
