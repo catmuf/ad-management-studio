@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Active Directory Management Studio - SysAdmin Edition"
@@ -200,10 +200,14 @@
                                               VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource DropDownItemHoverBg}"/>
                                 <Setter Property="Foreground" Value="{DynamicResource DropDownItemHoverFg}"/>
-                            </Trigger>
+                            </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentPrimary}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
@@ -230,11 +234,15 @@
                 </Grid>
             </Border>
             <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsChecked" Value="False"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
                     <Setter TargetName="ToggleBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
                     <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
                     <Setter TargetName="Arrow" Property="Fill" Value="{DynamicResource TextPrimary}"/>
-                </Trigger>
+                </MultiTrigger>
                 <Trigger Property="IsChecked" Value="True">
                     <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
                     <Setter TargetName="Arrow" Property="Fill" Value="{DynamicResource AccentPrimary}"/>
@@ -343,10 +351,14 @@
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
                                 <Setter TargetName="navBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-                            </Trigger>
+                            </MultiTrigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="navBorder" Property="Background" Value="{DynamicResource NavSelectedBg}"/>
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
@@ -440,9 +452,13 @@
                         <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                         <Setter Property="Background" Value="{DynamicResource DataGridRowBg}"/>
                         <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
                                 <Setter Property="Background" Value="{DynamicResource NavHoverBg}"/>
-                            </Trigger>
+                            </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
@@ -490,9 +506,13 @@
         <Style TargetType="DataGridRow">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsSelected" Value="False"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
                     <Setter Property="Background" Value="{DynamicResource NavHoverBg}"/>
-                </Trigger>
+                </MultiTrigger>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
                     <Setter Property="Foreground" Value="#FFFFFF"/>
@@ -538,10 +558,14 @@
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
                                 <Setter TargetName="chipBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-                            </Trigger>
+                            </MultiTrigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="chipBorder" Property="Background" Value="{DynamicResource AccentPrimary}"/>
                                 <Setter TargetName="chipBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
@@ -614,6 +638,9 @@
             <Setter Property="Margin" Value="4,3"/>
         </Style>
 
+        <Style TargetType="ContextMenu" BasedOn="{StaticResource ModernContextMenu}"/>
+        <Style TargetType="MenuItem" BasedOn="{StaticResource ModernMenuItem}"/>
+
         <!-- TabControl & TabItem Modern Styles (NetTools Parity) -->
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="Transparent"/>
@@ -632,17 +659,24 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border Name="TabBorder" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}" Margin="{TemplateBinding Margin}">
+                        <Border Name="TabBorder" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}">
                             <ContentPresenter Name="TabContent" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource BgSurface}"/>
                                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/>
                                 <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

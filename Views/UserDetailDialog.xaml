@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="User Details"
@@ -42,16 +42,27 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border Name="tabBorder" Background="{DynamicResource NavHoverBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Margin="0,0,4,0" Padding="{TemplateBinding Padding}">
+                        <Border Name="tabBorder" Background="{DynamicResource NavHoverBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
                             <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource BgCard}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
