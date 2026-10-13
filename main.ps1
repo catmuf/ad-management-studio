@@ -11,7 +11,12 @@
 [CmdletBinding()]
 param(
     [string]$InitialTool = "",
-    [switch]$Standalone
+    [switch]$Standalone,
+    [string]$DetachedPanel = "",
+    [string]$DetachedTabId = "",
+    [string]$DetachedTabTitle = "",
+    [string]$StateFile = "",
+    [int]$ParentPid = 0
 )
 
 # Ensure script runs in Single Thread Apartment (STA) mode for WPF
@@ -24,6 +29,21 @@ if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Thr
     }
     if ($Standalone) {
         $argList += " -Standalone"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
+        $argList += " -DetachedPanel `"$DetachedPanel`""
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DetachedTabId)) {
+        $argList += " -DetachedTabId `"$DetachedTabId`""
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DetachedTabTitle)) {
+        $argList += " -DetachedTabTitle `"$DetachedTabTitle`""
+    }
+    if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
+        $argList += " -StateFile `"$StateFile`""
+    }
+    if ($ParentPid -gt 0) {
+        $argList += " -ParentPid $ParentPid"
     }
     Start-Process -FilePath $powershellExe -ArgumentList $argList -WindowStyle Hidden
     exit
@@ -208,6 +228,102 @@ $global:PanelCatalog = [ordered]@{
     'ServerMonitor'        = [PSCustomObject]@{ Title = 'Server Monitor';       Icon = '🖥️'; Category = 'System';              ToolTip = 'RootDSE metadata, active connections & telemetry' }
     'Connections'          = [PSCustomObject]@{ Title = 'Connections';          Icon = '🌐'; Category = 'System';              ToolTip = 'Directory server connection profiles & credentials' }
     'Settings'             = [PSCustomObject]@{ Title = 'Settings';             Icon = '⚙️'; Category = 'System';              ToolTip = 'Application configuration & workspace preferences' }
+}
+
+# If running in Detached Window Mode for a specific panel instance:
+if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
+    $detachedXamlPath = Join-Path $viewsPath "DetachedPanelWindow.xaml"
+    $detachedWin = Load-XamlWindow -XamlPath $detachedXamlPath
+    foreach ($k in $window.Resources.Keys) {
+        $detachedWin.Resources[$k] = $window.Resources[$k]
+    }
+    $panelKey = "Panel$DetachedPanel"
+    $panel = $controls[$panelKey]
+    if ($panel -and $controls['ViewportContainer'].Children.Contains($panel)) {
+        $controls['ViewportContainer'].Children.Remove($panel)
+    }
+    $contentHost = $detachedWin.FindName("DetachedContentHost")
+    if ($contentHost -and $panel) {
+        [void]$contentHost.Children.Add($panel)
+        $panel.Visibility = [System.Windows.Visibility]::Visible
+    }
+
+    $meta = if ($global:PanelCatalog.Contains($DetachedPanel)) { $global:PanelCatalog[$DetachedPanel] } else { [PSCustomObject]@{ Title = $DetachedPanel; Icon = "📋"; Category = "Tool Window" } }
+    $tabDisplayTitle = if ($DetachedTabTitle) { $DetachedTabTitle } else { $meta.Title }
+    $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
+
+    $txtIcon = $detachedWin.FindName("TxtDetachedIcon")
+    if ($txtIcon) { $txtIcon.Text = if ($meta.Icon) { $meta.Icon } else { "📋" } }
+    $txtTitle = $detachedWin.FindName("TxtDetachedTitle")
+    if ($txtTitle) { $txtTitle.Text = $tabDisplayTitle }
+    $txtCategory = $detachedWin.FindName("TxtDetachedCategory")
+    if ($txtCategory) { $txtCategory.Text = $meta.Category }
+    $txtScope = $detachedWin.FindName("TxtDetachedScope")
+    if ($txtScope) { $txtScope.Text = if ($adContext.DomainName) { "Domain: $($adContext.DomainName)" } else { "Multi-Window Active" } }
+
+    # Save state helper for detached window
+    $SaveDetachedState = {
+        if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
+            $sData = @{}
+            if ($controls['TxtSearchUsers']) { $sData['SearchUsers'] = $controls['TxtSearchUsers'].Text }
+            if ($controls['CmbUserOUFilter']) { $sData['OUFilter'] = $controls['CmbUserOUFilter'].SelectedIndex }
+            if ($controls['TxtSearchGroups']) { $sData['SearchGroups'] = $controls['TxtSearchGroups'].Text }
+            if ($controls['TxtSearchComputers']) { $sData['SearchComputers'] = $controls['TxtSearchComputers'].Text }
+            if ($controls['TxtSearchOUs']) { $sData['SearchOUs'] = $controls['TxtSearchOUs'].Text }
+            if ($state.UsersPage) { $sData['UsersPage'] = $state.UsersPage }
+            try {
+                $json = $sData | ConvertTo-Json -Compress
+                [System.IO.File]::WriteAllText($StateFile, $json, [System.Text.Encoding]::UTF8)
+            } catch {}
+        }
+    }
+
+    $btnDock = $detachedWin.FindName("BtnDockBack")
+    if ($btnDock) {
+        $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            & $SaveDetachedState
+            if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
+                try { [System.IO.File]::WriteAllText("$StateFile.dock", "DockBack", [System.Text.Encoding]::UTF8) } catch {}
+            }
+            $detachedWin.Close()
+        })
+    }
+
+    $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
+        param($s, $e)
+        & $SaveDetachedState
+    })
+
+    $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
+        param($s, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+            $e.Handled = $true
+            & $SaveDetachedState
+            if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
+                try { [System.IO.File]::WriteAllText("$StateFile.dock", "DockBack", [System.Text.Encoding]::UTF8) } catch {}
+            }
+            $detachedWin.Close()
+        }
+    })
+
+    # Restore state from StateFile if available
+    if (-not [string]::IsNullOrWhiteSpace($StateFile) -and (Test-Path $StateFile)) {
+        try {
+            $rawState = [System.IO.File]::ReadAllText($StateFile, [System.Text.Encoding]::UTF8)
+            $parsedState = $rawState | ConvertFrom-Json
+            if ($parsedState) {
+                if ($controls['TxtSearchUsers'] -and $parsedState.SearchUsers) { $controls['TxtSearchUsers'].Text = $parsedState.SearchUsers }
+                if ($controls['CmbUserOUFilter'] -and $parsedState.OUFilter -ne $null) { $controls['CmbUserOUFilter'].SelectedIndex = [int]$parsedState.OUFilter }
+                if ($controls['TxtSearchGroups'] -and $parsedState.SearchGroups) { $controls['TxtSearchGroups'].Text = $parsedState.SearchGroups }
+                if ($controls['TxtSearchComputers'] -and $parsedState.SearchComputers) { $controls['TxtSearchComputers'].Text = $parsedState.SearchComputers }
+                if ($controls['TxtSearchOUs'] -and $parsedState.SearchOUs) { $controls['TxtSearchOUs'].Text = $parsedState.SearchOUs }
+            }
+        } catch {}
+    }
+
+    # Redirect $window so all event handlers, theme application, dialog ownership, and ShowDialog attach to $detachedWin
+    $window = $detachedWin
 }
 
 function Test-CanModifyDirectory {
@@ -1860,9 +1976,12 @@ function Remove-WorkspaceTab {
     $otherTabsForPanel = @($state.OpenTabs | Where-Object { $_.Id -ne $targetTab.Id -and $_.PanelName -eq $pName })
 
     if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
-        Dock-PanelToMainWindow -TabId $targetTab.Id -NoActivate
-    } elseif ($otherTabsForPanel.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($pName) -and $state.DetachedWindows.ContainsKey($pName)) {
-        Dock-PanelToMainWindow -PanelName $pName -NoActivate
+        $dRec = $state.DetachedWindows[$targetTab.Id]
+        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
+        if ($proc -and -not $proc.HasExited) {
+            try { $proc.Kill() } catch {}
+        }
+        $state.DetachedWindows.Remove($targetTab.Id)
     }
 
     $idx = $state.OpenTabs.IndexOf($targetTab)
@@ -1881,136 +2000,6 @@ function Remove-WorkspaceTab {
     }
 }
 
-function Show-DetachedStandby {
-    param($detachedWindow, $tab)
-    if (-not $detachedWindow -or -not $tab) { return }
-    $contentHost = $detachedWindow.FindName("DetachedContentHost")
-    if (-not $contentHost) { return }
-
-    foreach ($child in @($contentHost.Children)) {
-        if ($child.Name -eq "DetachedStandbyBorder") { return }
-    }
-
-    $border = [System.Windows.Controls.Border]::new()
-    $border.Name = "DetachedStandbyBorder"
-    $border.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
-    $border.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    $border.Padding = [System.Windows.Thickness]::new(36, 28, 36, 28)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(8)
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BgCard")
-    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrushColor")
-    $border.BorderThickness = [System.Windows.Thickness]::new(1)
-
-    $sp = [System.Windows.Controls.StackPanel]::new()
-    $sp.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
-
-    $tbIcon = [System.Windows.Controls.TextBlock]::new()
-    $tbIcon.Text = if ($tab.Icon) { $tab.Icon } else { "📋" }
-    $tbIcon.FontSize = 36
-    $tbIcon.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
-    $tbIcon.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
-    [void]$sp.Children.Add($tbIcon)
-
-    $tbTitle = [System.Windows.Controls.TextBlock]::new()
-    $tbTitle.Text = "$($tab.Title) (Standby)"
-    $tbTitle.FontSize = 16
-    $tbTitle.FontWeight = [System.Windows.FontWeights]::Bold
-    $tbTitle.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
-    $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
-    $tbTitle.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
-    [void]$sp.Children.Add($tbTitle)
-
-    $tbMsg = [System.Windows.Controls.TextBlock]::new()
-    $tbMsg.Text = "This instance is on standby while another instance is active in the Main Window.`nClick below to resume working with this detached window."
-    $tbMsg.FontSize = 12
-    $tbMsg.TextAlignment = [System.Windows.TextAlignment]::Center
-    $tbMsg.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
-    $tbMsg.Margin = [System.Windows.Thickness]::new(0, 0, 0, 16)
-    [void]$sp.Children.Add($tbMsg)
-
-    $btnResume = [System.Windows.Controls.Button]::new()
-    $btnResume.Content = "🔄 Resume This Instance"
-    $btnResume.Style = $detachedWindow.TryFindResource("ModernButton")
-    $btnResume.Padding = [System.Windows.Thickness]::new(16, 6)
-    $btnResume.Tag = $tab.Id
-    $btnResume.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-        if ($tId) { Sync-DetachedWindowActive -TabId $tId }
-    })
-    [void]$sp.Children.Add($btnResume)
-
-    $border.Child = $sp
-    [void]$contentHost.Children.Add($border)
-}
-
-function Clear-DetachedStandby {
-    param($detachedWindow)
-    if (-not $detachedWindow) { return }
-    $contentHost = $detachedWindow.FindName("DetachedContentHost")
-    if (-not $contentHost) { return }
-    $toRemove = @()
-    foreach ($child in $contentHost.Children) {
-        if ($child.Name -eq "DetachedStandbyBorder") {
-            $toRemove += $child
-        }
-    }
-    foreach ($c in $toRemove) {
-        $contentHost.Children.Remove($c)
-    }
-}
-
-function Sync-DetachedWindowActive {
-    param([string]$TabId)
-    if (-not $TabId -or -not $state.DetachedWindows.ContainsKey($TabId)) { return }
-    $detachedWindow = $state.DetachedWindows[$TabId]
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
-    if (-not $targetTab) { return }
-
-    $pName = $targetTab.PanelName
-    $panelKey = "Panel$pName"
-    $panel = $controls[$panelKey]
-    if (-not $panel) { return }
-
-    $contentHost = $detachedWindow.FindName("DetachedContentHost")
-    if (-not $contentHost) { return }
-
-    if ($contentHost.Children.Contains($panel)) {
-        return
-    }
-
-    if ($panel.Parent) {
-        $oldParent = $panel.Parent
-        if ($oldParent -eq $controls['ViewportContainer']) {
-            $activeMbTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-            if ($activeMbTab) {
-                Save-TabSessionState -Tab $activeMbTab
-            }
-            $controls['ViewportContainer'].Children.Remove($panel)
-        } else {
-            foreach ($otherTabId in @($state.DetachedWindows.Keys)) {
-                if ($otherTabId -ne $TabId) {
-                    $otherWin = $state.DetachedWindows[$otherTabId]
-                    $otherHost = if ($otherWin) { $otherWin.FindName("DetachedContentHost") } else { $null }
-                    if ($otherHost -and $otherHost.Children.Contains($panel)) {
-                        $otherTab = $state.OpenTabs | Where-Object { $_.Id -eq $otherTabId } | Select-Object -First 1
-                        if ($otherTab) {
-                            Save-TabSessionState -Tab $otherTab
-                            $otherHost.Children.Remove($panel)
-                            Show-DetachedStandby -detachedWindow $otherWin -tab $otherTab
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Clear-DetachedStandby -detachedWindow $detachedWindow
-    [void]$contentHost.Children.Add($panel)
-    $panel.Visibility = [System.Windows.Visibility]::Visible
-    Restore-TabSessionState -Tab $targetTab
-}
-
 function Select-WorkspaceTab {
     param ([string]$TabId)
     if ([string]::IsNullOrWhiteSpace($TabId)) { return }
@@ -2021,17 +2010,13 @@ function Select-WorkspaceTab {
     }
     if (-not $targetTab) { return }
 
-    # If this specific tab instance is detached in its own window, activate that window
+    # If this specific tab instance is detached in its own window, keep it in foreground
     if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
-        $detached = $state.DetachedWindows[$targetTab.Id]
-        if ($detached) {
-            if ($detached.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $detached.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$detached.Activate()
-            $detached.Focus()
+        $dRec = $state.DetachedWindows[$targetTab.Id]
+        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
+        if ($proc -and -not $proc.HasExited) {
+            return
         }
-        return
     }
 
     # Save state of previously active tab before switching
@@ -2045,28 +2030,6 @@ function Select-WorkspaceTab {
     $state.ActiveTabId = $targetTab.Id
     $PanelName = $targetTab.PanelName
     $targetCtrlName = "Panel$PanelName"
-    $panel = $controls[$targetCtrlName]
-
-    # Ensure panel is mounted in MainWindow's ViewportContainer if previously held by a detached window
-    if ($panel -and $controls['ViewportContainer']) {
-        if ($panel.Parent -and $panel.Parent -ne $controls['ViewportContainer']) {
-            $oldParent = $panel.Parent
-            if ($oldParent -is [System.Windows.Controls.Panel]) {
-                $oldParent.Children.Remove($panel)
-            }
-            foreach ($dTabId in @($state.DetachedWindows.Keys)) {
-                $dWin = $state.DetachedWindows[$dTabId]
-                $dTab = $state.OpenTabs | Where-Object { $_.Id -eq $dTabId } | Select-Object -First 1
-                if ($dTab -and $dTab.PanelName -eq $PanelName -and $dWin) {
-                    Save-TabSessionState -Tab $dTab
-                    Show-DetachedStandby -detachedWindow $dWin -tab $dTab
-                }
-            }
-            if (-not $controls['ViewportContainer'].Children.Contains($panel)) {
-                [void]$controls['ViewportContainer'].Children.Add($panel)
-            }
-        }
-    }
 
     # Restore session state for the selected tab
     Restore-TabSessionState -Tab $targetTab
@@ -2123,133 +2086,53 @@ function Detach-PanelToWindow {
     $targetTabId = $targetTab.Id
     $pName = $targetTab.PanelName
 
-    # If already detached, activate and focus
+    # If already detached, check if process is alive
     if ($state.DetachedWindows.ContainsKey($targetTabId)) {
-        $win = $state.DetachedWindows[$targetTabId]
-        if ($win) {
-            if ($win.WindowState -eq [System.Windows.WindowState]::Minimized) { $win.WindowState = [System.Windows.WindowState]::Normal }
-            [void]$win.Activate()
-            $win.Focus()
+        $dRec = $state.DetachedWindows[$targetTabId]
+        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
+        if ($proc -and -not $proc.HasExited) {
+            return
         }
-        return
     }
 
-    $panelKey = "Panel$pName"
-    $panel = $controls[$panelKey]
-    if (-not $panel) { return }
+    # Save session state before moving
+    Save-TabSessionState -Tab $targetTab
+
+    $stateFile = Join-Path ([System.IO.Path]::GetTempPath()) "ad_studio_tab_$($targetTabId).json"
+    try {
+        $json = $targetTab.State | ConvertTo-Json -Compress
+        [System.IO.File]::WriteAllText($stateFile, $json, [System.Text.Encoding]::UTF8)
+    } catch {}
 
     $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $global:PanelCatalog.Contains($pName)) {
         $global:PanelCatalog[$pName]
     } else {
         [PSCustomObject]@{ Title = $pName; Icon = "📋"; Category = "Tool Window" }
     }
-
-    $detachedXamlPath = if ($viewsPath) { Join-Path $viewsPath "DetachedPanelWindow.xaml" } else { $null }
-    if (-not $detachedXamlPath -or -not (Test-Path $detachedXamlPath)) {
-        $detachedXamlPath = Join-Path $PSScriptRoot "Views\DetachedPanelWindow.xaml"
-    }
-    if (-not (Test-Path $detachedXamlPath)) {
-        $detachedXamlPath = Join-Path (Get-Location) "Views\DetachedPanelWindow.xaml"
-    }
-    if (-not (Test-Path $detachedXamlPath)) { return }
-
-    $detachedWindow = if (Get-Command Load-XamlWindow -ErrorAction SilentlyContinue) {
-        Load-XamlWindow -XamlPath $detachedXamlPath
-    } else {
-        $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $detachedXamlPath -Raw -Encoding UTF8))
-        $loadedW = [System.Windows.Markup.XamlReader]::Load($reader)
-        $reader.Close()
-        if ($window) {
-            foreach ($key in $window.Resources.Keys) {
-                $loadedW.Resources[$key] = $window.Resources[$key]
-            }
-        }
-        $loadedW
-    }
-    if (-not $detachedWindow) { return }
-    if (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue) {
-        Apply-ThemeNode $detachedWindow $state.CurrentTheme
-    }
-
     $tabDisplayTitle = if ($targetTab.Title) { $targetTab.Title } else { $meta.Title }
-    $detachedWindow.Title = "Active Directory Management Studio - $tabDisplayTitle"
-    $txtIcon = $detachedWindow.FindName("TxtDetachedIcon")
-    if ($txtIcon) { $txtIcon.Text = if ($targetTab.Icon) { $targetTab.Icon } else { $meta.Icon } }
-    $txtTitle = $detachedWindow.FindName("TxtDetachedTitle")
-    if ($txtTitle) { $txtTitle.Text = $tabDisplayTitle }
-    $txtCategory = $detachedWindow.FindName("TxtDetachedCategory")
-    if ($txtCategory) { $txtCategory.Text = $meta.Category }
-    $txtScope = $detachedWindow.FindName("TxtDetachedScope")
-    if ($txtScope) { $txtScope.Text = if ($adContext.DomainName) { "Domain: $($adContext.DomainName)" } else { "Multi-Window Active" } }
 
-    # Save session state before moving
-    Save-TabSessionState -Tab $targetTab
+    $powershellExe = (Get-Process -Id $PID).Path
+    $argList = "-STA -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`" -DetachedPanel `"$pName`" -DetachedTabId `"$targetTabId`" -DetachedTabTitle `"$tabDisplayTitle`" -StateFile `"$stateFile`" -ParentPid $PID"
 
-    # Detach panel from current parent
-    if ($panel.Parent) {
-        $curParent = $panel.Parent
-        if ($curParent -is [System.Windows.Controls.Panel]) {
-            $curParent.Children.Remove($panel)
-        }
+    $proc = Start-Process -FilePath $powershellExe -ArgumentList $argList -WindowStyle Hidden -PassThru
+    $proc.EnableRaisingEvents = $true
+
+    $state.DetachedWindows[$targetTabId] = @{
+        Process    = $proc
+        TabId      = $targetTabId
+        PanelName  = $pName
+        StateFile  = $stateFile
     }
 
-    $contentHost = $detachedWindow.FindName("DetachedContentHost")
-    if ($contentHost) {
-        Clear-DetachedStandby -detachedWindow $detachedWindow
-        [void]$contentHost.Children.Add($panel)
-        $panel.Visibility = [System.Windows.Visibility]::Visible
-    }
-
-    $state.DetachedWindows[$targetTabId] = $detachedWindow
-    $detachedWindow.Tag = $targetTabId
-
-    # Restore session state in detached window
-    Restore-TabSessionState -Tab $targetTab
-
-    if ($pName -eq "DirectorySearch" -and (Get-Command Set-SearchAttrOutcomeBadge -ErrorAction SilentlyContinue)) {
-        Set-SearchAttrOutcomeBadge
-    }
-
-    $btnDock = $detachedWindow.FindName("BtnDockBack")
-    if ($btnDock) {
-        $btnDock.Tag = $targetTabId
-        $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($t)) {
-                Dock-PanelToMainWindow -TabId $t
-            }
-        })
-    }
-
-    $detachedWindow.Add_Closing([System.ComponentModel.CancelEventHandler]{
+    $proc.Add_Exited({
         param($s, $e)
-        $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-        if (-not [string]::IsNullOrWhiteSpace($t) -and $state.DetachedWindows.ContainsKey($t)) {
-            Dock-PanelToMainWindow -TabId $t -FromClosing
+        if ($window -and $window.Dispatcher) {
+            $window.Dispatcher.Invoke([Action]{
+                Dock-PanelToMainWindow -TabId $targetTabId -FromProcessExit
+            })
         }
     })
 
-    $detachedWindow.Add_Activated([System.EventHandler]{
-        param($s, $e)
-        $t = if ($s -is [System.Windows.Window] -and $s.Tag) { $s.Tag } else { $null }
-        if (-not [string]::IsNullOrWhiteSpace($t)) {
-            Sync-DetachedWindowActive -TabId $t
-        }
-    })
-
-    $detachedWindow.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
-        param($s, $e)
-        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
-            $e.Handled = $true
-            $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($t)) {
-                Dock-PanelToMainWindow -TabId $t
-            }
-        }
-    })
-
-    $detachedWindow.Show()
     Update-WorkspaceTabStrip
 
     # If this was the active tab in MainWindow, switch MainWindow to an active docked tab
@@ -2266,7 +2149,7 @@ function Dock-PanelToMainWindow {
         [string]$PanelName = "",
         [string]$TabId = "",
         [switch]$NoActivate,
-        [switch]$FromClosing
+        [switch]$FromProcessExit
     )
     $targetTabId = if (-not [string]::IsNullOrWhiteSpace($TabId)) {
         $TabId
@@ -2280,41 +2163,41 @@ function Dock-PanelToMainWindow {
 
     if (-not $targetTabId -or -not $state.DetachedWindows.ContainsKey($targetTabId)) { return }
 
-    $detachedWindow = $state.DetachedWindows[$targetTabId]
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $targetTabId } | Select-Object -First 1
-    $pName = if ($targetTab) { $targetTab.PanelName } else { $PanelName }
-    $panelKey = "Panel$pName"
-    $panel = $controls[$panelKey]
-
-    if ($targetTab) {
-        Save-TabSessionState -Tab $targetTab
-    }
-
-    if ($panel) {
-        if ($detachedWindow) {
-            $contentHost = $detachedWindow.FindName("DetachedContentHost")
-            if ($contentHost -and $contentHost.Children.Contains($panel)) {
-                $contentHost.Children.Remove($panel)
-            }
-        }
-        if (-not $controls['ViewportContainer'].Children.Contains($panel)) {
-            [void]$controls['ViewportContainer'].Children.Add($panel)
-        }
-    }
-
+    $dRec = $state.DetachedWindows[$targetTabId]
     $state.DetachedWindows.Remove($targetTabId)
 
-    if (-not $FromClosing -and $detachedWindow) {
+    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $targetTabId } | Select-Object -First 1
+    $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
+    $stateFile = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('StateFile')) { $dRec['StateFile'] } elseif ($dRec.StateFile) { $dRec.StateFile } else { $null }
+
+    if (-not $FromProcessExit -and $proc -and -not $proc.HasExited) {
         try {
-            $detachedWindow.Close()
+            $proc.CloseMainWindow()
+            Start-Sleep -Milliseconds 150
+            if (-not $proc.HasExited) { $proc.Kill() }
         } catch {}
+    }
+
+    # Restore state from StateFile if available
+    if ($targetTab -and $stateFile -and (Test-Path $stateFile)) {
+        try {
+            $raw = [System.IO.File]::ReadAllText($stateFile, [System.Text.Encoding]::UTF8)
+            $parsed = $raw | ConvertFrom-Json
+            if ($parsed) {
+                if ($parsed.SearchUsers) { $targetTab.State['SearchUsers'] = $parsed.SearchUsers }
+                if ($parsed.OUFilter -ne $null) { $targetTab.State['OUFilter'] = [int]$parsed.OUFilter }
+                if ($parsed.SearchGroups) { $targetTab.State['SearchGroups'] = $parsed.SearchGroups }
+                if ($parsed.SearchComputers) { $targetTab.State['SearchComputers'] = $parsed.SearchComputers }
+                if ($parsed.SearchOUs) { $targetTab.State['SearchOUs'] = $parsed.SearchOUs }
+            }
+        } catch {}
+        try { Remove-Item $stateFile -Force -ErrorAction SilentlyContinue } catch {}
+        try { Remove-Item "$stateFile.dock" -Force -ErrorAction SilentlyContinue } catch {}
     }
 
     if (-not $NoActivate) {
         if ($targetTab) {
             Select-WorkspaceTab -TabId $targetTab.Id
-        } elseif (-not [string]::IsNullOrWhiteSpace($pName)) {
-            Select-WorkspaceTab -TabId $pName
         }
         if ($window) {
             if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
@@ -2348,16 +2231,7 @@ function Show-AllDetachedWindows {
         Set-Status -Message "No detached tool windows are currently open."
         return
     }
-    foreach ($win in $state.DetachedWindows.Values) {
-        if ($win) {
-            if ($win.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $win.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$win.Activate()
-            $win.Focus()
-        }
-    }
-    Set-Status -Message "All detached tool windows brought to front."
+    Set-Status -Message "All detached tool windows active."
 }
 
 function Reset-WorkspaceLayout {
@@ -12721,6 +12595,24 @@ $window.Add_Loaded({
     if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
         Set-ApplicationTheme -Theme "Light" -AccentTone $appConfig.UI.AccentTone
     }
+
+    # If running in Detached Window Mode, trigger initial panel load and return
+    if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
+        switch ($DetachedPanel) {
+            "Users"            { Refresh-Users }
+            "Groups"           { Refresh-Groups }
+            "Computers"        { Refresh-Computers }
+            "OUs"              { Refresh-OUs }
+            "Dashboard"        { Refresh-Dashboard }
+            "SecurityAcl"      { Refresh-AclExplorer }
+            "ReplicationSuite" { Refresh-ReplicationHealth }
+            "SitesSubnets"     { Refresh-SitesSubnets }
+            "SchemaBrowser"    { Refresh-SchemaClasses }
+            "ConnectionProfiles" { Refresh-Connections }
+        }
+        return
+    }
+
     Init-ElevationBadge
     Init-SidebarNavigationContextMenus
 
@@ -12748,6 +12640,11 @@ $window.Add_Loaded({
 
 $window.Add_Closing({
     param($sender, $e)
+    # If in detached mode, do not modify main config tabs
+    if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
+        return
+    }
+
     # Persist open tabs if enabled
     if ($state.RestoreTabsOnStartup) {
         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
@@ -12758,11 +12655,10 @@ $window.Add_Closing({
     }
     # Safely close all detached child windows
     if ($state.DetachedWindows) {
-        $keys = @($state.DetachedWindows.Keys)
-        foreach ($k in $keys) {
-            $dWin = $state.DetachedWindows[$k]
-            if ($dWin) {
-                try { $dWin.Close() } catch {}
+        foreach ($dRec in $state.DetachedWindows.Values) {
+            $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
+            if ($proc -and -not $proc.HasExited) {
+                try { $proc.Kill() } catch {}
             }
         }
     }
