@@ -125,9 +125,11 @@ $state = [PSCustomObject]@{
     SelectedOU             = ""
     DomainName             = $adContext.DomainName
     UPNSuffix              = if ($adContext.DomainName) { "@$($adContext.DomainName)" } else { "" }
-    MasterAttributeList    = [System.Collections.Generic.List[string]]::new()
-    SearchAttributesLoaded = $false
-    IsFilteringAttributes  = $false
+    MasterAttributeList      = [System.Collections.Generic.List[string]]::new()
+    SearchAttributesLoaded   = $false
+    IsFilteringAttributes    = $false
+    SearchAttrOutcomeStatus  = "Info"
+    SearchAttrOutcomeMessage = ""
     NavHistory             = [System.Collections.Generic.List[string]]::new()
     NavIndex               = -1
     IsNavigatingHistory    = $false
@@ -5208,13 +5210,14 @@ function global:Set-SearchAttrOutcomeBadge {
         [System.Windows.Controls.TextBlock]$OutcomeLabel = $null
     )
 
-    if (-not $OutcomeBorder -and $controls -and $controls['BorderSearchAttrOutcome']) {
+    $hasControls = (Get-Variable -Name 'controls' -ErrorAction SilentlyContinue) -and ($null -ne $controls)
+    if (-not $OutcomeBorder -and $hasControls -and $controls.ContainsKey('BorderSearchAttrOutcome')) {
         $OutcomeBorder = $controls['BorderSearchAttrOutcome']
     }
-    if (-not $OutcomeText -and $controls -and $controls['TxtSearchAttrOutcome']) {
+    if (-not $OutcomeText -and $hasControls -and $controls.ContainsKey('TxtSearchAttrOutcome')) {
         $OutcomeText = $controls['TxtSearchAttrOutcome']
     }
-    if (-not $OutcomeLabel -and $controls -and $controls['TxtSearchAttrOutcomeLabel']) {
+    if (-not $OutcomeLabel -and $hasControls -and $controls.ContainsKey('TxtSearchAttrOutcomeLabel')) {
         $OutcomeLabel = $controls['TxtSearchAttrOutcomeLabel']
     }
     if (-not $OutcomeLabel -and $OutcomeBorder) {
@@ -5229,22 +5232,32 @@ function global:Set-SearchAttrOutcomeBadge {
         }
     }
 
+    $hasState = (Get-Variable -Name 'state' -ErrorAction SilentlyContinue) -and ($null -ne $state)
+    if ($hasState) {
+        if (-not $state.PSObject.Properties['SearchAttrOutcomeStatus']) {
+            $state | Add-Member -NotePropertyName 'SearchAttrOutcomeStatus' -NotePropertyValue 'Info' -Force
+        }
+        if (-not $state.PSObject.Properties['SearchAttrOutcomeMessage']) {
+            $state | Add-Member -NotePropertyName 'SearchAttrOutcomeMessage' -NotePropertyValue '' -Force
+        }
+    }
+
     if ($Status) {
-        $state.SearchAttrOutcomeStatus = $Status
-    } elseif ($state.SearchAttrOutcomeStatus) {
+        if ($hasState) { $state.SearchAttrOutcomeStatus = $Status }
+    } elseif ($hasState -and $state.SearchAttrOutcomeStatus) {
         $Status = $state.SearchAttrOutcomeStatus
     } else {
         $Status = "Info"
-        $state.SearchAttrOutcomeStatus = "Info"
+        if ($hasState) { $state.SearchAttrOutcomeStatus = "Info" }
     }
 
     if ($PSBoundParameters.ContainsKey('Message')) {
-        $state.SearchAttrOutcomeMessage = $Message
-    } elseif ($state.SearchAttrOutcomeMessage) {
+        if ($hasState) { $state.SearchAttrOutcomeMessage = $Message }
+    } elseif ($hasState -and $state.SearchAttrOutcomeMessage) {
         $Message = $state.SearchAttrOutcomeMessage
     }
 
-    $isLight = ($state.CurrentTheme -eq "Light")
+    $isLight = if ($hasState -and $state.CurrentTheme) { ($state.CurrentTheme -eq "Light") } else { $false }
 
     switch ($Status) {
         "Match" {
