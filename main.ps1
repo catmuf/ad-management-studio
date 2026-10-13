@@ -230,101 +230,7 @@ $global:PanelCatalog = [ordered]@{
     'Settings'             = [PSCustomObject]@{ Title = 'Settings';             Icon = '⚙️'; Category = 'System';              ToolTip = 'Application configuration & workspace preferences' }
 }
 
-# If running in Detached Window Mode for a specific panel instance:
-if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
-    $detachedXamlPath = Join-Path $viewsPath "DetachedPanelWindow.xaml"
-    $detachedWin = Load-XamlWindow -XamlPath $detachedXamlPath
-    foreach ($k in $window.Resources.Keys) {
-        $detachedWin.Resources[$k] = $window.Resources[$k]
-    }
-    $panelKey = "Panel$DetachedPanel"
-    $panel = $controls[$panelKey]
-    if ($panel -and $controls['ViewportContainer'].Children.Contains($panel)) {
-        $controls['ViewportContainer'].Children.Remove($panel)
-    }
-    $contentHost = $detachedWin.FindName("DetachedContentHost")
-    if ($contentHost -and $panel) {
-        [void]$contentHost.Children.Add($panel)
-        $panel.Visibility = [System.Windows.Visibility]::Visible
-    }
 
-    $meta = if ($global:PanelCatalog.Contains($DetachedPanel)) { $global:PanelCatalog[$DetachedPanel] } else { [PSCustomObject]@{ Title = $DetachedPanel; Icon = "📋"; Category = "Tool Window" } }
-    $tabDisplayTitle = if ($DetachedTabTitle) { $DetachedTabTitle } else { $meta.Title }
-    $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
-
-    $txtIcon = $detachedWin.FindName("TxtDetachedIcon")
-    if ($txtIcon) { $txtIcon.Text = if ($meta.Icon) { $meta.Icon } else { "📋" } }
-    $txtTitle = $detachedWin.FindName("TxtDetachedTitle")
-    if ($txtTitle) { $txtTitle.Text = $tabDisplayTitle }
-    $txtCategory = $detachedWin.FindName("TxtDetachedCategory")
-    if ($txtCategory) { $txtCategory.Text = $meta.Category }
-    $txtScope = $detachedWin.FindName("TxtDetachedScope")
-    if ($txtScope) { $txtScope.Text = if ($adContext.DomainName) { "Domain: $($adContext.DomainName)" } else { "Multi-Window Active" } }
-
-    # Save state helper for detached window
-    $SaveDetachedState = {
-        if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
-            $sData = @{}
-            if ($controls['TxtSearchUsers']) { $sData['SearchUsers'] = $controls['TxtSearchUsers'].Text }
-            if ($controls['CmbUserOUFilter']) { $sData['OUFilter'] = $controls['CmbUserOUFilter'].SelectedIndex }
-            if ($controls['TxtSearchGroups']) { $sData['SearchGroups'] = $controls['TxtSearchGroups'].Text }
-            if ($controls['TxtSearchComputers']) { $sData['SearchComputers'] = $controls['TxtSearchComputers'].Text }
-            if ($controls['TxtSearchOUs']) { $sData['SearchOUs'] = $controls['TxtSearchOUs'].Text }
-            if ($state.UsersPage) { $sData['UsersPage'] = $state.UsersPage }
-            try {
-                $json = $sData | ConvertTo-Json -Compress
-                [System.IO.File]::WriteAllText($StateFile, $json, [System.Text.Encoding]::UTF8)
-            } catch {}
-        }
-    }
-
-    $btnDock = $detachedWin.FindName("BtnDockBack")
-    if ($btnDock) {
-        $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            & $SaveDetachedState
-            if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
-                try { [System.IO.File]::WriteAllText("$StateFile.dock", "DockBack", [System.Text.Encoding]::UTF8) } catch {}
-            }
-            $detachedWin.Close()
-        })
-    }
-
-    $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
-        param($s, $e)
-        & $SaveDetachedState
-    })
-
-    $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
-        param($s, $e)
-        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
-            $e.Handled = $true
-            & $SaveDetachedState
-            if (-not [string]::IsNullOrWhiteSpace($StateFile)) {
-                try { [System.IO.File]::WriteAllText("$StateFile.dock", "DockBack", [System.Text.Encoding]::UTF8) } catch {}
-            }
-            $detachedWin.Close()
-        }
-    })
-
-    # Restore state from StateFile if available
-    if (-not [string]::IsNullOrWhiteSpace($StateFile) -and (Test-Path $StateFile)) {
-        try {
-            $rawState = [System.IO.File]::ReadAllText($StateFile, [System.Text.Encoding]::UTF8)
-            $parsedState = $rawState | ConvertFrom-Json
-            if ($parsedState) {
-                if ($controls['TxtSearchUsers'] -and $parsedState.SearchUsers) { $controls['TxtSearchUsers'].Text = $parsedState.SearchUsers }
-                if ($controls['CmbUserOUFilter'] -and $parsedState.OUFilter -ne $null) { $controls['CmbUserOUFilter'].SelectedIndex = [int]$parsedState.OUFilter }
-                if ($controls['TxtSearchGroups'] -and $parsedState.SearchGroups) { $controls['TxtSearchGroups'].Text = $parsedState.SearchGroups }
-                if ($controls['TxtSearchComputers'] -and $parsedState.SearchComputers) { $controls['TxtSearchComputers'].Text = $parsedState.SearchComputers }
-                if ($controls['TxtSearchOUs'] -and $parsedState.SearchOUs) { $controls['TxtSearchOUs'].Text = $parsedState.SearchOUs }
-            }
-        } catch {}
-    }
-
-    # Redirect $window so all event handlers, theme application, dialog ownership, and ShowDialog attach to $detachedWin
-    $window = $detachedWin
-}
 
 function Test-CanModifyDirectory {
     if ($state.IsReadOnlyProfile) {
@@ -848,8 +754,9 @@ function Set-ApplicationTheme {
 
     # Propagate theme to all active detached windows
     if ($state -and $state.DetachedWindows) {
-        foreach ($dWin in $state.DetachedWindows.Values) {
-            if ($dWin) {
+        foreach ($dRec in $state.DetachedWindows.Values) {
+            $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
+            if ($dWin -and $dWin -is [System.Windows.Window]) {
                 foreach ($k in $resourceMap.Keys) {
                     $dWin.Resources[$k] = $window.Resources[$k]
                 }
@@ -1977,11 +1884,11 @@ function Remove-WorkspaceTab {
 
     if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
         $dRec = $state.DetachedWindows[$targetTab.Id]
-        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
-        if ($proc -and -not $proc.HasExited) {
-            try { $proc.Kill() } catch {}
+        $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
+        if ($dWin -and $dWin -is [System.Windows.Window]) {
+            try { $dWin.Close() } catch {}
         }
-        $state.DetachedWindows.Remove($targetTab.Id)
+        [void]$state.DetachedWindows.Remove($targetTab.Id)
     }
 
     $idx = $state.OpenTabs.IndexOf($targetTab)
@@ -2000,6 +1907,433 @@ function Remove-WorkspaceTab {
     }
 }
 
+function Get-NamedElements {
+    param([System.Windows.DependencyObject]$element)
+    $res = @{}
+    $queue = [System.Collections.Queue]::new()
+    $queue.Enqueue($element)
+    while ($queue.Count -gt 0) {
+        $curr = $queue.Dequeue()
+        if ($curr -is [System.Windows.FrameworkElement] -and -not [string]::IsNullOrWhiteSpace($curr.Name)) {
+            $res[$curr.Name] = $curr
+        }
+        foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($curr)) {
+            if ($child -is [System.Windows.DependencyObject]) {
+                $queue.Enqueue($child)
+            }
+        }
+    }
+    return $res
+}
+
+function New-PanelInstance {
+    param([string]$PanelName)
+    $xmlR = [System.Xml.XmlReader]::Create($mainWindowXamlPath)
+    $tempWin = [System.Windows.Markup.XamlReader]::Load($xmlR)
+    $xmlR.Close()
+    $pKey = "Panel$PanelName"
+    $panel = $tempWin.FindName($pKey)
+    $viewport = $tempWin.FindName("ViewportContainer")
+    if ($viewport -and $viewport.Children.Contains($panel)) {
+        $viewport.Children.Remove($panel)
+    }
+    $ctrls = Get-NamedElements -element $panel
+    return [PSCustomObject]@{
+        Panel    = $panel
+        Controls = $ctrls
+    }
+}
+
+function Wire-SecondaryPanelInstance {
+    param(
+        $panelObj,
+        $win,
+        $tab,
+        [string]$PanelName
+    )
+    $panel = $panelObj.Panel
+    $c = $panelObj.Controls
+
+    if ($PanelName -eq "Users") {
+        $txtSearch = $c['TxtSearchUsers']
+        $grid = $c['GridUsers']
+        $filterAll = $c['FilterUserAll']
+        $filterActive = $c['FilterUserActive']
+        $filterDisabled = $c['FilterUserDisabled']
+        $filterLocked = $c['FilterUserLocked']
+        $badge = $c['TxtUsersCountBadge']
+        $btnClear = $c['BtnClearSearchUsers']
+        $btnSearch = $c['BtnSearchUsers']
+        $cmbOU = $c['CmbUserOUFilter']
+
+        # Populate OU filter dropdown if available
+        if ($cmbOU -and $state.CachedOUs) {
+            $cmbOU.Items.Clear()
+            foreach ($ou in $state.CachedOUs) {
+                $item = [System.Windows.Controls.ComboBoxItem]::new()
+                $item.Content = $ou.DisplayName
+                $item.Tag = $ou.DistinguishedName
+                [void]$cmbOU.Items.Add($item)
+            }
+            if ($cmbOU.Items.Count -gt 0) { $cmbOU.SelectedIndex = 0 }
+        }
+
+        # Restore tab state if available
+        if ($tab -and $tab.State) {
+            if ($tab.State.ContainsKey('SearchUsers') -and $txtSearch) {
+                $txtSearch.Text = $tab.State['SearchUsers']
+            }
+            if ($tab.State.ContainsKey('FilterUser')) {
+                switch ($tab.State['FilterUser']) {
+                    "Active"   { if ($filterActive)   { $filterActive.IsChecked = $true } }
+                    "Disabled" { if ($filterDisabled) { $filterDisabled.IsChecked = $true } }
+                    "Locked"   { if ($filterLocked)   { $filterLocked.IsChecked = $true } }
+                    default    { if ($filterAll)      { $filterAll.IsChecked = $true } }
+                }
+            }
+            if ($tab.State.ContainsKey('OUFilter') -and $cmbOU) {
+                $cmbOU.SelectedIndex = [int]$tab.State['OUFilter']
+            }
+        }
+
+        $localScope = [PSCustomObject]@{
+            Filtered = @($state.CachedUsers)
+        }
+
+        $applyFilter = {
+            $sourceUsers = if ($state.CachedUsers -and $state.CachedUsers.Count -gt 0) {
+                $state.CachedUsers
+            } elseif ($state.AllScopeUsers -and $state.AllScopeUsers.Count -gt 0) {
+                $state.AllScopeUsers
+            } else {
+                @(Get-ADUsersList | ForEach-Object { $_ })
+            }
+
+            $q = if ($txtSearch) { $txtSearch.Text.Trim() } else { "" }
+            $status = if ($filterActive -and $filterActive.IsChecked) { "Active" }
+                      elseif ($filterDisabled -and $filterDisabled.IsChecked) { "Disabled" }
+                      elseif ($filterLocked -and $filterLocked.IsChecked) { "Locked" }
+                      else { "All" }
+
+            $selOU = if ($cmbOU -and $cmbOU.SelectedItem -and $cmbOU.SelectedIndex -gt 0) {
+                $cmbOU.SelectedItem.Tag
+            } else { "" }
+
+            $cleanQuery = $q.Trim()
+            $asciiQuery = if (Get-Command Remove-DiacriticsText -ErrorAction SilentlyContinue) { Remove-DiacriticsText $cleanQuery } else { $cleanQuery }
+            $terms = @($cleanQuery)
+            if ($asciiQuery -and $asciiQuery -ne $cleanQuery) { $terms += $asciiQuery }
+
+            $res = @($sourceUsers | Where-Object {
+                $u = $_
+                $statusMatch = switch ($status) {
+                    "Active"   { $u.Enabled -eq $true }
+                    "Disabled" { $u.Enabled -eq $false }
+                    "Locked"   { $u.LockedOut -eq $true }
+                    default    { $true }
+                }
+                if (-not $statusMatch) { return $false }
+
+                if ($selOU -and $u.DistinguishedName) {
+                    if (-not ($u.DistinguishedName -like "*,$selOU")) { return $false }
+                }
+
+                if (-not [string]::IsNullOrWhiteSpace($q)) {
+                    $composite = "$($u.DisplayName) $($u.GivenName) $($u.Surname) $($u.SamAccountName) $($u.Department) $($u.Title) $($u.Office) $($u.Description) $($u.Mail) $($u.Email) $($u.EmployeeID)"
+                    $matched = $false
+                    foreach ($t in $terms) {
+                        if ($composite -match [regex]::Escape($t)) { $matched = $true; break }
+                    }
+                    return $matched
+                }
+                return $true
+            })
+
+            $localScope.Filtered = $res
+            if ($grid) { $grid.ItemsSource = $res }
+            if ($badge) {
+                $countMsg = if ([string]::IsNullOrWhiteSpace($q)) { "$($res.Count) users displayed" } else { "$($res.Count) user(s) matching '$q'" }
+                $badge.Text = $countMsg
+                $badge.Foreground = if ($res.Count -gt 0) {
+                    [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+                } else {
+                    [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+                }
+            }
+        }.GetNewClosure()
+
+        if ($txtSearch) {
+            $txtSearch.Add_TextChanged({
+                param($s, $e)
+                $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
+                & $applyFilter
+            }.GetNewClosure())
+            $txtSearch.Add_KeyDown({
+                param($s, $e)
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
+            }.GetNewClosure())
+        }
+        if ($btnClear) {
+            $btnClear.Add_Click({
+                param($s, $e)
+                if ($txtSearch) { $txtSearch.Text = "" }
+            }.GetNewClosure())
+        }
+        if ($btnSearch) { $btnSearch.Add_Click({ & $applyFilter }.GetNewClosure()) }
+        if ($filterAll) { $filterAll.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterActive) { $filterActive.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterDisabled) { $filterDisabled.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterLocked) { $filterLocked.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($cmbOU) { $cmbOU.Add_SelectionChanged({ & $applyFilter }.GetNewClosure()) }
+
+        # Action Buttons
+        if ($c['BtnNewUser']) {
+            $c['BtnNewUser'].Add_Click({ Open-UserDialog -Mode "Create" }.GetNewClosure())
+        }
+        if ($c['BtnEditUser'] -and $grid) {
+            $c['BtnEditUser'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Open-UserDialog -Mode "Edit" -UserToEdit $u }
+            }.GetNewClosure())
+        }
+        if ($c['BtnViewUser'] -and $grid) {
+            $c['BtnViewUser'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Open-UserDetailDialog -User $u }
+            }.GetNewClosure())
+        }
+        if ($c['BtnResetPassword'] -and $grid) {
+            $c['BtnResetPassword'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Open-PasswordDialog -User $u }
+            }.GetNewClosure())
+        }
+        if ($c['BtnToggleStatus'] -and $grid) {
+            $c['BtnToggleStatus'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Toggle-UserStatusAction -TargetUser $u }
+            }.GetNewClosure())
+        }
+        if ($c['BtnMoveUser'] -and $grid) {
+            $c['BtnMoveUser'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Open-MoveDialog -Principal $u -Type "User" }
+            }.GetNewClosure())
+        }
+        if ($c['BtnDeleteUser'] -and $grid) {
+            $c['BtnDeleteUser'].Add_Click({
+                $u = $grid.SelectedItem
+                if ($u) { Delete-UserAction -TargetUser $u }
+            }.GetNewClosure())
+        }
+        if ($c['BtnExportUsers']) {
+            $c['BtnExportUsers'].Add_Click({
+                Export-UsersAction -SourceItems $localScope.Filtered
+            }.GetNewClosure())
+        }
+        if ($c['BtnUserAddToBasket'] -and $grid) {
+            $c['BtnUserAddToBasket'].Add_Click({
+                $sel = $grid.SelectedItems
+                if ($sel -and $sel.Count -gt 0) {
+                    Add-ToBasket -Items $sel -DefaultClass "User"
+                } else {
+                    [System.Windows.MessageBox]::Show("Please select one or more users to add to the Directory Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                }
+            }.GetNewClosure())
+        }
+        if ($c['BtnUserAddColumn'] -and $grid) {
+            $c['BtnUserAddColumn'].Add_Click({
+                Show-ColumnChooser -TableName "Users" -TargetGrid $grid -OwnerWindow $win
+            }.GetNewClosure())
+        }
+        if ($c['BtnUserResetColumns'] -and $grid) {
+            $c['BtnUserResetColumns'].Add_Click({
+                Reset-TableColumns -TableName "Users" -TargetGrid $grid
+            }.GetNewClosure())
+        }
+        if ($grid) {
+            $grid.Add_MouseDoubleClick({
+                param($s, $e)
+                $u = $grid.SelectedItem
+                if ($u) { Open-UserDetailDialog -User $u }
+            }.GetNewClosure())
+        }
+
+        # Initial populate
+        & $applyFilter
+        $panel.Tag = $localScope
+    }
+    elseif ($PanelName -eq "Groups") {
+        $txtSearch = $c['TxtSearchGroups']
+        $grid = $c['GridGroups']
+        $filterAll = $c['FilterGroupAll']
+        $filterSec = $c['FilterGroupSec']
+        $filterDist = $c['FilterGroupDist']
+        $badge = $c['TxtGroupsCountBadge']
+        $btnClear = $c['BtnClearSearchGroups']
+        $btnSearch = $c['BtnSearchGroups']
+
+        $localScope = [PSCustomObject]@{
+            Filtered = @($state.CachedGroups)
+        }
+
+        $applyFilter = {
+            $sourceGroups = if ($state.CachedGroups -and $state.CachedGroups.Count -gt 0) {
+                $state.CachedGroups
+            } else {
+                @(Get-ADGroupsList | ForEach-Object { $_ })
+            }
+            $q = if ($txtSearch) { $txtSearch.Text.Trim() } else { "" }
+            $typeFilter = if ($filterSec -and $filterSec.IsChecked) { "Security" }
+                          elseif ($filterDist -and $filterDist.IsChecked) { "Distribution" }
+                          else { "All" }
+
+            $res = @($sourceGroups | Where-Object {
+                $g = $_
+                if ($typeFilter -eq "Security" -and $g.GroupType -ne "Security") { return $false }
+                if ($typeFilter -eq "Distribution" -and $g.GroupType -ne "Distribution") { return $false }
+                if (-not [string]::IsNullOrWhiteSpace($q)) {
+                    $composite = "$($g.DisplayName) $($g.SamAccountName) $($g.Description)"
+                    return $composite -match [regex]::Escape($q)
+                }
+                return $true
+            })
+
+            $localScope.Filtered = $res
+            if ($grid) { $grid.ItemsSource = $res }
+            if ($badge) {
+                $badge.Text = "$($res.Count) group(s) displayed"
+            }
+        }.GetNewClosure()
+
+        if ($txtSearch) {
+            $txtSearch.Add_TextChanged({
+                param($s, $e)
+                $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
+                & $applyFilter
+            }.GetNewClosure())
+            $txtSearch.Add_KeyDown({
+                param($s, $e)
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
+            }.GetNewClosure())
+        }
+        if ($btnClear) {
+            $btnClear.Add_Click({
+                param($s, $e)
+                if ($txtSearch) { $txtSearch.Text = "" }
+            }.GetNewClosure())
+        }
+        if ($btnSearch) { $btnSearch.Add_Click({ & $applyFilter }.GetNewClosure()) }
+        if ($filterAll) { $filterAll.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterSec) { $filterSec.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterDist) { $filterDist.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+
+        # Initial populate
+        & $applyFilter
+        $panel.Tag = $localScope
+    }
+    elseif ($PanelName -eq "Computers") {
+        $txtSearch = $c['TxtSearchComputers']
+        $grid = $c['GridComputers']
+        $filterAll = $c['FilterCompAll']
+        $filterEnabled = $c['FilterCompEnabled']
+        $filterDisabled = $c['FilterCompDisabled']
+        $btnClear = $c['BtnClearSearchComputers']
+
+        $localScope = [PSCustomObject]@{
+            Filtered = @($state.CachedComputers)
+        }
+
+        $applyFilter = {
+            $sourceComps = if ($state.CachedComputers -and $state.CachedComputers.Count -gt 0) {
+                $state.CachedComputers
+            } else {
+                @(Get-ADComputersList | ForEach-Object { $_ })
+            }
+            $q = if ($txtSearch) { $txtSearch.Text.Trim() } else { "" }
+            $status = if ($filterEnabled -and $filterEnabled.IsChecked) { "Enabled" }
+                      elseif ($filterDisabled -and $filterDisabled.IsChecked) { "Disabled" }
+                      else { "All" }
+
+            $res = @($sourceComps | Where-Object {
+                $comp = $_
+                if ($status -eq "Enabled" -and $comp.Enabled -ne $true) { return $false }
+                if ($status -eq "Disabled" -and $comp.Enabled -ne $false) { return $false }
+                if (-not [string]::IsNullOrWhiteSpace($q)) {
+                    $composite = "$($comp.Name) $($comp.DNSHostName) $($comp.OperatingSystem) $($comp.Description)"
+                    return $composite -match [regex]::Escape($q)
+                }
+                return $true
+            })
+
+            $localScope.Filtered = $res
+            if ($grid) { $grid.ItemsSource = $res }
+        }.GetNewClosure()
+
+        if ($txtSearch) {
+            $txtSearch.Add_TextChanged({
+                param($s, $e)
+                $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
+                & $applyFilter
+            }.GetNewClosure())
+            $txtSearch.Add_KeyDown({
+                param($s, $e)
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
+            }.GetNewClosure())
+        }
+        if ($btnClear) {
+            $btnClear.Add_Click({
+                param($s, $e)
+                if ($txtSearch) { $txtSearch.Text = "" }
+            }.GetNewClosure())
+        }
+        if ($filterAll) { $filterAll.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterEnabled) { $filterEnabled.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+        if ($filterDisabled) { $filterDisabled.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+
+        # Initial populate
+        & $applyFilter
+        $panel.Tag = $localScope
+    }
+}
+
+function Save-SecondaryPanelSessionState {
+    param($Tab, $PanelObj, [string]$PanelName)
+    if (-not $Tab -or -not $Tab.State -or -not $PanelObj) { return }
+    $c = $PanelObj.Controls
+    switch ($PanelName) {
+        "Users" {
+            if ($c['TxtSearchUsers']) { $Tab.State['SearchUsers'] = $c['TxtSearchUsers'].Text }
+            if ($c['FilterUserAll']) {
+                $Tab.State['FilterUser'] = if ($c['FilterUserActive'] -and $c['FilterUserActive'].IsChecked) { "Active" }
+                    elseif ($c['FilterUserDisabled'] -and $c['FilterUserDisabled'].IsChecked) { "Disabled" }
+                    elseif ($c['FilterUserLocked'] -and $c['FilterUserLocked'].IsChecked) { "Locked" }
+                    else { "All" }
+            }
+            if ($c['CmbUserOUFilter']) { $Tab.State['OUFilter'] = $c['CmbUserOUFilter'].SelectedIndex }
+        }
+        "Groups" {
+            if ($c['TxtSearchGroups']) { $Tab.State['SearchGroups'] = $c['TxtSearchGroups'].Text }
+            if ($c['FilterGroupAll']) {
+                $Tab.State['FilterGroup'] = if ($c['FilterGroupSec'] -and $c['FilterGroupSec'].IsChecked) { "Security" }
+                    elseif ($c['FilterGroupDist'] -and $c['FilterGroupDist'].IsChecked) { "Distribution" }
+                    else { "All" }
+            }
+        }
+        "Computers" {
+            if ($c['TxtSearchComputers']) { $Tab.State['SearchComputers'] = $c['TxtSearchComputers'].Text }
+            if ($c['FilterCompAll']) {
+                $Tab.State['FilterComp'] = if ($c['FilterCompEnabled'] -and $c['FilterCompEnabled'].IsChecked) { "Enabled" }
+                    elseif ($c['FilterCompDisabled'] -and $c['FilterCompDisabled'].IsChecked) { "Disabled" }
+                    else { "All" }
+            }
+        }
+    }
+}
+
 function Select-WorkspaceTab {
     param ([string]$TabId)
     if ([string]::IsNullOrWhiteSpace($TabId)) { return }
@@ -2013,8 +2347,16 @@ function Select-WorkspaceTab {
     # If this specific tab instance is detached in its own window, keep it in foreground
     if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
         $dRec = $state.DetachedWindows[$targetTab.Id]
-        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
-        if ($proc -and -not $proc.HasExited) {
+        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+                elseif ($dRec.Window) { $dRec.Window }
+                else { $null }
+        if ($dWin) {
+            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                $dWin.WindowState = [System.Windows.WindowState]::Normal
+            }
+            [void]$dWin.Activate()
+            $dWin.Focus()
             return
         }
     }
@@ -2034,10 +2376,32 @@ function Select-WorkspaceTab {
     # Restore session state for the selected tab
     Restore-TabSessionState -Tab $targetTab
 
-    if ($controls['ViewportContainer'] -and $controls[$targetCtrlName]) {
+    $primaryPanel = $controls[$targetCtrlName]
+    if ($controls['ViewportContainer']) {
+        # Check if the primary panel is currently detached in another window
+        if ($primaryPanel -and -not $controls['ViewportContainer'].Children.Contains($primaryPanel)) {
+            # Provide or ensure secondary docked panel instance for this tab
+            if (-not $targetTab.DockedPanelInstance) {
+                $secObj = New-PanelInstance -PanelName $PanelName
+                Wire-SecondaryPanelInstance -panelObj $secObj -win $window -tab $targetTab -PanelName $PanelName
+                $targetTab.DockedPanelInstance = $secObj.Panel
+                [void]$controls['ViewportContainer'].Children.Add($secObj.Panel)
+            }
+            $targetTab.DockedPanelInstance.Visibility = [System.Windows.Visibility]::Visible
+        } else {
+            if ($targetTab.DockedPanelInstance) {
+                if ($controls['ViewportContainer'].Children.Contains($targetTab.DockedPanelInstance)) {
+                    $controls['ViewportContainer'].Children.Remove($targetTab.DockedPanelInstance)
+                }
+                $targetTab.DockedPanelInstance = $null
+            }
+        }
+
         foreach ($child in $controls['ViewportContainer'].Children) {
             if ($child -is [System.Windows.UIElement]) {
-                $child.Visibility = if ($child.Name -eq $targetCtrlName) {
+                $child.Visibility = if ($targetTab.DockedPanelInstance -and $child -eq $targetTab.DockedPanelInstance) {
+                    [System.Windows.Visibility]::Visible
+                } elseif (-not $targetTab.DockedPanelInstance -and $child.Name -eq $targetCtrlName) {
                     [System.Windows.Visibility]::Visible
                 } else {
                     [System.Windows.Visibility]::Collapsed
@@ -2086,23 +2450,25 @@ function Detach-PanelToWindow {
     $targetTabId = $targetTab.Id
     $pName = $targetTab.PanelName
 
-    # If already detached, check if process is alive
+    # If already detached, activate and focus
     if ($state.DetachedWindows.ContainsKey($targetTabId)) {
         $dRec = $state.DetachedWindows[$targetTabId]
-        $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
-        if ($proc -and -not $proc.HasExited) {
-            return
+        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+                elseif ($dRec.Window) { $dRec.Window }
+                else { $null }
+        if ($dWin) {
+            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                $dWin.WindowState = [System.Windows.WindowState]::Normal
+            }
+            [void]$dWin.Activate()
+            $dWin.Focus()
         }
+        return
     }
 
-    # Save session state before moving
+    # Save session state before detaching
     Save-TabSessionState -Tab $targetTab
-
-    $stateFile = Join-Path ([System.IO.Path]::GetTempPath()) "ad_studio_tab_$($targetTabId).json"
-    try {
-        $json = $targetTab.State | ConvertTo-Json -Compress
-        [System.IO.File]::WriteAllText($stateFile, $json, [System.Text.Encoding]::UTF8)
-    } catch {}
 
     $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $global:PanelCatalog.Contains($pName)) {
         $global:PanelCatalog[$pName]
@@ -2111,28 +2477,134 @@ function Detach-PanelToWindow {
     }
     $tabDisplayTitle = if ($targetTab.Title) { $targetTab.Title } else { $meta.Title }
 
-    $powershellExe = (Get-Process -Id $PID).Path
-    $argList = "-STA -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`" -DetachedPanel `"$pName`" -DetachedTabId `"$targetTabId`" -DetachedTabTitle `"$tabDisplayTitle`" -StateFile `"$stateFile`" -ParentPid $PID"
-
-    $proc = Start-Process -FilePath $powershellExe -ArgumentList $argList -WindowStyle Hidden -PassThru
-    $proc.EnableRaisingEvents = $true
-
-    $state.DetachedWindows[$targetTabId] = @{
-        Process    = $proc
-        TabId      = $targetTabId
-        PanelName  = $pName
-        StateFile  = $stateFile
+    # Load detached window instance
+    $detachedXamlPath = Join-Path $viewsPath "DetachedPanelWindow.xaml"
+    $detachedWin = Load-XamlWindow -XamlPath $detachedXamlPath
+    foreach ($k in $window.Resources.Keys) {
+        $detachedWin.Resources[$k] = $window.Resources[$k]
     }
 
-    $proc.Add_Exited({
-        param($s, $e)
-        if ($window -and $window.Dispatcher) {
-            $window.Dispatcher.Invoke([Action]{
-                Dock-PanelToMainWindow -TabId $targetTabId -FromProcessExit
-            })
-        }
-    })
+    $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
 
+    $txtIcon = $detachedWin.FindName("TxtDetachedIcon")
+    if ($txtIcon) { $txtIcon.Text = if ($targetTab.Icon) { $targetTab.Icon } elseif ($meta.Icon) { $meta.Icon } else { "📋" } }
+    $txtTitle = $detachedWin.FindName("TxtDetachedTitle")
+    if ($txtTitle) { $txtTitle.Text = $tabDisplayTitle }
+    $txtCategory = $detachedWin.FindName("TxtDetachedCategory")
+    if ($txtCategory) { $txtCategory.Text = $meta.Category }
+
+    $contentHost = $detachedWin.FindName("DetachedContentHost")
+
+    $primaryKey = "Panel$pName"
+    $primaryPanel = $controls[$primaryKey]
+    $canUsePrimary = $false
+
+    # Primary panel can be used if it exists, is not already detached, and no other docked tab of the same type is open in MainWindow
+    if ($primaryPanel -and -not ($state.DetachedWindows.Values | Where-Object { -not $_.IsSecondary -and $_.PanelName -eq $pName })) {
+        $otherDockedOfSameType = $state.OpenTabs | Where-Object { $_.Id -ne $targetTabId -and $_.PanelName -eq $pName -and -not $state.DetachedWindows.ContainsKey($_.Id) }
+        if (-not $otherDockedOfSameType -or $otherDockedOfSameType.Count -eq 0) {
+            $canUsePrimary = $true
+        }
+    }
+
+    $panelToMount = $null
+    $isSecondary = $false
+    $namedControls = @{}
+
+    if ($canUsePrimary) {
+        if ($controls['ViewportContainer'].Children.Contains($primaryPanel)) {
+            $controls['ViewportContainer'].Children.Remove($primaryPanel)
+        }
+        $panelToMount = $primaryPanel
+        $isSecondary = $false
+    } else {
+        $panelObj = New-PanelInstance -PanelName $pName
+        $panelToMount = $panelObj.Panel
+        $namedControls = $panelObj.Controls
+        $isSecondary = $true
+        Wire-SecondaryPanelInstance -panelObj $panelObj -win $detachedWin -tab $targetTab -PanelName $pName
+    }
+
+    if ($contentHost -and $panelToMount) {
+        [void]$contentHost.Children.Add($panelToMount)
+        $panelToMount.Visibility = [System.Windows.Visibility]::Visible
+    }
+
+    $state.DetachedWindows[$targetTabId] = @{
+        Window      = $detachedWin
+        TabId       = $targetTabId
+        PanelName   = $pName
+        Panel       = $panelToMount
+        IsSecondary = $isSecondary
+        Controls    = $namedControls
+    }
+
+    $detachedWinClosed = $false
+    $HandleCloseOrDock = {
+        param([bool]$DockBackToMain)
+        if ($detachedWinClosed) { return }
+        $detachedWinClosed = $true
+
+        if ($isSecondary) {
+            Save-SecondaryPanelSessionState -Tab $targetTab -PanelObj @{ Panel = $panelToMount; Controls = $namedControls } -PanelName $pName
+        } else {
+            Save-TabSessionState -Tab $targetTab
+        }
+
+        if (-not $isSecondary -and $primaryPanel) {
+            if ($contentHost.Children.Contains($primaryPanel)) {
+                $contentHost.Children.Remove($primaryPanel)
+            }
+            if (-not $controls['ViewportContainer'].Children.Contains($primaryPanel)) {
+                [void]$controls['ViewportContainer'].Children.Add($primaryPanel)
+                $primaryPanel.Visibility = [System.Windows.Visibility]::Collapsed
+            }
+        }
+
+        if ($state.DetachedWindows.ContainsKey($targetTabId)) {
+            [void]$state.DetachedWindows.Remove($targetTabId)
+        }
+
+        if ($DockBackToMain) {
+            Select-WorkspaceTab -TabId $targetTabId
+            if ($window) {
+                if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                    $window.WindowState = [System.Windows.WindowState]::Normal
+                }
+                [void]$window.Activate()
+                $window.Focus()
+            }
+        } else {
+            Update-WorkspaceTabStrip
+        }
+    }.GetNewClosure()
+
+    $detachedWin.Tag = $HandleCloseOrDock
+
+    $btnDock = $detachedWin.FindName("BtnDockBack")
+    if ($btnDock) {
+        $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
+            param($s, $e)
+            & $HandleCloseOrDock $true
+            $detachedWin.Close()
+        }.GetNewClosure())
+    }
+
+    $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
+        param($s, $e)
+        & $HandleCloseOrDock $false
+    }.GetNewClosure())
+
+    $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
+        param($s, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+            & $HandleCloseOrDock $true
+            $detachedWin.Close()
+            $e.Handled = $true
+        }
+    }.GetNewClosure())
+
+    $detachedWin.Show()
     Update-WorkspaceTabStrip
 
     # If this was the active tab in MainWindow, switch MainWindow to an active docked tab
@@ -2148,8 +2620,7 @@ function Dock-PanelToMainWindow {
     param (
         [string]$PanelName = "",
         [string]$TabId = "",
-        [switch]$NoActivate,
-        [switch]$FromProcessExit
+        [switch]$NoActivate
     )
     $targetTabId = if (-not [string]::IsNullOrWhiteSpace($TabId)) {
         $TabId
@@ -2164,41 +2635,25 @@ function Dock-PanelToMainWindow {
     if (-not $targetTabId -or -not $state.DetachedWindows.ContainsKey($targetTabId)) { return }
 
     $dRec = $state.DetachedWindows[$targetTabId]
-    $state.DetachedWindows.Remove($targetTabId)
+    $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+            elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+            elseif ($dRec.Window) { $dRec.Window }
+            else { $null }
 
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $targetTabId } | Select-Object -First 1
-    $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
-    $stateFile = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('StateFile')) { $dRec['StateFile'] } elseif ($dRec.StateFile) { $dRec.StateFile } else { $null }
-
-    if (-not $FromProcessExit -and $proc -and -not $proc.HasExited) {
+    if ($dWin) {
         try {
-            $proc.CloseMainWindow()
-            Start-Sleep -Milliseconds 150
-            if (-not $proc.HasExited) { $proc.Kill() }
-        } catch {}
-    }
-
-    # Restore state from StateFile if available
-    if ($targetTab -and $stateFile -and (Test-Path $stateFile)) {
-        try {
-            $raw = [System.IO.File]::ReadAllText($stateFile, [System.Text.Encoding]::UTF8)
-            $parsed = $raw | ConvertFrom-Json
-            if ($parsed) {
-                if ($parsed.SearchUsers) { $targetTab.State['SearchUsers'] = $parsed.SearchUsers }
-                if ($parsed.OUFilter -ne $null) { $targetTab.State['OUFilter'] = [int]$parsed.OUFilter }
-                if ($parsed.SearchGroups) { $targetTab.State['SearchGroups'] = $parsed.SearchGroups }
-                if ($parsed.SearchComputers) { $targetTab.State['SearchComputers'] = $parsed.SearchComputers }
-                if ($parsed.SearchOUs) { $targetTab.State['SearchOUs'] = $parsed.SearchOUs }
+            $closeDockHandler = $dWin.Tag
+            if ($closeDockHandler -is [scriptblock]) {
+                & $closeDockHandler (-not $NoActivate)
             }
+            $dWin.Close()
         } catch {}
-        try { Remove-Item $stateFile -Force -ErrorAction SilentlyContinue } catch {}
-        try { Remove-Item "$stateFile.dock" -Force -ErrorAction SilentlyContinue } catch {}
+    } else {
+        [void]$state.DetachedWindows.Remove($targetTabId)
     }
 
     if (-not $NoActivate) {
-        if ($targetTab) {
-            Select-WorkspaceTab -TabId $targetTab.Id
-        }
+        Select-WorkspaceTab -TabId $targetTabId
         if ($window) {
             if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
                 $window.WindowState = [System.Windows.WindowState]::Normal
@@ -2230,6 +2685,18 @@ function Show-AllDetachedWindows {
     if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
         Set-Status -Message "No detached tool windows are currently open."
         return
+    }
+    foreach ($dRec in $state.DetachedWindows.Values) {
+        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+                elseif ($dRec.Window) { $dRec.Window }
+                else { $null }
+        if ($dWin) {
+            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
+                $dWin.WindowState = [System.Windows.WindowState]::Normal
+            }
+            [void]$dWin.Activate()
+        }
     }
     Set-Status -Message "All detached tool windows active."
 }
@@ -2520,7 +2987,11 @@ function Show-Panel {
         } else {
             $detachedTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName -and $state.DetachedWindows.ContainsKey($_.Id) } | Select-Object -First 1
             if ($detachedTab) {
-                $dWin = $state.DetachedWindows[$detachedTab.Id]
+                $dRec = $state.DetachedWindows[$detachedTab.Id]
+                $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+                        elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+                        elseif ($dRec.Window) { $dRec.Window }
+                        else { $null }
                 if ($dWin) {
                     if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) { $dWin.WindowState = [System.Windows.WindowState]::Normal }
                     [void]$dWin.Activate()
@@ -3151,18 +3622,20 @@ function Show-ColumnChooser {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
-        [string]$TableName
+        [string]$TableName,
+        [System.Windows.Controls.DataGrid]$TargetGrid = $null,
+        [System.Windows.Window]$OwnerWindow = $null
     )
 
     $config = $tableColumnCatalog[$TableName]
     if (-not $config) { return }
 
-    $grid = $controls[$config.GridControl]
+    $grid = if ($TargetGrid) { $TargetGrid } else { $controls[$config.GridControl] }
     if (-not $grid) { return }
 
     $dlgPath = Join-Path $viewsPath "ColumnChooserDialog.xaml"
     $dlg = Load-XamlWindow -XamlPath $dlgPath
-    $dlg.Owner = $window
+    if ($OwnerWindow) { $dlg.Owner = $OwnerWindow } elseif ($window) { $dlg.Owner = $window }
 
     $dControls = @{}
     $dReader = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw))
@@ -3385,13 +3858,14 @@ function Reset-TableColumns {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
-        [string]$TableName
+        [string]$TableName,
+        [System.Windows.Controls.DataGrid]$TargetGrid = $null
     )
 
     $config = $tableColumnCatalog[$TableName]
     if (-not $config) { return }
 
-    $grid = $controls[$config.GridControl]
+    $grid = if ($TargetGrid) { $TargetGrid } else { $controls[$config.GridControl] }
     if (-not $grid) { return }
 
     $grid.Columns.Clear()
@@ -4060,7 +4534,8 @@ function Open-MoveDialog {
 }
 
 function Delete-UserAction {
-    $selUser = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+    param($TargetUser = $null)
+    $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) {
         [System.Windows.MessageBox]::Show("Please select a user from the list first.", "No Selection", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
         return
@@ -4086,7 +4561,8 @@ function Delete-UserAction {
 }
 
 function Toggle-UserStatusAction {
-    $selUser = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+    param($TargetUser = $null)
+    $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) { return }
 
     $targetEnable = -not $selUser.Enabled
@@ -4111,13 +4587,14 @@ function Toggle-UserStatusAction {
 }
 
 function Export-UsersAction {
+    param($SourceItems = $null)
     $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
     $dateStr = (Get-Date).ToString("yyyyMMdd_HHmm")
     $saveDlg.FileName = "AD_Users_$dateStr.csv"
     $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
     
     if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $usersToExport = if ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { @(Get-ADUsersList | ForEach-Object { $_ }) }
+        $usersToExport = if ($SourceItems -and $SourceItems.Count -gt 0) { $SourceItems } elseif ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { @(Get-ADUsersList | ForEach-Object { $_ }) }
         $res = Export-ADDataToCsv -Data $usersToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter) `
             -PropertiesToExport @('SamAccountName', 'DisplayName', 'UserPrincipalName', 'Mail', 'Title', 'Department', 'Office', 'Company', 'EmployeeID', 'Enabled', 'LockedOut', 'OUPath', 'LastLogonDate', 'DistinguishedName')
 
@@ -12640,11 +13117,6 @@ $window.Add_Loaded({
 
 $window.Add_Closing({
     param($sender, $e)
-    # If in detached mode, do not modify main config tabs
-    if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {
-        return
-    }
-
     # Persist open tabs if enabled
     if ($state.RestoreTabsOnStartup) {
         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
@@ -12655,7 +13127,16 @@ $window.Add_Closing({
     }
     # Safely close all detached child windows
     if ($state.DetachedWindows) {
-        foreach ($dRec in $state.DetachedWindows.Values) {
+        $tabIds = @($state.DetachedWindows.Keys)
+        foreach ($tId in $tabIds) {
+            $dRec = $state.DetachedWindows[$tId]
+            $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
+                    elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
+                    elseif ($dRec.Window) { $dRec.Window }
+                    else { $null }
+            if ($dWin -and $dWin.IsVisible) {
+                try { $dWin.Close() } catch {}
+            }
             $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
             if ($proc -and -not $proc.HasExited) {
                 try { $proc.Kill() } catch {}
