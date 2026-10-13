@@ -68,6 +68,10 @@ Import-Module (Join-Path $modulesPath "DiagnosticService.psm1") -DisableNameChec
 Import-Module (Join-Path $modulesPath "ReplicationService.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $modulesPath "GpoService.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $modulesPath "NetworkService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking -Force
+
+# Initialize Logging and Global Exception Tracing
+$appLogsDir = Initialize-AppLogging
 
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
@@ -108,6 +112,9 @@ function Load-XamlWindow {
 # Load Main Window
 $mainWindowXamlPath = Join-Path $viewsPath "MainWindow.xaml"
 $window = Load-XamlWindow -XamlPath $mainWindowXamlPath
+
+# Register WPF UI Dispatcher exception handler
+Register-WpfExceptionHandler -Dispatcher $window.Dispatcher -Window $window
 
 # Extract all controls by Name
 $controls = @{}
@@ -2483,6 +2490,7 @@ function Detach-PanelToWindow {
     foreach ($k in $window.Resources.Keys) {
         $detachedWin.Resources[$k] = $window.Resources[$k]
     }
+    Register-WpfExceptionHandler -Dispatcher $detachedWin.Dispatcher -Window $detachedWin
 
     $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
 
@@ -13036,6 +13044,35 @@ if ($controls['BtnSaveSettings']) {
 }
 #endregion
 
+# Wire Application Logging & Error Diagnostic Controls
+if ($controls['BtnHeaderLogs']) {
+    $controls['BtnHeaderLogs'].Add_Click({
+        Open-LogsFolder
+    })
+}
+
+if ($controls['BtnOpenLogsFolder']) {
+    $controls['BtnOpenLogsFolder'].Add_Click({
+        Open-LogsFolder
+    })
+}
+
+if ($controls['BtnViewLatestLog']) {
+    $controls['BtnViewLatestLog'].Add_Click({
+        Open-LatestLogFile -Type "Error"
+    })
+}
+
+if ($controls['BtnClearLogs']) {
+    $controls['BtnClearLogs'].Add_Click({
+        $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to clear application log files?", "Clear Logs", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+        if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+            $count = Clear-AppLogs -OlderThanDays 0
+            Set-Status -Message "Cleared $count application log file(s)."
+        }
+    })
+}
+
 function Refresh-All {
     Refresh-Dashboard
     Refresh-OUs
@@ -13060,6 +13097,7 @@ function Update-HeaderLayoutResponsive {
     if ($controls['TxtHeaderDiag'])       { $controls['TxtHeaderDiag'].Visibility       = $labelVis }
     if ($controls['TxtHeaderRefresh'])    { $controls['TxtHeaderRefresh'].Visibility    = $labelVis }
     if ($controls['TxtHeaderLayoutText']) { $controls['TxtHeaderLayoutText'].Visibility = $labelVis }
+    if ($controls['TxtHeaderLogs'])       { $controls['TxtHeaderLogs'].Visibility       = $labelVis }
 
     # Telemetry badge in center only displays when there is ample width (>= 1380px)
     if ($controls['BorderTelemetryBadge']) {
@@ -13216,6 +13254,14 @@ $window.Add_KeyDown({
     }
     if ($e.Key -eq [System.Windows.Input.Key]::L -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
         Show-WorkspaceLayoutMenu -targetElement $controls['BtnWorkspaceLayoutMenu']
+        $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::O -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        Open-LogsFolder
+        $e.Handled = $true
+    }
+    if ($e.Key -eq [System.Windows.Input.Key]::E -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        Open-LatestLogFile -Type "Error"
         $e.Handled = $true
     }
 })
