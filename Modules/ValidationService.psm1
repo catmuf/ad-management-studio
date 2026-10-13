@@ -680,7 +680,7 @@ function Expand-ADAttributePattern {
             "upper" { $val = $val.ToUpperInvariant() }
             "cap" {
                 if ($val.Length -gt 0) {
-                    $val = [char]::ToUpperInvariant($val[0]) + (if ($val.Length -gt 1) { $val.Substring(1).ToLowerInvariant() } else { "" })
+                    $val = [char]::ToUpperInvariant($val[0]) + $(if ($val.Length -gt 1) { $val.Substring(1).ToLowerInvariant() } else { "" })
                 }
             }
         }

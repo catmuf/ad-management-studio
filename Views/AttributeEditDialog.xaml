@@ -409,12 +409,85 @@
                         <TextBlock Text="Calculated LDAP Hash (userPassword syntax):" FontWeight="SemiBold" Margin="0,6,0,6"/>
                         <TextBox Name="TxtGeneratedHashOutput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,0,0,6"/>
                         <TextBlock Text="Format: {SCHEME}base64-encoded-hash" FontSize="11" Foreground="#9CA3AF"/>
+                        <TextBlock Name="TxtHashVerifyStatus" Text="" FontSize="12" Margin="0,6,0,0" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Border>
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
                     <Button Name="BtnCalculateHash" Style="{StaticResource PrimaryButton}" Content="⚡ Generate Hash" Margin="0,0,8,0"/>
+                    <Button Name="BtnVerifyPlaintextHash" Style="{StaticResource ModernButton}" Content="🔑 Verify Match" Margin="0,0,8,0" ToolTip="Test whether the entered plaintext password matches the existing directory hash"/>
+                    <Button Name="BtnTestLdapBindPassword" Style="{StaticResource ModernButton}" Content="⚡ Test LDAP Bind" Margin="0,0,8,0" ToolTip="Attempt live out-of-band LDAP BIND authentication with the entered password"/>
                     <Button Name="BtnClearHash" Style="{StaticResource DangerButton}" Content="🗑️ Clear userPassword"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Mode 9: Postal Address Editor (RFC 4517 postalAddress / registeredAddress) -->
+            <Grid Name="ModePostalAddressEditor" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock Text="RFC 4517 Postal Address Editor (Multi-Line &amp; Structured Fields):" FontWeight="SemiBold"/>
+                    <TextBlock Text="Directory format separated by '$'" HorizontalAlignment="Right" Foreground="#9CA3AF" FontSize="11"/>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="260"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Freeform Multi-line with $ conversion -->
+                    <Border Grid.Column="0" Background="#22252F" BorderBrush="#373B4D" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Address Lines (1 line per entry, expanded from '$'):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Name="TxtPostalAddressLines" Style="{StaticResource ModernTextBox}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas" FontSize="13"/>
+                            <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                <TextBlock Text="Raw RFC 4517 Directory Format Preview:" FontSize="10" Foreground="#60A5FA"/>
+                                <TextBox Name="TxtPostalRfcPreview" Style="{StaticResource ModernTextBox}" IsReadOnly="True"
+                                         FontFamily="Consolas" FontSize="11" Height="28" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right: Structured Field Helper -->
+                    <Border Grid.Column="1" Background="#181B24" BorderBrush="#2D313F" BorderThickness="1" CornerRadius="6" Padding="10">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="STRUCTURED BUILDER" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                                <TextBlock Text="Street Address:" FontSize="11" Foreground="#E5E7EB" Margin="0,2"/>
+                                <TextBox Name="TxtPostalStreet" Style="{StaticResource ModernTextBox}" Height="26" Margin="0,0,0,4"/>
+
+                                <TextBlock Text="City / Locality:" FontSize="11" Foreground="#E5E7EB" Margin="0,2"/>
+                                <TextBox Name="TxtPostalCity" Style="{StaticResource ModernTextBox}" Height="26" Margin="0,0,0,4"/>
+
+                                <TextBlock Text="State / Province:" FontSize="11" Foreground="#E5E7EB" Margin="0,2"/>
+                                <TextBox Name="TxtPostalState" Style="{StaticResource ModernTextBox}" Height="26" Margin="0,0,0,4"/>
+
+                                <TextBlock Text="Postal / ZIP Code:" FontSize="11" Foreground="#E5E7EB" Margin="0,2"/>
+                                <TextBox Name="TxtPostalZip" Style="{StaticResource ModernTextBox}" Height="26" Margin="0,0,0,4"/>
+
+                                <TextBlock Text="Country:" FontSize="11" Foreground="#E5E7EB" Margin="0,2"/>
+                                <TextBox Name="TxtPostalCountry" Style="{StaticResource ModernTextBox}" Height="26" Margin="0,0,0,8"/>
+
+                                <Button Name="BtnApplyPostalStructured" Style="{StaticResource ModernButton}" Content="⬇️ Populate Address Lines" FontSize="11" Padding="8,4"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Name="BtnClearPostal" Style="{StaticResource DangerButton}" Content="🗑️ Clear Address"/>
                 </StackPanel>
             </Grid>
         </Grid>

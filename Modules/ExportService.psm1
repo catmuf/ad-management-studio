@@ -1520,6 +1520,203 @@ function Convert-LdapFilterToScim {
     }
 }
 
+function New-ScimBulkRequest {
+    <#
+    .SYNOPSIS
+        Generates an RFC 7644 Section 3.7 SCIM 2.0 Bulk Request payload (Apache SCIMple parity).
+    .DESCRIPTION
+        Packages a batch of Active Directory objects (users, groups) into a consolidated
+        urn:ietf:params:scim:api:messages:2.0:BulkRequest payload with auto-assigned bulkId
+        tokens and cross-referenced group membership references.
+    .PARAMETER Data
+        Collection of user or group objects, or directory basket items.
+    .PARAMETER Method
+        HTTP method for operations: POST (create), PUT (replace), PATCH (modify), or DELETE. Default is POST.
+    .PARAMETER FailOnErrors
+        Number of errors after which server should abort bulk request. Default is 1.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("Items", "InputObject")]
+        [System.Collections.IEnumerable]$Data,
+        [ValidateSet("POST", "PUT", "PATCH", "DELETE")]
+        [string]$Method = "POST",
+        [int]$FailOnErrors = 1,
+        [string]$OutputFile = ""
+    )
+
+    $operations = [System.Collections.Generic.List[object]]::new()
+    $userBulkIds = @{}
+
+    # Pass 1: Build operations for users
+    $userCount = 0
+    foreach ($item in $Data) {
+        if (-not $item) { continue }
+        $isGroup = $false
+        if ($item.PSObject.Properties['GroupScope'] -or $item.ObjectClass -eq 'group' -or ($item.DistinguishedName -and $item.DistinguishedName -match '^CN=.*?,.*(Groups|OU=Groups)')) {
+            $isGroup = $true
+        } elseif ($item.PSObject.Properties['SamAccountName'] -and -not $item.PSObject.Properties['GivenName'] -and -not $item.PSObject.Properties['Surname'] -and -not $item.PSObject.Properties['UserPrincipalName']) {
+            if ($item.PSObject.Properties['MemberCount'] -or $item.PSObject.Properties['Members']) { $isGroup = $true }
+        }
+
+        if (-not $isGroup) {
+            $userCount++
+            $userTag = if ($item.SamAccountName) { $item.SamAccountName } else { "$userCount" }
+            $bulkId = "user-$userTag"
+            if ($item.SamAccountName) { $userBulkIds[$item.SamAccountName] = $bulkId }
+            if ($item.DistinguishedName) { $userBulkIds[$item.DistinguishedName] = $bulkId }
+
+            $userName = if ($item.SamAccountName) { "$($item.SamAccountName)" } elseif ($item.UserPrincipalName) { "$($item.UserPrincipalName)" } else { "user$userCount" }
+            $displayName = if ($item.DisplayName) { "$($item.DisplayName)" } elseif ($item.Name) { "$($item.Name)" } else { $userName }
+
+            $userData = [ordered]@{
+                schemas    = @("urn:ietf:params:scim:schemas:core:2.0:User", "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User")
+                userName   = $userName
+                name       = [ordered]@{
+                    formatted  = $displayName
+                    familyName = if ($item.Surname) { "$($item.Surname)" } else { "" }
+                    givenName  = if ($item.GivenName) { "$($item.GivenName)" } else { "" }
+                }
+                displayName = $displayName
+                active     = if ($item.Enabled -ne $null) { [bool]$item.Enabled } else { $true }
+            }
+
+            if ($item.EmailAddress -or $item.Mail) {
+                $mailVal = if ($item.EmailAddress) { "$($item.EmailAddress)" } else { "$($item.Mail)" }
+                $userData["emails"] = @([ordered]@{ value = $mailVal; primary = $true; type = "work" })
+            }
+
+            if ($item.Title -or $item.Department -or $item.Company -or $item.EmployeeID) {
+                $userData["urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"] = [ordered]@{
+                    employeeNumber = if ($item.EmployeeID) { "$($item.EmployeeID)" } else { "" }
+                    department     = if ($item.Department) { "$($item.Department)" } else { "" }
+                    organization   = if ($item.Company) { "$($item.Company)" } else { "" }
+                }
+            }
+
+            $opObj = [ordered]@{
+                method = $Method
+                path   = "/Users"
+                bulkId = $bulkId
+            }
+            if ($Method -ne "DELETE") {
+                $opObj["data"] = $userData
+            }
+
+            $operations.Add($opObj)
+        }
+    }
+
+    # Pass 2: Build operations for groups
+    $groupCount = 0
+    foreach ($item in $Data) {
+        if (-not $item) { continue }
+        $isGroup = $false
+        if ($item.PSObject.Properties['GroupScope'] -or $item.ObjectClass -eq 'group' -or ($item.DistinguishedName -and $item.DistinguishedName -match '^CN=.*?,.*(Groups|OU=Groups)')) {
+            $isGroup = $true
+        } elseif ($item.PSObject.Properties['SamAccountName'] -and -not $item.PSObject.Properties['GivenName'] -and -not $item.PSObject.Properties['Surname'] -and -not $item.PSObject.Properties['UserPrincipalName']) {
+            if ($item.PSObject.Properties['MemberCount'] -or $item.PSObject.Properties['Members']) { $isGroup = $true }
+        }
+
+        if ($isGroup) {
+            $groupCount++
+            $grpName = if ($item.Name) { "$($item.Name)" } elseif ($item.DisplayName) { "$($item.DisplayName)" } else { "$($item.SamAccountName)" }
+            $grpTag = if ($item.SamAccountName) { $item.SamAccountName } else { "$groupCount" }
+            $bulkId = "group-$grpTag"
+
+            $grpData = [ordered]@{
+                schemas     = @("urn:ietf:params:scim:schemas:core:2.0:Group")
+                displayName = $grpName
+            }
+
+            if ($item.Members) {
+                $mList = [System.Collections.Generic.List[object]]::new()
+                foreach ($m in $item.Members) {
+                    $mVal = "$m"
+                    $memberRef = if ($userBulkIds.ContainsKey($mVal)) { "bulkId:$($userBulkIds[$mVal])" } else { $mVal }
+                    $mList.Add([ordered]@{ value = $memberRef; display = $mVal })
+                }
+                $grpData["members"] = $mList
+            }
+
+            $opObj = [ordered]@{
+                method = $Method
+                path   = "/Groups"
+                bulkId = $bulkId
+            }
+            if ($Method -ne "DELETE") {
+                $opObj["data"] = $grpData
+            }
+
+            $operations.Add($opObj)
+        }
+    }
+
+    $bulkRequest = [ordered]@{
+        schemas      = @("urn:ietf:params:scim:api:messages:2.0:BulkRequest")
+        failOnErrors = $FailOnErrors
+        Operations   = $operations
+    }
+
+    $jsonStr = $bulkRequest | ConvertTo-Json -Depth 10
+
+    if ($OutputFile) {
+        $targetDir = [System.IO.Path]::GetDirectoryName($OutputFile)
+        if ($targetDir -and -not (Test-Path $targetDir)) { [void](New-Item -ItemType Directory -Path $targetDir -Force) }
+        [System.IO.File]::WriteAllText($OutputFile, $jsonStr, [System.Text.Encoding]::UTF8)
+    }
+
+    return [PSCustomObject]@{
+        Schema          = "urn:ietf:params:scim:api:messages:2.0:BulkRequest"
+        TotalOperations = $operations.Count
+        UserOperations  = $userCount
+        GroupOperations = $groupCount
+        PayloadJson     = $jsonStr
+        BulkObject      = $bulkRequest
+        Operations      = $operations
+    }
+}
+
+function Convert-ScimBulkRequestToOperations {
+    <#
+    .SYNOPSIS
+        Parses an RFC 7644 SCIM 2.0 BulkRequest JSON string into a list of staging operations.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("BulkJson")]
+        $JsonContent
+    )
+
+    try {
+        $parsed = if ($JsonContent -is [string]) { $JsonContent | ConvertFrom-Json } else { $JsonContent }
+        if ($parsed.BulkObject) { $parsed = $parsed.BulkObject }
+        $ops = [System.Collections.Generic.List[PSCustomObject]]::new()
+        if ($parsed.Operations) {
+            foreach ($op in $parsed.Operations) {
+                $targetResource = if ($op.path -match '(?i)Users') { "User" } else { "Group" }
+                $targetId = if ($op.bulkId) { $op.bulkId } else { $op.path }
+                $displayName = if ($op.data -and $op.data.displayName) { $op.data.displayName } elseif ($op.data -and $op.data.userName) { $op.data.userName } else { $targetId }
+
+                $ops.Add([PSCustomObject]@{
+                    Method       = $op.method
+                    ResourceType = $targetResource
+                    BulkId       = $op.bulkId
+                    Path         = $op.path
+                    DisplayName  = $displayName
+                    RawData      = $op.data
+                    Status       = "Pending Execution"
+                })
+            }
+        }
+        return $ops
+    } catch {
+        throw "Failed to parse SCIM BulkRequest: $($_.Exception.Message)"
+    }
+}
+
 Export-ModuleMember -Function `
     Export-ADDataToCsv, `
     Export-ADDataToLdif, `
@@ -1531,6 +1728,8 @@ Export-ModuleMember -Function `
     Export-ADDataToScim, `
     New-LdifChangeScript, `
     Convert-ScimFilterToLdap, `
-    Convert-LdapFilterToScim
+    Convert-LdapFilterToScim, `
+    New-ScimBulkRequest, `
+    Convert-ScimBulkRequestToOperations
 
 

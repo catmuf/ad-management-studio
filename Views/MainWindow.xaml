@@ -808,6 +808,13 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Name="BtnHeaderFavorites" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Quick Directory Favorites &amp; Bookmarks (Ctrl+D)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⭐" Margin="0,0,3,0"/>
+                            <TextBlock Name="TxtHeaderFavorites" Text="Bookmarks"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- Workspace & Window Layout Switcher Button -->
                     <Button Name="BtnWorkspaceLayoutMenu" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Switch Workspace &amp; Window Layout: Multi-Tab Workspace, Single Viewport, Detach &amp; Dock Windows (Ctrl+Shift+M)">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -1295,6 +1302,7 @@
                                     <MenuItem Name="CtxUserCopyLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Record"/>
                                     <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                     <MenuItem Name="CtxUserAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                    <MenuItem Name="CtxUserAddToBookmarks" Style="{StaticResource ModernMenuItem}" Header="⭐ Add to Bookmarks"/>
                                     <MenuItem Name="CtxUserInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                     <MenuItem Name="CtxUserCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                     <MenuItem Name="CtxUserViewDetails" Style="{StaticResource ModernMenuItem}" Header="👁️ View Details &amp; Groups"/>
@@ -1683,6 +1691,7 @@
                                         <MenuItem Name="CtxOUObjInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                         <MenuItem Name="CtxOUObjRename" Style="{StaticResource ModernMenuItem}" Header="✏️ Rename Object (RDN)..." InputGestureText="F2"/>
                                         <MenuItem Name="CtxOUObjAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                        <MenuItem Name="CtxOUObjAddToBookmarks" Style="{StaticResource ModernMenuItem}" Header="⭐ Add to Bookmarks"/>
                                         <MenuItem Name="CtxOUObjMoveOU" Style="{StaticResource ModernMenuItem}" Header="📂 Move Object..."/>
                                         <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                         <MenuItem Name="CtxOUObjCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
@@ -1966,6 +1975,7 @@
                             <ContextMenu Style="{StaticResource ModernContextMenu}">
                                 <MenuItem Name="CtxSearchInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxSearchAddToBasket" Style="{StaticResource ModernMenuItem}" Header="🛒 Add to Directory Basket"/>
+                                <MenuItem Name="CtxSearchAddToBookmarks" Style="{StaticResource ModernMenuItem}" Header="⭐ Add to Bookmarks"/>
                                 <MenuItem Name="CtxSearchLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxSearchCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
@@ -2038,6 +2048,7 @@
                             </ComboBox>
 
                             <Button Name="BtnClearSql" Style="{StaticResource ModernButton}" Height="30" Content="Clear" Margin="0,0,6,6"/>
+                            <Button Name="BtnSqlExplain" Style="{StaticResource ModernButton}" Height="30" Content="📊 Query Plan" Margin="0,0,6,6" ToolTip="Display the generated LDAP search filter, scope, attributes, and execution cost breakdown"/>
                             <Button Name="BtnExecuteSql" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Execute SQL (F5)" Margin="0,0,6,6"/>
                         </WrapPanel>
                     </Border>
@@ -2050,12 +2061,29 @@
 
                     <!-- Stats & Ribbon -->
                     <Border Grid.Row="2" Margin="0,0,0,8">
-                        <WrapPanel Orientation="Horizontal">
-                            <TextBlock Name="TxtSqlStatus" Text="Ready to execute query." Foreground="#38BDF8" VerticalAlignment="Center" Margin="0,0,16,6"/>
-                            <Button Name="BtnSqlExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
-                            <Button Name="BtnSqlExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
-                            <Button Name="BtnSqlExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
-                        </WrapPanel>
+                        <StackPanel>
+                            <WrapPanel Orientation="Horizontal">
+                                <TextBlock Name="TxtSqlStatus" Text="Ready to execute query." Foreground="#38BDF8" VerticalAlignment="Center" Margin="0,0,16,6"/>
+                                <Button Name="BtnSqlExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
+                                <Button Name="BtnSqlExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
+                                <Button Name="BtnSqlExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
+                            </WrapPanel>
+
+                            <!-- Collapsible Execution Plan Card -->
+                            <Border Name="BorderSqlExplainPlan" Visibility="Collapsed" Background="#161821" BorderBrush="#2D313F" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,6,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                                        <TextBlock Text="📊 LDAP Execution Plan Breakdown:" FontSize="11" FontWeight="Bold" Foreground="#38BDF8"/>
+                                        <Button Name="BtnCloseSqlExplain" Style="{StaticResource ModernButton}" Content="✖" HorizontalAlignment="Right" Padding="6,1" Height="20" FontSize="10"/>
+                                    </Grid>
+                                    <TextBox Grid.Row="1" Name="TxtSqlExecutionPlan" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="140" VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" Foreground="#E5E7EB"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
                     </Border>
 
                     <!-- Tabular Results -->
@@ -2349,11 +2377,13 @@
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal">
                             <RadioButton Name="RadioSchemaClasses" Style="{StaticResource FilterChip}" Content="Object Classes" IsChecked="True" Margin="0,0,8,6"/>
-                            <RadioButton Name="RadioSchemaAttributes" Style="{StaticResource FilterChip}" Content="Attribute Types" Margin="0,0,12,6"/>
+                            <RadioButton Name="RadioSchemaAttributes" Style="{StaticResource FilterChip}" Content="Attribute Types" Margin="0,0,8,6"/>
+                            <RadioButton Name="RadioSchemaProblems" Style="{StaticResource FilterChip}" Content="⚠️ Schema Problems &amp; Linter" Margin="0,0,12,6"/>
 
-                            <TextBox Name="TxtSearchSchema" Style="{StaticResource ModernTextBox}" Width="240" Height="30" Margin="0,0,10,6"/>
+                            <TextBox Name="TxtSearchSchema" Style="{StaticResource ModernTextBox}" Width="220" Height="30" Margin="0,0,10,6"/>
 
                             <Button Name="BtnRefreshSchema" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Load Schema" Margin="0,0,6,6"/>
+                            <Button Name="BtnRunSchemaAudit" Style="{StaticResource PrimaryButton}" Height="30" Content="🛡️ Audit Schema Integrity" Margin="0,0,6,6" ToolTip="Run automated schema dependency, loop, and syntax linter"/>
                             <Button Name="BtnExportSchemaOpenLdap" Style="{StaticResource ModernButton}" Height="30" Content="📤 Export OpenLDAP (.schema)" Margin="0,0,6,6" ToolTip="Export selected schema items to OpenLDAP .schema format"/>
                             <Button Name="BtnExportSchemaLdif" Style="{StaticResource ModernButton}" Height="30" Content="📜 Export Schema LDIF" Margin="0,0,6,6" ToolTip="Export selected schema items to standard schema LDIF format"/>
                         </WrapPanel>
@@ -2367,8 +2397,20 @@
                             <ColumnDefinition Width="380" MinWidth="260" MaxWidth="550"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Left: Schema DataGrid -->
-                        <DataGrid Grid.Column="0" Name="GridSchema" Style="{StaticResource ModernDataGrid}"/>
+                        <!-- Left: Schema DataGrid or Problems Grid -->
+                        <Grid Grid.Column="0">
+                            <DataGrid Name="GridSchema" Style="{StaticResource ModernDataGrid}" Visibility="Visible"/>
+                            <DataGrid Name="GridSchemaProblems" Style="{StaticResource ModernDataGrid}" Visibility="Collapsed">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="90"/>
+                                    <DataGridTextColumn Header="Issue Type" Binding="{Binding IssueType}" Width="160"/>
+                                    <DataGridTextColumn Header="Schema Item" Binding="{Binding ItemName}" Width="180"/>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding ItemType}" Width="90"/>
+                                    <DataGridTextColumn Header="OID" Binding="{Binding OID}" Width="160"/>
+                                    <DataGridTextColumn Header="Description / Remediation" Binding="{Binding Message}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
 
                         <!-- Splitter -->
                         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="#292E3E" Cursor="SizeWE"/>
@@ -2437,6 +2479,7 @@
 
                                 <TextBox Name="TxtBulkAttrName" Style="{StaticResource ModernTextBox}" Width="180" Height="30" Margin="0,0,8,6" Tag="Attribute Name (e.g. department)"/>
                                 <TextBox Name="TxtBulkNewValue" Style="{StaticResource ModernTextBox}" Width="200" Height="30" Margin="0,0,8,6" Tag="New Value"/>
+                                <Button Name="BtnGenerateBulkLdif" Style="{StaticResource ModernButton}" Height="30" Content="📜 Preview LDIF Script" Margin="0,0,6,6" ToolTip="Generate preview LDIF changelog modifications without applying"/>
                                 <Button Name="BtnExecuteBulk" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Execute Bulk Operation" Margin="0,0,6,6"/>
                             </WrapPanel>
                         </StackPanel>
@@ -2497,6 +2540,7 @@
                         <Button Name="BtnBasketExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export Basket CSV" Margin="0,0,6,6" ToolTip="Export staged objects to CSV"/>
                         <Button Name="BtnBasketExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export Basket LDIF" Margin="0,0,6,6" ToolTip="Export staged objects to LDIF"/>
                         <Button Name="BtnBasketExportScim" Style="{StaticResource ModernButton}" Content="☁️ Export Basket SCIM 2.0" Margin="0,0,6,6" ToolTip="Export staged objects to RFC 7643 SCIM 2.0 JSON"/>
+                        <Button Name="BtnBasketExportScimBulk" Style="{StaticResource ModernButton}" Content="📦 Export SCIM Bulk" Margin="0,0,6,6" ToolTip="Export staged objects to RFC 7644 BulkRequest JSON"/>
                         <Button Name="BtnBasketRemoveSelected" Style="{StaticResource ModernButton}" Content="✖ Remove Selected" Margin="0,0,6,6" ToolTip="Remove selected items from basket"/>
                         <Button Name="BtnBasketClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Basket" Margin="0,0,6,6" ToolTip="Empty all objects from the basket"/>
                     </WrapPanel>
@@ -2508,6 +2552,7 @@
                                 <MenuItem Name="CtxBasketInspectAttr" Style="{StaticResource ModernMenuItem}" Header="🏷️ Inspect Raw Attributes"/>
                                 <MenuItem Name="CtxBasketCompare" Style="{StaticResource ModernMenuItem}" Header="⚖️ Send to Object Compare"/>
                                 <MenuItem Name="CtxBasketLocateInTree" Style="{StaticResource ModernMenuItem}" Header="📍 Locate in Directory Tree"/>
+                                <MenuItem Name="CtxBasketAddToBookmarks" Style="{StaticResource ModernMenuItem}" Header="⭐ Add to Bookmarks"/>
                                 <MenuItem Name="CtxBasketRemove" Style="{StaticResource ModernMenuItem}" Header="✖ Remove from Basket"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="CtxBasketCopyDN" Style="{StaticResource ModernMenuItem}" Header="📋 Copy Distinguished Name (DN)" InputGestureText="Ctrl+C"/>
@@ -2559,7 +2604,8 @@
                             <TextBox Name="TxtFilterRequestLog" Style="{StaticResource ModernTextBox}" Height="28" Tag="Filter requests (op, DN, status)..."/>
                         </Grid>
                         <Button Name="BtnRequestLogClear" Style="{StaticResource DangerButton}" Content="🗑️ Clear Wire Log" Margin="0,0,6,6"/>
-                        <Button Name="BtnRequestLogExport" Style="{StaticResource ModernButton}" Content="📤 Export Log to Text" Margin="0,0,8,6"/>
+                        <Button Name="BtnRequestLogExport" Style="{StaticResource ModernButton}" Content="📤 Export Log to Text" Margin="0,0,6,6"/>
+                        <Button Name="BtnRequestLogExportCsv" Style="{StaticResource ModernButton}" Content="📊 Export CSV" Margin="0,0,8,6"/>
                         <CheckBox Name="ChkRequestLogAutoScroll" Content="Auto-scroll to latest" IsChecked="True" VerticalAlignment="Center" Margin="0,0,8,6" Foreground="#E5E7EB"/>
                     </WrapPanel>
 
@@ -3202,6 +3248,7 @@
                                                 <RadioButton Name="RadEffFilterAllowed" Style="{StaticResource FilterChip}" Content="Granted" Margin="0,0,4,4"/>
                                                 <RadioButton Name="RadEffFilterDenied" Style="{StaticResource FilterChip}" Content="Denied" Margin="0,0,4,4"/>
                                                 <RadioButton Name="RadEffFilterWrite" Style="{StaticResource FilterChip}" Content="Write" Margin="0,0,4,4"/>
+                                                <Button Name="BtnAclResetTraceFilter" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Content="🔄 Reset Filter" Margin="4,0,4,4" ToolTip="Reset effective rights filter and show all calculated permissions"/>
                                             </WrapPanel>
                                             <DataGrid Grid.Row="2" Name="GridAclEffective" Style="{StaticResource ModernDataGrid}">
                                                 <DataGrid.Columns>
@@ -3344,6 +3391,47 @@
                                         <DataGridTextColumn Header="Rights GUID" Binding="{Binding RightsGuid}" Width="280"/>
                                         <DataGridTextColumn Header="Applies To" Binding="{Binding AppliesTo}" Width="200"/>
                                         <DataGridTextColumn Header="Valid Accesses" Binding="{Binding ValidAccesses}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <!-- TAB 6: FIND TRUSTEE ASSIGNMENTS DOMAIN-WIDE -->
+                        <TabItem Header="🔍 Find Trustee Rights">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Trustee / Principal:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtAclFindTrusteeInput" Style="{StaticResource ModernTextBox}" Width="200" Height="28" Tag="sAMAccountName or SID (e.g. jdoe)" Margin="0,0,10,0"/>
+
+                                        <TextBlock Text="Scope Base OU:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtAclFindTrusteeScope" Style="{StaticResource ModernTextBox}" Width="220" Height="28" Tag="Blank = domain root" Margin="0,0,10,0"/>
+
+                                        <CheckBox Name="ChkFindTrusteeInherited" Content="Include Inherited" IsChecked="True" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                                        <Button Name="BtnAclFindTrusteeAssignments" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Find Trustee Rights" Padding="12,0" Margin="0,0,8,0"/>
+                                        <Button Name="BtnExportTrusteeAssignments" Style="{StaticResource ModernButton}" Height="28" Content="📤 Export CSV" Padding="10,0"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                                    <TextBlock Name="TxtFindTrusteeStatus" Text="Specify a trustee account or security group and click 'Find Trustee Rights' to scan directory objects." FontSize="11" Foreground="#38BDF8"/>
+                                </Border>
+
+                                <DataGrid Grid.Row="2" Name="GridTrusteeAssignments" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Target Object" Binding="{Binding TargetName}" Width="180"/>
+                                        <DataGridTextColumn Header="Class" Binding="{Binding ObjectClass}" Width="90"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding AccessControlType}" Width="75"/>
+                                        <DataGridTextColumn Header="Permission / Right" Binding="{Binding ActiveDirectoryRights}" Width="200"/>
+                                        <DataGridTextColumn Header="Inherited" Binding="{Binding Inherited}" Width="80"/>
+                                        <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
@@ -3780,6 +3868,41 @@
                                         <DataGridTextColumn Header="Classes Count" Binding="{Binding ClassCount}" Width="110"/>
                                         <DataGridTextColumn Header="Attributes Count" Binding="{Binding AttributeCount}" Width="130"/>
                                         <DataGridTextColumn Header="Replication Convergence" Binding="{Binding Status}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <!-- TAB 8: ACTIVE CANARY LATENCY TEST -->
+                        <TabItem Header="⚡ Active Canary Latency Test">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Name="BtnRunCanaryTest" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Run Canary Latency Test (All DCs)" Margin="0,0,12,0"/>
+                                        <Button Name="BtnExportCanaryResults" Style="{StaticResource ModernButton}" Height="28" Content="📤 Export CSV" Margin="0,0,12,0"/>
+                                        <TextBlock Text="Measures live replication latency (ms) and convergence status across all Domain Controllers concurrently relative to PDC Emulator" FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                                    <TextBlock Name="TxtCanaryTestSummary" Text="Click 'Run Canary Latency Test' to dispatch concurrent canary probes to all domain controllers." FontSize="11" Foreground="#38BDF8"/>
+                                </Border>
+
+                                <DataGrid Grid.Row="2" Name="GridCanaryResults" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Convergence" Binding="{Binding StatusBadge}" Width="150"/>
+                                        <DataGridTextColumn Header="Domain Controller" Binding="{Binding DCName}" Width="180"/>
+                                        <DataGridTextColumn Header="Site" Binding="{Binding Site}" Width="130"/>
+                                        <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="130"/>
+                                        <DataGridTextColumn Header="Latency (ms)" Binding="{Binding LatencyMs}" Width="110"/>
+                                        <DataGridTextColumn Header="Highest USN" Binding="{Binding USN}" Width="130"/>
+                                        <DataGridTextColumn Header="Details" Binding="{Binding ConvergenceState}" Width="*"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>

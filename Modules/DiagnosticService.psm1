@@ -84,7 +84,7 @@ function Find-CircularGroupReferences {
                                 StatusBadge      = "Circular Loop"
                                 RootGroup        = if ($dnToName.ContainsKey($neighbor)) { $dnToName[$neighbor] } else { $neighbor }
                                 CulpritGroup     = if ($dnToName.ContainsKey($neighbor)) { $dnToName[$neighbor] } else { $neighbor }
-                                CyclePath        = ($cycleNames -join " ➔ ")
+                                CyclePath        = ($cycleNames -join " -> ")
                                 Depth            = $cycleSlice.Count - 1
                                 LoopLength       = $cycleSlice.Count - 1
                                 Action           = "Remove member link between '$($cycleNames[$cycleNames.Count - 2])' and '$($cycleNames[0])'."
@@ -113,7 +113,7 @@ function Find-CircularGroupReferences {
             StatusBadge       = "Circular Loop"
             RootGroup         = "Desktop-Tier1-Support"
             CulpritGroup      = "Desktop-Tier1-Support"
-            CyclePath         = "Desktop-Tier1-Support ➔ IT-Helpdesk-Leads ➔ Regional-Escalations ➔ Desktop-Tier1-Support"
+            CyclePath         = "Desktop-Tier1-Support -> IT-Helpdesk-Leads -> Regional-Escalations -> Desktop-Tier1-Support"
             Depth             = 3
             LoopLength        = 3
             Action            = "Remove circular membership in Regional-Escalations."
@@ -266,7 +266,7 @@ function Get-ADGroupLineage {
             $lineage.Add([PSCustomObject]@{
                 Depth       = 0
                 Step        = "Direct Assignment"
-                Path        = "$User ➔ $TargetGroup"
+                Path        = "$User -> $TargetGroup"
                 Description = "User is directly added to '$TargetGroup'."
             })
         } else {
@@ -274,7 +274,7 @@ function Get-ADGroupLineage {
             $lineage.Add([PSCustomObject]@{
                 Depth       = 1
                 Step        = "Nested Lineage"
-                Path        = "$User ➔ IT-Helpdesk ➔ Tier2-Server-Operators ➔ $TargetGroup"
+                Path        = "$User -> IT-Helpdesk -> Tier2-Server-Operators -> $TargetGroup"
                 Description = "Inherited through nested parent group 'Tier2-Server-Operators'."
             })
         }
@@ -283,7 +283,7 @@ function Get-ADGroupLineage {
         $lineage.Add([PSCustomObject]@{
             Depth       = 1
             Step        = "Simulated Lineage"
-            Path        = "$User ➔ Department-Staff ➔ Local-Admins ➔ $TargetGroup"
+            Path        = "$User -> Department-Staff -> Local-Admins -> $TargetGroup"
             Description = "Inherited through nested parent group 'Local-Admins'."
         })
     }
@@ -1165,6 +1165,220 @@ function Convert-Base64Data {
     }
 }
 
+function Resolve-ADSecurityIdentifierEx {
+    <#
+    .SYNOPSIS
+        Translates and diagnoses Active Directory Security Identifiers (SIDs) with Error 1332 Parent Authority Fallback.
+    .DESCRIPTION
+        Converts between String SID, Hex binary, SDDL well-known tokens, RID integers, and Account names.
+        When translation throws ERROR_NONE_MAPPED (1332), strips the trailing RID and evaluates the parent
+        domain authority SID to distinguish between Deleted/Tombstoned accounts and orphaned external trusts.
+    .PARAMETER Identity
+        String SID (e.g. S-1-5-21-...), Hex bytes string, SDDL token (e.g. DA, EA, BA), or account name.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("InputIdentifier", "Sid")]
+        [string]$Identity
+    )
+
+    $cleanInput = $Identity.Trim()
+    if ([string]::IsNullOrWhiteSpace($cleanInput)) {
+        return [PSCustomObject]@{
+            StatusBadge = "Invalid Input"
+            Sid         = ""
+            Account     = ""
+            HexBytes    = ""
+            Rid         = 0
+            SddlAlias   = ""
+            Diagnosis   = "Input was empty or whitespace."
+            IsResolved  = $false
+        }
+    }
+
+    $wellKnownSddl = @{
+        "DA" = @{ Sid = "S-1-5-21-0-0-0-512"; Name = "Domain Admins"; Desc = "Domain Admins" }
+        "EA" = @{ Sid = "S-1-5-21-0-0-0-519"; Name = "Enterprise Admins"; Desc = "Enterprise Admins" }
+        "SA" = @{ Sid = "S-1-5-21-0-0-0-518"; Name = "Schema Admins"; Desc = "Schema Admins" }
+        "BA" = @{ Sid = "S-1-5-32-544"; Name = "BUILTIN\Administrators"; Desc = "Built-in Administrators" }
+        "BU" = @{ Sid = "S-1-5-32-545"; Name = "BUILTIN\Users"; Desc = "Built-in Users" }
+        "BG" = @{ Sid = "S-1-5-32-546"; Name = "BUILTIN\Guests"; Desc = "Built-in Guests" }
+        "AU" = @{ Sid = "S-1-5-11"; Name = "NT AUTHORITY\Authenticated Users"; Desc = "Authenticated Users" }
+        "WD" = @{ Sid = "S-1-1-0"; Name = "Everyone"; Desc = "World / Everyone" }
+        "SY" = @{ Sid = "S-1-5-18"; Name = "NT AUTHORITY\SYSTEM"; Desc = "Local System" }
+        "LS" = @{ Sid = "S-1-5-19"; Name = "NT AUTHORITY\LOCAL SERVICE"; Desc = "Local Service" }
+        "NS" = @{ Sid = "S-1-5-20"; Name = "NT AUTHORITY\NETWORK SERVICE"; Desc = "Network Service" }
+        "ED" = @{ Sid = "S-1-5-9"; Name = "NT AUTHORITY\ENTERPRISE DOMAIN CONTROLLERS"; Desc = "Enterprise Domain Controllers" }
+        "DC" = @{ Sid = "S-1-5-21-0-0-0-515"; Name = "Domain Computers"; Desc = "Domain Computers" }
+        "DD" = @{ Sid = "S-1-5-21-0-0-0-516"; Name = "Domain Controllers"; Desc = "Domain Controllers" }
+        "CG" = @{ Sid = "S-1-3-0"; Name = "CREATOR GROUP"; Desc = "Creator Group" }
+        "CO" = @{ Sid = "S-1-3-1"; Name = "CREATOR OWNER"; Desc = "Creator Owner" }
+    }
+
+    # 1. Check if input is hex bytes: e.g. "01 05 00 00 00 00 00 05 15 00 00 00 ..."
+    $sidObj = $null
+    $rawBytes = $null
+    $isHexFormat = $false
+
+    if ($cleanInput -match '^([0-9a-fA-F]{2}[\s:-]?){8,}$') {
+        try {
+            $hexNormalized = $cleanInput -replace '[\s:-]', ''
+            if ($hexNormalized.Length % 2 -eq 0) {
+                $rawBytes = [byte[]]::new($hexNormalized.Length / 2)
+                for ($i = 0; $i -lt $rawBytes.Length; $i++) {
+                    $rawBytes[$i] = [System.Convert]::ToByte($hexNormalized.Substring($i * 2, 2), 16)
+                }
+                $sidObj = New-Object System.Security.Principal.SecurityIdentifier($rawBytes, 0)
+                $isHexFormat = $true
+            }
+        } catch { }
+    }
+
+    # 2. Check if input is SDDL alias (e.g. "DA", "BA", "AU")
+    if (-not $sidObj -and $wellKnownSddl.ContainsKey($cleanInput.ToUpper())) {
+        $wk = $wellKnownSddl[$cleanInput.ToUpper()]
+        return [PSCustomObject]@{
+            StatusBadge = "SDDL Well-Known"
+            Sid         = $wk.Sid
+            Account     = $wk.Name
+            HexBytes    = ""
+            Rid         = if ($wk.Sid -match '-(\d+)$') { [int]$matches[1] } else { 0 }
+            SddlAlias   = $cleanInput.ToUpper()
+            Diagnosis   = "Standard SDDL well-known token: $($wk.Desc)."
+            IsResolved  = $true
+        }
+    }
+
+    # 3. Check if input is SID string: e.g. "S-1-5-21-..."
+    if (-not $sidObj -and $cleanInput -match '^S-\d-\d+(-\d+)+$') {
+        try {
+            $sidObj = New-Object System.Security.Principal.SecurityIdentifier($cleanInput)
+        } catch {
+            return [PSCustomObject]@{
+                StatusBadge = "Invalid SID"
+                Sid         = $cleanInput
+                Account     = ""
+                HexBytes    = ""
+                Rid         = 0
+                SddlAlias   = ""
+                Diagnosis   = "Malformed SID structure: $($_.Exception.Message)"
+                IsResolved  = $false
+            }
+        }
+    }
+
+    # 4. If input is account name (e.g. "jdoe" or "CORP\jdoe"):
+    if (-not $sidObj) {
+        try {
+            $ntAccount = New-Object System.Security.Principal.NTAccount($cleanInput)
+            $sidObj = $ntAccount.Translate([System.Security.Principal.SecurityIdentifier])
+        } catch {
+            try {
+                $adPrincipal = Get-ADObject -Filter "sAMAccountName -eq '$cleanInput'" -Properties objectSid -ErrorAction SilentlyContinue
+                if ($adPrincipal -and $adPrincipal.objectSid) {
+                    $sidObj = New-Object System.Security.Principal.SecurityIdentifier($adPrincipal.objectSid.Value)
+                }
+            } catch { }
+        }
+    }
+
+    if (-not $sidObj) {
+        return [PSCustomObject]@{
+            StatusBadge = "Unresolved"
+            Sid         = ""
+            Account     = $cleanInput
+            HexBytes    = ""
+            Rid         = 0
+            SddlAlias   = ""
+            Diagnosis   = "Unable to parse input as SID string, hex stream, or directory account name."
+            IsResolved  = $false
+        }
+    }
+
+    $sidString = $sidObj.Value
+    if (-not $rawBytes) {
+        $rawBytes = [byte[]]::new($sidObj.BinaryLength)
+        $sidObj.GetBinaryForm($rawBytes, 0)
+    }
+    $hexString = ([System.BitConverter]::ToString($rawBytes) -replace '-', ' ')
+
+    # Extract RID (last subauthority)
+    $rid = 0
+    if ($sidString -match '-(\d+)$') {
+        $rid = [int]$matches[1]
+    }
+
+    # Check SDDL alias reverse lookup
+    $sddlAlias = ""
+    foreach ($k in $wellKnownSddl.Keys) {
+        if ($wellKnownSddl[$k].Sid -eq $sidString) {
+            $sddlAlias = $k
+            break
+        }
+    }
+
+    # 5. Translation with Error 1332 Parent Authority Fallback
+    $accountName = ""
+    $statusBadge = ""
+    $diagnosis = ""
+
+    try {
+        $ntAcct = $sidObj.Translate([System.Security.Principal.NTAccount])
+        $accountName = $ntAcct.Value
+        $statusBadge = "Active Principal"
+        $diagnosis = "Security Identifier successfully mapped to active account '$accountName'."
+    }
+    catch [System.Security.Principal.IdentityNotMappedException] {
+        # Error 1332 (ERROR_NONE_MAPPED)
+        # Check if domain SID can be extracted: S-1-5-21-X-Y-Z-RID
+        if ($sidString -match '^(S-1-5-21-\d+-\d+-\d+)-(\d+)$') {
+            $domainSidString = $matches[1]
+            $objRid = [int]$matches[2]
+
+            try {
+                $domainSidObj = New-Object System.Security.Principal.SecurityIdentifier($domainSidString)
+                $domainAcct = $domainSidObj.Translate([System.Security.Principal.NTAccount])
+                $domainName = $domainAcct.Value.TrimEnd('\')
+                
+                $accountName = "$domainName\<Deleted-RID-$objRid>"
+                $statusBadge = "Deleted / Tombstoned (RID $objRid)"
+                $diagnosis = "Parent Domain '$domainName' ($domainSidString) is verified and reachable. However, object RID $objRid is not mapped in directory metadata. Object has been DELETED, TOMBSTONED, or PURGED from the domain."
+            } catch {
+                $accountName = "<Orphaned-Domain>\RID $objRid"
+                $statusBadge = "Orphaned Domain / Foreign Trust"
+                $diagnosis = "Parent Domain Authority SID '$domainSidString' is UNRESOLVED by the local authority. This SID originates from a DECOMMISSIONED domain, SEVERED external trust, or unresolvable Foreign Security Principal."
+            }
+        } elseif ($sidString -match '^S-1-5-32-(\d+)$') {
+            $accountName = "BUILTIN\<RID-$matches[1]>"
+            $statusBadge = "Built-in Authority"
+            $diagnosis = "Built-in local authority SID (S-1-5-32)."
+        } else {
+            $accountName = "<Unmapped SID>"
+            $statusBadge = "Unmapped SID"
+            $diagnosis = "Standard translation failed with error 1332 (ERROR_NONE_MAPPED). SID is not recognized by any local or domain authority."
+        }
+    }
+    catch {
+        $accountName = "<Lookup Error>"
+        $statusBadge = "Lookup Error"
+        $diagnosis = "Translation error: $($_.Exception.Message)"
+    }
+
+    return [PSCustomObject]@{
+        Sid          = $sidString
+        Account      = $accountName
+        ResolvedName = $accountName
+        StatusBadge  = $statusBadge
+        AccountType  = $statusBadge
+        Rid          = $rid
+        HexBytes     = $hexString
+        SddlAlias    = $sddlAlias
+        Diagnosis    = $diagnosis
+        IsResolved   = ($statusBadge -eq "Active Principal")
+    }
+}
+
 #endregion
 
 # Export Public Functions
@@ -1182,6 +1396,7 @@ Export-ModuleMember -Function @(
     "Get-LocalLogonSessions",
     "Convert-ASN1Structure",
     "Invoke-Win32Logon",
-    "Convert-Base64Data"
+    "Convert-Base64Data",
+    "Resolve-ADSecurityIdentifierEx"
 )
 

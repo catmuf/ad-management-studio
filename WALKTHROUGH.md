@@ -460,3 +460,72 @@ Header badge actively displaying Windows Principal security tokens (`🛡️ ELE
 * **Features**:
   - **"Keep Contents Across Sessions"**: Config-backed persistence of basket items in `config.json` with dynamic reload on launch.
   - **"📍 Locate in Directory Tree"**: Context menu option across Users, Groups, Computers, Search Results, Basket, and Raw Attribute Grid to instantly navigate to the container OU in the tree view and highlight the object.
+
+---
+
+## 3. Advanced Forensic Utilities, Value Editors & Deep Directory Engines
+
+### A. Access Control Traceability & Domain-Wide Trustee Rights Finder
+* **Parity Benchmark**: NetTools Effective Permissions & Softerra LDAP Administrator Security Inspector.
+* **Architecture & Mechanics**:
+  - **Bidirectional DACL $\leftrightarrow$ Effective Rights Traceability**: Selecting any calculated effective permission in `GridAclEffective` automatically locates and scrolls to the granting DACL ACE in `GridAclAces`. Double-clicking any ACE in `GridAclAces` instantly filters effective permissions down to that specific trustee.
+  - **Domain-Wide Trustee Rights Finder (`Find-ADTrusteeAssignments`)**: Scans all directory objects within a given search base scope (or domain root) to discover where a given user, group, or SID holds explicit or inherited rights. Results display Target Object, Object Class, Type, Permissions / Rights, Inheritance, and Distinguished Name, with 1-click CSV export (`BtnExportTrusteeAssignments`).
+
+### B. Deep SID Resolver & Error 1332 Authority Fallback
+* **Parity Benchmark**: NetTools SID Resolver & Sid-Converter.
+* **Architecture & Mechanics**:
+  - `Resolve-ADSecurityIdentifierEx` accepts String SIDs, raw Hex binary bytes, SDDL well-known tokens (e.g. `DA`, `EA`, `BA`, `SY`, `AU`), RID integers, and account names.
+  - When Windows throws `ERROR_NONE_MAPPED` (Win32 Error 1332), the engine strips the trailing object RID (`-(\d+)$`) and translates the parent domain authority SID (`S-1-5-21-X-Y-Z`). If the parent domain resolves, the engine confirms the object was a **Deleted / Tombstoned Account** in the domain. If the parent domain fails, it identifies an **Orphaned / Unreachable External Trust or Foreign Security Principal**.
+
+### C. Active Canary Replication Latency Tester
+* **Parity Benchmark**: NetTools DC Updates & Softerra Multi-DC Latency Diagnostics.
+* **Architecture & Mechanics**:
+  - `Invoke-ADCanaryReplicationTest` queries all discoverable Domain Controllers concurrently, benchmarks socket and RootDSE response latency relative to the Primary Domain Controller (PDC) Emulator, and extracts `highestCommittedUSN`.
+  - Classifies convergence states:
+    - *Converged (<500ms)*: Normal intra-site response time.
+    - *Moderate Delay*: Transport transit delay across site links.
+    - *High Latency*: Significant replication or network transit delay.
+    - *Unreachable / Timed Out*: DC communication failure.
+  - Available under Replication Suite Tab 8 with real-time summary indicator and 1-click CSV export (`BtnExportCanaryResults`).
+
+### D. Specialized Value Editors: RFC 4517 Postal Address & Password Hash / Bind Verifier
+* **Parity Benchmark**: Apache Directory Studio Address Editor & Password Value Editor.
+* **Architecture & Mechanics**:
+  - **RFC 4517 Postal Address Editor**: Multi-line editor automatically translating dollar sign delimiters (`$`) into visual newlines and re-encoding back to standard RFC 4517 postal address strings. Features a structured helper builder with dedicated fields for Street, City, State/Province, Postal Code, and Country.
+  - **Password Bind & Plaintext Hash Tester**: Allows directory administrators to verify passwords:
+    - *Verify Plaintext Match (`BtnVerifyPlaintextHash`)*: Live salting and hash comparison supporting `{SSHA}`, `{SHA}`, `{MD5}`, and `{CRYPT}` formats.
+    - *Test LDAP Bind (`BtnTestLdapBindPassword`)*: Performs a live LDAP simple bind against the target object's Distinguished Name to verify credentials without modifying the directory.
+
+### E. Schema Dependency & Integrity Linter ("Problems View")
+* **Parity Benchmark**: Apache Directory Studio Schema Projects & Problems View.
+* **Architecture & Mechanics**:
+  - `Test-ADSchemaIntegrity` scans the schema partition and audits:
+    - Broken superclass inheritance chains (`subClassOf` pointing to non-existent classes).
+    - Circular inheritance loops.
+    - Missing mandatory (`mustContain`) or optional (`mayContain`) attribute definitions.
+    - Duplicate ISO/ITU-T OID collisions (`governsID` or `attributeID` duplicates).
+  - Integrated into `PanelSchemaBrowser` under the **"⚠️ Schema Problems"** view mode with 1-click audit trigger (`BtnRunSchemaAudit`).
+
+### F. Cloud Identity RFC 7644 SCIM 2.0 Bulk Request Engine
+* **Parity Benchmark**: Apache SCIMple & Cloud Directory Synchronization.
+* **Architecture & Mechanics**:
+  - `New-ScimBulkRequest` compiles directory basket items or collections into RFC 7644 Section 3.7 `urn:ietf:params:scim:api:messages:2.0:BulkRequest` JSON payloads.
+  - Supports configurable `failOnErrors` thresholds, auto-assigned `bulkId` tokens, and cross-referenced group membership references.
+  - `Convert-ScimBulkRequestToOperations` parses incoming bulk request JSON payloads back into staged operations for directory provisioning.
+  - Accessible via **"📦 Export SCIM Bulk"** in the Directory Basket panel.
+
+### G. LDAP-SQL Dialect with Concatenation, String Functions & EXPLAIN Plan
+* **Parity Benchmark**: Softerra LDAP-SQL Console & Execution Plan Viewer.
+* **Architecture & Mechanics**:
+  - **String Concatenation (`||`)**: Supports SQL ANSI concatenation, e.g. `SELECT UPPER(displayName) || ' (' || sAMAccountName || ')' AS FullTag FROM SUBTREE`.
+  - **Scalar String Functions**: Evaluates `UPPER()`, `LOWER()`, `SUBSTRING(expr, start, len)`, and `LENGTH()`.
+  - **Execution Plan Viewer (`BtnSqlExplain` / `EXPLAIN SELECT ...`)**: Generates an execution plan outlining the operation, target container base, search scope, constructed RFC 4515 LDAP filter, projected attributes, server-side paging strategy (RFC 2696), index estimates, and sort strategy.
+
+### H. Persistent Bookmarks / Favorites & Ribbon Ergonomics
+* **Parity Benchmark**: Softerra LDAP Administrator Bookmarks & Favorites Menu.
+* **Architecture & Mechanics**:
+  - Persistent bookmarks stored in `config.json` via `Get-ADBookmarks`, `Add-ADBookmark`, and `Remove-ADBookmark` in [Modules/ConfigService.psm1](./Modules/ConfigService.psm1).
+  - Ribbon header button **"⭐ Bookmarks"** (`BtnHeaderFavorites`) displays a popup menu listing all saved directory objects with icon badges, 1-click jump-to navigation (OU tree view or Raw Attribute Editor), **"⭐ Add Current Object to Bookmarks..."**, and **"🗑️ Clear All Bookmarks"**.
+  - Context menu items **"⭐ Add to Bookmarks"** integrated across Users, OU Objects, Search Results, and Directory Basket.
+  - Fully responsive header collapsing text labels gracefully below 1240px.
+

@@ -76,6 +76,7 @@ function Get-AppSettings {
             KeepContents = $true
             Items        = @()
         }
+        Bookmarks = @()
     }
 
     if (Test-Path $ConfigPath) {
@@ -97,6 +98,9 @@ function Get-AppSettings {
             } else {
                 if ($null -eq $jsonContent.Basket.KeepContents) { $jsonContent.Basket | Add-Member -MemberType NoteProperty -Name "KeepContents" -Value $true -Force }
                 if (-not $jsonContent.Basket.Items) { $jsonContent.Basket | Add-Member -MemberType NoteProperty -Name "Items" -Value @() -Force }
+            }
+            if (-not $jsonContent.Bookmarks) {
+                $jsonContent | Add-Member -MemberType NoteProperty -Name "Bookmarks" -Value @() -Force
             }
             if (-not $jsonContent.ExternalTools) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "ExternalTools" -Value $defaultConfig.ExternalTools -Force
@@ -229,4 +233,72 @@ function Get-ADEnvironmentContext {
     return $context
 }
 
-Export-ModuleMember -Function Get-AppSettings, Save-AppSettings, Get-ADEnvironmentContext
+function Get-ADBookmarks {
+    <#
+    .SYNOPSIS
+        Retrieves directory favorites/bookmarks from application configuration.
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$ConfigPath = "$PSScriptRoot\..\config.json"
+    )
+    $cfg = Get-AppSettings -ConfigPath $ConfigPath
+    if ($cfg.Bookmarks) { return @($cfg.Bookmarks) }
+    return @()
+}
+
+function Add-ADBookmark {
+    <#
+    .SYNOPSIS
+        Adds an Active Directory object to persistent favorites/bookmarks.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$DistinguishedName,
+        [string]$Name = "",
+        [string]$ObjectClass = "",
+        [string]$ConfigPath = "$PSScriptRoot\..\config.json"
+    )
+    $cfg = Get-AppSettings -ConfigPath $ConfigPath
+    if (-not $cfg.Bookmarks) {
+        $cfg | Add-Member -MemberType NoteProperty -Name "Bookmarks" -Value @() -Force
+    }
+    $existing = @($cfg.Bookmarks) | Where-Object { $_.DistinguishedName -ieq $DistinguishedName }
+    if ($existing) {
+        return $false
+    }
+    $dnLeaf = ($DistinguishedName -split ',')[0] -replace '^[A-Za-z]+=',''
+    $bookmarkName = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } elseif ($dnLeaf) { $dnLeaf } else { $DistinguishedName }
+    $newBookmark = [PSCustomObject]@{
+        Name              = $bookmarkName
+        DistinguishedName = $DistinguishedName
+        ObjectClass       = $ObjectClass
+        AddedAt           = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    }
+    $cfg.Bookmarks = @($cfg.Bookmarks) + @($newBookmark)
+    Save-AppSettings -Config $cfg -ConfigPath $ConfigPath | Out-Null
+    return $true
+}
+
+function Remove-ADBookmark {
+    <#
+    .SYNOPSIS
+        Removes an Active Directory object from persistent favorites/bookmarks.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$DistinguishedName,
+        [string]$ConfigPath = "$PSScriptRoot\..\config.json"
+    )
+    $cfg = Get-AppSettings -ConfigPath $ConfigPath
+    if ($cfg.Bookmarks) {
+        $cfg.Bookmarks = @($cfg.Bookmarks | Where-Object { $_.DistinguishedName -ine $DistinguishedName })
+        Save-AppSettings -Config $cfg -ConfigPath $ConfigPath | Out-Null
+        return $true
+    }
+    return $false
+}
+
+Export-ModuleMember -Function Get-AppSettings, Save-AppSettings, Get-ADEnvironmentContext, Get-ADBookmarks, Add-ADBookmark, Remove-ADBookmark
