@@ -7,6 +7,7 @@
 
 function Get-AppSettings {
     [CmdletBinding()]
+    [Alias("Get-AppConfig")]
     param (
         [string]$ConfigPath = "$PSScriptRoot\..\config.json"
     )
@@ -123,9 +124,11 @@ function Get-AppSettings {
 
 function Save-AppSettings {
     [CmdletBinding()]
+    [Alias("Save-AppConfig", "Set-AppSettings")]
     param (
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject]$Config,
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("Settings")]
+        [psobject]$Config,
         [string]$ConfigPath = "$PSScriptRoot\..\config.json"
     )
 
@@ -301,4 +304,8 @@ function Remove-ADBookmark {
     return $false
 }
 
-Export-ModuleMember -Function Get-AppSettings, Save-AppSettings, Get-ADEnvironmentContext, Get-ADBookmarks, Add-ADBookmark, Remove-ADBookmark
+Set-Alias -Name Save-AppConfig -Value Save-AppSettings
+Set-Alias -Name Get-AppConfig -Value Get-AppSettings
+Set-Alias -Name Set-AppSettings -Value Save-AppSettings
+
+Export-ModuleMember -Function Get-AppSettings, Save-AppSettings, Get-ADEnvironmentContext, Get-ADBookmarks, Add-ADBookmark, Remove-ADBookmark -Alias Save-AppConfig, Get-AppConfig, Set-AppSettings

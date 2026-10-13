@@ -38,16 +38,16 @@ $modulesPath = Join-Path $appRoot "Modules"
 $viewsPath   = Join-Path $appRoot "Views"
 
 # Import Core Services
-Import-Module (Join-Path $modulesPath "ConfigService.psm1") -Force
-Import-Module (Join-Path $modulesPath "ValidationService.psm1") -Force
-Import-Module (Join-Path $modulesPath "ExportService.psm1") -Force
-Import-Module (Join-Path $modulesPath "ADService.psm1") -Force
-Import-Module (Join-Path $modulesPath "AclService.psm1") -Force
-Import-Module (Join-Path $modulesPath "KerberosService.psm1") -Force
-Import-Module (Join-Path $modulesPath "DiagnosticService.psm1") -Force
-Import-Module (Join-Path $modulesPath "ReplicationService.psm1") -Force
-Import-Module (Join-Path $modulesPath "GpoService.psm1") -Force
-Import-Module (Join-Path $modulesPath "NetworkService.psm1") -Force
+Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ExportService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "AclService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "KerberosService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "DiagnosticService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ReplicationService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "GpoService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "NetworkService.psm1") -DisableNameChecking -Force
 
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
@@ -6234,7 +6234,7 @@ if ($controls['BtnNormalizeFilter']) {
     $controls['BtnNormalizeFilter'].Add_Click({
         $filter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
         if ([string]::IsNullOrWhiteSpace($filter)) { return }
-        $normalized = Normalize-LdapFilter -Filter $filter
+        $normalized = Format-LdapFilter -Filter $filter
         if ($controls['TxtRawLdapFilter']) {
             $controls['TxtRawLdapFilter'].Text = $normalized
         }
@@ -6283,7 +6283,7 @@ if ($controls['TxtRawLdapFilter']) {
         } elseif ($_.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
             $filter = $controls['TxtRawLdapFilter'].Text.Trim()
             if (-not [string]::IsNullOrWhiteSpace($filter)) {
-                $controls['TxtRawLdapFilter'].Text = Normalize-LdapFilter -Filter $filter
+                $controls['TxtRawLdapFilter'].Text = Format-LdapFilter -Filter $filter
                 Set-Status -Message "Normalized LDAP filter via Ctrl+R."
             }
             $_.Handled = $true
@@ -8112,7 +8112,7 @@ function Refresh-CustomReportsDropdown {
                 Attributes  = @("sAMAccountName", "displayName", "servicePrincipalName", "distinguishedName")
             }
         )
-        Set-AppSettings -Settings $appConfig
+        Save-AppSettings -Config $appConfig
     }
 
     foreach ($cr in $appConfig.CustomReports) {
@@ -8237,7 +8237,7 @@ function Show-NewCustomReportDialog {
         $list = if ($appConfig.CustomReports) { [System.Collections.ArrayList]@($appConfig.CustomReports) } else { [System.Collections.ArrayList]@() }
         [void]$list.Add($newRep)
         $appConfig.CustomReports = @($list)
-        Set-AppSettings -Settings $appConfig
+        Save-AppSettings -Config $appConfig
         Refresh-CustomReportsDropdown
         $win.DialogResult = $true
         $win.Close()
@@ -8260,7 +8260,7 @@ if ($controls['BtnDeleteCustomReport']) {
         $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to delete custom report '$($rep.Name)'?", "Confirm Delete", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
         if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
             $appConfig.CustomReports = @($appConfig.CustomReports | Where-Object { $_.Name -ne $rep.Name })
-            Set-AppSettings -Settings $appConfig
+            Save-AppSettings -Config $appConfig
             Refresh-CustomReportsDropdown
             Set-Status -Message "Deleted custom report '$($rep.Name)'"
         }
@@ -8653,7 +8653,7 @@ function Save-BasketPersistence {
     } else {
         $appConfig.Basket.Items = @()
     }
-    Save-AppConfig -Config $appConfig
+    Save-AppSettings -Config $appConfig
 }
 
 function Refresh-BasketUI {

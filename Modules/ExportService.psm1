@@ -1398,7 +1398,9 @@ function Convert-ScimFilterToLdap {
 
     try {
         $translated = Parse-ScimExpr $f
-        if (Get-Command Normalize-LdapFilter -ErrorAction SilentlyContinue) {
+        if (Get-Command Format-LdapFilter -ErrorAction SilentlyContinue) {
+            return (Format-LdapFilter -Filter $translated)
+        } elseif (Get-Command Normalize-LdapFilter -ErrorAction SilentlyContinue) {
             return (Normalize-LdapFilter -Filter $translated)
         }
         return $translated

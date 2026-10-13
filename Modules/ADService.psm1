@@ -19,7 +19,7 @@ if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
 # Ensure ValidationService is loaded for LDAP/UAC/FileTime converters
 $valServicePath = Join-Path $PSScriptRoot "ValidationService.psm1"
 if (Test-Path $valServicePath) {
-    Import-Module $valServicePath -Global -Force -ErrorAction SilentlyContinue
+    Import-Module $valServicePath -Global -DisableNameChecking -Force -ErrorAction SilentlyContinue
 }
 
 #region Helper Functions

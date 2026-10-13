@@ -78,10 +78,10 @@ if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
 
 # Resolve Modules Path
 $modulesPath = Join-Path $scriptRoot "Modules"
-Import-Module (Join-Path $modulesPath "ConfigService.psm1") -Force -ErrorAction Stop
-Import-Module (Join-Path $modulesPath "ValidationService.psm1") -Force -ErrorAction Stop
-Import-Module (Join-Path $modulesPath "ADService.psm1") -Force -ErrorAction Stop
-Import-Module (Join-Path $modulesPath "ExportService.psm1") -Force -ErrorAction Stop
+Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking -Force -ErrorAction Stop
+Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking -Force -ErrorAction Stop
+Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking -Force -ErrorAction Stop
+Import-Module (Join-Path $modulesPath "ExportService.psm1") -DisableNameChecking -Force -ErrorAction Stop
 
 try {
     Write-Host "[AD-CLI] Initializing Active Directory Command-Line Engine..." -ForegroundColor Cyan

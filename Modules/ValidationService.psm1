@@ -702,15 +702,16 @@ function Expand-ADAttributePattern {
     return $result
 }
 
-function Normalize-LdapFilter {
+function Format-LdapFilter {
     <#
     .SYNOPSIS
-        Normalizes, optimizes, and minifies an RFC 4515 LDAP search filter (Softerra Ctrl+R parity).
+        Formats, normalizes, optimizes, and minifies an RFC 4515 LDAP search filter (Softerra Ctrl+R parity).
     .DESCRIPTION
         Eliminates duplicate sibling clauses, flattens redundant single-child nesting,
         removes unnecessary grouping, and standardizes whitespace and operator syntax.
     #>
     [CmdletBinding()]
+    [Alias("Normalize-LdapFilter", "Optimize-LdapFilter")]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Filter
@@ -824,6 +825,9 @@ function Normalize-LdapFilter {
     }
 }
 
+Set-Alias -Name Normalize-LdapFilter -Value Format-LdapFilter
+Set-Alias -Name Optimize-LdapFilter -Value Format-LdapFilter
+
 Export-ModuleMember -Function `
     Remove-Diacritics, `
     New-SecurePassword, `
@@ -844,5 +848,6 @@ Export-ModuleMember -Function `
     Test-ADEmail, `
     Test-ADPasswordComplexity, `
     Expand-ADAttributePattern, `
-    Normalize-LdapFilter
+    Format-LdapFilter `
+    -Alias Normalize-LdapFilter, Optimize-LdapFilter
 
