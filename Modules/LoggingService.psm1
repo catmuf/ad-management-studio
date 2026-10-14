@@ -203,6 +203,17 @@ function Write-AppLog {
 
     $rawText = $logEntry.ToString()
 
+    # Enforce Zero-Leak Policy: Sanitize user profile paths and username in log files
+    try {
+        $currentUserName = [System.Environment]::UserName
+        if (-not [string]::IsNullOrWhiteSpace($currentUserName)) {
+            $rawText = $rawText -replace "(?i)[a-zA-Z]:\\Users\\$([regex]::Escape($currentUserName))", "~"
+            $rawText = $rawText -replace "(?i)\b$([regex]::Escape($currentUserName))\b", "<User>"
+        }
+    } catch {
+        $null = $_
+    }
+
     # Thread-safe write to log file
     [System.Threading.Monitor]::Enter($script:LogLock)
     try {

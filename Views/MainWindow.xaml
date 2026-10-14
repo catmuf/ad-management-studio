@@ -764,7 +764,7 @@
                     <!-- Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity) -->
                     <Grid Margin="0,0,6,0" VerticalAlignment="Center">
                         <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="150" Height="28" Tag="🔍 Quick search..." FontSize="11" Padding="6,4"/>
-                        <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="360" MaxHeight="320">
+                        <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="450" MaxHeight="450">
                             <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,4,0,0">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -772,7 +772,7 @@
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Name="TxtGlobalSearchStatus" Text="Quick Search Results" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}" Margin="6,4,6,6"/>
-                                    <ListBox Grid.Row="1" Name="ListGlobalSearchResults" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="250">
+                                    <ListBox Grid.Row="1" Name="ListGlobalSearchResults" Background="Transparent" BorderThickness="0" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingStackPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True">
                                         <ListBox.ItemTemplate>
                                              <DataTemplate>
                                                 <Grid Margin="2,4">
@@ -788,7 +788,7 @@
                                                         <TextBlock Text="{Binding DistinguishedName}" FontSize="10" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
                                                     </StackPanel>
                                                 </Grid>
-                                            </DataTemplate>
+                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
                                     </ListBox>
                                 </Grid>

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active Directory Management Studio - Headless Automation CLI
 .DESCRIPTION

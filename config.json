@@ -34,11 +34,7 @@
     "AllowMultiWindow": true,
     "RestoreTabsOnStartup": true,
     "OpenTabs": [
-      "Dashboard",
-      "SecurityAcl",
-      "ReplicationSuite",
-      "NetworkDiagnostics",
-      "ServerMonitor"
+      "Dashboard"
     ]
   },
   "Defaults": {

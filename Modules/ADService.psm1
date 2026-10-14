@@ -4718,12 +4718,14 @@ function Rename-ADDirectoryObject {
 
 function Find-ADObjectsQuickSearch {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Query,
 
-        [int]$MaxResults = 15,
-        [string]$Server = ""
+        [int]$MaxResults = 500,
+        [string]$Server = "",
+        $State = $null
     )
 
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
@@ -4732,46 +4734,199 @@ function Find-ADObjectsQuickSearch {
     }
 
     $q = $Query.Trim().Replace('*', '')
-    $filter = "(|(sAMAccountName=$q*)(displayName=*$q*)(name=*$q*)(mail=$q*)(ou=*$q*))"
+    $filter = "(|(sAMAccountName=*$q*)(displayName=*$q*)(name=*$q*)(mail=*$q*)(cn=*$q*)(ou=*$q*)(userPrincipalName=*$q*))"
 
     try {
-        $props = @('objectClass', 'name', 'sAMAccountName', 'displayName', 'mail', 'distinguishedName', 'userAccountControl', 'ou')
-        $ldapRes = Invoke-LdapQuery -Filter $filter -PropertiesToLoad $props -PageSize $MaxResults -Server $Server
+        $props = @('objectClass', 'name', 'sAMAccountName', 'displayName', 'mail', 'distinguishedName', 'userAccountControl', 'ou', 'cn', 'userPrincipalName')
+        $pageSize = if ($MaxResults -gt 0) { [Math]::Min($MaxResults, 1000) } else { 1000 }
+        $ldapRes = Invoke-LdapQuery -Filter $filter -PropertiesToLoad $props -PageSize $pageSize -Server $Server
         
         $count = 0
-        foreach ($r in $ldapRes.Results) {
-            if ($count -ge $MaxResults) { break }
-            $dn = "$($r.DistinguishedName)"
-            if ([string]::IsNullOrWhiteSpace($dn)) { continue }
+        if ($ldapRes -and $ldapRes.Results) {
+            foreach ($r in $ldapRes.Results) {
+                if ($MaxResults -gt 0 -and $count -ge $MaxResults) { break }
+                $dn = "$($r.DistinguishedName)"
+                if ([string]::IsNullOrWhiteSpace($dn)) { continue }
 
-            $objClass = "Object"
-            $ocRaw = @($r.objectClass)
-            if ($ocRaw -contains 'user' -and $ocRaw -notcontains 'computer') {
-                $objClass = "User"
-            } elseif ($ocRaw -contains 'group') {
-                $objClass = "Group"
-            } elseif ($ocRaw -contains 'computer') {
-                $objClass = "Computer"
-            } elseif ($ocRaw -contains 'organizationalUnit') {
-                $objClass = "OrganizationalUnit"
+                $objClass = "Object"
+                $ocRaw = @($r.objectClass)
+                if ($ocRaw -contains 'user' -and $ocRaw -notcontains 'computer') {
+                    $objClass = "User"
+                } elseif ($ocRaw -contains 'group') {
+                    $objClass = "Group"
+                } elseif ($ocRaw -contains 'computer') {
+                    $objClass = "Computer"
+                } elseif ($ocRaw -contains 'organizationalUnit') {
+                    $objClass = "OrganizationalUnit"
+                }
+
+                $dispName = if ($r.displayName) { "$($r.displayName)" } elseif ($r.name) { "$($r.name)" } elseif ($r.cn) { "$($r.cn)" } elseif ($r.ou) { "$($r.ou)" } else { "$($r.sAMAccountName)" }
+                $parentOU = if ($dn -match ',(.+)$') { $matches[1] } else { "" }
+
+                $results.Add([PSCustomObject]@{
+                    Type              = $objClass
+                    Name              = $dispName
+                    SamAccountName    = "$($r.sAMAccountName)"
+                    Email             = "$($r.mail)"
+                    DistinguishedName = $dn
+                    ParentOU          = $parentOU
+                })
+                $count++
             }
-
-            $dispName = if ($r.displayName) { "$($r.displayName)" } elseif ($r.name) { "$($r.name)" } elseif ($r.ou) { "$($r.ou)" } else { "$($r.sAMAccountName)" }
-            $parentOU = if ($dn -match ',(.+)$') { $matches[1] } else { "" }
-
-            $results.Add([PSCustomObject]@{
-                Type              = $objClass
-                Name              = $dispName
-                SamAccountName    = "$($r.sAMAccountName)"
-                Email             = "$($r.mail)"
-                DistinguishedName = $dn
-                ParentOU          = $parentOU
-            })
-            $count++
         }
     }
     catch {
         Write-Warning "Quick search query failed: $_"
+    }
+
+    # Graceful fallback: If Invoke-LdapQuery returns 0 results or throws error, search in-memory collections
+    if ($results.Count -eq 0) {
+        $st = if ($State) {
+            $State
+        } else {
+            $v = Get-Variable -Name state -Scope Global -ErrorAction SilentlyContinue
+            if ($v) {
+                $v.Value
+            } else {
+                $v1 = Get-Variable -Name state -Scope 1 -ErrorAction SilentlyContinue
+                if ($v1) { $v1.Value } else { $null }
+            }
+        }
+
+        if ($st) {
+            $qLower = $q.ToLowerInvariant()
+            $seenDNs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+            # 1. CachedUsers
+            $usersList = if ($st.CachedUsers -and $st.CachedUsers.Count -gt 0) {
+                $st.CachedUsers
+            } elseif ($st.AllScopeUsers -and $st.AllScopeUsers.Count -gt 0) {
+                $st.AllScopeUsers
+            } else { @() }
+
+            foreach ($u in $usersList) {
+                if ($MaxResults -gt 0 -and $results.Count -ge $MaxResults) { break }
+                $uSam = "$($u.SamAccountName)"
+                $uDisp = "$($u.DisplayName)"
+                $uName = "$($u.Name)"
+                $uMail = if ($u.Mail) { "$($u.Mail)" } elseif ($u.Email) { "$($u.Email)" } else { "" }
+                $uUpn = "$($u.UserPrincipalName)"
+                $uDn = "$($u.DistinguishedName)"
+
+                $match = ($uSam -and $uSam.ToLowerInvariant().Contains($qLower)) -or
+                         ($uDisp -and $uDisp.ToLowerInvariant().Contains($qLower)) -or
+                         ($uName -and $uName.ToLowerInvariant().Contains($qLower)) -or
+                         ($uMail -and $uMail.ToLowerInvariant().Contains($qLower)) -or
+                         ($uUpn -and $uUpn.ToLowerInvariant().Contains($qLower)) -or
+                         ($uDn -and $uDn.ToLowerInvariant().Contains($qLower))
+
+                if ($match) {
+                    if ($uDn -and -not $seenDNs.Add($uDn)) { continue }
+                    $dispName = if ($uDisp) { $uDisp } elseif ($uName) { $uName } else { $uSam }
+                    $parentOU = if ($uDn -match ',(.+)$') { $matches[1] } else { "" }
+                    $results.Add([PSCustomObject]@{
+                        Type              = "User"
+                        Name              = $dispName
+                        SamAccountName    = $uSam
+                        Email             = $uMail
+                        DistinguishedName = $uDn
+                        ParentOU          = $parentOU
+                    })
+                }
+            }
+
+            # 2. CachedGroups
+            if ($st.CachedGroups) {
+                foreach ($g in $st.CachedGroups) {
+                    if ($MaxResults -gt 0 -and $results.Count -ge $MaxResults) { break }
+                    $gSam = "$($g.SamAccountName)"
+                    $gName = "$($g.Name)"
+                    $gDisp = "$($g.DisplayName)"
+                    $gMail = "$($g.Mail)"
+                    $gDn = "$($g.DistinguishedName)"
+
+                    $match = ($gSam -and $gSam.ToLowerInvariant().Contains($qLower)) -or
+                             ($gName -and $gName.ToLowerInvariant().Contains($qLower)) -or
+                             ($gDisp -and $gDisp.ToLowerInvariant().Contains($qLower)) -or
+                             ($gMail -and $gMail.ToLowerInvariant().Contains($qLower)) -or
+                             ($gDn -and $gDn.ToLowerInvariant().Contains($qLower))
+
+                    if ($match) {
+                        if ($gDn -and -not $seenDNs.Add($gDn)) { continue }
+                        $dispName = if ($gDisp) { $gDisp } elseif ($gName) { $gName } else { $gSam }
+                        $parentOU = if ($gDn -match ',(.+)$') { $matches[1] } else { "" }
+                        $results.Add([PSCustomObject]@{
+                            Type              = "Group"
+                            Name              = $dispName
+                            SamAccountName    = $gSam
+                            Email             = $gMail
+                            DistinguishedName = $gDn
+                            ParentOU          = $parentOU
+                        })
+                    }
+                }
+            }
+
+            # 3. CachedComputers
+            if ($st.CachedComputers) {
+                foreach ($c in $st.CachedComputers) {
+                    if ($MaxResults -gt 0 -and $results.Count -ge $MaxResults) { break }
+                    $cSam = "$($c.SamAccountName)"
+                    $cName = "$($c.Name)"
+                    $cDisp = "$($c.DisplayName)"
+                    $cDns = "$($c.DNSHostName)"
+                    $cDn = "$($c.DistinguishedName)"
+
+                    $match = ($cSam -and $cSam.ToLowerInvariant().Contains($qLower)) -or
+                             ($cName -and $cName.ToLowerInvariant().Contains($qLower)) -or
+                             ($cDisp -and $cDisp.ToLowerInvariant().Contains($qLower)) -or
+                             ($cDns -and $cDns.ToLowerInvariant().Contains($qLower)) -or
+                             ($cDn -and $cDn.ToLowerInvariant().Contains($qLower))
+
+                    if ($match) {
+                        if ($cDn -and -not $seenDNs.Add($cDn)) { continue }
+                        $dispName = if ($cDisp) { $cDisp } elseif ($cName) { $cName } else { $cSam }
+                        $parentOU = if ($cDn -match ',(.+)$') { $matches[1] } else { "" }
+                        $results.Add([PSCustomObject]@{
+                            Type              = "Computer"
+                            Name              = $dispName
+                            SamAccountName    = $cSam
+                            Email             = ""
+                            DistinguishedName = $cDn
+                            ParentOU          = $parentOU
+                        })
+                    }
+                }
+            }
+
+            # 4. CachedOUs
+            if ($st.CachedOUs) {
+                foreach ($ou in $st.CachedOUs) {
+                    if ($MaxResults -gt 0 -and $results.Count -ge $MaxResults) { break }
+                    $ouName = "$($ou.Name)"
+                    $ouDisp = "$($ou.DisplayName)"
+                    $ouDn = "$($ou.DistinguishedName)"
+
+                    $match = ($ouName -and $ouName.ToLowerInvariant().Contains($qLower)) -or
+                             ($ouDisp -and $ouDisp.ToLowerInvariant().Contains($qLower)) -or
+                             ($ouDn -and $ouDn.ToLowerInvariant().Contains($qLower))
+
+                    if ($match) {
+                        if ($ouDn -and -not $seenDNs.Add($ouDn)) { continue }
+                        $dispName = if ($ouDisp) { $ouDisp } elseif ($ouName) { $ouName } else { ($ouDn -split ',')[0] -replace '^OU=', '' }
+                        $parentOU = if ($ouDn -match ',(.+)$') { $matches[1] } else { "" }
+                        $results.Add([PSCustomObject]@{
+                            Type              = "OrganizationalUnit"
+                            Name              = $dispName
+                            SamAccountName    = ""
+                            Email             = ""
+                            DistinguishedName = $ouDn
+                            ParentOU          = $parentOU
+                        })
+                    }
+                }
+            }
+        }
     }
 
     return ,@($results.ToArray())
