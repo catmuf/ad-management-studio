@@ -1885,13 +1885,17 @@ function global:Update-WorkspaceTabStrip {
         [void]$cm.Items.Add($miRename)
 
         $miNewWin = [System.Windows.Controls.MenuItem]::new()
-        $miNewWin.Header = "🗖  Open in New Independent Window"
+        $miNewWin.Header = "⧉  Open in Detached Window"
         $miNewWin.Tag = $pName
         $miNewWin.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
             $null = $e
             $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            Launch-NewApplicationWindow -ToolName $p
+            if (-not [string]::IsNullOrWhiteSpace($p)) {
+                Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
+                $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $p } | Select-Object -Last 1
+                if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
+            }
         })
         [void]$cm.Items.Add($miNewWin)
 
@@ -2057,6 +2061,7 @@ function global:Remove-WorkspaceTab {
         $dRec = $state.DetachedWindows[$targetTab.Id]
         $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
         if ($dWin -and $dWin -is [System.Windows.Window]) {
+            $dWin.Tag = "TabRemoved"
             try { $dWin.Close() } catch { Write-AppError -Category "Workspace" -Message "Error closing detached window for tab $($targetTab.Id): $_" }
         }
         [void]$state.DetachedWindows.Remove($targetTab.Id)
@@ -2414,6 +2419,53 @@ function Connect-SecondaryPanelInstance {    param(
         if ($filterSec) { $filterSec.Add_Checked({ & $applyFilter }.GetNewClosure()) }
         if ($filterDist) { $filterDist.Add_Checked({ & $applyFilter }.GetNewClosure()) }
 
+        if ($c['BtnNewGroup']) { $c['BtnNewGroup'].Add_Click({ Open-GroupDialog }.GetNewClosure()) }
+        if ($c['BtnEditGroup'] -and $grid) {
+            $c['BtnEditGroup'].Add_Click({
+                $g = $grid.SelectedItem
+                if ($g) { Open-GroupDialog -Mode "Edit" -GroupToEdit $g }
+            }.GetNewClosure())
+        }
+        if ($c['BtnDeleteGroup'] -and $grid) {
+            $c['BtnDeleteGroup'].Add_Click({
+                $g = $grid.SelectedItem
+                if ($g) { Delete-GroupAction -TargetGroup $g }
+            }.GetNewClosure())
+        }
+        if ($c['BtnExportGroups']) {
+            $c['BtnExportGroups'].Add_Click({
+                Export-GroupsAction -SourceItems $localScope.Filtered
+            }.GetNewClosure())
+        }
+        if ($c['BtnGroupAddToBasket'] -and $grid) {
+            $c['BtnGroupAddToBasket'].Add_Click({
+                $sel = $grid.SelectedItems
+                if ($sel -and $sel.Count -gt 0) {
+                    Add-ToBasket -Items $sel -DefaultClass "Group"
+                } else {
+                    [System.Windows.MessageBox]::Show("Please select one or more groups to add to the Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                }
+            }.GetNewClosure())
+        }
+        if ($c['BtnGroupAddColumn'] -and $grid) {
+            $c['BtnGroupAddColumn'].Add_Click({
+                Show-ColumnChooser -TableName "Groups" -TargetGrid $grid -OwnerWindow $win
+            }.GetNewClosure())
+        }
+        if ($c['BtnGroupResetColumns'] -and $grid) {
+            $c['BtnGroupResetColumns'].Add_Click({
+                Reset-TableColumns -TableName "Groups" -TargetGrid $grid
+            }.GetNewClosure())
+        }
+        if ($grid) {
+            $grid.Add_MouseDoubleClick({
+                param($s, $e)
+                $null = $s; $null = $e
+                $g = $grid.SelectedItem
+                if ($g) { Open-GroupDialog -Mode "Edit" -GroupToEdit $g }
+            }.GetNewClosure())
+        }
+
         # Initial populate
         & $applyFilter
         $panel.Tag = $localScope
@@ -2480,6 +2532,38 @@ function Connect-SecondaryPanelInstance {    param(
         if ($filterAll) { $filterAll.Add_Checked({ & $applyFilter }.GetNewClosure()) }
         if ($filterEnabled) { $filterEnabled.Add_Checked({ & $applyFilter }.GetNewClosure()) }
         if ($filterDisabled) { $filterDisabled.Add_Checked({ & $applyFilter }.GetNewClosure()) }
+
+        if ($c['BtnToggleCompStatus'] -and $grid) {
+            $c['BtnToggleCompStatus'].Add_Click({
+                $comp = $grid.SelectedItem
+                if ($comp) { Switch-ComputerStatusAction -TargetComputer $comp }
+            }.GetNewClosure())
+        }
+        if ($c['BtnExportComputers']) {
+            $c['BtnExportComputers'].Add_Click({
+                Export-ComputersAction -SourceItems $localScope.Filtered
+            }.GetNewClosure())
+        }
+        if ($c['BtnCompAddToBasket'] -and $grid) {
+            $c['BtnCompAddToBasket'].Add_Click({
+                $sel = $grid.SelectedItems
+                if ($sel -and $sel.Count -gt 0) {
+                    Add-ToBasket -Items $sel -DefaultClass "Computer"
+                } else {
+                    [System.Windows.MessageBox]::Show("Please select one or more computers to add to the Basket.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                }
+            }.GetNewClosure())
+        }
+        if ($c['BtnCompAddColumn'] -and $grid) {
+            $c['BtnCompAddColumn'].Add_Click({
+                Show-ColumnChooser -TableName "Computers" -TargetGrid $grid -OwnerWindow $win
+            }.GetNewClosure())
+        }
+        if ($c['BtnCompResetColumns'] -and $grid) {
+            $c['BtnCompResetColumns'].Add_Click({
+                Reset-TableColumns -TableName "Computers" -TargetGrid $grid
+            }.GetNewClosure())
+        }
 
         # Initial populate
         & $applyFilter
@@ -2713,6 +2797,206 @@ function Connect-SecondaryPanelInstance {    param(
             & $renderDossier $initDN $localScope.CurrentTemplate
         }
     }
+    elseif ($PanelName -eq "DirectorySearch") {
+        $txtFilter = $c['TxtRawLdapFilter']
+        $cmbScope = $c['CmbSearchScope']
+        $txtBase = $c['TxtSearchBaseDn']
+        $grid = $c['GridSearchResults']
+        $btnRun = $c['BtnRunLdapSearch']
+        $btnVerify = $c['BtnVerifyFilterSyntax']
+        $btnNormalize = $c['BtnNormalizeFilter']
+        $btnConvertScim = $c['BtnConvertScim']
+        $txtStatus = $c['TxtSearchStatus']
+        $txtPageInfo = $c['TxtSearchPageInfo']
+        $txtHuman = $c['TxtFilterHumanExplanation']
+        $borderHuman = $c['BorderFilterExplanation']
+
+        $localScope = [PSCustomObject]@{
+            Results = @()
+        }
+
+        $runSearch = {
+            $filt = if ($txtFilter) { $txtFilter.Text.Trim() } else { "(objectClass=*)" }
+            if ([string]::IsNullOrWhiteSpace($filt)) { $filt = "(objectClass=*)" }
+            $scopeStr = if ($cmbScope -and $cmbScope.SelectedItem) {
+                if ($cmbScope.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $cmbScope.SelectedItem.Content.ToString() } else { "$($cmbScope.SelectedItem)" }
+            } else { "Subtree" }
+            $base = if ($txtBase) { $txtBase.Text.Trim() } else { "" }
+
+            $res = Invoke-LdapQuery -Filter $filt -Scope $scopeStr -SearchBase $base
+            if ($res -and $res.Success) {
+                $localScope.Results = @($res.Results)
+                if ($grid) { $grid.ItemsSource = $localScope.Results }
+                if ($txtStatus) { $txtStatus.Text = "Search completed in $($res.ElapsedMilliseconds) ms. Found $($res.Count) object(s)." }
+                if ($txtPageInfo) { $txtPageInfo.Text = "Showing $($res.Count) result(s)" }
+            } else {
+                $errMsg = if ($res -and $res.Error) { $res.Error } else { "Unknown LDAP error" }
+                if ($txtStatus) { $txtStatus.Text = "Search error: $errMsg" }
+            }
+        }.GetNewClosure()
+
+        if ($btnRun) { $btnRun.Add_Click({ & $runSearch }.GetNewClosure()) }
+        if ($txtFilter) {
+            $txtFilter.Add_KeyDown({
+                param($s, $e)
+                $null = $s
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $runSearch }
+            }.GetNewClosure())
+            $txtFilter.Add_TextChanged({
+                $f = if ($txtFilter) { $txtFilter.Text.Trim() } else { "" }
+                if (-not [string]::IsNullOrWhiteSpace($f) -and $f.StartsWith("(") -and $f.EndsWith(")")) {
+                    $explanation = Convert-LdapFilterToHumanText -Filter $f
+                    if ($borderHuman) { $borderHuman.Visibility = [System.Windows.Visibility]::Visible }
+                    if ($txtHuman) {
+                        $txtHuman.Text = $explanation
+                        $txtHuman.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+                    }
+                }
+            }.GetNewClosure())
+        }
+        if ($btnVerify) {
+            $btnVerify.Add_Click({
+                $f = if ($txtFilter) { $txtFilter.Text.Trim() } else { "" }
+                if (-not [string]::IsNullOrWhiteSpace($f)) {
+                    $v = Test-LdapFilter -Filter $f
+                    $msgText = if ($v.IsValid) { "LDAP filter syntax is valid (RFC 4515 compliant)." } else { "Syntax error: $($v.Errors -join '; ')" }
+                    $msgIcon = if ($v.IsValid) { [System.Windows.MessageBoxImage]::Information } else { [System.Windows.MessageBoxImage]::Warning }
+                    [System.Windows.MessageBox]::Show($msgText, "Filter Syntax Verification", [System.Windows.MessageBoxButton]::OK, $msgIcon)
+                }
+            }.GetNewClosure())
+        }
+        if ($btnNormalize) {
+            $btnNormalize.Add_Click({
+                $f = if ($txtFilter) { $txtFilter.Text.Trim() } else { "" }
+                if (-not [string]::IsNullOrWhiteSpace($f)) {
+                    $txtFilter.Text = Format-LdapFilter -Filter $f
+                }
+            }.GetNewClosure())
+        }
+        if ($btnConvertScim) {
+            $btnConvertScim.Add_Click({
+                $f = if ($txtFilter) { $txtFilter.Text.Trim() } else { "(objectClass=user)" }
+                $scim = Convert-LdapFilterToScim -LdapFilter $f
+                [System.Windows.MessageBox]::Show("SCIM 2.0 Equivalent:`r`n$scim", "SCIM Translator", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }.GetNewClosure())
+        }
+        $panel.Tag = $localScope
+    }
+    elseif ($PanelName -eq "LdapSql") {
+        $txtSql = $c['TxtSqlQuery']
+        $btnExec = $c['BtnExecuteSql']
+        $btnClear = $c['BtnClearSql']
+        $grid = $c['GridSqlResults']
+
+        $localScope = [PSCustomObject]@{
+            Results = @()
+        }
+
+        $execSql = {
+            $q = if ($txtSql) { $txtSql.Text.Trim() } else { "" }
+            if (-not [string]::IsNullOrWhiteSpace($q)) {
+                $r = Invoke-LdapSqlQuery -Query $q
+                if ($r -and $r.Success) {
+                    $localScope.Results = @($r.Results)
+                    if ($grid) { $grid.ItemsSource = $localScope.Results }
+                }
+            }
+        }.GetNewClosure()
+
+        if ($btnExec) { $btnExec.Add_Click({ & $execSql }.GetNewClosure()) }
+        if ($btnClear) { $btnClear.Add_Click({ if ($txtSql) { $txtSql.Text = "" } }.GetNewClosure()) }
+        $panel.Tag = $localScope
+    }
+    elseif ($PanelName -eq "AttributeEditor") {
+        $txtDN = $c['TxtAttrEditorDN']
+        $btnLoad = $c['BtnLoadRawAttributes']
+        $grid = $c['GridRawAttributes']
+        $chkOp = $c['ChkShowOperationalAttributes']
+        $txtSearch = $c['TxtSearchAttributes']
+
+        $localScope = [PSCustomObject]@{
+            AllAttrs = @()
+        }
+
+        $loadAttrs = {
+            $dn = if ($txtDN) { $txtDN.Text.Trim() } else { "" }
+            if (-not [string]::IsNullOrWhiteSpace($dn)) {
+                $incOp = if ($chkOp) { [bool]$chkOp.IsChecked } else { $false }
+                $attrs = Get-ADObjectRawAttributes -DistinguishedName $dn -IncludeOperational:$incOp
+                $localScope.AllAttrs = @($attrs)
+                if ($grid) { $grid.ItemsSource = $localScope.AllAttrs }
+            }
+        }.GetNewClosure()
+
+        if ($btnLoad) { $btnLoad.Add_Click({ & $loadAttrs }.GetNewClosure()) }
+        if ($txtDN) {
+            $txtDN.Add_KeyDown({
+                param($s, $e)
+                $null = $s
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $loadAttrs }
+            }.GetNewClosure())
+        }
+        if ($chkOp) { $chkOp.Add_Click({ & $loadAttrs }.GetNewClosure()) }
+        if ($txtSearch) {
+            $txtSearch.Add_TextChanged({
+                $q = $txtSearch.Text.Trim()
+                if ($grid -and $localScope.AllAttrs) {
+                    if ([string]::IsNullOrWhiteSpace($q)) {
+                        $grid.ItemsSource = $localScope.AllAttrs
+                    } else {
+                        $grid.ItemsSource = @($localScope.AllAttrs | Where-Object { $_.Name -like "*$q*" -or "$($_.Value)" -like "*$q*" })
+                    }
+                }
+            }.GetNewClosure())
+        }
+        $panel.Tag = $localScope
+    }
+    elseif ($PanelName -eq "SecurityAcl") {
+        $txtDN = $c['TxtAclTargetDN']
+        $btnLoad = $c['BtnAclLoad']
+        $grid = $c['GridAclAces']
+
+        $localScope = [PSCustomObject]@{
+            Acl = $null
+        }
+
+        $loadAcl = {
+            $dn = if ($txtDN) { $txtDN.Text.Trim() } else { "" }
+            if (-not [string]::IsNullOrWhiteSpace($dn)) {
+                $aclObj = Get-ADObjectAcl -DistinguishedName $dn
+                if ($aclObj) {
+                    $localScope.Acl = $aclObj
+                    if ($grid) { $grid.ItemsSource = @($aclObj.Access) }
+                }
+            }
+        }.GetNewClosure()
+
+        if ($btnLoad) { $btnLoad.Add_Click({ & $loadAcl }.GetNewClosure()) }
+        if ($txtDN) {
+            $txtDN.Add_KeyDown({
+                param($s, $e)
+                $null = $s
+                if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $loadAcl }
+            }.GetNewClosure())
+        }
+        $panel.Tag = $localScope
+    }
+
+    # Universal button delegate for any unhandled buttons in secondary panels
+    foreach ($k in $c.Keys) {
+        $btn = $c[$k]
+        if ($btn -is [System.Windows.Controls.Primitives.ButtonBase] -and $controls.ContainsKey($k)) {
+            $primaryBtn = $controls[$k]
+            if ($primaryBtn -is [System.Windows.Controls.Primitives.ButtonBase] -and -not $btn.Tag) {
+                $btn.Tag = "RoutedToPrimary"
+                $btn.Add_Click({
+                    param($s, $e)
+                    $null = $s; $null = $e
+                    $primaryBtn.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+                }.GetNewClosure())
+            }
+        }
+    }
 }
 
 function global:Save-SecondaryPanelSessionState {
@@ -2748,6 +3032,23 @@ function global:Save-SecondaryPanelSessionState {
                     elseif ($c['FilterCompDisabled'] -and $c['FilterCompDisabled'].IsChecked) { "Disabled" }
                     else { "All" }
             }
+        }
+        "DirectorySearch" {
+            if ($c['TxtRawLdapFilter']) { $Tab.State['LdapFilter'] = $c['TxtRawLdapFilter'].Text }
+            if ($c['TxtSearchBaseDn']) { $Tab.State['SearchBase'] = $c['TxtSearchBaseDn'].Text }
+            if ($c['CmbSearchScope']) { $Tab.State['ScopeIndex'] = $c['CmbSearchScope'].SelectedIndex }
+        }
+        "LdapSql" {
+            if ($c['TxtSqlQuery']) { $Tab.State['SqlQuery'] = $c['TxtSqlQuery'].Text }
+        }
+        "AttributeEditor" {
+            if ($c['TxtAttrEditorDN']) { $Tab.State['AttrDN'] = $c['TxtAttrEditorDN'].Text }
+            if ($c['TxtSearchAttributes']) { $Tab.State['SearchAttr'] = $c['TxtSearchAttributes'].Text }
+            if ($c['ChkShowOperationalAttributes']) { $Tab.State['ShowOpAttr'] = [bool]$c['ChkShowOperationalAttributes'].IsChecked }
+        }
+        "SecurityAcl" {
+            if ($c['TxtAclTargetDN']) { $Tab.State['AclDN'] = $c['TxtAclTargetDN'].Text }
+            if ($c['TxtAclTrustee']) { $Tab.State['AclTrustee'] = $c['TxtAclTrustee'].Text }
         }
     }
 }
@@ -2797,6 +3098,23 @@ function global:Restore-SecondaryPanelSessionState {
                     default    { if ($c['FilterCompAll'])       { $c['FilterCompAll'].IsChecked = $true } }
                 }
             }
+        }
+        "DirectorySearch" {
+            if ($c['TxtRawLdapFilter'] -and $Tab.State.ContainsKey('LdapFilter')) { $c['TxtRawLdapFilter'].Text = $Tab.State['LdapFilter'] }
+            if ($c['TxtSearchBaseDn'] -and $Tab.State.ContainsKey('SearchBase')) { $c['TxtSearchBaseDn'].Text = $Tab.State['SearchBase'] }
+            if ($c['CmbSearchScope'] -and $Tab.State.ContainsKey('ScopeIndex')) { $c['CmbSearchScope'].SelectedIndex = $Tab.State['ScopeIndex'] }
+        }
+        "LdapSql" {
+            if ($c['TxtSqlQuery'] -and $Tab.State.ContainsKey('SqlQuery')) { $c['TxtSqlQuery'].Text = $Tab.State['SqlQuery'] }
+        }
+        "AttributeEditor" {
+            if ($c['TxtAttrEditorDN'] -and $Tab.State.ContainsKey('AttrDN')) { $c['TxtAttrEditorDN'].Text = $Tab.State['AttrDN'] }
+            if ($c['TxtSearchAttributes'] -and $Tab.State.ContainsKey('SearchAttr')) { $c['TxtSearchAttributes'].Text = $Tab.State['SearchAttr'] }
+            if ($c['ChkShowOperationalAttributes'] -and $Tab.State.ContainsKey('ShowOpAttr')) { $c['ChkShowOperationalAttributes'].IsChecked = $Tab.State['ShowOpAttr'] }
+        }
+        "SecurityAcl" {
+            if ($c['TxtAclTargetDN'] -and $Tab.State.ContainsKey('AclDN')) { $c['TxtAclTargetDN'].Text = $Tab.State['AclDN'] }
+            if ($c['TxtAclTrustee'] -and $Tab.State.ContainsKey('AclTrustee')) { $c['TxtAclTrustee'].Text = $Tab.State['AclTrustee'] }
         }
     }
 }
@@ -2858,6 +3176,11 @@ function global:Select-WorkspaceTab {
                 $secObj = New-PanelInstance -PanelName $PanelName
                 Wire-SecondaryPanelInstance -panelObj $secObj -win $window -tab $targetTab -PanelName $PanelName
                 $targetTab.DockedPanelInstance = $secObj.Panel
+                if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
+                    $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $secObj.Controls -Force
+                } else {
+                    $targetTab.DockedPanelControls = $secObj.Controls
+                }
                 Restore-SecondaryPanelSessionState -Tab $targetTab -PanelObj $secObj -PanelName $PanelName
             }
             if ($targetTab.DockedPanelInstance -and -not $controls['ViewportContainer'].Children.Contains($targetTab.DockedPanelInstance)) {
@@ -2881,7 +3204,7 @@ function global:Select-WorkspaceTab {
             if ($child -is [System.Windows.UIElement]) {
                 $child.Visibility = if ($targetTab.DockedPanelInstance -and $child -eq $targetTab.DockedPanelInstance) {
                     [System.Windows.Visibility]::Visible
-                } elseif (-not $targetTab.DockedPanelInstance -and $child.Name -eq $targetCtrlName) {
+                } elseif (-not $targetTab.DockedPanelInstance -and $child -eq $primaryPanel) {
                     [System.Windows.Visibility]::Visible
                 } else {
                     [System.Windows.Visibility]::Collapsed
@@ -2963,6 +3286,10 @@ function Dismount-PanelToWindow {    param (
     foreach ($k in $window.Resources.Keys) {
         $detachedWin.Resources[$k] = $window.Resources[$k]
     }
+    if (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue) {
+        $currTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Light" }
+        Apply-ThemeNode $detachedWin $currTheme
+    }
     Register-WpfExceptionHandler -Dispatcher $detachedWin.Dispatcher -Window $detachedWin
 
     $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
@@ -2978,35 +3305,44 @@ function Dismount-PanelToWindow {    param (
 
     $primaryKey = "Panel$pName"
     $primaryPanel = $controls[$primaryKey]
-    $canUsePrimary = $false
-
-    # Primary panel can be used if it exists, is not already detached, and no other docked tab of the same type is open in MainWindow
-    if ($primaryPanel -and -not ($state.DetachedWindows.Values | Where-Object { -not $_.IsSecondary -and $_.PanelName -eq $pName })) {
-        $otherDockedOfSameType = $state.OpenTabs | Where-Object { $_.Id -ne $targetTabId -and $_.PanelName -eq $pName -and -not $state.DetachedWindows.ContainsKey($_.Id) }
-        if (-not $otherDockedOfSameType -or $otherDockedOfSameType.Count -eq 0) {
-            $canUsePrimary = $true
-        }
-    }
+    $isPrimaryTab = ($targetTab.InstanceNumber -le 1)
+    $primaryAlreadyDetached = [bool]($state.DetachedWindows.Values | Where-Object { -not $_.IsSecondary -and $_.PanelName -eq $pName })
 
     $panelToMount = $null
     $isSecondary = $false
     $namedControls = @{}
 
-    if ($canUsePrimary) {
+    if ($isPrimaryTab -and $primaryPanel -and -not $primaryAlreadyDetached) {
         Disconnect-VisualElement -Element $primaryPanel
         $panelToMount = $primaryPanel
         $isSecondary = $false
+        $namedControls = $controls
     } else {
+        $isSecondary = $true
         if ($targetTab.DockedPanelInstance) {
             $panelToMount = $targetTab.DockedPanelInstance
             Disconnect-VisualElement -Element $panelToMount
-            $isSecondary = $true
+            $namedControls = if ($targetTab.PSObject.Properties['DockedPanelControls'] -and $targetTab.DockedPanelControls) {
+                $targetTab.DockedPanelControls
+            } else {
+                Get-NamedElements -element $panelToMount
+            }
         } else {
             $panelObj = New-PanelInstance -PanelName $pName
             $panelToMount = $panelObj.Panel
             $namedControls = $panelObj.Controls
-            $isSecondary = $true
+            if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
+                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $panelToMount -Force
+            } else {
+                $targetTab.DockedPanelInstance = $panelToMount
+            }
+            if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
+                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $namedControls -Force
+            } else {
+                $targetTab.DockedPanelControls = $namedControls
+            }
             Wire-SecondaryPanelInstance -panelObj $panelObj -win $detachedWin -tab $targetTab -PanelName $pName
+            Restore-SecondaryPanelSessionState -Tab $targetTab -PanelObj $panelObj -PanelName $pName
         }
     }
 
@@ -3030,6 +3366,12 @@ function Dismount-PanelToWindow {    param (
         param([bool]$DockBackToMain)
         if ($detachedWinClosed) { return }
         $detachedWinClosed = $true
+        if ($detachedWin.Tag -eq "TabRemoved") {
+            if ($state.DetachedWindows.ContainsKey($targetTabId)) {
+                [void]$state.DetachedWindows.Remove($targetTabId)
+            }
+            return
+        }
 
         if ($isSecondary) {
             Save-SecondaryPanelSessionState -Tab $targetTab -PanelObj @{ Panel = $panelToMount; Controls = $namedControls } -PanelName $pName
@@ -3049,22 +3391,24 @@ function Dismount-PanelToWindow {    param (
             Disconnect-VisualElement -Element $primaryPanel
             if (-not $vContainer.Children.Contains($primaryPanel)) {
                 [void]$vContainer.Children.Add($primaryPanel)
-                $primaryPanel.Visibility = [System.Windows.Visibility]::Collapsed
             }
+            $primaryPanel.Visibility = if ($DockBackToMain) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
         } elseif ($isSecondary -and $panelToMount -and $vContainer) {
             Disconnect-VisualElement -Element $panelToMount
-            if ($DockBackToMain) {
-                if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
-                    $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $null -Force
-                }
+            if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
+                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $panelToMount -Force
+            } else {
                 $targetTab.DockedPanelInstance = $panelToMount
-                if (-not $vContainer.Children.Contains($panelToMount)) {
-                    [void]$vContainer.Children.Add($panelToMount)
-                }
-                if ($panelToMount) {
-                    $panelToMount.Visibility = [System.Windows.Visibility]::Visible
-                }
             }
+            if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
+                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $namedControls -Force
+            } else {
+                $targetTab.DockedPanelControls = $namedControls
+            }
+            if (-not $vContainer.Children.Contains($panelToMount)) {
+                [void]$vContainer.Children.Add($panelToMount)
+            }
+            $panelToMount.Visibility = if ($DockBackToMain) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
         }
 
         if ($state.DetachedWindows.ContainsKey($targetTabId)) {
@@ -3100,7 +3444,7 @@ function Dismount-PanelToWindow {    param (
     $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
         param($s, $e)
         $null = $s; $null = $e
-        & $HandleCloseOrDock $false
+        & $HandleCloseOrDock $true
     }.GetNewClosure())
 
     $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
@@ -3291,9 +3635,9 @@ function Show-WorkspaceLayoutMenu {
     })
     [void]$cm.Items.Add($miNewAppWin)
 
-    # Open Active Tool in Independent Window
+    # Open Active Tool in Detached Window
     $miNewToolWin = [System.Windows.Controls.MenuItem]::new()
-    $miNewToolWin.Header = "🗖  Open Active Tool in Independent Window"
+    $miNewToolWin.Header = "⧉  Open Active Tool in Detached Window"
     $miNewToolWin.IsEnabled = [bool]($state.ActiveTabId)
     $miNewToolWin.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
@@ -3301,7 +3645,9 @@ function Show-WorkspaceLayoutMenu {
         $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
         $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
         if (-not [string]::IsNullOrWhiteSpace($p)) {
-            Launch-NewApplicationWindow -ToolName $p
+            Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
+            $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $p } | Select-Object -Last 1
+            if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
         }
     })
     [void]$cm.Items.Add($miNewToolWin)
@@ -3485,14 +3831,16 @@ function Initialize-SidebarNavigationContextMenus {    $panels = @(
             [void]$cm.Items.Add($miWin)
 
             $miIndWin = [System.Windows.Controls.MenuItem]::new()
-            $miIndWin.Header = "🗖 Open in New Independent Window"
+            $miIndWin.Header = "⧉ Open in Detached Window"
             $miIndWin.Tag = $p
             $miIndWin.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
                 $null = $e
                 $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                 if (-not [string]::IsNullOrWhiteSpace($target)) {
-                    Launch-NewApplicationWindow -ToolName $target
+                    Add-WorkspaceTab -PanelName $target -NewInstance -Activate $true
+                    $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $target } | Select-Object -Last 1
+                    if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
                 }
             })
             [void]$cm.Items.Add($miIndWin)
@@ -3606,13 +3954,17 @@ if ($controls['BtnWorkspaceNewTab']) {
                     [void]$mi.Items.Add($subNew)
 
                     $subWin = [System.Windows.Controls.MenuItem]::new()
-                    $subWin.Header = "🗖  Open in New Independent Window"
+                    $subWin.Header = "⧉  Open in Detached Window"
                     $subWin.Tag = $pName
                     $subWin.Add_Click([System.Windows.RoutedEventHandler]{
                         param($s, $e)
                         $null = $e
                         $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                        if (-not [string]::IsNullOrWhiteSpace($t)) { Launch-NewApplicationWindow -ToolName $t }
+                        if (-not [string]::IsNullOrWhiteSpace($t)) {
+                            Add-WorkspaceTab -PanelName $t -NewInstance -Activate $true
+                            $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $t } | Select-Object -Last 1
+                            if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
+                        }
                     })
                     [void]$mi.Items.Add($subWin)
 
