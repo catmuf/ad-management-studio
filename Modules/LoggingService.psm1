@@ -128,7 +128,7 @@ function Write-AppLog {
 
     $logDir = Get-AppLogsDirectory
     if (-not (Test-Path $logDir)) {
-        try { [void](New-Item -ItemType Directory -Path $logDir -Force) } catch { $null = $_ # Directory creation handled on file write }
+        try { [void](New-Item -ItemType Directory -Path $logDir -Force) } catch { $null = $_ } # Directory creation handled on file write
     }
 
     $now = Get-Date
@@ -332,7 +332,7 @@ function Open-LogsFolder {
 
     $dir = Get-AppLogsDirectory
     if (-not (Test-Path $dir)) {
-        try { [void](New-Item -ItemType Directory -Path $dir -Force) } catch { $null = $_ # Suppress folder creation error prior to explorer launch }
+        try { [void](New-Item -ItemType Directory -Path $dir -Force) } catch { $null = $_ } # Suppress folder creation error prior to explorer launch
     }
 
     try {

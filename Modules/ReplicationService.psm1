@@ -19,8 +19,11 @@ function Get-ADReplicationAttributeMetadata {
     .PARAMETER Identity
         DistinguishedName or SamAccountName of the object.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias("Object")]
         [string]$Identity
     )
 
@@ -62,6 +65,7 @@ function Get-ADDCUpdateCounters {
     .SYNOPSIS
         Queries all domain controllers to compare highestCommittedUSN counters and replication sync status.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     param ()
 
@@ -703,6 +707,7 @@ function Get-ADDirSyncChanges {
     .SYNOPSIS
         Queries recent directory updates using USN / DirSync tracking.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     param (
         [int]$MaxResults = 50

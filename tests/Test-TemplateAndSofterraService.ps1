@@ -92,26 +92,26 @@ Assert-Test "Custom attributes and missing attribute handle gracefully" ($res7 -
 Write-Host "`n--- 2. Testing TemplateService: Resolve-AccountNameConflict ---" -ForegroundColor Magenta
 
 # Test 8: Non-colliding candidate returns unmodified
-$predicate8 = { param($candidate, $attr) return $false }
+$predicate8 = { param($candidate, $attr) $null = $candidate; $null = $attr; return $false }
 $res8 = Resolve-AccountNameConflict -Candidate "jdoe" -ExistsPredicate $predicate8
 Assert-Test "Non-colliding candidate returns candidate directly ('jdoe')" ($res8 -eq "jdoe") "Got: '$res8'"
 
 # Test 9: Colliding candidate appends incremental numbers (1, 2, ...)
 $existing9 = @("jdoe", "jdoe1")
-$predicate9 = { param($candidate, $attr) return ($candidate -in $existing9) }
+$predicate9 = { param($candidate, $attr) $null = $attr; return ($candidate -in $existing9) }
 $res9 = Resolve-AccountNameConflict -Candidate "jdoe" -ExistsPredicate $predicate9
 Assert-Test "Colliding candidate 'jdoe' resolves to 'jdoe2' when 'jdoe' and 'jdoe1' exist" ($res9 -eq "jdoe2") "Got: '$res9'"
 
 # Test 10: UPN collision resolution
 $existing10 = @("jdoe@corp.local", "jdoe1@corp.local")
-$predicate10 = { param($candidate, $attr) return ($candidate -in $existing10) }
+$predicate10 = { param($candidate, $attr) $null = $attr; return ($candidate -in $existing10) }
 $res10 = Resolve-AccountNameConflict -Candidate "jdoe@corp.local" -AttributeName "userPrincipalName" -ExistsPredicate $predicate10
 Assert-Test "UPN collision 'jdoe@corp.local' resolves to 'jdoe2@corp.local'" ($res10 -eq "jdoe2@corp.local") "Got: '$res10'"
 
 # Test 11: 20-character limit constraint on sAMAccountName
 $longBase = "verylongaccountnametest" # 23 characters
 $existing11 = @($longBase.Substring(0, 20))
-$predicate11 = { param($candidate, $attr) return ($candidate -in $existing11) }
+$predicate11 = { param($candidate, $attr) $null = $attr; return ($candidate -in $existing11) }
 $res11 = Resolve-AccountNameConflict -Candidate $longBase -AttributeName "sAMAccountName" -ExistsPredicate $predicate11
 Assert-Test "sAMAccountName stays within 20 character limit ($($res11.Length) chars: '$res11')" ($res11.Length -le 20) "Got: '$res11'"
 
@@ -140,7 +140,7 @@ try {
 # Test 15: Invoke-ADObjectProvisioningPlan generates complete user plan
 $tmpl15 = Get-ADProvisioningTemplates -Id "standard-employee"
 $userInputs15 = @{ givenName = "Alice"; sn = "Johnson"; Department = "Engineering" }
-$plan15 = Invoke-ADObjectProvisioningPlan -Template $tmpl15 -UserInput $userInputs15 -ExistsPredicate { param($name) return $false }
+$plan15 = Invoke-ADObjectProvisioningPlan -Template $tmpl15 -UserInput $userInputs15 -ExistsPredicate { param($name) $null = $name; return $false }
 Assert-Test "Invoke-ADObjectProvisioningPlan generates conflict-free provisioning plan" (
     $plan15.SamAccountName -eq "ajohnson" -and
     $plan15.UserPrincipalName -eq "ajohnson@corp.local" -and

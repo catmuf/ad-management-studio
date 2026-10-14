@@ -75,7 +75,7 @@ Import-Module (Join-Path $modulesPath "ScimFilterService.psm1") -DisableNameChec
 Import-Module (Join-Path $modulesPath "ScimService.psm1") -DisableNameChecking -Force
 
 # Initialize Logging and Global Exception Tracing
-$appLogsDir = Initialize-AppLogging
+[void](Initialize-AppLogging)
 
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
@@ -213,7 +213,7 @@ if ($appConfig.Basket -and ($appConfig.Basket.KeepContents -ne $false) -and $app
 }
 
 # Master Directory & Tools Catalog for Tabs, Detached Windows, and Navigation
-$global:PanelCatalog = [ordered]@{
+$script:PanelCatalog = [ordered]@{
     'Dashboard'            = [PSCustomObject]@{ Title = 'Dashboard';            Icon = '📊'; Category = 'Directory Services'; ToolTip = 'Overview & directory health dashboard' }
     'Users'                = [PSCustomObject]@{ Title = 'Users';                Icon = '👥'; Category = 'Directory Services'; ToolTip = 'User accounts, provisioning & security attributes' }
     'Groups'               = [PSCustomObject]@{ Title = 'Groups';               Icon = '🛡️'; Category = 'Directory Services'; ToolTip = 'Security & distribution group membership manager' }
@@ -1098,6 +1098,7 @@ if ($controls['BtnHtmlViewGo']) {
 if ($controls['TxtHtmlViewDN']) {
     $controls['TxtHtmlViewDN'].Add_KeyDown({
         param($src, $e)
+        $null = $src
         if ($e.Key -eq [System.Windows.Input.Key]::Return) {
             if ($controls['BtnHtmlViewGo']) { $controls['BtnHtmlViewGo'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
         }
@@ -1498,7 +1499,7 @@ function Update-WorkspaceTabStrip {
     foreach ($tab in $state.OpenTabs) {
         $pName = $tab.PanelName
         if ([string]::IsNullOrWhiteSpace($pName)) { continue }
-        $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $global:PanelCatalog.Contains($pName)) { $global:PanelCatalog[$pName] } else { [PSCustomObject]@{ Title = $pName; Icon = "📄"; Category = "Tool" } }
+        $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $script:PanelCatalog.Contains($pName)) { $script:PanelCatalog[$pName] } else { [PSCustomObject]@{ Title = $pName; Icon = "📄"; Category = "Tool" } }
         $isActive = ($state.ActiveTabId -eq $tab.Id)
         $isDetached = ($state.DetachedWindows.ContainsKey($tab.Id))
         $tabTitle = if ($tab.Title) { $tab.Title } else { $meta.Title }
@@ -1669,6 +1670,7 @@ function Update-WorkspaceTabStrip {
 
         $tabBorder.Add_PreviewMouseLeftButtonUp([System.Windows.Input.MouseButtonEventHandler]{
             param($s, $e)
+            $null = $e
             if ($state.TabDragContext.IsMouseDown) {
                 $wasDragging = $state.TabDragContext.IsDragging
                 $tabId = $state.TabDragContext.SourceTabId
@@ -1699,6 +1701,7 @@ function Update-WorkspaceTabStrip {
 
         $tabBorder.Add_LostMouseCapture([System.Windows.Input.MouseEventHandler]{
             param($s, $e)
+            $null = $e
             if ($state.TabDragContext.IsDragging) {
                 $s.Opacity = 1.0
                 $s.Cursor = [System.Windows.Input.Cursors]::Hand
@@ -1736,6 +1739,7 @@ function Update-WorkspaceTabStrip {
         $miDup.Tag = $pName
         $miDup.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             if (-not [string]::IsNullOrWhiteSpace($p)) {
                 Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
@@ -1748,6 +1752,7 @@ function Update-WorkspaceTabStrip {
         $miRename.Tag = $tab.Id
         $miRename.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             if (-not [string]::IsNullOrWhiteSpace($tId)) {
                 Rename-WorkspaceTab -TabId $tId
@@ -1760,6 +1765,7 @@ function Update-WorkspaceTabStrip {
         $miNewWin.Tag = $pName
         $miNewWin.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             Launch-NewApplicationWindow -ToolName $p
         })
@@ -1772,6 +1778,7 @@ function Update-WorkspaceTabStrip {
         $miDetach.Tag = $tab.Id
         $miDetach.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             if (-not [string]::IsNullOrWhiteSpace($tId)) {
                 if ($state.DetachedWindows.ContainsKey($tId)) {
@@ -1790,6 +1797,7 @@ function Update-WorkspaceTabStrip {
         $miClose.Tag = $tab.Id
         $miClose.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             if (-not [string]::IsNullOrWhiteSpace($tId)) {
                 Remove-WorkspaceTab -TabId $tId
@@ -1802,6 +1810,7 @@ function Update-WorkspaceTabStrip {
         $miCloseOthers.Tag = $tab.Id
         $miCloseOthers.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $e
             $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
             if (-not [string]::IsNullOrWhiteSpace($tId)) {
                 $toClose = @($state.OpenTabs | Where-Object { $_.Id -ne $tId })
@@ -1814,6 +1823,7 @@ function Update-WorkspaceTabStrip {
         $miCloseAll.Header = "Close All Tabs"
         $miCloseAll.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $s; $null = $e
             $toClose = @($state.OpenTabs)
             foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.Id }
         })
@@ -1846,8 +1856,8 @@ function Add-WorkspaceTab {
         return
     }
 
-    $meta = if (-not [string]::IsNullOrWhiteSpace($PanelName) -and $global:PanelCatalog.Contains($PanelName)) {
-        $global:PanelCatalog[$PanelName]
+    $meta = if (-not [string]::IsNullOrWhiteSpace($PanelName) -and $script:PanelCatalog.Contains($PanelName)) {
+        $script:PanelCatalog[$PanelName]
     } else {
         [PSCustomObject]@{ Title = $PanelName; Icon = "📄"; Category = "Tool" }
     }
@@ -1889,9 +1899,6 @@ function Remove-WorkspaceTab {
         $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
     }
     if (-not $targetTab) { return }
-
-    $pName = $targetTab.PanelName
-    $otherTabsForPanel = @($state.OpenTabs | Where-Object { $_.Id -ne $targetTab.Id -and $_.PanelName -eq $pName })
 
     if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
         $dRec = $state.DetachedWindows[$targetTab.Id]
@@ -1962,6 +1969,7 @@ function Connect-SecondaryPanelInstance {    param(
         $tab,
         [string]$PanelName
     )
+    $null = $win
     $panel = $panelObj.Panel
     $c = $panelObj.Controls
 
@@ -2076,18 +2084,21 @@ function Connect-SecondaryPanelInstance {    param(
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
+                $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
             $txtSearch.Add_KeyDown({
                 param($s, $e)
+                $null = $s
                 if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
             }.GetNewClosure())
         }
         if ($btnClear) {
             $btnClear.Add_Click({
                 param($s, $e)
+                $null = $s; $null = $e
                 if ($txtSearch) { $txtSearch.Text = "" }
             }.GetNewClosure())
         }
@@ -2166,6 +2177,7 @@ function Connect-SecondaryPanelInstance {    param(
         if ($grid) {
             $grid.Add_MouseDoubleClick({
                 param($s, $e)
+                $null = $s; $null = $e
                 $u = $grid.SelectedItem
                 if ($u) { Open-UserDetailDialog -User $u }
             }.GetNewClosure())
@@ -2221,18 +2233,21 @@ function Connect-SecondaryPanelInstance {    param(
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
+                $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
             $txtSearch.Add_KeyDown({
                 param($s, $e)
+                $null = $s
                 if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
             }.GetNewClosure())
         }
         if ($btnClear) {
             $btnClear.Add_Click({
                 param($s, $e)
+                $null = $s; $null = $e
                 if ($txtSearch) { $txtSearch.Text = "" }
             }.GetNewClosure())
         }
@@ -2286,18 +2301,21 @@ function Connect-SecondaryPanelInstance {    param(
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
+                $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
             $txtSearch.Add_KeyDown({
                 param($s, $e)
+                $null = $s
                 if ($e.Key -eq [System.Windows.Input.Key]::Enter) { & $applyFilter }
             }.GetNewClosure())
         }
         if ($btnClear) {
             $btnClear.Add_Click({
                 param($s, $e)
+                $null = $s; $null = $e
                 if ($txtSearch) { $txtSearch.Text = "" }
             }.GetNewClosure())
         }
@@ -2481,8 +2499,8 @@ function Dismount-PanelToWindow {    param (
     # Save session state before detaching
     Save-TabSessionState -Tab $targetTab
 
-    $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $global:PanelCatalog.Contains($pName)) {
-        $global:PanelCatalog[$pName]
+    $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $script:PanelCatalog.Contains($pName)) {
+        $script:PanelCatalog[$pName]
     } else {
         [PSCustomObject]@{ Title = $pName; Icon = "📋"; Category = "Tool Window" }
     }
@@ -2597,6 +2615,7 @@ function Dismount-PanelToWindow {    param (
     if ($btnDock) {
         $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $s; $null = $e
             & $HandleCloseOrDock $true
             $detachedWin.Close()
         }.GetNewClosure())
@@ -2604,11 +2623,13 @@ function Dismount-PanelToWindow {    param (
 
     $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         & $HandleCloseOrDock $false
     }.GetNewClosure())
 
     $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
         param($s, $e)
+        $null = $s
         if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
             & $HandleCloseOrDock $true
             $detachedWin.Close()
@@ -2749,6 +2770,7 @@ function Show-WorkspaceLayoutMenu {
     $miTabs.FontWeight = if ($isTabs) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
     $miTabs.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         Set-WorkspaceMode -Mode "Tabs"
         Save-AppSettings -Config $appConfig
         Set-Status -Message "Workspace layout changed to: Multi-Tab Workspace"
@@ -2762,6 +2784,7 @@ function Show-WorkspaceLayoutMenu {
     $miSingle.FontWeight = if ($isSingle) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
     $miSingle.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         Set-WorkspaceMode -Mode "Single"
         Save-AppSettings -Config $appConfig
         Set-Status -Message "Workspace layout changed to: Single Window Viewport"
@@ -2785,6 +2808,7 @@ function Show-WorkspaceLayoutMenu {
     $miNewAppWin.InputGestureText = "Ctrl+N"
     $miNewAppWin.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         Launch-NewApplicationWindow
     })
     [void]$cm.Items.Add($miNewAppWin)
@@ -2795,6 +2819,7 @@ function Show-WorkspaceLayoutMenu {
     $miNewToolWin.IsEnabled = [bool]($state.ActiveTabId)
     $miNewToolWin.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
         $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
         if (-not [string]::IsNullOrWhiteSpace($p)) {
@@ -2810,6 +2835,7 @@ function Show-WorkspaceLayoutMenu {
     $miDetachCur.IsEnabled = [bool]($state.ActiveTabId -and -not $state.DetachedWindows.ContainsKey($state.ActiveTabId))
     $miDetachCur.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
         if ($activeTab) {
             Detach-PanelToWindow -PanelName $activeTab.PanelName -TabId $activeTab.Id
@@ -2823,6 +2849,7 @@ function Show-WorkspaceLayoutMenu {
     $miDockAll.IsEnabled = ($detachedCount -gt 0)
     $miDockAll.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         Dock-AllDetachedWindows
     })
     [void]$cm.Items.Add($miDockAll)
@@ -2832,6 +2859,7 @@ function Show-WorkspaceLayoutMenu {
         $miFocusAll.Header = "🪟  Bring All Detached Windows to Front"
         $miFocusAll.Add_Click([System.Windows.RoutedEventHandler]{
             param($s, $e)
+            $null = $s; $null = $e
             Show-AllDetachedWindows
         })
         [void]$cm.Items.Add($miFocusAll)
@@ -2842,6 +2870,7 @@ function Show-WorkspaceLayoutMenu {
     $miAllowMulti.Header = if ($state.AllowMultiWindow) { "✔  Allow Multi-Window (Detached Windows Enabled)" } else { "    Allow Multi-Window (Detached Windows Disabled)" }
     $miAllowMulti.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         $state.AllowMultiWindow = -not $state.AllowMultiWindow
         $appConfig.UI.AllowMultiWindow = $state.AllowMultiWindow
         Save-AppSettings -Config $appConfig
@@ -2861,6 +2890,7 @@ function Show-WorkspaceLayoutMenu {
     $miNewTab.Header = "➕  Open Tool in New Tab..."
     $miNewTab.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         if ($controls['BtnWorkspaceNewTab']) {
             $controls['BtnWorkspaceNewTab'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
         }
@@ -2874,6 +2904,7 @@ function Show-WorkspaceLayoutMenu {
     $miDupActive.IsEnabled = [bool]($state.ActiveTabId)
     $miDupActive.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
         $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
         if (-not [string]::IsNullOrWhiteSpace($p)) {
@@ -2886,6 +2917,7 @@ function Show-WorkspaceLayoutMenu {
     $miResetTabs.Header = "🔄  Reset Workspace to Default Tabs (Dashboard, Users, Groups, Computers)"
     $miResetTabs.Add_Click([System.Windows.RoutedEventHandler]{
         param($s, $e)
+        $null = $s; $null = $e
         Reset-WorkspaceLayout
     })
     [void]$cm.Items.Add($miResetTabs)
@@ -2940,6 +2972,7 @@ function Initialize-SidebarNavigationContextMenus {    $panels = @(
             $miTab.Tag = $p
             $miTab.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
+                $null = $e
                 $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                 if (-not [string]::IsNullOrWhiteSpace($target)) {
                     Add-WorkspaceTab -PanelName $target -Activate $true
@@ -2952,6 +2985,7 @@ function Initialize-SidebarNavigationContextMenus {    $panels = @(
             $miTabNew.Tag = $p
             $miTabNew.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
+                $null = $e
                 $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                 if (-not [string]::IsNullOrWhiteSpace($target)) {
                     Add-WorkspaceTab -PanelName $target -NewInstance -Activate $true
@@ -2964,6 +2998,7 @@ function Initialize-SidebarNavigationContextMenus {    $panels = @(
             $miWin.Tag = $p
             $miWin.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
+                $null = $e
                 $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                 if (-not [string]::IsNullOrWhiteSpace($target)) {
                     Detach-PanelToWindow -PanelName $target
@@ -2976,6 +3011,7 @@ function Initialize-SidebarNavigationContextMenus {    $panels = @(
             $miIndWin.Tag = $p
             $miIndWin.Add_Click([System.Windows.RoutedEventHandler]{
                 param($s, $e)
+                $null = $e
                 $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                 if (-not [string]::IsNullOrWhiteSpace($target)) {
                     Launch-NewApplicationWindow -ToolName $target
@@ -3057,7 +3093,7 @@ if ($controls['BtnWorkspaceNewTab']) {
             [void]$cm.Items.Add($subHeader)
 
             foreach ($pName in $categories[$cat]) {
-                $meta = $global:PanelCatalog[$pName]
+                $meta = $script:PanelCatalog[$pName]
                 $isOpen = [bool]($state.OpenTabs | Where-Object { $_.PanelName -eq $pName })
                 if ($isOpen) {
                     $mi = [System.Windows.Controls.MenuItem]::new()
@@ -3068,6 +3104,7 @@ if ($controls['BtnWorkspaceNewTab']) {
                     $subSwitch.Tag = $pName
                     $subSwitch.Add_Click([System.Windows.RoutedEventHandler]{
                         param($s, $e)
+                        $null = $e
                         $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                         if (-not [string]::IsNullOrWhiteSpace($t)) { Add-WorkspaceTab -PanelName $t -Activate $true }
                     })
@@ -3078,6 +3115,7 @@ if ($controls['BtnWorkspaceNewTab']) {
                     $subNew.Tag = $pName
                     $subNew.Add_Click([System.Windows.RoutedEventHandler]{
                         param($s, $e)
+                        $null = $e
                         $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                         if (-not [string]::IsNullOrWhiteSpace($t)) { Add-WorkspaceTab -PanelName $t -NewInstance -Activate $true }
                     })
@@ -3088,6 +3126,7 @@ if ($controls['BtnWorkspaceNewTab']) {
                     $subWin.Tag = $pName
                     $subWin.Add_Click([System.Windows.RoutedEventHandler]{
                         param($s, $e)
+                        $null = $e
                         $t = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                         if (-not [string]::IsNullOrWhiteSpace($t)) { Launch-NewApplicationWindow -ToolName $t }
                     })
@@ -3100,6 +3139,7 @@ if ($controls['BtnWorkspaceNewTab']) {
                     $mi.Tag = $pName
                     $mi.Add_Click([System.Windows.RoutedEventHandler]{
                         param($s, $e)
+                        $null = $e
                         $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
                         if (-not [string]::IsNullOrWhiteSpace($target)) {
                             Add-WorkspaceTab -PanelName $target -Activate $true
@@ -3143,6 +3183,7 @@ if ($controls['BtnWorkspaceModeToggle']) {
     })
     $controls['BtnWorkspaceModeToggle'].Add_MouseRightButtonUp([System.Windows.Input.MouseButtonEventHandler]{
         param($s, $e)
+        $null = $s
         $e.Handled = $true
         Show-WorkspaceLayoutMenu -targetElement $controls['BtnWorkspaceModeToggle']
     })
@@ -4137,6 +4178,27 @@ function Select-UsersLive {    $query = if ($controls['TxtSearchUsers']) { $cont
     Set-Status -Message "Found $($filtered.Count) user(s) matching '$query'." -Count "$($filtered.Count) users displayed"
 }
 
+function ConvertTo-SecureStringFromText {
+    <#
+    .SYNOPSIS
+        Converts plain text to a SecureString safely without using ConvertTo-SecureString -AsPlainText.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$PlainText
+    )
+
+    $ss = [System.Security.SecureString]::new()
+    if (-not [string]::IsNullOrEmpty($PlainText)) {
+        foreach ($ch in $PlainText.ToCharArray()) {
+            $ss.AppendChar($ch)
+        }
+    }
+    $ss.MakeReadOnly()
+    return $ss
+}
+
 function Open-UserDialog {
     param (
         [string]$Mode = "Create",
@@ -4322,7 +4384,7 @@ function Open-UserDialog {
                 return
             }
 
-            $secPw = ConvertTo-SecureString $plainPw -AsPlainText -Force
+            $secPw = ConvertTo-SecureStringFromText -PlainText $plainPw
             $res = New-ADUserItem `
                 -FirstName $fn -LastName $ln -DisplayName $dn -SamAccountName $sam `
                 -UserPrincipalName $upn -Password $secPw -Path $targetOU `
@@ -4411,7 +4473,7 @@ function Open-PasswordDialog {
             return
         }
 
-        $secPw = ConvertTo-SecureString $plainPw -AsPlainText -Force
+        $secPw = ConvertTo-SecureStringFromText -PlainText $plainPw
         $res = Set-ADUserPassword `
             -Identity $User.DistinguishedName `
             -NewPassword $secPw `
@@ -6013,7 +6075,7 @@ function global:Select-ComboAttributes {    param(
         [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
         [bool]$OpenDropDown = $true
     )
-
+    $null = $SyncSearchBox
     if ($state.IsFilteringAttributes -or -not $Combo) { return }
     $state.IsFilteringAttributes = $true
     try {
@@ -6131,6 +6193,7 @@ function Register-SearchableAttributeDropdown {    param(
         [System.Windows.Controls.Border]$OutcomeBorder,
         [bool]$IncludeAnyOption = $false
     )
+    $null = $OutcomeText; $null = $OutcomeBorder; $null = $IncludeAnyOption
 
     if (-not $Combo -or -not $MasterList -or $MasterList.Count -eq 0) { return }
 
@@ -6155,6 +6218,7 @@ function Register-SearchableAttributeDropdown {    param(
     # Direct click on edit box: focus, select all, and ensure dropdown is visible
     $editBox.Add_PreviewMouseLeftButtonDown({
         param($s, $e)
+        $null = $s
         if (-not $editBox.IsKeyboardFocused) {
             $editBox.Focus()
             $editBox.SelectAll()
@@ -6200,6 +6264,7 @@ function Register-SearchableAttributeDropdown {    param(
     # Keyboard navigation: Down/Up to browse, Enter to confirm, Escape to cancel
     $editBox.Add_PreviewKeyDown({
         param($s, $e)
+        $null = $s
         if ($e.Key -eq [System.Windows.Input.Key]::Down) {
             if (-not $Combo.IsDropDownOpen) {
                 $Combo.IsDropDownOpen = $true
@@ -6430,6 +6495,7 @@ if ($controls['TxtSearchAttrFilter']) {
     })
     $controls['TxtSearchAttrFilter'].Add_KeyDown({
         param($s, $e)
+        $null = $s
         if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
             $e.Handled = $true
             if ($controls['CmbFilterAttr']) {
@@ -7362,6 +7428,7 @@ function Show-SpecializedEditorDialog {
         [object]$AttributeValue = $null,
         [string]$TargetDN = ""
     )
+    $null = $TargetDN
     $dlgPath = Join-Path $viewsPath "SpecializedEditorDialog.xaml"
     if (-not (Test-Path $dlgPath)) {
         [System.Windows.MessageBox]::Show("SpecializedEditorDialog.xaml not found at: $dlgPath", "Dialog Missing", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
@@ -8014,7 +8081,7 @@ function Open-AttributeEditDialog {
                 $ldapPath = if ($server) { "LDAP://$server/$targetDn" } else { "LDAP://$targetDn" }
                 try {
                     $entry = [System.DirectoryServices.DirectoryEntry]::new($ldapPath, $targetDn, $plain, [System.DirectoryServices.AuthenticationTypes]::Secure)
-                    $nativeObj = $entry.NativeObject
+                    $null = $entry.NativeObject
                     $dControls['TxtHashVerifyStatus'].Text = "LDAP Bind Succeeded: Password authenticated successfully against AD!"
                     $dControls['TxtHashVerifyStatus'].Foreground = [System.Windows.Media.Brushes]::LightGreen
                 } catch {
@@ -10459,6 +10526,7 @@ function Get-ObjectCanonicalName {
 
 function Show-RenameDialog {
     param([string]$TargetDN, [string]$CurrentName)
+    $null = $CurrentName
     $curRdn = Get-ObjectRDN -DN $TargetDN
     $curVal = if ($curRdn -match '^[^=]+=(.*)$') { $matches[1] } else { $curRdn }
 
@@ -10488,10 +10556,8 @@ function Show-RenameDialog {
     $txt = $win.FindName("TxtNewName")
     $btnOk = $win.FindName("BtnOK")
     $btnCancel = $win.FindName("BtnCancel")
-    $result = $null
 
     $btnOk.Add_Click({
-        $result = $txt.Text.Trim()
         $win.DialogResult = $true
         $win.Close()
     })
@@ -10500,6 +10566,7 @@ function Show-RenameDialog {
         $win.Close()
     })
     $dialogRes = $win.ShowDialog()
+    $result = $txt.Text.Trim()
     if ($dialogRes -and -not [string]::IsNullOrWhiteSpace($result) -and $result -ne $curVal) {
         $prefix = if ($curRdn -match '^([^=]+=)') { $matches[1] } else { "CN=" }
         return "$prefix$result"
@@ -12337,7 +12404,7 @@ if ($controls['BtnRefreshRidPool']) {
 # --- 21. Replication & Topology Suite Handlers ---
 Set-Alias -Name Refresh-ReplicationTopology -Value Update-ReplicationTopology -Scope Global
 function Update-ReplicationTopology {    Set-Status -Message "Refreshing Active Directory Sites topology..."
-    $sites = Get-ADSitesTopology
+    [void](Get-ADSitesTopology)
     if ($controls['BtnScanSubnetOverlaps']) {
         $controls['BtnScanSubnetOverlaps'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     }
@@ -12407,7 +12474,7 @@ if ($controls['BtnGetReplMetadata']) {
             return
         }
         Set-Status -Message "Fetching msDS-ReplAttributeMetaData for $target..."
-        $meta = Get-ADReplicationAttributeMetadata -Identity $target
+        $meta = Get-ADReplicationAttributeMetadata -Object $target
         if ($controls['GridReplMetadata']) { $controls['GridReplMetadata'].ItemsSource = $meta }
         Set-Status -Message "Replication metadata loaded ($($meta.Count) attributes)."
     })
@@ -12779,6 +12846,7 @@ if ($controls['BtnHeaderFavorites']) {
                 $miBm.Tag = $dn
                 $miBm.Add_Click({
                     param($s, $e)
+                    $null = $e
                     $targetDn = $s.Tag
                     if ($targetDn) {
                         if ($targetDn -match '^(?i)OU=') {
@@ -13343,6 +13411,7 @@ $window.Add_Loaded({
 
 $window.Add_Closing({
     param($src, $e)
+    $null = $src; $null = $e
     # Persist open tabs if enabled
     if ($state.RestoreTabsOnStartup) {
         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
@@ -13373,12 +13442,14 @@ $window.Add_Closing({
 
 $window.Add_SizeChanged({
     param($src, $e)
+    $null = $src; $null = $e
     Update-HeaderLayoutResponsive
 })
 
 # Keyboard shortcuts: Ctrl+T theme, Ctrl+R Resolver, Ctrl+W close tab, Ctrl+Tab cycle tabs, Ctrl+Shift+D detach, Ctrl+N new window, Ctrl+Shift+N duplicate tab
 $window.Add_KeyDown({
     param($src, $e)
+    $null = $src
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
         Set-ApplicationTheme -Theme $newTheme -SavePreference

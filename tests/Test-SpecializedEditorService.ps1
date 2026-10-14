@@ -12,6 +12,7 @@
     - Views/SpecializedEditorDialog.xaml parsing and TabControl structure verification
 #>
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingBrokenHashAlgorithms', '')]
 [CmdletBinding()]
 param()
 
