@@ -69,6 +69,10 @@ Import-Module (Join-Path $modulesPath "ReplicationService.psm1") -DisableNameChe
 Import-Module (Join-Path $modulesPath "GpoService.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $modulesPath "NetworkService.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "SpecializedEditorService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "TemplateService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ScimFilterService.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $modulesPath "ScimService.psm1") -DisableNameChecking -Force
 
 # Initialize Logging and Global Exception Tracing
 $appLogsDir = Initialize-AppLogging
@@ -7352,6 +7356,176 @@ if ($controls['TxtSearchAttributes']) {
     })
 }
 
+function Show-SpecializedEditorDialog {
+    param(
+        [string]$AttributeName = "",
+        [object]$AttributeValue = $null,
+        [string]$TargetDN = ""
+    )
+    $dlgPath = Join-Path $viewsPath "SpecializedEditorDialog.xaml"
+    if (-not (Test-Path $dlgPath)) {
+        [System.Windows.MessageBox]::Show("SpecializedEditorDialog.xaml not found at: $dlgPath", "Dialog Missing", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+        return
+    }
+
+    $dlg = Load-XamlWindow -XamlPath $dlgPath
+    $dlg.Owner = $window
+
+    $dControls = @{}
+    $dReader = [System.Xml.XmlReader]::Create([System.IO.StringReader](Get-Content $dlgPath -Raw))
+    while ($dReader.Read()) {
+        if ($dReader.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+            $dName = $dReader.GetAttribute("Name")
+            if ($dName) { $dControls[$dName] = $dlg.FindName($dName) }
+        }
+    }
+    $dReader.Close()
+
+    if ($dControls['TxtTargetAttribute']) { $dControls['TxtTargetAttribute'].Text = if ($AttributeName) { $AttributeName } else { "Attribute Editor" } }
+    if ($dControls['TxtTargetSyntax']) { $dControls['TxtTargetSyntax'].Text = if ($AttributeValue -is [byte[]]) { "Binary / OctetString" } else { "String / Composite" } }
+
+    # Detect initial tab
+    $isCert = ($AttributeName -in @('userCertificate', 'cACertificate', 'userSMIMECertificate') -or ($AttributeName -match 'cert' -and ($AttributeValue -is [byte[]] -or "$AttributeValue" -match '^MII')))
+    $isPhoto = ($AttributeName -in @('thumbnailPhoto', 'jpegPhoto', 'photo') -or ($AttributeName -match 'photo' -and $AttributeValue -is [byte[]]))
+    $isDate = ($AttributeName -in @('accountExpires', 'pwdLastSet', 'lockoutTime', 'lastLogon', 'lastLogonTimestamp', 'whenCreated', 'whenChanged', 'badPasswordTime') -or "$AttributeValue" -match '^\d{16,19}$' -or "$AttributeValue" -match '^\d{14}')
+    $isPwd = ($AttributeName -in @('userPassword', 'unicodePwd'))
+
+    if ($isCert -and $dControls['TabCertViewer']) {
+        $dControls['TabCertViewer'].IsSelected = $true
+        if ($AttributeValue) {
+            $meta = Get-X509CertificateMetadata -CertificateData $AttributeValue
+            if ($meta) {
+                if ($dControls['TxtCertSubject']) { $dControls['TxtCertSubject'].Text = $meta.Subject }
+                if ($dControls['TxtCertSubjectCN']) { $dControls['TxtCertSubjectCN'].Text = $meta.SubjectCN }
+                if ($dControls['TxtCertIssuer']) { $dControls['TxtCertIssuer'].Text = $meta.Issuer }
+                if ($dControls['TxtCertIssuerCN']) { $dControls['TxtCertIssuerCN'].Text = $meta.IssuerCN }
+                if ($dControls['TxtCertSerial']) { $dControls['TxtCertSerial'].Text = $meta.SerialNumber }
+                if ($dControls['TxtCertNotBefore']) { $dControls['TxtCertNotBefore'].Text = $meta.NotBefore }
+                if ($dControls['TxtCertNotAfter']) { $dControls['TxtCertNotAfter'].Text = $meta.NotAfter }
+                if ($dControls['TxtCertThumbprint']) { $dControls['TxtCertThumbprint'].Text = $meta.ThumbprintSHA1 }
+                if ($dControls['TxtCertThumbprint256']) { $dControls['TxtCertThumbprint256'].Text = $meta.ThumbprintSHA256 }
+                if ($dControls['TxtCertKeyUsage']) { $dControls['TxtCertKeyUsage'].Text = $meta.KeyUsage }
+                if ($dControls['TxtCertSan']) { $dControls['TxtCertSan'].Text = ($meta.SAN -join ", ") }
+            }
+        }
+    } elseif ($isPhoto -and $dControls['TabPhotoViewer']) {
+        $dControls['TabPhotoViewer'].IsSelected = $true
+        if ($AttributeValue -is [byte[]]) {
+            $pInfo = Format-ThumbnailPhotoImage -ImageBytes $AttributeValue
+            if ($pInfo) {
+                if ($dControls['TxtPhotoFormat']) { $dControls['TxtPhotoFormat'].Text = $pInfo.Format }
+                if ($dControls['TxtPhotoDimensions']) { $dControls['TxtPhotoDimensions'].Text = "$($pInfo.Width) x $($pInfo.Height) px" }
+                if ($dControls['TxtPhotoSize']) { $dControls['TxtPhotoSize'].Text = "$($pInfo.ByteSize) Bytes" }
+                if ($dControls['TxtPhotoCompliance']) { $dControls['TxtPhotoCompliance'].Text = if ($pInfo.IsAdCompliant) { "Compliant (<=96x96 px)" } else { "Needs Resizing" } }
+            }
+        }
+    } elseif ($isDate -and $dControls['TabDatePicker']) {
+        $dControls['TabDatePicker'].IsSelected = $true
+        if ($AttributeValue) {
+            $dt = $null
+            if ($AttributeValue -is [DateTime]) { $dt = $AttributeValue }
+            elseif ("$AttributeValue" -match '^\d{16,19}$') { $dt = Convert-FileTimeToDateTime -FileTime ([int64]"$AttributeValue") }
+            elseif ("$AttributeValue" -match '^\d{14}') { $dt = Convert-GeneralizedTimeToDateTime -GeneralizedTime "$AttributeValue" }
+            if ($dt -and $dControls['DpDate']) {
+                $dControls['DpDate'].SelectedDate = $dt
+                if ($dControls['TxtDateHour']) { $dControls['TxtDateHour'].Text = $dt.Hour.ToString("00") }
+                if ($dControls['TxtDateMinute']) { $dControls['TxtDateMinute'].Text = $dt.Minute.ToString("00") }
+                if ($dControls['TxtDateSecond']) { $dControls['TxtDateSecond'].Text = $dt.Second.ToString("00") }
+                if ($dControls['TxtFileTime']) { $dControls['TxtFileTime'].Text = (Convert-DateTimeToFileTime -DateTime $dt).ToString() }
+                if ($dControls['TxtGeneralizedTime']) { $dControls['TxtGeneralizedTime'].Text = (Convert-DateTimeToGeneralizedTime -DateTime $dt) }
+                if ($dControls['TxtHumanTime']) { $dControls['TxtHumanTime'].Text = $dt.ToString("yyyy-MM-dd HH:mm:ss") }
+            }
+        }
+    } elseif ($isPwd -and $dControls['TabPasswordHash']) {
+        $dControls['TabPasswordHash'].IsSelected = $true
+    } elseif ($dControls['TabHexEditor']) {
+        $dControls['TabHexEditor'].IsSelected = $true
+        if ($AttributeValue -is [byte[]]) {
+            $dumpText = Format-BinaryHexDump -Bytes $AttributeValue -AsText
+            if ($dControls['TxtHexDumpView']) { $dControls['TxtHexDumpView'].Text = $dumpText }
+            if ($dControls['TxtHexByteCount']) { $dControls['TxtHexByteCount'].Text = "$($AttributeValue.Length) Bytes" }
+        }
+    }
+
+    # Wire event handlers
+    if ($dControls['BtnCertRevocation']) {
+        $dControls['BtnCertRevocation'].Add_Click({
+            if ($AttributeValue) {
+                $meta = Get-X509CertificateMetadata -CertificateData $AttributeValue -CheckRevocation
+                if ($dControls['TxtCertRevocationResult']) {
+                    $dControls['TxtCertRevocationResult'].Text = if ($meta.RevocationStatus) { $meta.RevocationStatus } else { "Verified via X509Chain" }
+                }
+            }
+        })
+    }
+
+    if ($dControls['BtnComputeHash']) {
+        $dControls['BtnComputeHash'].Add_Click({
+            $pwd = if ($dControls['TxtPasswordPlain']) { $dControls['TxtPasswordPlain'].Text } else { "" }
+            $algo = if ($dControls['CmbPasswordAlgorithm']) { $dControls['CmbPasswordAlgorithm'].Text } else { "SSHA" }
+            if (-not [string]::IsNullOrWhiteSpace($pwd)) {
+                $h = New-LdapPasswordHash -Password $pwd -Algorithm $algo
+                if ($dControls['TxtPasswordHashResult']) { $dControls['TxtPasswordHashResult'].Text = $h }
+            }
+        })
+    }
+
+    if ($dControls['BtnVerifyPassword']) {
+        $dControls['BtnVerifyPassword'].Add_Click({
+            $vPwd = if ($dControls['TxtVerifyPassword']) { $dControls['TxtVerifyPassword'].Text } else { "" }
+            $vHash = if ($dControls['TxtVerifyHash']) { $dControls['TxtVerifyHash'].Text } else { "" }
+            if (-not [string]::IsNullOrWhiteSpace($vPwd) -and -not [string]::IsNullOrWhiteSpace($vHash)) {
+                $match = Test-LdapPasswordHash -Password $vPwd -Hash $vHash
+                if ($dControls['TxtVerifyResult']) {
+                    $dControls['TxtVerifyResult'].Text = if ($match) { "MATCH: Password correctly verifies against hash." } else { "MISMATCH: Password does NOT match hash." }
+                    $dControls['TxtVerifyResult'].Foreground = if ($match) { [System.Windows.Media.Brushes]::Green } else { [System.Windows.Media.Brushes]::Red }
+                }
+            }
+        })
+    }
+
+    if ($dControls['BtnConvertFromFileTime']) {
+        $dControls['BtnConvertFromFileTime'].Add_Click({
+            $ftVal = 0
+            if ([int64]::TryParse($dControls['TxtFileTime'].Text, [ref]$ftVal)) {
+                $cDt = Convert-FileTimeToDateTime -FileTime $ftVal
+                if ($dControls['TxtHumanTime']) { $dControls['TxtHumanTime'].Text = $cDt.ToString("yyyy-MM-dd HH:mm:ss") }
+                if ($dControls['TxtGeneralizedTime']) { $dControls['TxtGeneralizedTime'].Text = (Convert-DateTimeToGeneralizedTime -DateTime $cDt) }
+            }
+        })
+    }
+
+    if ($dControls['BtnConvertFromGeneralized']) {
+        $dControls['BtnConvertFromGeneralized'].Add_Click({
+            $gtStr = if ($dControls['TxtGeneralizedTime']) { $dControls['TxtGeneralizedTime'].Text.Trim() } else { "" }
+            if (-not [string]::IsNullOrWhiteSpace($gtStr)) {
+                $cDt = Convert-GeneralizedTimeToDateTime -GeneralizedTime $gtStr
+                if ($dControls['TxtHumanTime']) { $dControls['TxtHumanTime'].Text = $cDt.ToString("yyyy-MM-dd HH:mm:ss") }
+                if ($dControls['TxtFileTime']) { $dControls['TxtFileTime'].Text = (Convert-DateTimeToFileTime -DateTime $cDt).ToString() }
+            }
+        })
+    }
+
+    if ($dControls['BtnDateNow']) {
+        $dControls['BtnDateNow'].Add_Click({
+            $now = [DateTime]::UtcNow
+            if ($dControls['DpDate']) { $dControls['DpDate'].SelectedDate = $now }
+            if ($dControls['TxtDateHour']) { $dControls['TxtDateHour'].Text = $now.Hour.ToString("00") }
+            if ($dControls['TxtDateMinute']) { $dControls['TxtDateMinute'].Text = $now.Minute.ToString("00") }
+            if ($dControls['TxtDateSecond']) { $dControls['TxtDateSecond'].Text = $now.Second.ToString("00") }
+            if ($dControls['TxtFileTime']) { $dControls['TxtFileTime'].Text = (Convert-DateTimeToFileTime -DateTime $now).ToString() }
+            if ($dControls['TxtGeneralizedTime']) { $dControls['TxtGeneralizedTime'].Text = (Convert-DateTimeToGeneralizedTime -DateTime $now) }
+            if ($dControls['TxtHumanTime']) { $dControls['TxtHumanTime'].Text = $now.ToString("yyyy-MM-dd HH:mm:ss") }
+        })
+    }
+
+    if ($dControls['BtnCancelDialog']) {
+        $dControls['BtnCancelDialog'].Add_Click({ $dlg.Close() })
+    }
+
+    [void]$dlg.ShowDialog()
+}
+
 function Open-AttributeEditDialog {
     $selAttr = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
     if (-not $selAttr) {
@@ -8170,6 +8344,28 @@ if ($controls['MenuCtxViewAttrSchema']) {
         }
     })
 }
+
+if ($controls['BtnSpecializedEditor']) {
+    $controls['BtnSpecializedEditor'].Add_Click({
+        $selAttr = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($selAttr) {
+            Show-SpecializedEditorDialog -AttributeName $selAttr.Name -AttributeValue $selAttr.RawValue -TargetDN $selAttr.RawDN
+        } else {
+            Show-SpecializedEditorDialog
+        }
+    })
+}
+
+if ($controls['MenuCtxSpecializedEdit']) {
+    $controls['MenuCtxSpecializedEdit'].Add_Click({
+        $selAttr = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
+        if ($selAttr) {
+            Show-SpecializedEditorDialog -AttributeName $selAttr.Name -AttributeValue $selAttr.RawValue -TargetDN $selAttr.RawDN
+        } else {
+            Show-SpecializedEditorDialog
+        }
+    })
+}
 #endregion
 
 #region 9. Object Compare & Diff Logic
@@ -8696,25 +8892,17 @@ function Refresh-CustomReportsDropdown {
     if (-not $controls['CmbCustomReports']) { return }
     $controls['CmbCustomReports'].Items.Clear()
 
-    if (-not $appConfig.CustomReports -or $appConfig.CustomReports.Count -eq 0) {
+    if (-not $appConfig.CustomReports -or $appConfig.CustomReports.Count -le 3) {
+        $catalog = Get-AD40SecurityAuditReports
         $appConfig.CustomReports = @(
-            @{
-                Name        = "Managers & Team Leads"
-                Description = "Users having direct reports or manager titles"
-                Filter      = "(&(objectCategory=person)(objectClass=user)(|(title=*Manager*)(title=*Supervisor*)(title=*Lead*)(directReports=*)))"
-                Attributes  = @("sAMAccountName", "displayName", "title", "department", "mail", "distinguishedName")
-            },
-            @{
-                Name        = "Accounts Without Manager"
-                Description = "Active user accounts missing a defined manager attribute"
-                Filter      = "(&(objectCategory=person)(objectClass=user)(!manager=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-                Attributes  = @("sAMAccountName", "displayName", "mail", "department", "distinguishedName")
-            },
-            @{
-                Name        = "Accounts with SPN (Kerberoasting Targets)"
-                Description = "User accounts with registered ServicePrincipalNames"
-                Filter      = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))"
-                Attributes  = @("sAMAccountName", "displayName", "servicePrincipalName", "distinguishedName")
+            foreach ($cat in $catalog) {
+                @{
+                    Name        = "[$($cat.Category)] $($cat.Name)"
+                    Description = $cat.Description
+                    Category    = $cat.Category
+                    Filter      = $cat.Filter
+                    Attributes  = $cat.Attributes
+                }
             }
         )
         Save-AppSettings -Config $appConfig

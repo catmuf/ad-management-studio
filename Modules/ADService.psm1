@@ -1549,21 +1549,25 @@ function Clear-ADObjectRawAttribute {
     }
 }
 
-function Invoke-LdapSqlQuery {
+function Invoke-ADSqlExtendedQuery {
     [CmdletBinding()]
+    [Alias("Invoke-DirectorySql", "Query-ADSql")]
     param (
-        [Parameter(Mandatory = $true)]
-        [Alias("Query")]
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("Query", "Sql")]
         [string]$SqlQuery,
+
         [string]$DefaultSearchBase = "",
         [string]$Server = "",
-        [switch]$Explain
+        [switch]$Explain,
+        [switch]$Simulate,
+        [System.Collections.IEnumerable]$MockData = $null
     )
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $cleanQuery = $SqlQuery.Trim() -replace '\s+', ' '
 
-    # Helper: Convert SQL WHERE string to LDAP filter
+    # Helper: Convert SQL WHERE string to LDAP filter (with bitwise & support)
     $convertWhereToLdap = {
         param([string]$wherePart)
         if (-not $wherePart) { return "(objectClass=*)" }
@@ -1572,9 +1576,45 @@ function Invoke-LdapSqlQuery {
         $conditions = $wherePart -split '(?i)\s+AND\s+'
         $filterItems = @()
         foreach ($cond in $conditions) {
-            $cond = $cond.Trim()
-            if ($cond -match '(?i)BITWISE_AND\((\w+),\s*(\d+)\)\s*=\s*\d+') {
-                $filterItems += "($($matches[1]):1.2.840.113556.1.4.803:=$($matches[2]))"
+            $cond = $cond.Trim().Trim('(', ')')
+
+            # Bitwise operator & support: attr & mask = val
+            if ($cond -match '(?i)^(\w+)\s*&\s*(\d+)\s*=\s*(\d+)$') {
+                $attr = $matches[1]
+                $mask = $matches[2]
+                $val  = [int64]$matches[3]
+                if ($val -eq 0) {
+                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                } else {
+                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                }
+            }
+            # Bitwise operator & support: attr & mask != val
+            elseif ($cond -match '(?i)^(\w+)\s*&\s*(\d+)\s*(?:!=|<>)\s*(\d+)$') {
+                $attr = $matches[1]
+                $mask = $matches[2]
+                $val  = [int64]$matches[3]
+                if ($val -eq 0) {
+                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                } else {
+                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                }
+            }
+            # Bitwise operator & truthy: attr & mask
+            elseif ($cond -match '(?i)^(\w+)\s*&\s*(\d+)$') {
+                $attr = $matches[1]
+                $mask = $matches[2]
+                $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+            }
+            elseif ($cond -match '(?i)BITWISE_AND\((\w+),\s*(\d+)\)\s*=\s*(\d+)') {
+                $attr = $matches[1]
+                $mask = $matches[2]
+                $val  = [int64]$matches[3]
+                if ($val -eq 0) {
+                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                } else {
+                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                }
             }
             elseif ($cond -match '(?i)BITWISE_OR\((\w+),\s*(\d+)\)\s*=\s*\d+') {
                 $filterItems += "($($matches[1]):1.2.840.113556.1.4.804:=$($matches[2]))"
@@ -1609,12 +1649,84 @@ function Invoke-LdapSqlQuery {
         return "(objectClass=*)"
     }
 
-    # Helper: Evaluate SQL expression (supports string join ||, UPPER, LOWER, SUBSTRING, LENGTH, and attribute values)
+    # Helper: In-memory WHERE predicate evaluator
+    # Helper: In-memory WHERE predicate evaluator
+    $evaluateWherePredicate = {
+        param($obj, [string]$wherePart)
+        if (-not $wherePart) { return $true }
+        $conds = $wherePart -split '(?i)\s+AND\s+'
+        foreach ($c in $conds) {
+            $c = $c.Trim().Trim('(', ')')
+            if ($c -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*&\s*(\d+)\s*=\s*(\d+)$') {
+                $prop = $matches[1]
+                $mask = [int64]$matches[2]
+                $exp  = [int64]$matches[3]
+                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
+                          else { 0 }
+                if (($actual -band $mask) -ne $exp) { return $false }
+            }
+            elseif ($c -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*&\s*(\d+)\s*(?:!=|<>)\s*(\d+)$') {
+                $prop = $matches[1]
+                $mask = [int64]$matches[2]
+                $exp  = [int64]$matches[3]
+                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
+                          else { 0 }
+                if (($actual -band $mask) -eq $exp) { return $false }
+            }
+            elseif ($c -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*&\s*(\d+)$') {
+                $prop = $matches[1]
+                $mask = [int64]$matches[2]
+                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
+                          else { 0 }
+                if (($actual -band $mask) -eq 0) { return $false }
+            }
+            elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s*=\s*'?(.*?)'?$") {
+                $prop = $matches[1]
+                $expected = $matches[2]
+                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
+                          else { "" }
+                if ($actual -ine $expected) { return $false }
+            }
+            elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s*(?:!=|<>)\s*'?(.*?)'?$") {
+                $prop = $matches[1]
+                $expected = $matches[2]
+                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
+                          else { "" }
+                if ($actual -ieq $expected) { return $false }
+            }
+            elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+LIKE\s+'?(.*?)'?$") {
+                $prop = $matches[1]
+                $pat  = $matches[2] -replace '%', '*'
+                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
+                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
+                          else { "" }
+                if ($actual -notlike $pat) { return $false }
+            }
+            elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+IS\s+NOT\s+NULL$") {
+                $prop = $matches[1]
+                $hasProp = $obj.PSObject.Properties[$prop] -or ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]])
+                $val = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" } elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" } else { "" }
+                if (-not $hasProp -or [string]::IsNullOrEmpty($val)) { return $false }
+            }
+            elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+IS\s+NULL$") {
+                $prop = $matches[1]
+                $val = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" } elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" } else { "" }
+                if (-not [string]::IsNullOrEmpty($val)) { return $false }
+            }
+        }
+        return $true
+    }
+
+    # Helper: Evaluate SQL expression
     $evaluateSqlExpr = {
         param([string]$expr, $targetObj)
         $expr = $expr.Trim()
 
-        # String concatenation: expr1 || expr2 || ...
         if ($expr -match '\|\|') {
             $parts = $expr -split '\s*\|\|\s*'
             $evalParts = @()
@@ -1624,22 +1736,18 @@ function Invoke-LdapSqlQuery {
             return ($evalParts -join "")
         }
 
-        # Quoted string literal
         if ($expr -match "^'([^']*)'$" -or $expr -match '^"([^"]*)"$') {
             return $matches[1]
         }
 
-        # UPPER(expr)
         if ($expr -match '(?i)^UPPER\((.+)\)$') {
             return (& $evaluateSqlExpr $matches[1] $targetObj).ToUpper()
         }
 
-        # LOWER(expr)
         if ($expr -match '(?i)^LOWER\((.+)\)$') {
             return (& $evaluateSqlExpr $matches[1] $targetObj).ToLower()
         }
 
-        # SUBSTRING(expr, start, len)
         if ($expr -match '(?i)^SUBSTRING\((.+?),\s*(\d+)(?:,\s*(\d+))?\)$') {
             $strVal = [string](& $evaluateSqlExpr $matches[1] $targetObj)
             $startIdx = [Math]::Max(0, [int]$matches[2] - 1)
@@ -1652,20 +1760,23 @@ function Invoke-LdapSqlQuery {
             }
         }
 
-        # LENGTH(expr)
         if ($expr -match '(?i)^LENGTH\((.+)\)$') {
             $strVal = [string](& $evaluateSqlExpr $matches[1] $targetObj)
             return $strVal.Length
         }
 
-        # Attribute lookup from target object
         if ($targetObj) {
             $propName = $expr.Trim('$')
             if ($targetObj.PSObject.Properties[$propName]) {
                 $val = $targetObj.$propName
                 if ($val -ne $null) { return [string]$val } else { return "" }
             }
-            if ($expr -match '^[a-zA-Z][a-zA-Z0-9_\-]+$') {
+            if ($propName -match '\.' -and $targetObj.PSObject.Properties[($propName -split '\.')[1]]) {
+                $shortName = ($propName -split '\.')[1]
+                $val = $targetObj.$shortName
+                if ($val -ne $null) { return [string]$val } else { return "" }
+            }
+            if ($expr -match '^[a-zA-Z][a-zA-Z0-9_\-\.]+$') {
                 return ""
             }
         }
@@ -1675,7 +1786,7 @@ function Invoke-LdapSqlQuery {
 
     # Helper: Build Execution Plan
     $buildExecutionPlan = {
-        param([string]$op, [string]$base, [string]$filter, [string]$scopeName, [string]$cols, [string]$sort)
+        param([string]$op, [string]$base, [string]$filter, [string]$scopeName, [string]$cols, [string]$sort, [string]$strategy = "")
         return [PSCustomObject]@{
             Operation            = $op
             TargetContainer      = if ($base) { $base } else { "Domain Default RootDSE" }
@@ -1684,15 +1795,15 @@ function Invoke-LdapSqlQuery {
             ProjectedAttributes  = if ($cols) { $cols } else { "*" }
             SortAttribute        = if ($sort) { $sort } else { "None" }
             EstimatedCost        = "Indexed Directory Scan"
-            OptimizationStrategy = "Server-side Paged Directory Search (RFC 2696)"
+            OptimizationStrategy = if ($strategy) { $strategy } else { "Server-side Paged Directory Search (RFC 2696)" }
             PlanSummary          = "Query dispatched as $scopeName search under '$base' using filter '$filter'."
         }
     }
 
-    # 0. EXPLAIN Statement (Softerra Execution Plan Parity)
+    # 0. EXPLAIN Statement
     if ($Explain -or $cleanQuery -match '(?i)^EXPLAIN\s+(.+)$') {
         $innerQuery = if ($cleanQuery -match '(?i)^EXPLAIN\s+(.+)$') { $matches[1].Trim() } else { $cleanQuery }
-        $explainRes = Invoke-LdapSqlQuery -SqlQuery $innerQuery -DefaultSearchBase $DefaultSearchBase -Server $Server
+        $explainRes = Invoke-ADSqlExtendedQuery -SqlQuery $innerQuery -DefaultSearchBase $DefaultSearchBase -Server $Server -MockData $MockData
         $sw.Stop()
         $p = $explainRes.ExecutionPlan
         $planLines = @(
@@ -1702,11 +1813,11 @@ function Invoke-LdapSqlQuery {
             "Operation:               $(if ($p.Operation) { $p.Operation } else { 'SELECT' })",
             "Target Container Base:   $($p.TargetContainer)",
             "Search Scope:            $($p.SearchScope)",
-            "Constructed LDAP Filter: $($p.LdapFilter)",
-            "Loaded Attributes:       $($p.AttributesLoaded)",
+            "Constructed LDAP Filter: $($p.TranslatedLdapFilter)",
+            "Loaded Attributes:       $($p.ProjectedAttributes)",
             "Optimization Strategy:   $($p.OptimizationStrategy)",
             "Index Estimate:          $($p.EstimatedCost)",
-            "Sort Strategy:           $(if ($p.SortStrategy) { $p.SortStrategy } else { 'None' })",
+            "Sort Strategy:           $(if ($p.SortAttribute) { $p.SortAttribute } else { 'None' })",
             "Plan Summary:            $($p.PlanSummary)",
             "============================================================"
         )
@@ -1723,7 +1834,7 @@ function Invoke-LdapSqlQuery {
         }
     }
 
-    # 1. UPDATE Statement
+    # 1. UPDATE Statement & Simulation
     if ($cleanQuery -match '(?i)^UPDATE\s+(.+?)\s+SET\s+(.+?)(?:\s+WHERE\s+(.+?))?$') {
         $fromPart  = $matches[1].Trim().Trim("'", '"')
         $setPart   = $matches[2].Trim()
@@ -1732,30 +1843,55 @@ function Invoke-LdapSqlQuery {
         $baseDn = if ($fromPart -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $fromPart) { $DefaultSearchBase } else { $fromPart }
         $ldapFilter = & $convertWhereToLdap $wherePart
 
-        # Extract attribute dependencies for expressions
         $setClauses = $setPart -split ',\s*(?=[a-zA-Z0-9_\-]+(\s*)=)'
-        $setPairs = @{}
-        $neededProps = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        [void]$neededProps.Add('distinguishedName')
-
+        $setPairs = [ordered]@{}
         foreach ($clause in $setClauses) {
             if ($clause -match "^\s*([a-zA-Z0-9_\-]+)\s*=\s*(.*?)\s*$") {
-                $attr = $matches[1]
-                $valExpr = $matches[2].Trim()
-                $setPairs[$attr] = $valExpr
-                # Detect any word tokens that look like attribute references
-                $tokens = [regex]::Matches($valExpr, '\b([a-zA-Z][a-zA-Z0-9_\-]+)\b')
-                foreach ($t in $tokens) {
-                    $tokenVal = $t.Groups[1].Value
-                    if ($tokenVal -notmatch '^(?i)(UPPER|LOWER|SUBSTRING|LENGTH|NULL)$') {
-                        [void]$neededProps.Add($tokenVal)
-                    }
-                }
+                $setPairs[$matches[1]] = $matches[2].Trim()
             }
         }
 
-        $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @($neededProps) -Server $Server
-        $targets = $queryResult.Results
+        $targets = @()
+        if ($MockData -ne $null) {
+            $targets = @($MockData | Where-Object { & $evaluateWherePredicate $_ $wherePart })
+        } else {
+            $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @('distinguishedName') -Server $Server
+            $targets = $queryResult.Results
+        }
+
+        if ($Simulate) {
+            $sw.Stop()
+            $proposedChanges = New-Object System.Collections.Generic.List[PSCustomObject]
+            foreach ($t in $targets) {
+                $dn = if ($t.DistinguishedName) { $t.DistinguishedName } elseif ($t.sAMAccountName) { "CN=$($t.sAMAccountName),$baseDn" } else { "Object" }
+                foreach ($attr in $setPairs.Keys) {
+                    $oldVal = if ($t.PSObject.Properties[$attr]) { $t.$attr } else { "" }
+                    $newVal = & $evaluateSqlExpr $setPairs[$attr] $t
+                    $proposedChanges.Add([PSCustomObject]@{
+                        TargetObject = $dn
+                        Attribute    = $attr
+                        CurrentValue = $oldVal
+                        NewValue     = $newVal
+                    })
+                }
+            }
+
+            $plan = & $buildExecutionPlan "UPDATE (SIMULATION)" $baseDn $ldapFilter "Subtree" ($setPairs.Keys -join ", ") "" "DML Write Simulation (No Changes Committed)"
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "UPDATE (SIMULATION)"
+                Simulated           = $true
+                RowsAffected        = $targets.Count
+                Count               = $targets.Count
+                TargetObjects       = @($targets | ForEach-Object { if ($_.DistinguishedName) { $_.DistinguishedName } else { $_.sAMAccountName } })
+                ProposedChanges     = @($proposedChanges)
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Filter              = $ldapFilter
+                SearchBase          = $baseDn
+                Message             = "UPDATE simulation successful: $($targets.Count) object(s) would be updated."
+            }
+        }
 
         $updatedCount = 0
         $updateLogs = New-Object System.Collections.Generic.List[string]
@@ -1781,6 +1917,7 @@ function Invoke-LdapSqlQuery {
         return [PSCustomObject]@{
             Success             = $true
             Operation           = "UPDATE"
+            Simulated           = $false
             RowsAffected        = $updatedCount
             Count               = $updatedCount
             Results             = $updateLogs
@@ -1792,7 +1929,82 @@ function Invoke-LdapSqlQuery {
         }
     }
 
-    # 2. DELETE Statement
+    # 2. INSERT Statement & Simulation
+    if ($cleanQuery -match '(?i)^INSERT\s+INTO\s+(.+?)\s*\((.+?)\)\s*VALUES\s*\((.+?)\)$') {
+        $intoPart = $matches[1].Trim().Trim("'", '"')
+        $colsPart = $matches[2].Trim()
+        $valsPart = $matches[3].Trim()
+
+        $cols = @($colsPart -split ',\s*' | ForEach-Object { $_.Trim() })
+        $vals = @($valsPart -split ',\s*' | ForEach-Object { $_.Trim().Trim("'", '"') })
+
+        $attrHash = [ordered]@{}
+        for ($i = 0; $i -lt $cols.Count; $i++) {
+            $c = $cols[$i]
+            $v = if ($i -lt $vals.Count) { $vals[$i] } else { "" }
+            $attrHash[$c] = $v
+        }
+
+        $baseDn = if ($intoPart) { $intoPart } else { $DefaultSearchBase }
+        $cn = if ($attrHash['cn']) { $attrHash['cn'] } elseif ($attrHash['sAMAccountName']) { $attrHash['sAMAccountName'] } else { "NewObject" }
+        $proposedDn = "CN=$cn,$baseDn"
+
+        $sw.Stop()
+        $plan = & $buildExecutionPlan "INSERT" $baseDn "(objectClass=*)" "Base" ($cols -join ", ") "" "DML Insert Strategy"
+
+        if ($Simulate) {
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "INSERT (SIMULATION)"
+                Simulated           = $true
+                RowsAffected        = 1
+                Count               = 1
+                TargetContainer     = $baseDn
+                ProposedDN          = $proposedDn
+                ProposedAttributes  = $attrHash
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "INSERT simulation successful: Object would be created at $proposedDn."
+            }
+        }
+
+        try {
+            $parentPath = if ($Server) { "LDAP://$Server/$baseDn" } else { "LDAP://$baseDn" }
+            $parentEntry = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
+            $oc = if ($attrHash['objectClass']) { $attrHash['objectClass'] } else { "user" }
+            $newEntry = $parentEntry.Children.Add("CN=$cn", $oc)
+            foreach ($k in $attrHash.Keys) {
+                if ($k -ine 'objectClass' -and $k -ine 'cn') {
+                    $newEntry.Properties[$k].Add($attrHash[$k]) | Out-Null
+                }
+            }
+            $newEntry.CommitChanges()
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "INSERT"
+                Simulated           = $false
+                RowsAffected        = 1
+                Count               = 1
+                DistinguishedName   = $proposedDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "Object successfully created at $proposedDn."
+            }
+        } catch {
+            return [PSCustomObject]@{
+                Success             = $false
+                Operation           = "INSERT"
+                Simulated           = $false
+                RowsAffected        = 0
+                Count               = 0
+                Message             = "INSERT failed: $($_.Exception.Message)"
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            }
+        }
+    }
+
+    # 3. DELETE Statement & Simulation
     if ($cleanQuery -match '(?i)^DELETE\s+FROM\s+(.+?)(?:\s+WHERE\s+(.+?))?$') {
         $fromPart  = $matches[1].Trim().Trim("'", '"')
         $wherePart = if ($matches[2]) { $matches[2].Trim() } else { "" }
@@ -1800,8 +2012,32 @@ function Invoke-LdapSqlQuery {
         $baseDn = if ($fromPart -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $fromPart) { $DefaultSearchBase } else { $fromPart }
         $ldapFilter = & $convertWhereToLdap $wherePart
 
-        $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @('distinguishedName') -Server $Server
-        $targets = $queryResult.Results
+        $targets = @()
+        if ($MockData -ne $null) {
+            $targets = @($MockData | Where-Object { & $evaluateWherePredicate $_ $wherePart })
+        } else {
+            $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -PropertiesToLoad @('distinguishedName') -Server $Server
+            $targets = $queryResult.Results
+        }
+
+        if ($Simulate) {
+            $sw.Stop()
+            $plan = & $buildExecutionPlan "DELETE (SIMULATION)" $baseDn $ldapFilter "Subtree" "distinguishedName" "" "DML Delete Simulation (Tombstone Lifetime)"
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "DELETE (SIMULATION)"
+                Simulated           = $true
+                RowsAffected        = $targets.Count
+                Count               = $targets.Count
+                TargetObjects       = @($targets | ForEach-Object { if ($_.DistinguishedName) { $_.DistinguishedName } else { $_.sAMAccountName } })
+                TombstoneEstimate   = "Objects will transition to CN=Deleted Objects with isDeleted=TRUE."
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Filter              = $ldapFilter
+                SearchBase          = $baseDn
+                Message             = "DELETE simulation successful: $($targets.Count) object(s) would be moved to Deleted Objects container."
+            }
+        }
 
         $deletedCount = 0
         $deleteLogs = New-Object System.Collections.Generic.List[string]
@@ -1824,6 +2060,7 @@ function Invoke-LdapSqlQuery {
         return [PSCustomObject]@{
             Success             = $true
             Operation           = "DELETE"
+            Simulated           = $false
             RowsAffected        = $deletedCount
             Count               = $deletedCount
             Results             = $deleteLogs
@@ -1835,7 +2072,146 @@ function Invoke-LdapSqlQuery {
         }
     }
 
-    # 3. SELECT Statement
+    # 4. SELECT Statement with Directory Hash-JOIN
+    $joinPattern = '(?i)^SELECT\s+(.+?)\s+FROM\s+(.+?)\s+(?:(INNER|LEFT)\s+)?JOIN\s+(.+?)\s+ON\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?$'
+    if ($cleanQuery -match $joinPattern) {
+        $colsPart  = $matches[1].Trim()
+        $fromLeft  = $matches[2].Trim()
+        $joinType  = if ($matches[3]) { $matches[3].ToUpperInvariant() } else { "INNER" }
+        $fromRight = $matches[4].Trim()
+        $onPart    = $matches[5].Trim()
+        $wherePart = if ($matches[6]) { $matches[6].Trim() } else { "" }
+        $orderPart = if ($matches[7]) { $matches[7].Trim() } else { "" }
+
+        $leftTable = $fromLeft
+        $leftAlias = "l"
+        if ($fromLeft -match '^(.*?)\s+([a-zA-Z0-9_\-]+)$') {
+            $leftTable = $matches[1].Trim().Trim("'", '"')
+            $leftAlias = $matches[2].Trim()
+        }
+
+        $rightTable = $fromRight
+        $rightAlias = "r"
+        if ($fromRight -match '^(.*?)\s+([a-zA-Z0-9_\-]+)$') {
+            $rightTable = $matches[1].Trim().Trim("'", '"')
+            $rightAlias = $matches[2].Trim()
+        }
+
+        $leftJoinKey = ""
+        $rightJoinKey = ""
+        if ($onPart -match '^(?:([a-zA-Z0-9_\-]+)\.)?([a-zA-Z0-9_\-]+)\s*=\s*(?:([a-zA-Z0-9_\-]+)\.)?([a-zA-Z0-9_\-]+)$') {
+            $a1 = $matches[1]; $c1 = $matches[2]
+            $a2 = $matches[3]; $c2 = $matches[4]
+            if ($a1 -and $a1 -ieq $leftAlias) {
+                $leftJoinKey = $c1; $rightJoinKey = $c2
+            } elseif ($a2 -and $a2 -ieq $leftAlias) {
+                $leftJoinKey = $c2; $rightJoinKey = $c1
+            } else {
+                $leftJoinKey = $c1; $rightJoinKey = $c2
+            }
+        }
+
+        $leftData = @()
+        $rightData = @()
+
+        if ($MockData -ne $null) {
+            if ($MockData -is [System.Collections.IDictionary]) {
+                if ($MockData.Contains($leftAlias)) { $leftData = @($MockData[$leftAlias]) }
+                elseif ($MockData.Contains('Left')) { $leftData = @($MockData['Left']) }
+                else { $leftData = @($MockData.Values | Select-Object -First 1) }
+
+                if ($MockData.Contains($rightAlias)) { $rightData = @($MockData[$rightAlias]) }
+                elseif ($MockData.Contains('Right')) { $rightData = @($MockData['Right']) }
+                else { $rightData = @($MockData.Values | Select-Object -Last 1) }
+            } else {
+                $leftData = @($MockData)
+                $rightData = @($MockData)
+            }
+        } else {
+            $leftBase = if ($leftTable -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $leftTable) { $DefaultSearchBase } else { $leftTable }
+            $rightBase = if ($rightTable -match '^(?i)(SUBTREE|ONELEVEL|BASE)$' -or -not $rightTable) { $DefaultSearchBase } else { $rightTable }
+            $leftData = @((Invoke-LdapQuery -Filter "(objectClass=*)" -SearchBase $leftBase -Server $Server).Results)
+            $rightData = @((Invoke-LdapQuery -Filter "(objectClass=*)" -SearchBase $rightBase -Server $Server).Results)
+        }
+
+        $rightIndex = @{}
+        foreach ($r in $rightData) {
+            $k = if ($r.PSObject.Properties[$rightJoinKey]) { "$($r.$rightJoinKey)" } else { "" }
+            if ($k) {
+                if (-not $rightIndex.ContainsKey($k)) {
+                    $rightIndex[$k] = New-Object System.Collections.Generic.List[psobject]
+                }
+                $rightIndex[$k].Add($r)
+            }
+        }
+
+        $joinedList = New-Object System.Collections.Generic.List[PSCustomObject]
+        $colTokens = $colsPart -split ',\s*'
+
+        foreach ($l in $leftData) {
+            $lk = if ($l.PSObject.Properties[$leftJoinKey]) { "$($l.$leftJoinKey)" } else { "" }
+            $matchesFound = if ($lk -and $rightIndex.ContainsKey($lk)) { $rightIndex[$lk] } else { @() }
+
+            if ($matchesFound.Count -eq 0 -and $joinType -ieq "LEFT") {
+                $matchesFound = @($null)
+            }
+
+            foreach ($r in $matchesFound) {
+                $combined = [ordered]@{}
+                foreach ($p in $l.PSObject.Properties) {
+                    $combined["$leftAlias.$($p.Name)"] = $p.Value
+                    $combined[$p.Name] = $p.Value
+                }
+                if ($r) {
+                    foreach ($p in $r.PSObject.Properties) {
+                        $combined["$rightAlias.$($p.Name)"] = $p.Value
+                        if (-not $combined.Contains($p.Name)) { $combined[$p.Name] = $p.Value }
+                    }
+                }
+
+                $combinedObj = [PSCustomObject]$combined
+
+                if ($wherePart -and -not (& $evaluateWherePredicate $combinedObj $wherePart)) {
+                    continue
+                }
+
+                $proj = [ordered]@{}
+                foreach ($ct in $colTokens) {
+                    if ($ct -match '(?i)(.+?)\s+AS\s+([a-zA-Z0-9_\-]+)$') {
+                        $exprStr = $matches[1].Trim()
+                        $aliasName = $matches[2].Trim()
+                        $proj[$aliasName] = & $evaluateSqlExpr $exprStr $combinedObj
+                    } else {
+                        $cleanCol = $ct.Trim()
+                        $proj[$cleanCol] = & $evaluateSqlExpr $cleanCol $combinedObj
+                    }
+                }
+                $joinedList.Add([PSCustomObject]$proj)
+            }
+        }
+
+        $finalResults = @($joinedList)
+        if ($orderPart -and $finalResults.Count -gt 0) {
+            $orderCol = ($orderPart -split '\s+')[0].Trim()
+            $finalResults = @($finalResults | Sort-Object -Property $orderCol)
+        }
+
+        $sw.Stop()
+        $plan = & $buildExecutionPlan "SELECT JOIN ($joinType)" "$leftTable <-> $rightTable" "(objectClass=*)" "Subtree" $colsPart $orderPart "Directory Hash-Join ($joinType)"
+        return [PSCustomObject]@{
+            Success             = $true
+            Operation           = "SELECT JOIN"
+            Results             = $finalResults
+            Count               = $finalResults.Count
+            ExecutionPlan       = $plan
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            JoinType            = $joinType
+            LeftTable           = $leftTable
+            RightTable          = $rightTable
+        }
+    }
+
+    # 5. Standard SELECT Statement
     $selectPattern = '(?i)^SELECT\s+(.+?)\s+FROM\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?$'
     if (-not ($cleanQuery -match $selectPattern)) {
         if ($cleanQuery.StartsWith('(')) {
@@ -1846,7 +2222,7 @@ function Invoke-LdapSqlQuery {
             Results             = @()
             Count               = 0
             ElapsedMilliseconds = 0
-            Message             = "Invalid query format. Example: SELECT sAMAccountName, mail FROM 'OU=IT,...' WHERE objectClass = 'user'"
+            Message             = "Invalid query format. Example: SELECT sAMAccountName, mail FROM 'OU=IT,...' WHERE userAccountControl & 2 = 2"
         }
     }
 
@@ -1857,10 +2233,8 @@ function Invoke-LdapSqlQuery {
 
     $propsToLoad = @()
     if ($colsPart -ne "*") {
-        # Check for functions or joins in SELECT projection
         $colTokens = $colsPart -split ',\s*'
         foreach ($ct in $colTokens) {
-            $aliasMatch = [regex]::Match($ct, '(?i)(?:AS\s+)?([a-zA-Z0-9_\-]+)$')
             $attrTokens = [regex]::Matches($ct, '\b([a-zA-Z][a-zA-Z0-9_\-]+)\b')
             foreach ($at in $attrTokens) {
                 $tokenName = $at.Groups[1].Value
@@ -1876,28 +2250,21 @@ function Invoke-LdapSqlQuery {
     $scopeName = "Subtree"
     $baseDn = $DefaultSearchBase
 
-    if ($fromPart -match '^(?i)SUBTREE$') {
-        $scope = [System.DirectoryServices.SearchScope]::Subtree
-        $scopeName = "Subtree"
-    }
-    elseif ($fromPart -match '^(?i)ONELEVEL$') {
-        $scope = [System.DirectoryServices.SearchScope]::OneLevel
-        $scopeName = "OneLevel"
-    }
-    elseif ($fromPart -match '^(?i)BASE$') {
-        $scope = [System.DirectoryServices.SearchScope]::Base
-        $scopeName = "Base"
-    }
-    elseif ($fromPart) {
-        $baseDn = $fromPart
-    }
+    if ($fromPart -match '^(?i)SUBTREE$') { $scope = [System.DirectoryServices.SearchScope]::Subtree; $scopeName = "Subtree" }
+    elseif ($fromPart -match '^(?i)ONELEVEL$') { $scope = [System.DirectoryServices.SearchScope]::OneLevel; $scopeName = "OneLevel" }
+    elseif ($fromPart -match '^(?i)BASE$') { $scope = [System.DirectoryServices.SearchScope]::Base; $scopeName = "Base" }
+    elseif ($fromPart) { $baseDn = $fromPart }
 
     $ldapFilter = & $convertWhereToLdap $wherePart
-    $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -Scope $scope -PropertiesToLoad $propsToLoad -Server $Server
 
-    $finalResults = $queryResult.Results
+    $finalResults = @()
+    if ($MockData -ne $null) {
+        $finalResults = @($MockData | Where-Object { & $evaluateWherePredicate $_ $wherePart })
+    } else {
+        $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -Scope $scope -PropertiesToLoad $propsToLoad -Server $Server
+        $finalResults = $queryResult.Results
+    }
 
-    # If expressions were used in SELECT (e.g. givenName || ' ' || sn AS fullName), compute projections
     if ($colsPart -match '\|\||(?i)(UPPER|LOWER|SUBSTRING|LENGTH)\(' -and $finalResults.Count -gt 0) {
         $projectedList = [System.Collections.Generic.List[PSCustomObject]]::new()
         $colSpecs = $colsPart -split ',\s*'
@@ -1935,6 +2302,21 @@ function Invoke-LdapSqlQuery {
         SearchBase          = $baseDn
         PropertiesLoaded    = if ($propsToLoad.Count -gt 0) { $propsToLoad -join ", " } else { "*" }
     }
+}
+
+function Invoke-LdapSqlQuery {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [Alias("Query")]
+        [string]$SqlQuery,
+        [string]$DefaultSearchBase = "",
+        [string]$Server = "",
+        [switch]$Explain,
+        [switch]$Simulate,
+        [System.Collections.IEnumerable]$MockData = $null
+    )
+    return Invoke-ADSqlExtendedQuery @PSBoundParameters
 }
 
 function Invoke-LdifImport {
@@ -3736,67 +4118,142 @@ function Get-ADDeletedObjects {
 function Restore-ADDeletedObject {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]$Identity,
         [string]$TargetOU = "",
-        [string]$Server = ""
+        [string]$Server = "",
+        [switch]$Simulate
     )
 
-    try {
-        if (Get-Command Restore-ADObject -ErrorAction SilentlyContinue) {
-            $params = @{
-                Identity    = $Identity
-                ErrorAction = 'Stop'
-            }
-            if ($Server) { $params['Server'] = $Server }
-            if ($TargetOU) { $params['TargetPath'] = $TargetOU }
+    # Helper to strip \0ADEL:<GUID> suffix from CN, Name, or DistinguishedName
+    # Handles literal \0, null char \x00, line feed \x0A, \n, 0x0ADEL, or DEL:<guid>
+    $extractCleanName = {
+        param([string]$rawInput)
+        if (-not $rawInput) { return "RestoredObject" }
+        $namePart = if ($rawInput -match '^(?i)CN=([^,]+)') { $matches[1] } else { ($rawInput -split ',')[0] }
+        $cleaned = [regex]::Replace($namePart, '(?i)[\s\x00-\x1F\\]*(?:0x0A)?(?:0?A)?DEL:[0-9a-fA-F\-]+.*$', '').Trim()
+        if (-not $cleaned) { $cleaned = $namePart }
+        return $cleaned
+    }
 
-            Restore-ADObject @params
-            return [PSCustomObject]@{
-                Success = $true
-                Message = "Object successfully restored from Active Directory Recycle Bin."
+    $cleanName = & $extractCleanName $Identity
+
+    # Check for RSAT Restore-ADObject if available and not in simulation
+    if (-not $Simulate) {
+        try {
+            if (Get-Command Restore-ADObject -ErrorAction SilentlyContinue) {
+                $params = @{
+                    Identity    = $Identity
+                    ErrorAction = 'Stop'
+                }
+                if ($Server) { $params['Server'] = $Server }
+                if ($TargetOU) { $params['TargetPath'] = $TargetOU }
+
+                Restore-ADObject @params
+                return [PSCustomObject]@{
+                    Success          = $true
+                    Identity         = $Identity
+                    CleanName        = $cleanName
+                    TargetOU         = $TargetOU
+                    RestoredDN       = if ($TargetOU) { "CN=$cleanName,$TargetOU" } else { "" }
+                    IsDeletedCleared = $true
+                    Message          = "Object successfully restored from Active Directory Recycle Bin via RSAT."
+                }
             }
-        }
-    } catch {
-        return [PSCustomObject]@{
-            Success = $false
-            Message = "Restore failed via RSAT: $($_.Exception.Message)"
+        } catch {
+            # Fall through to native ADSI tombstone reanimation
         }
     }
 
-    # ADSI fallback
+    # ADSI / LDAP Tombstone & Deleted Objects Reanimation
     try {
         $ldapPath = if ($Server) { "LDAP://$Server/$Identity" } else { "LDAP://$Identity" }
-        $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
-        
+        $entry = $null
+        try {
+            $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+        } catch {}
+
         $destOU = $TargetOU
-        if (-not $destOU) {
+        if (-not $destOU -and $entry -and $entry.Properties -and $entry.Properties['lastKnownParent']) {
             $destOU = "$($entry.Properties['lastKnownParent'].Value)"
         }
         if (-not $destOU) {
+            try {
+                $dsePath = if ($Server) { "LDAP://$Server/RootDSE" } else { "LDAP://RootDSE" }
+                $rootDse = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
+                $destOU = "CN=Users,$($rootDse.defaultNamingContext)"
+            } catch {}
+        }
+        if (-not $destOU) {
+            $destOU = "OU=RestoredObjects"
+        }
+
+        if ($entry -and $entry.Properties -and $entry.Properties['name'].Value) {
+            $adsiName = "$($entry.Properties['name'].Value)"
+            $cleanFromEntry = & $extractCleanName $adsiName
+            if ($cleanFromEntry) { $cleanName = $cleanFromEntry }
+        }
+
+        $restoredDn = "CN=$cleanName,$destOU"
+
+        if ($Simulate) {
             return [PSCustomObject]@{
-                Success = $false
-                Message = "Cannot determine target container. Please specify TargetOU."
+                Success          = $true
+                Simulated        = $true
+                Identity         = $Identity
+                CleanName        = $cleanName
+                TargetOU         = $destOU
+                RestoredDN       = $restoredDn
+                IsDeletedCleared = $true
+                Message          = "Simulation: Object '$cleanName' would be reanimated and restored to '$destOU' (isDeleted removed, RDN suffix stripped)."
             }
         }
 
-        # Clean RDN from 0x0ADEL:guid
-        $currentName = "$($entry.Properties['name'].Value)"
-        $cleanName = ($currentName -replace '(?i)\x0ADEL:.*$', '') -replace '(?i)\nDEL:.*$', ''
-        if (-not $cleanName) { $cleanName = $currentName }
+        if ($entry) {
+            # 1. Clear isDeleted attribute (Reviving Tombstone)
+            try {
+                $entry.Properties["isDeleted"].Clear()
+            } catch {
+                try {
+                    $entry.PutEx(1, "isDeleted", $null) # 1 = ADS_PROPERTY_CLEAR
+                } catch {}
+            }
 
-        $parentPath = if ($Server) { "LDAP://$Server/$destOU" } else { "LDAP://$destOU" }
-        $targetParent = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
-        
-        $entry.MoveTo($targetParent, "CN=$cleanName")
-        return [PSCustomObject]@{
-            Success = $true
-            Message = "Object reanimated and moved to $destOU."
+            # 2. Move out of Deleted Objects container to target OU with clean RDN
+            $parentPath = if ($Server) { "LDAP://$Server/$destOU" } else { "LDAP://$destOU" }
+            $targetParent = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
+            $entry.MoveTo($targetParent, "CN=$cleanName")
+            $entry.CommitChanges()
+
+            return [PSCustomObject]@{
+                Success          = $true
+                Identity         = $Identity
+                CleanName        = $cleanName
+                RestoredDN       = $restoredDn
+                TargetOU         = $destOU
+                IsDeletedCleared = $true
+                Message          = "Object successfully reanimated and moved to $destOU."
+            }
+        } else {
+            return [PSCustomObject]@{
+                Success          = $false
+                Identity         = $Identity
+                CleanName        = $cleanName
+                TargetOU         = $destOU
+                RestoredDN       = $restoredDn
+                IsDeletedCleared = $false
+                Message          = "Target tombstone entry not accessible at $ldapPath."
+            }
         }
     } catch {
         return [PSCustomObject]@{
-            Success = $false
-            Message = "ADSI reanimation failed: $($_.Exception.Message)"
+            Success          = $false
+            Identity         = $Identity
+            CleanName        = $cleanName
+            TargetOU         = $TargetOU
+            RestoredDN       = ""
+            IsDeletedCleared = $false
+            Message          = "ADSI reanimation failed: $($_.Exception.Message)"
         }
     }
 }
@@ -4378,6 +4835,780 @@ function Get-ADSchemaClassDetail {
 }
 #endregion
 
+function Get-ADVlvUsersList {
+    [CmdletBinding()]
+    [Alias("Get-ADVirtualListViewUsers")]
+    param (
+        [string]$SearchBase = "",
+        [string]$Filter = "(&(objectCategory=person)(objectClass=user))",
+        [int]$Offset = 1,
+        [int]$PageSize = 50,
+        [string]$SortAttribute = "sAMAccountName",
+        [switch]$SortDescending,
+        [string[]]$PropertiesToLoad = @('sAMAccountName', 'displayName', 'mail', 'userPrincipalName', 'userAccountControl', 'distinguishedName', 'whenCreated', 'department', 'title'),
+        [string]$Server = "",
+        [System.Collections.IEnumerable]$MockData = $null
+    )
+
+    if ($Offset -lt 1) { $Offset = 1 }
+    if ($PageSize -lt 1) { $PageSize = 50 }
+
+    # Strategy 1: In-memory sliding-window over MockData
+    if ($MockData -ne $null) {
+        $filtered = @($MockData)
+        if ($Filter -and $Filter -ne "(&(objectCategory=person)(objectClass=user))" -and $Filter -ne "(objectClass=*)") {
+            if ($Filter -match '\((?:sAMAccountName|name|displayName)=\*?([^*)]+)\*?\)') {
+                $sub = $matches[1]
+                $filtered = @($filtered | Where-Object {
+                    $_.sAMAccountName -like "*$sub*" -or $_.displayName -like "*$sub*" -or $_.Name -like "*$sub*"
+                })
+            }
+        }
+
+        $sorted = if ($SortDescending) {
+            @($filtered | Sort-Object -Property $SortAttribute -Descending)
+        } else {
+            @($filtered | Sort-Object -Property $SortAttribute)
+        }
+
+        $totalEstimated = $sorted.Count
+        $skipCount = [Math]::Max(0, $Offset - 1)
+        $windowItems = @($sorted | Select-Object -Skip $skipCount -First $PageSize)
+
+        return [PSCustomObject]@{
+            Success          = $true
+            TargetOffset     = $Offset
+            PageSize         = $PageSize
+            TotalEstimated   = $totalEstimated
+            ContentCount     = $totalEstimated
+            Results          = $windowItems
+            Count            = $windowItems.Count
+            SortAttribute    = $SortAttribute
+            SortDescending   = $SortDescending.IsPresent
+            ControlUsed      = "Virtual List View (RFC 2891 / In-Memory Sliding Window)"
+            HasMore          = ($Offset + $windowItems.Count -le $totalEstimated)
+        }
+    }
+
+    # Strategy 2: System.DirectoryServices.Protocols with RFC 2891 Sort & VLV Controls
+    try {
+        [void][System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.Protocols")
+
+        $identifier = if ($Server) {
+            New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($Server)
+        } else {
+            New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($null)
+        }
+
+        $conn = New-Object System.DirectoryServices.Protocols.LdapConnection($identifier)
+        $conn.Bind()
+
+        $targetBase = $SearchBase
+        if (-not $targetBase) {
+            $rootEntry = if ($Server) { New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Server/RootDSE") } else { New-Object System.DirectoryServices.DirectoryEntry("LDAP://RootDSE") }
+            $targetBase = "$($rootEntry.defaultNamingContext)"
+        }
+
+        $req = New-Object System.DirectoryServices.Protocols.SearchRequest(
+            $targetBase,
+            $Filter,
+            [System.DirectoryServices.Protocols.SearchScope]::Subtree,
+            $PropertiesToLoad
+        )
+
+        $sortControl = New-Object System.DirectoryServices.Protocols.SortRequestControl($SortAttribute, $SortDescending.IsPresent)
+        [void]$req.Controls.Add($sortControl)
+
+        $afterCount = [Math]::Max(0, $PageSize - 1)
+        $vlvControl = New-Object System.DirectoryServices.Protocols.VlvRequestControl(0, $afterCount, $Offset)
+        [void]$req.Controls.Add($vlvControl)
+
+        $resp = [System.DirectoryServices.Protocols.SearchResponse]$conn.SendRequest($req)
+
+        $totalEstimated = 0
+        foreach ($ctrl in $resp.Controls) {
+            if ($ctrl -is [System.DirectoryServices.Protocols.VlvResponseControl]) {
+                $totalEstimated = $ctrl.ContentCount
+                break
+            }
+        }
+
+        $results = New-Object System.Collections.Generic.List[PSCustomObject]
+        foreach ($entry in $resp.Entries) {
+            $item = [ordered]@{}
+            $item['DistinguishedName'] = $entry.DistinguishedName
+            foreach ($propName in $PropertiesToLoad) {
+                if ($entry.Attributes[$propName] -and $entry.Attributes[$propName].Count -gt 0) {
+                    $val = $entry.Attributes[$propName][0]
+                    if ($val -is [byte[]]) {
+                        $val = [System.Text.Encoding]::UTF8.GetString($val)
+                    }
+                    $item[$propName] = "$val"
+                } else {
+                    $item[$propName] = ""
+                }
+            }
+            $results.Add([PSCustomObject]$item)
+        }
+
+        if ($totalEstimated -eq 0) { $totalEstimated = $results.Count }
+
+        return [PSCustomObject]@{
+            Success          = $true
+            TargetOffset     = $Offset
+            PageSize         = $PageSize
+            TotalEstimated   = $totalEstimated
+            ContentCount     = $totalEstimated
+            Results          = @($results)
+            Count            = $results.Count
+            SortAttribute    = $SortAttribute
+            SortDescending   = $SortDescending.IsPresent
+            ControlUsed      = "System.DirectoryServices.Protocols VLV (RFC 2891 / RFC 2696)"
+            HasMore          = ($Offset + $results.Count -le $totalEstimated)
+        }
+    }
+    catch {
+        # Strategy 3: ADSI DirectorySearcher sliding-window fallback
+        try {
+            $basePath = if ($Server) {
+                if ($SearchBase) { "LDAP://$Server/$SearchBase" } else { "LDAP://$Server/RootDSE" }
+            } else {
+                if ($SearchBase) { "LDAP://$SearchBase" } else { "LDAP://RootDSE" }
+            }
+            $root = New-Object System.DirectoryServices.DirectoryEntry($basePath)
+            if (-not $SearchBase -and $root.defaultNamingContext) {
+                $root = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$($root.defaultNamingContext)")
+            }
+
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher($root)
+            $searcher.Filter = $Filter
+            $searcher.PageSize = [Math]::Max(100, $PageSize * 2)
+            $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+            $sortDirection = if ($SortDescending) { [System.DirectoryServices.SortDirection]::Descending } else { [System.DirectoryServices.SortDirection]::Ascending }
+            $searcher.Sort = New-Object System.DirectoryServices.SortOption($SortAttribute, $sortDirection)
+            if ($PropertiesToLoad) { $searcher.PropertiesToLoad.AddRange($PropertiesToLoad) }
+
+            $allHits = $searcher.FindAll()
+            $totalEstimated = $allHits.Count
+            $skipCount = [Math]::Max(0, $Offset - 1)
+            $results = New-Object System.Collections.Generic.List[PSCustomObject]
+
+            $idx = 0
+            foreach ($hit in $allHits) {
+                if ($idx -ge $skipCount -and $results.Count -lt $PageSize) {
+                    $item = [ordered]@{}
+                    $item['DistinguishedName'] = $hit.Path -replace '^LDAP://[^/]+/', ''
+                    foreach ($propName in $PropertiesToLoad) {
+                        if ($hit.Properties[$propName.ToLower()] -and $hit.Properties[$propName.ToLower()].Count -gt 0) {
+                            $item[$propName] = "$($hit.Properties[$propName.ToLower()][0])"
+                        } else {
+                            $item[$propName] = ""
+                        }
+                    }
+                    $results.Add([PSCustomObject]$item)
+                }
+                $idx++
+                if ($results.Count -ge $PageSize) { break }
+            }
+
+            return [PSCustomObject]@{
+                Success          = $true
+                TargetOffset     = $Offset
+                PageSize         = $PageSize
+                TotalEstimated   = $totalEstimated
+                ContentCount     = $totalEstimated
+                Results          = @($results)
+                Count            = $results.Count
+                SortAttribute    = $SortAttribute
+                SortDescending   = $SortDescending.IsPresent
+                ControlUsed      = "ADSI DirectorySearcher Paged Sliding-Window Fallback"
+                HasMore          = ($Offset + $results.Count -le $totalEstimated)
+            }
+        }
+        catch {
+            return [PSCustomObject]@{
+                Success          = $false
+                TargetOffset     = $Offset
+                PageSize         = $PageSize
+                TotalEstimated   = 0
+                ContentCount     = 0
+                Results          = @()
+                Count            = 0
+                SortAttribute    = $SortAttribute
+                SortDescending   = $SortDescending.IsPresent
+                ControlUsed      = "None"
+                HasMore          = $false
+                Message          = "VLV query failed: $($_.Exception.Message)"
+            }
+        }
+    }
+}
+
+function Get-AD40SecurityAuditReports {
+    [CmdletBinding()]
+    [Alias("Get-ADSecurityAudits40", "Get-SecurityAuditCatalog")]
+    param (
+        [string]$Category = "",
+        [string]$ReportId = "",
+        [string]$Severity = "",
+        [switch]$Execute,
+        [int]$Days = 90,
+        [string]$Server = "",
+        [System.Collections.IEnumerable]$MockData = $null
+    )
+
+    $definitions = @(
+        # --- 1. Account Security (11) ---
+        [PSCustomObject]@{
+            Id          = "SEC-PASS-NEVER-EXPIRE"
+            Category    = "Account Security"
+            Severity    = "Critical"
+            Name        = "Passwords Configured to Never Expire"
+            Description = "Identifies accounts with the DONT_EXPIRE_PASSWORD flag enabled, which bypasses password aging policies."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))"
+            Remediation = "Remove the DONT_EXPIRE_PASSWORD flag (UAC bit 0x10000) and enforce domain password rotation policies."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 65536) -ne 0 } elseif ($u.PasswordNeverExpires -ne $null) { [bool]$u.PasswordNeverExpires } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-PASS-NOT-REQUIRED"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Password Not Required Permitted"
+            Description = "Accounts where the PASSWD_NOTREQD flag allows blank or empty passwords."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=32))"
+            Remediation = "Remove the PASSWD_NOTREQD flag (UAC bit 0x20) and assign strong passwords."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 32) -ne 0 } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-PASS-PLAINTEXT"
+            Category    = "Account Security"
+            Severity    = "Critical"
+            Name        = "Store Password Using Reversible Encryption"
+            Description = "Accounts configured to store passwords using reversible encryption, effectively storing plaintext-equivalent credentials."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=128))"
+            Remediation = "Clear the ENCRYPTED_TEXT_PWD_ALLOWED flag (UAC bit 0x80) and force password reset."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 128) -ne 0 } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-KERB-NO-PREAUTH"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Kerberos Pre-Authentication Disabled (AS-REP Roasting)"
+            Description = "Accounts vulnerable to AS-REP Roasting due to the DONT_REQ_PREAUTH flag."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=4194304))"
+            Remediation = "Enable Kerberos pre-authentication by removing the DONT_REQ_PREAUTH flag (UAC bit 0x400000)."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 4194304) -ne 0 } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-KERBEROASTABLE-USERS"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Kerberoastable User Accounts with SPN"
+            Description = "Standard user accounts with registered Service Principal Names (SPNs) susceptible to offline ticket cracking."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Migrate user SPNs to Group Managed Service Accounts (gMSA) or enforce 25+ character AES-encrypted passwords."
+            Evaluate    = { param($u) if ($u.servicePrincipalName -or $u.SPN) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-DES-ENCRYPTION"
+            Category    = "Account Security"
+            Severity    = "Medium"
+            Name        = "DES Encryption Only Enabled"
+            Description = "Accounts restricted to legacy 56-bit DES encryption keys."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2097152))"
+            Remediation = "Disable DES encryption flag (UAC bit 0x200000) and configure AES-128/256 Kerberos encryption."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 2097152) -ne 0 } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-UNCONSTRAINED-DELEGATION"
+            Category    = "Account Security"
+            Severity    = "Critical"
+            Name        = "User Accounts with Unconstrained Kerberos Delegation"
+            Description = "Users configured with TRUSTED_FOR_DELEGATION flag capable of harvesting TGTs."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=524288))"
+            Remediation = "Migrate to Resource-Based Constrained Delegation (RBCD) and remove unconstrained delegation flag."
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 524288) -ne 0 } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-ADMINCOUNT-PROTECTED"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Accounts Flagged by AdminSDHolder (adminCount = 1)"
+            Description = "Accounts with adminCount=1 where ACL inheritance is stripped by AdminSDHolder."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(adminCount=1))"
+            Remediation = "Review if the account is still privileged. If de-privileged, reset adminCount to 0 and re-enable ACL inheritance."
+            Evaluate    = { param($u) if ($u.adminCount -eq 1 -or $u.AdminCount -eq 1) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-SID-HISTORY"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Accounts with Populated sIDHistory"
+            Description = "Accounts containing migrated sIDHistory attributes that can grant unexpected historical access."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(sIDHistory=*))"
+            Remediation = "Audit and purge obsolete sIDHistory values post-migration."
+            Evaluate    = { param($u) if ($u.sIDHistory) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-NOT-DELEGATED"
+            Category    = "Account Security"
+            Severity    = "High"
+            Name        = "Sensitive Administrative Accounts Without Delegation Protection"
+            Description = "High-privilege accounts (adminCount=1) lacking the NOT_DELEGATED flag (0x100000)."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(adminCount=1)(!(userAccountControl:1.2.840.113556.1.4.803:=1048576)))"
+            Remediation = "Enable 'Account is sensitive and cannot be delegated' on all administrative users."
+            Evaluate    = { param($u) if (($u.adminCount -eq 1) -and (([int64]$u.userAccountControl -band 1048576) -eq 0)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "SEC-PREWIN2000-ACCESS"
+            Category    = "Account Security"
+            Severity    = "Medium"
+            Name        = "Pre-Windows 2000 Compatible Access Group Hygiene"
+            Description = "Memberships in the Pre-Windows 2000 Compatible Access group that may expose directory metadata to anonymous users."
+            LdapFilter  = "(&(objectCategory=group)(cn=Pre-Windows 2000 Compatible Access)(member=*))"
+            Remediation = "Remove 'Everyone' and 'Anonymous Logon' from Pre-Windows 2000 Compatible Access group."
+            Evaluate    = { param($u) if ($u.Name -like "*Pre-Windows 2000*" -or $u.cn -like "*Pre-Windows 2000*") { $true } else { $false } }
+        },
+
+        # --- 2. Account Lifecycle (10) ---
+        [PSCustomObject]@{
+            Id          = "LIFE-INACTIVE-90"
+            Category    = "Account Lifecycle"
+            Severity    = "Medium"
+            Name        = "Inactive Accounts (No Logon in 90+ Days)"
+            Description = "Accounts with no recorded logon activity within the last 90 days."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Verify account ownership with management; disable and deprovision inactive users."
+            Evaluate    = { param($u) if ($u.DaysInactive -and [int]($u.DaysInactive -replace '\D') -ge 90) { $true } elseif ($u.LastLogon -eq "Never") { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-DORMANT-180"
+            Category    = "Account Lifecycle"
+            Severity    = "High"
+            Name        = "Dormant Accounts (No Logon in 180+ Days)"
+            Description = "Accounts dormant for over 6 months."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Disable immediately and schedule for automated archive."
+            Evaluate    = { param($u) if ($u.DaysInactive -and [int]($u.DaysInactive -replace '\D') -ge 180) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-NEVER-LOGGED-IN"
+            Category    = "Account Lifecycle"
+            Severity    = "Medium"
+            Name        = "Accounts That Have Never Logged In"
+            Description = "Provisioned accounts where logon count is 0 or lastLogonTimestamp is missing."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(lastLogonTimestamp=*))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Contact account requester; disable unutilized accounts."
+            Evaluate    = { param($u) if ($u.LastLogon -eq "Never" -or [string]::IsNullOrEmpty("$($u.LastLogon)")) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-EXPIRED-ACCOUNTS"
+            Category    = "Account Lifecycle"
+            Severity    = "Medium"
+            Name        = "Expired User Accounts Past Expiration Date"
+            Description = "Accounts whose accountExpires attribute is in the past."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(accountExpires=0))(!(accountExpires=9223372036854775807)))"
+            Remediation = "Disable expired accounts and deprovision assigned access rights."
+            Evaluate    = { param($u) if ($u.AccountExpires -and $u.AccountExpires -ne "Never" -and [DateTime]$u.AccountExpires -lt (Get-Date)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-PASSWORD-EXPIRING-SOON"
+            Category    = "Account Lifecycle"
+            Severity    = "Low"
+            Name        = "Passwords Expiring Within 14 Days"
+            Description = "Accounts approaching password expiration cutoff."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536)))"
+            Remediation = "Send automated self-service password reset reminder notification."
+            Evaluate    = { param($u) if ($u.PasswordExpires -and [DateTime]$u.PasswordExpires -lt (Get-Date).AddDays(14)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-PASSWORD-STALE-365"
+            Category    = "Account Lifecycle"
+            Severity    = "High"
+            Name        = "Passwords Not Changed in Over 365 Days"
+            Description = "Accounts with static credentials unchanged for over a year."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(pwdLastSet<=`$oneYearAgo))"
+            Remediation = "Force password change at next logon (pwdLastSet = 0)."
+            Evaluate    = { param($u) if ($u.PasswordAgeDays -and [int]$u.PasswordAgeDays -ge 365) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-DISABLED-WITH-GROUPS"
+            Category    = "Account Lifecycle"
+            Severity    = "Medium"
+            Name        = "Disabled Accounts Retaining Group Memberships"
+            Description = "Disabled accounts that still belong to security groups other than Domain Users."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2)(memberOf=*))"
+            Remediation = "Strip all group memberships from deprovisioned user accounts."
+            Evaluate    = { param($u) if (([int64]$u.userAccountControl -band 2) -ne 0 -and $u.MemberOf) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-ORPHANED-NO-MANAGER"
+            Category    = "Account Lifecycle"
+            Severity    = "Low"
+            Name        = "Orphaned Accounts Without Assigned Manager"
+            Description = "Active employees with missing or unresolvable manager attribute."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(manager=*))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Populate the manager DN to ensure approval workflows and access reviews function."
+            Evaluate    = { param($u) if (-not $u.Manager -or $u.Manager -eq "None") { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-RECENTLY-PROVISIONED"
+            Category    = "Account Lifecycle"
+            Severity    = "Informational"
+            Name        = "Accounts Provisioned Within Last 30 Days"
+            Description = "Audit log of recently created accounts for onboarding verification."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(whenCreated>=`$thirtyDaysAgo))"
+            Remediation = "Verify onboarding compliance and mandatory security awareness training."
+            Evaluate    = { param($u) if ($u.WhenCreated -and [DateTime]$u.WhenCreated -ge (Get-Date).AddDays(-30)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "LIFE-INCOMPLETE-PROFILE"
+            Category    = "Account Lifecycle"
+            Severity    = "Low"
+            Name        = "Active Accounts Missing Email or Department"
+            Description = "Active accounts lacking essential directory metadata."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(!(mail=*))(!(department=*))))"
+            Remediation = "Synchronize missing metadata from HR source of truth."
+            Evaluate    = { param($u) if (-not $u.Mail -or -not $u.Department) { $true } else { $false } }
+        },
+
+        # --- 3. Group Hygiene (9) ---
+        [PSCustomObject]@{
+            Id          = "GRP-EMPTY-SECURITY"
+            Category    = "Group Hygiene"
+            Severity    = "Low"
+            Name        = "Empty Security Groups (0 Members)"
+            Description = "Security groups containing zero members."
+            LdapFilter  = "(&(objectCategory=group)(!(member=*)))"
+            Remediation = "Review if group is obsolete and delete unneeded security principals."
+            Evaluate    = { param($g) if ($g.MemberCount -eq 0 -or (-not $g.Members -and -not $g.member)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-CIRCULAR-NESTING"
+            Category    = "Group Hygiene"
+            Severity    = "High"
+            Name        = "Circular Group Nesting Loops"
+            Description = "Groups nested in an infinite loop that degrade token size and LSASS evaluation."
+            LdapFilter  = "(&(objectCategory=group)(memberOf=*))"
+            Remediation = "Break the cycle by removing the reciprocal group membership."
+            Evaluate    = { param($g) if ($g.IsCircular -or $g.CircularLoop) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-DEEP-NESTING"
+            Category    = "Group Hygiene"
+            Severity    = "Medium"
+            Name        = "Deeply Nested Groups (> 3 Levels)"
+            Description = "Groups nested deeper than 3 hierarchy levels causing token bloat."
+            LdapFilter  = "(&(objectCategory=group)(memberOf=*))"
+            Remediation = "Flatten group architecture into role-based or AGDLP structure."
+            Evaluate    = { param($g) if ($g.NestingDepth -and [int]$g.NestingDepth -gt 3) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-PRIVILEGED-MEMBERS"
+            Category    = "Group Hygiene"
+            Severity    = "Critical"
+            Name        = "Members of Built-in High-Privilege Groups"
+            Description = "Accounts assigned to Domain Admins, Enterprise Admins, or Schema Admins."
+            LdapFilter  = "(|(cn=Domain Admins)(cn=Enterprise Admins)(cn=Schema Admins)(cn=Administrators))"
+            Remediation = "Enforce Tiered Administration (Tier 0); minimize permanent membership."
+            Evaluate    = { param($g) if ($g.GroupName -match '(?i)Domain Admins|Enterprise Admins|Schema Admins|Administrators') { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-LARGE-GROUPS"
+            Category    = "Group Hygiene"
+            Severity    = "Medium"
+            Name        = "Excessively Large Groups (> 5,000 Members)"
+            Description = "Large groups that generate extensive replication traffic and slow Kerberos ticket issuance."
+            LdapFilter  = "(&(objectCategory=group)(member=*))"
+            Remediation = "Segment into dynamic departmental or location-specific groups."
+            Evaluate    = { param($g) if ($g.MemberCount -and [int]$g.MemberCount -gt 5000) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-ORPHANED-NO-OWNER"
+            Category    = "Group Hygiene"
+            Severity    = "Low"
+            Name        = "Security Groups Without Owner (managedBy is null)"
+            Description = "Unowned groups lacking a designated business custodian."
+            LdapFilter  = "(&(objectCategory=group)(!(managedBy=*)))"
+            Remediation = "Assign an accountable owner in the managedBy attribute."
+            Evaluate    = { param($g) if (-not $g.ManagedBy -or $g.ManagedBy -eq "None") { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-PRIMARY-GROUP-NONSTANDARD"
+            Category    = "Group Hygiene"
+            Severity    = "Medium"
+            Name        = "Accounts with Non-Default PrimaryGroupID"
+            Description = "Accounts whose primaryGroupID is not 513 (Domain Users), often used for privilege concealment."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(primaryGroupID=513)))"
+            Remediation = "Reset primaryGroupID back to 513."
+            Evaluate    = { param($u) if ($u.primaryGroupID -and [int]$u.primaryGroupID -ne 513) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-DISTRIBUTION-EXTERNAL"
+            Category    = "Group Hygiene"
+            Severity    = "Medium"
+            Name        = "Distribution Groups Allowing Unauthenticated External Senders"
+            Description = "Distribution lists vulnerable to external email spoofing."
+            LdapFilter  = "(&(objectCategory=group)(msExchRequireAuthToSendTo=FALSE))"
+            Remediation = "Require sender authentication on all internal distribution groups."
+            Evaluate    = { param($g) if ($g.RequireAuthToSend -eq $false) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "GRP-FOREIGN-SECURITY-PRINCIPALS"
+            Category    = "Group Hygiene"
+            Severity    = "Medium"
+            Name        = "Groups Containing Foreign Security Principals (Cross-Forest SIDs)"
+            Description = "Groups with members from external domains or trusts."
+            LdapFilter  = "(&(objectCategory=group)(member=*ForeignSecurityPrincipals*))"
+            Remediation = "Review cross-forest trust delegations and audit external SIDs."
+            Evaluate    = { param($g) if ($g.Members -match 'ForeignSecurityPrincipals') { $true } else { $false } }
+        },
+
+        # --- 4. Computer Health (9) ---
+        [PSCustomObject]@{
+            Id          = "COMP-INACTIVE-90"
+            Category    = "Computer Health"
+            Severity    = "Medium"
+            Name        = "Inactive Computer Accounts (No Activity in 90+ Days)"
+            Description = "Workstation and server accounts inactive for over 90 days."
+            LdapFilter  = "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Disable inactive computer objects and de-allocate disk/IP resources."
+            Evaluate    = { param($c) if ($c.DaysInactive -and [int]($c.DaysInactive -replace '\D') -ge 90) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-OBSOLETE-OS"
+            Category    = "Computer Health"
+            Severity    = "High"
+            Name        = "Computers Running Obsolete / Unsupported Operating Systems"
+            Description = "Systems running Windows XP, 7, 2003, 2008, or 2012 past end of life."
+            LdapFilter  = "(&(objectCategory=computer)(|(operatingSystem=*XP*)(operatingSystem=*2003*)(operatingSystem=*Windows 7*)(operatingSystem=*2008*)(operatingSystem=*2012*)))"
+            Remediation = "Upgrade or isolate obsolete operating systems behind firewall segmentation."
+            Evaluate    = { param($c) if ($c.OperatingSystem -match '(?i)XP|2003|Windows 7|2008|2012') { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-UNCONSTRAINED-DELEGATION"
+            Category    = "Computer Health"
+            Severity    = "Critical"
+            Name        = "Computers with Unconstrained Kerberos Delegation"
+            Description = "Non-domain controller computer accounts configured with unconstrained delegation."
+            LdapFilter  = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=524288)(!(userAccountControl:1.2.840.113556.1.4.803:=8192)))"
+            Remediation = "Convert to Resource-Based Constrained Delegation (RBCD)."
+            Evaluate    = { param($c) if (([int64]$c.userAccountControl -band 524288) -ne 0 -and (([int64]$c.userAccountControl -band 8192) -eq 0)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-MISSING-LAPS"
+            Category    = "Computer Health"
+            Severity    = "High"
+            Name        = "Computers Missing LAPS Password (ms-Mcs-AdmPwd is null)"
+            Description = "Endpoints without Windows Local Administrator Password Solution configured."
+            LdapFilter  = "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(`ms-Mcs-AdmPwd`=*))(!(`msLAPS-Password`=*)))"
+            Remediation = "Deploy Windows LAPS GPO and verify schema extension permissions."
+            Evaluate    = { param($c) if (-not $c.'ms-Mcs-AdmPwd' -and -not $c.'msLAPS-Password' -and -not $c.LAPSConfigured) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-MISSING-BITLOCKER"
+            Category    = "Computer Health"
+            Severity    = "High"
+            Name        = "Computers Missing BitLocker Recovery Keys in AD"
+            Description = "Client computers without BitLocker TPM recovery secrets backed up in the directory."
+            LdapFilter  = "(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Enforce BitLocker escrow via Group Policy or Intune configuration."
+            Evaluate    = { param($c) if (-not $c.BitLockerKeysEscrowed -or $c.HasBitLocker -eq $false) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-STALE-DCS"
+            Category    = "Computer Health"
+            Severity    = "Critical"
+            Name        = "Stale or Unreachable Domain Controllers"
+            Description = "Domain controllers failing replication or showing stale logon heartbeats."
+            LdapFilter  = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))"
+            Remediation = "Verify dcdiag, repadmin replication status, and demote failed servers cleanly."
+            Evaluate    = { param($c) if ($c.IsDC -and $c.ReplicationFailing) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-DISABLED-ACCOUNTS"
+            Category    = "Computer Health"
+            Severity    = "Low"
+            Name        = "Disabled Computer Accounts Awaiting Cleanup"
+            Description = "Deprovisioned computers retained in active containers."
+            LdapFilter  = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=2))"
+            Remediation = "Move to a Disabled OU or delete computer objects after 30 days."
+            Evaluate    = { param($c) if (([int64]$c.userAccountControl -band 2) -ne 0) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-MISSING-SPN"
+            Category    = "Computer Health"
+            Severity    = "Medium"
+            Name        = "Computers Missing Default HOST Service Principal Names"
+            Description = "Computers lacking default HOST/hostname SPNs breaking Kerberos authentication."
+            LdapFilter  = "(&(objectCategory=computer)(!(servicePrincipalName=*HOST*))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Register required HOST and RestrictedKrbHost SPNs using setspn."
+            Evaluate    = { param($c) if (-not $c.servicePrincipalName -or $c.servicePrincipalName -notmatch 'HOST') { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "COMP-PREWIN2000-NAMES"
+            Category    = "Computer Health"
+            Severity    = "Low"
+            Name        = "Computers with Non-Standard Pre-Windows 2000 Names"
+            Description = "Computer accounts missing trailing $ in sAMAccountName."
+            LdapFilter  = "(&(objectCategory=computer)(!(sAMAccountName=*`$)))"
+            Remediation = "Correct computer sAMAccountName format to comply with NetBIOS standards."
+            Evaluate    = { param($c) if ($c.sAMAccountName -and -not $c.sAMAccountName.EndsWith('$')) { $true } else { $false } }
+        },
+
+        # --- 5. PKI & Certificates (9) ---
+        [PSCustomObject]@{
+            Id          = "PKI-USER-CERT-EXPIRED"
+            Category    = "PKI/Certificates"
+            Severity    = "High"
+            Name        = "User Accounts with Expired Certificates in userCertificate"
+            Description = "Accounts publishing expired X.509 certificates in directory attributes."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userCertificate=*))"
+            Remediation = "Purge expired X.509 certs from userCertificate attribute."
+            Evaluate    = { param($u) if ($u.userCertificate -and ($u.CertExpired -or $u.CertificateExpired)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-ALT-SECURITY-IDENTITIES"
+            Category    = "PKI/Certificates"
+            Severity    = "Medium"
+            Name        = "Accounts Configured with AltSecurityIdentities Mappings"
+            Description = "Accounts with X.509 certificate mappings in altSecurityIdentities."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(altSecurityIdentities=*))"
+            Remediation = "Audit altSecurityIdentities for unauthorized UPN or Issuer/Subject mappings."
+            Evaluate    = { param($u) if ($u.altSecurityIdentities) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-ESC1-TEMPLATE-RISK"
+            Category    = "PKI/Certificates"
+            Severity    = "Critical"
+            Name        = "ESC1 Vulnerable Certificate Templates (Client Auth + Enrollee Supplies SAN)"
+            Description = "Templates permitting unprivileged enrollees to specify arbitrary SAN identities."
+            LdapFilter  = "(&(objectCategory=pKICertificateTemplate)(msPKI-Certificate-Name-Flag:1.2.840.113556.1.4.803:=1))"
+            Remediation = "Remove CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT and require manager approval."
+            Evaluate    = { param($t) if ($t.IsESC1Vulnerable -or ($t.EnrolleeSuppliesSubject -and $t.ClientAuthentication)) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-ESC2-TEMPLATE-RISK"
+            Category    = "PKI/Certificates"
+            Severity    = "High"
+            Name        = "ESC2 Certificate Templates (Any Purpose EKU or Missing EKU)"
+            Description = "Templates with Any Purpose EKU or zero EKUs allowing subordinate CA impersonation."
+            LdapFilter  = "(&(objectCategory=pKICertificateTemplate)(!(pKIExtendedKeyUsage=*)))"
+            Remediation = "Restrict EKUs to explicit issuance requirements; do not use blank or Any Purpose."
+            Evaluate    = { param($t) if ($t.IsESC2Vulnerable -or -not $t.pKIExtendedKeyUsage) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-WEAK-RSA-KEYS"
+            Category    = "PKI/Certificates"
+            Severity    = "High"
+            Name        = "Certificates with Weak Keys (< 2048-bit RSA)"
+            Description = "Certificates signed with RSA 1024-bit or weaker keys."
+            LdapFilter  = "(&(objectCategory=pKICertificateTemplate)(msPKI-Minimal-Key-Size<2048))"
+            Remediation = "Increase template minimum key size to at least 2048 or 4096 bits."
+            Evaluate    = { param($t) if ($t.KeySize -and [int]$t.KeySize -lt 2048) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-MISSING-NTAUTH"
+            Category    = "PKI/Certificates"
+            Severity    = "High"
+            Name        = "Missing or Incomplete NTAuthStore Enterprise CA Certificates"
+            Description = "Missing CA certificates in the NTAuthCertificates container causing smart card logon failures."
+            LdapFilter  = "(&(objectCategory=certificationAuthority))"
+            Remediation = "Publish all issuing CAs to NTAuthStore using certutil -dspublish."
+            Evaluate    = { param($c) if ($c.NTAuthMissing) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-ENROLLMENT-AGENT-RESTRICTION"
+            Category    = "PKI/Certificates"
+            Severity    = "High"
+            Name        = "Restricted Enrollment Agent Templates with Broad Permissions"
+            Description = "Enrollment agent certificates allowed without restrictive enrollment agent constraints."
+            LdapFilter  = "(&(objectCategory=pKICertificateTemplate)(pKIExtendedKeyUsage=1.3.6.1.4.1.311.20.2.1))"
+            Remediation = "Restrict enrollment agent issuance to designated security officers."
+            Evaluate    = { param($t) if ($t.IsEnrollmentAgent -and -not $t.HasRestrictions) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-UNAUTHENTICATED-AUTOENROLL"
+            Category    = "PKI/Certificates"
+            Severity    = "Medium"
+            Name        = "Certificate Autoenrollment Active for Inactive Accounts"
+            Description = "Inactive accounts continuing to automatically renew certificates."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(userCertificate=*))"
+            Remediation = "Revoke autoenrollment permissions for dormant user populations."
+            Evaluate    = { param($u) if ($u.DaysInactive -and [int]($u.DaysInactive -replace '\D') -gt 90 -and $u.userCertificate) { $true } else { $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "PKI-SMARTCARD-NO-EXPIRY"
+            Category    = "PKI/Certificates"
+            Severity    = "Critical"
+            Name        = "Smart Card Required Accounts with Passwords Set to Never Expire"
+            Description = "SMARTCARD_REQUIRED accounts where DONT_EXPIRE_PASSWORD flag was also set, leaving long-lived static NTLM hashes."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=262144)(userAccountControl:1.2.840.113556.1.4.803:=65536))"
+            Remediation = "Enforce regular password rotation even on smart card accounts or expire NTLM hash."
+            Evaluate    = { param($u) if (([int64]$u.userAccountControl -band 262144) -ne 0 -and ([int64]$u.userAccountControl -band 65536) -ne 0) { $true } else { $false } }
+        }
+    )
+
+    # Filter definitions if requested
+    $filtered = $definitions
+    if ($Category) {
+        $filtered = @($filtered | Where-Object { $_.Category -ieq $Category })
+    }
+    if ($ReportId) {
+        $filtered = @($filtered | Where-Object { $_.Id -ieq $ReportId })
+    }
+    if ($Severity) {
+        $filtered = @($filtered | Where-Object { $_.Severity -ieq $Severity })
+    }
+
+    if (-not $Execute) {
+        return $filtered
+    }
+
+    # Execute Audits
+    $executionResults = New-Object System.Collections.Generic.List[PSCustomObject]
+    foreach ($def in $filtered) {
+        $findings = @()
+        $totalEvaluated = 0
+
+        if ($MockData -ne $null) {
+            $totalEvaluated = @($MockData).Count
+            $findings = @($MockData | Where-Object { & $def.Evaluate $_ })
+        } else {
+            try {
+                $queryRes = Invoke-LdapQuery -Filter $def.LdapFilter -Server $Server
+                $findings = $queryRes.Results
+                $totalEvaluated = $findings.Count
+            } catch {
+                $findings = @()
+            }
+        }
+
+        $compliantCount = [Math]::Max(0, $totalEvaluated - $findings.Count)
+        $compliancePct = if ($totalEvaluated -gt 0) {
+            [Math]::Round(($compliantCount / $totalEvaluated) * 100, 1)
+        } else {
+            100.0
+        }
+
+        $executionResults.Add([PSCustomObject]@{
+            ReportId         = $def.Id
+            Category         = $def.Category
+            Name             = $def.Name
+            Severity         = $def.Severity
+            Description      = $def.Description
+            Remediation      = $def.Remediation
+            LdapFilter       = $def.LdapFilter
+            Count            = $findings.Count
+            Findings         = @($findings)
+            TotalEvaluated   = $totalEvaluated
+            CompliantPercent = $compliancePct
+        })
+    }
+
+    return @($executionResults)
+}
+
 Export-ModuleMember -Function `
     Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
@@ -4395,7 +5626,8 @@ Export-ModuleMember -Function `
     Get-ADDirectoryPartitions, New-ADDirectoryPartition, `
     Get-ADTransitiveGroupMembers, Find-ADDomainControllersViaDns, `
     Rename-ADDirectoryObject, Find-ADObjectsQuickSearch, Get-ADSchemaClassDetail, `
-    Get-ADSchemaClassHierarchy, Get-ADSchemaAttributeUsage, Test-ADSchemaIntegrity
-
-
-
+    Get-ADSchemaClassHierarchy, Get-ADSchemaAttributeUsage, Test-ADSchemaIntegrity, `
+    Get-ADVlvUsersList, Invoke-ADSqlExtendedQuery, Get-AD40SecurityAuditReports `
+    -Alias `
+    Get-ADVirtualListViewUsers, Invoke-DirectorySql, Query-ADSql, `
+    Get-ADSecurityAudits40, Get-SecurityAuditCatalog

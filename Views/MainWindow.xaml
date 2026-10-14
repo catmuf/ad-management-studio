@@ -2169,6 +2169,7 @@
                             <CheckBox Name="ChkShowOperationalAttributes" Content="Show Operational (+)" IsChecked="False" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#38BDF8" FontWeight="SemiBold" ToolTip="Query and include operational / directory metadata attributes (e.g. whenCreated, whenChanged, canonicalName, msDS-UserPasswordExpiryTimeComputed)"/>
                             <TextBlock Name="TxtAttrCount" Text="0 attributes loaded" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,14,6"/>
                             <Button Name="BtnEditAttrValue" Style="{StaticResource PrimaryButton}" Content="✏️ Edit Value" Margin="0,0,6,6"/>
+                            <Button Name="BtnSpecializedEditor" Style="{StaticResource ModernButton}" Content="🔬 Specialized Editor" Margin="0,0,6,6" ToolTip="Open specialized editor for binary hex, X.509 certs, photos, dates, or password hashes"/>
                             <Button Name="BtnClearAttrValue" Style="{StaticResource DangerButton}" Content="🗑️ Clear Attribute" Margin="0,0,6,6"/>
                             <Button Name="BtnCopyAttrValue" Style="{StaticResource ModernButton}" Content="📋 Copy Value" Margin="0,0,6,6"/>
                             <Button Name="BtnExportObjectLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
@@ -2186,6 +2187,7 @@
                                 <MenuItem Name="MenuCtxCopyAttrLdif" Style="{StaticResource ModernMenuItem}" Header="📜 Copy as LDIF Line"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="MenuCtxEditAttrValue" Style="{StaticResource ModernMenuItem}" Header="✏️ Edit Value..."/>
+                                <MenuItem Name="MenuCtxSpecializedEdit" Style="{StaticResource ModernMenuItem}" Header="🔬 Specialized Value Editor (Hex/Cert/Photo/Date/Hash)..."/>
                                 <MenuItem Name="MenuCtxClearAttrValue" Style="{StaticResource ModernMenuItem}" Header="🗑️ Clear Attribute"/>
                                 <Separator Style="{StaticResource ModernMenuSeparator}"/>
                                 <MenuItem Name="MenuCtxSearchAttrValue" Style="{StaticResource ModernMenuItem}" Header="🔍 Search Directory for This Value"/>

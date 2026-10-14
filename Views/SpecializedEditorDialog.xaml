@@ -1,0 +1,675 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Specialized Attribute &amp; Value Editor - Object Studio"
+    Height="680" Width="880"
+    MinHeight="550" MinWidth="750"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="#181A20"
+    Foreground="#E5E7EB"
+    FontFamily="Segoe UI, Segoe UI Variable, Arial"
+    FontSize="13">
+
+    <Window.Resources>
+        <!-- Color Palette Brushes -->
+        <SolidColorBrush x:Key="BgDark" Color="#181A20"/>
+        <SolidColorBrush x:Key="BgSurface" Color="#1E212B"/>
+        <SolidColorBrush x:Key="BgCard" Color="#22252F"/>
+        <SolidColorBrush x:Key="InputBg" Color="#15171E"/>
+        <SolidColorBrush x:Key="BorderBrushColor" Color="#373B4D"/>
+        <SolidColorBrush x:Key="ButtonBg" Color="#2B2F3E"/>
+        <SolidColorBrush x:Key="ButtonHoverBg" Color="#3A3F52"/>
+        <SolidColorBrush x:Key="ButtonHoverBorder" Color="#4E546D"/>
+        <SolidColorBrush x:Key="AccentPrimary" Color="#2563EB"/>
+        <SolidColorBrush x:Key="AccentHover" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#9CA3AF"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#6B7280"/>
+        <SolidColorBrush x:Key="SuccessColor" Color="#10B981"/>
+        <SolidColorBrush x:Key="WarningColor" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="DangerColor" Color="#EF4444"/>
+        <SolidColorBrush x:Key="GridRowBg" Color="#1E212B"/>
+        <SolidColorBrush x:Key="GridRowAltBg" Color="#22252F"/>
+        <SolidColorBrush x:Key="GridLineBrush" Color="#2D313F"/>
+
+        <!-- Base TextBlock Style -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Button Style -->
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="{StaticResource AccentPrimary}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- Danger Button Style -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="{StaticResource DangerColor}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- Modern TextBox Style -->
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CaretBrush" Value="#60A5FA"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern ComboBox Style -->
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+
+        <!-- Modern TabControl & TabItem Styles -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="{StaticResource BgCard}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+
+        <Style x:Key="ModernTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="tabBorder" Cursor="Hand" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="tabBorder" Property="Background" Value="{StaticResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="{StaticResource BgCard}"/>
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{StaticResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="{StaticResource AccentPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern GroupBox Style -->
+        <Style x:Key="ModernGroupBox" TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- TabControl -->
+            <RowDefinition Height="Auto"/> <!-- Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="🧩" FontSize="26" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Specialized Attribute &amp; Value Editor - Object Studio" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBlock Text="Apache Directory Studio parity editors for Hex/Binary dumps, X.509 Certificates, Photos, LDAP Dates, and Password Hashes." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- Attribute metadata pills -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
+                        <TextBlock Name="TxtTargetAttribute" Text="Attribute: (General)" FontSize="11" Foreground="{StaticResource AccentPrimary}" FontWeight="SemiBold"/>
+                    </Border>
+                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
+                        <TextBlock Name="TxtTargetSyntax" Text="Syntax: Binary / String" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    </Border>
+                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                        <TextBlock Name="TxtTargetSize" Text="Size: 0 B" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main TabControl -->
+        <TabControl Name="TabControlEditors" Grid.Row="1">
+            <!-- TAB 1: HEX / BINARY EDITOR -->
+            <TabItem Name="TabHexEditor" Header="🔢 Hex / Binary Editor" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Toolbar -->
+                        <RowDefinition Height="*"/>    <!-- Synchronized Hex View -->
+                        <RowDefinition Height="Auto"/> <!-- Raw Hex Edit Area -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Hex Toolbar -->
+                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Name="BtnHexImport" Style="{StaticResource ModernButton}" Height="28" Content="📂 Import File..." Margin="0,0,6,0"/>
+                                <Button Name="BtnHexExport" Style="{StaticResource ModernButton}" Height="28" Content="💾 Export File..." Margin="0,0,6,0"/>
+                                <Button Name="BtnHexFormat" Style="{StaticResource ModernButton}" Height="28" Content="🔄 Format / Sync Dump" Margin="0,0,6,0"/>
+                                <Button Name="BtnHexClear" Style="{StaticResource ModernButton}" Height="28" Content="🗑️ Clear"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Name="TxtHexByteCount" Text="Total Bytes: 0" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Synchronized Dump Pane -->
+                    <GroupBox Grid.Row="1" Header="Synchronized Offset, Hex Bytes &amp; ASCII Character Dump" Style="{StaticResource ModernGroupBox}">
+                        <TextBox Name="TxtHexDumpView" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#15171E" Foreground="#38BDF8"/>
+                    </GroupBox>
+
+                    <!-- Raw Hex Edit & Preview Pane -->
+                    <GroupBox Grid.Row="2" Header="Raw Hex Stream Editor (Contiguous or spaced hex pairs)" Style="{StaticResource ModernGroupBox}" Margin="0,6,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="80"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Enter or paste raw hex digits (00-FF). Format / Sync Dump to re-render synchronized view." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Name="TxtHexRawInput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#15171E" Foreground="#A7F3D0"/>
+                            
+                            <!-- Quick previews -->
+                            <Grid Grid.Row="2" Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="ASCII Preview:" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBox Name="TxtHexAsciiPreview" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" Height="26" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="Base64 Preview:" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBox Name="TxtHexBase64Preview" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" Height="26" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 2: X.509 CERTIFICATE VIEWER -->
+            <TabItem Name="TabCertViewer" Header="📜 X.509 Certificate" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Toolbar -->
+                        <RowDefinition Height="*"/>    <!-- Scrollable Cert Details -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Certificate Toolbar -->
+                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Name="BtnCertImport" Style="{StaticResource ModernButton}" Height="28" Content="📂 Import (.cer/.crt)..." Margin="0,0,6,0"/>
+                                <Button Name="BtnCertExport" Style="{StaticResource ModernButton}" Height="28" Content="💾 Export .cer..." Margin="0,0,6,0"/>
+                                <Button Name="BtnCertRevocation" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Check Revocation (X509Chain)" Margin="0,0,6,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Name="BadgeCertValidity" Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                    <TextBlock Name="TxtCertValidityBadge" Text="Status: Unknown" FontSize="11" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Scrollable Certificate Details -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <!-- General Identification -->
+                            <GroupBox Header="Certificate Identification (Subject &amp; Issuer)" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Subject (CN):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertSubjectCN" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Full Subject DN:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertSubject" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Issuer (CN):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertIssuerCN" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Full Issuer DN:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Name="TxtCertIssuer" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Serial Number:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Name="TxtCertSerial" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- Validity Period -->
+                            <GroupBox Header="Validity Period" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Valid From (NotBefore):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertNotBefore" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Valid To (NotAfter):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertNotAfter" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Validity Status:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertValidityStatus" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- Cryptographic Details & Extensions -->
+                            <GroupBox Header="Cryptographic Algorithms &amp; Extensions (Key Usage &amp; SAN)" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Public Key:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertPublicKey" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Signature Algorithm:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertSigAlgo" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Key Usage:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertKeyUsage" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Subject Alt Names (SAN):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Name="TxtCertSan" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="SHA-1 Thumbprint:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="4" Grid.Column="1" Name="TxtCertThumbprint" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="SHA-256 Thumbprint:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBox Grid.Row="5" Grid.Column="1" Name="TxtCertThumbprint256" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- Revocation & Chain Status -->
+                            <GroupBox Header="Revocation &amp; Chain Trust Status" Style="{StaticResource ModernGroupBox}">
+                                <TextBox Name="TxtCertRevocationResult" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" Height="65" VerticalScrollBarVisibility="Auto"/>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 3: IMAGE / PHOTO VIEWER -->
+            <TabItem Name="TabPhotoViewer" Header="🖼️ Photo / Thumbnail" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Toolbar -->
+                        <RowDefinition Height="*"/>    <!-- Photo Dual Pane -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Photo Toolbar -->
+                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Name="BtnPhotoImport" Style="{StaticResource ModernButton}" Height="28" Content="📁 Import from File..." Margin="0,0,6,0"/>
+                            <Button Name="BtnPhotoExport" Style="{StaticResource ModernButton}" Height="28" Content="💾 Export to File..." Margin="0,0,6,0"/>
+                            <Button Name="BtnPhotoResize" Style="{StaticResource PrimaryButton}" Height="28" Content="✂️ Resize &amp; Crop to AD 96x96" Margin="0,0,6,0"/>
+                            <Button Name="BtnPhotoRemove" Style="{StaticResource DangerButton}" Height="28" Content="🗑️ Remove Photo"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Photo Preview & Metadata Dual Pane -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Image Preview Frame -->
+                        <Border Grid.Column="0" Background="#15171E" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,10,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="200">
+                                    <Image Name="ImgPhotoPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Row="1" Text="Preview (Uniform Scale)" FontSize="11" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Right: Image Metadata & AD Compliance Card -->
+                        <StackPanel Grid.Column="1">
+                            <GroupBox Header="Image Metadata &amp; Format Specifications" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Image Format:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Name="TxtPhotoFormat" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Dimensions:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Name="TxtPhotoDimensions" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="File Size:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Name="TxtPhotoSize" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="AD Compliance:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Name="TxtPhotoCompliance" Style="{StaticResource ModernTextBox}" FontWeight="SemiBold" IsReadOnly="True" Margin="0,4"/>
+                                </Grid>
+                            </GroupBox>
+
+                            <GroupBox Header="Active Directory Standards &amp; Recommendations" Style="{StaticResource ModernGroupBox}">
+                                <StackPanel Margin="4">
+                                    <TextBlock Text="• Active Directory thumbnailPhoto recommends 96x96 pixels (max 100 KB) for optimal rendering across Outlook, Teams, and SharePoint." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
+                                    <TextBlock Text="• jpegPhoto supports larger standard JPEG photos, but compact dimensions are recommended to minimize directory replication overhead." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
+                                    <TextBlock Name="TxtPhotoRecommendation" Text="Click 'Resize &amp; Crop to AD 96x96' to automatically center-crop and compress the image to AD recommended specs." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AccentHover}"/>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 4: DATETIME PICKER -->
+            <TabItem Name="TabDatePicker" Header="📅 Date &amp; Time Picker" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Quick Presets -->
+                        <RowDefinition Height="Auto"/> <!-- Interactive Picker -->
+                        <RowDefinition Height="*"/>    <!-- Encodings & Encoders -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Quick Presets Toolbar -->
+                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Presets: " VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                            <Button Name="BtnDateNow" Style="{StaticResource ModernButton}" Height="26" Content="⏱️ Current Time" Margin="0,0,4,0"/>
+                            <Button Name="BtnDateNever" Style="{StaticResource ModernButton}" Height="26" Content="♾️ Never Expires (FileTime Max)" Margin="0,0,4,0"/>
+                            <Button Name="BtnDateMustChange" Style="{StaticResource ModernButton}" Height="26" Content="🔄 Must Change (0)" Margin="0,0,4,0"/>
+                            <Button Name="BtnDatePlus30" Style="{StaticResource ModernButton}" Height="26" Content="+30 Days" Margin="0,0,4,0"/>
+                            <Button Name="BtnDatePlus90" Style="{StaticResource ModernButton}" Height="26" Content="+90 Days" Margin="0,0,4,0"/>
+                            <Button Name="BtnDatePlus1Yr" Style="{StaticResource ModernButton}" Height="26" Content="+1 Year"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Interactive Date & Time Picker Card -->
+                    <GroupBox Grid.Row="1" Header="Interactive Date &amp; Time Picker" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Date:" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0"/>
+                            <DatePicker Grid.Column="1" Name="DpDate" Height="30" VerticalContentAlignment="Center" Margin="0,0,16,0"/>
+
+                            <TextBlock Grid.Column="2" Text="Time (HH:MM:SS):" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0"/>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBox Name="TxtDateHour" Style="{StaticResource ModernTextBox}" Width="36" TextAlignment="Center" Text="12"/>
+                                <TextBlock Text=":" VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBox Name="TxtDateMinute" Style="{StaticResource ModernTextBox}" Width="36" TextAlignment="Center" Text="00"/>
+                                <TextBlock Text=":" VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBox Name="TxtDateSecond" Style="{StaticResource ModernTextBox}" Width="36" TextAlignment="Center" Text="00"/>
+                            </StackPanel>
+
+                            <!-- Timezone Switcher -->
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <RadioButton Name="RbDateUtc" Content="UTC" Foreground="{StaticResource TextPrimary}" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <RadioButton Name="RbDateLocal" Content="Local System Time" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Encoding Formats & Bidirectional Converter Card -->
+                    <GroupBox Grid.Row="2" Header="LDAP &amp; Active Directory Date Encoded Formats" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- GeneralizedTime -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="LDAP GeneralizedTime:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Name="TxtGeneralizedTime" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
+                            <Button Grid.Row="0" Grid.Column="2" Name="BtnConvertFromGeneralized" Style="{StaticResource ModernButton}" Height="28" Content="Convert From Generalized" Margin="0,4"/>
+
+                            <!-- FileTime -->
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Windows FileTime (64-bit):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Name="TxtFileTime" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
+                            <Button Grid.Row="1" Grid.Column="2" Name="BtnConvertFromFileTime" Style="{StaticResource ModernButton}" Height="28" Content="Convert From FileTime" Margin="0,4"/>
+
+                            <!-- Formatted Display -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Human Readable (UTC):" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtHumanTime" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
+
+                            <!-- Description -->
+                            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="• LDAP GeneralizedTime syntax: YYYYMMDDhhmmss.0Z (used in createTimestamp, modifyTimestamp, whenCreated, whenChanged)." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="• Windows FileTime: 64-bit integer representing 100-nanosecond intervals since Jan 1, 1601 UTC (used in pwdLastSet, accountExpires, lastLogon)." FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 5: PASSWORD HASH TOOL -->
+            <TabItem Name="TabPasswordHash" Header="🔑 Password Hasher" Style="{StaticResource ModernTabItem}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Hash Generator Card -->
+                        <RowDefinition Height="*"/>    <!-- Password Verification Card -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Hash Generator Card -->
+                    <GroupBox Grid.Row="0" Header="Generate LDAP Password Hash (RFC 2307 userPassword)" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Password Input -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Cleartext Password:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtPasswordPlain" Style="{StaticResource ModernTextBox}" Margin="0,4"/>
+
+                            <!-- Algorithm & Salt -->
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Hash Algorithm:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                                <ComboBox Name="CmbPasswordAlgorithm" Style="{StaticResource ModernComboBox}" Width="150" Height="28" Margin="0,0,12,0">
+                                    <ComboBoxItem Content="SSHA" IsSelected="True"/>
+                                    <ComboBoxItem Content="SSHA-512"/>
+                                    <ComboBoxItem Content="SSHA-256"/>
+                                    <ComboBoxItem Content="SMD5"/>
+                                    <ComboBoxItem Content="SHA-256"/>
+                                    <ComboBoxItem Content="MD5"/>
+                                </ComboBox>
+                                <TextBlock Text="Salt (Hex / Custom):" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,6,0"/>
+                                <TextBox Name="TxtPasswordSalt" Style="{StaticResource ModernTextBox}" Width="140" FontFamily="Consolas" Height="28" Margin="0,0,6,0"/>
+                                <Button Name="BtnGenerateSalt" Style="{StaticResource ModernButton}" Height="28" Content="🎲 New Salt"/>
+                            </StackPanel>
+                            <Button Grid.Row="1" Grid.Column="2" Name="BtnComputeHash" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Generate LDAP Hash" Margin="6,4,0,4"/>
+
+                            <!-- Hash Preview Result -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="LDAP Hash Preview:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Name="TxtPasswordHashResult" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" Foreground="#38BDF8" Margin="0,4,8,4"/>
+                            <Button Grid.Row="2" Grid.Column="2" Name="BtnCopyHash" Style="{StaticResource ModernButton}" Height="28" Content="📋 Copy Hash" Margin="0,4"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Text="Generates cryptographically salted LDAP hashes ({SSHA}, {SSHA512}, {SSHA256}, {SMD5}) compatible with OpenLDAP and AD LDS." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Password Verification Card -->
+                    <GroupBox Grid.Row="1" Header="Verify Password Against LDAP Hash" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Candidate Password:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtVerifyPassword" Style="{StaticResource ModernTextBox}" Margin="0,4"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Target LDAP Hash:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Name="TxtVerifyHash" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
+                            <Button Grid.Row="1" Grid.Column="2" Name="BtnVerifyPassword" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Test Match" Margin="0,4"/>
+
+                            <!-- Verification Result -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Verification Result:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Name="BorderVerifyResult" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,4">
+                                <TextBlock Name="TxtVerifyResult" Text="Enter a candidate password and LDAP hash, then click 'Test Match'." FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                            </Border>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer / Action Buttons -->
+        <Border Grid.Row="2" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Name="TxtDialogStatus" Text="Ready: Select a tab to edit or inspect specialized attribute values." VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Name="BtnApplyValue" Style="{StaticResource PrimaryButton}" Height="30" Content="💾 Apply / Save Value" Margin="0,0,8,0"/>
+                    <Button Name="BtnCancelDialog" Style="{StaticResource ModernButton}" Height="30" Content="Cancel"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
