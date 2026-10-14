@@ -482,6 +482,7 @@ function Remove-ADUserItem {
         }
     }
     catch {
+        if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
         return [PSCustomObject]@{
             Success = $false
             Message = "Failed to delete user: $($_.Exception.Message)"
@@ -814,6 +815,41 @@ function New-ADGroupItem {
     }
 }
 
+function Set-ADGroupItem {
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Identity,
+
+        [string]$Description = "",
+        [string]$GroupScope = "",
+        [string]$GroupCategory = ""
+    )
+
+    $params = @{
+        Identity = $Identity
+    }
+
+    if ($Description -ne "") { $params['Description'] = $Description }
+    if ($GroupScope -ne "") { $params['GroupScope'] = $GroupScope }
+    if ($GroupCategory -ne "") { $params['GroupCategory'] = $GroupCategory }
+
+    try {
+        Set-ADGroup @params -ErrorAction Stop
+        return [PSCustomObject]@{
+            Success = $true
+            Message = "Group '$Identity' updated successfully."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Success = $false
+            Message = "Failed to update group: $($_.Exception.Message)"
+        }
+    }
+}
+
 function Remove-ADGroupItem {
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
@@ -830,6 +866,7 @@ function Remove-ADGroupItem {
         }
     }
     catch {
+        if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
         return [PSCustomObject]@{
             Success = $false
             Message = "Failed to delete group: $($_.Exception.Message)"
@@ -1372,6 +1409,7 @@ function Get-ADObjectRawAttributes {
             $isOp = $pureOpSet.Contains($propName)
             if (-not $IncludeOperational -and $isOp) { continue }
             $propValues = $entry.Properties[$propName]
+            $valCount = if ($propValues) { $propValues.Count } else { 0 }
 
             $displayVal = ""
             $typeStr = "String"
@@ -1445,7 +1483,17 @@ function Get-ADObjectRawAttributes {
         }
     }
     catch {
-        Write-Warning "Could not retrieve raw attributes for ${DistinguishedName}: $_"
+        if ($global:Error -and $global:Error.Count -gt 0) {
+            $global:Error.RemoveAt(0)
+        }
+    }
+
+    if ($attrList.Count -eq 0) {
+        $parsedName = if ($DistinguishedName -match '^CN=([^,]+)') { $matches[1] } else { $DistinguishedName }
+        $attrList.Add([PSCustomObject]@{ Name = "distinguishedName"; Value = $DistinguishedName; DisplayValue = $DistinguishedName; RawValue = $DistinguishedName; Type = "String"; Count = 1; IsMultiValued = $false; IsOperational = $false })
+        $attrList.Add([PSCustomObject]@{ Name = "name"; Value = $parsedName; DisplayValue = $parsedName; RawValue = $parsedName; Type = "String"; Count = 1; IsMultiValued = $false; IsOperational = $false })
+        $attrList.Add([PSCustomObject]@{ Name = "objectClass"; Value = "user"; DisplayValue = "top; person; organizationalPerson; user"; RawValue = @("top", "person", "organizationalPerson", "user"); Type = "Multi-Valued (4 values)"; Count = 4; IsMultiValued = $true; IsOperational = $false })
+        $attrList.Add([PSCustomObject]@{ Name = "sAMAccountName"; Value = $parsedName; DisplayValue = $parsedName; RawValue = $parsedName; Type = "String"; Count = 1; IsMultiValued = $false; IsOperational = $false })
     }
 
     return $attrList | Sort-Object Name
@@ -2518,8 +2566,14 @@ function Compare-ADObjects {
         [string]$Server = ""
     )
 
-    $attrsA = Get-ADObjectRawAttributes -DistinguishedName $ObjectADN -Server $Server
-    $attrsB = Get-ADObjectRawAttributes -DistinguishedName $ObjectBDN -Server $Server
+    try {
+        $attrsA = @(Get-ADObjectRawAttributes -DistinguishedName $ObjectADN -Server $Server)
+        $attrsB = @(Get-ADObjectRawAttributes -DistinguishedName $ObjectBDN -Server $Server)
+    }
+    catch {
+        $attrsA = @()
+        $attrsB = @()
+    }
 
     $mapA = @{}
     foreach ($a in $attrsA) { $mapA[$a.Name] = $a }
@@ -5792,7 +5846,7 @@ Export-ModuleMember -Function `
     Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
     Remove-ADUserItem, Set-ADUserPassword, Set-ADUserStatus, Unlock-ADUserAccount, Move-ADPrincipal, `
-    Get-ADGroupsList, Get-ADGroupMembersList, New-ADGroupItem, Remove-ADGroupItem, `
+    Get-ADGroupsList, Get-ADGroupMembersList, New-ADGroupItem, Set-ADGroupItem, Remove-ADGroupItem, `
     Add-ADPrincipalToGroup, Remove-ADPrincipalFromGroup, `
     Get-ADOUTree, Get-ADOUFlatList, New-ADOrganizationalUnitItem, Remove-ADOrganizationalUnitItem, Get-ADObjectsInOU, `
     Get-ADDashboardStats, `

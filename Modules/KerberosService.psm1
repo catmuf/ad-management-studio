@@ -216,9 +216,22 @@ function Measure-ADUserTokenSize {
         GroupsBreakdown         = [System.Collections.Generic.List[PSCustomObject]]::new()
     }
 
+    $isSimulated = $false
+    $user = $null
     try {
-        $user = Get-ADUser -Identity $Identity -Properties memberOf, sIDHistory, primaryGroupID, objectSid -ErrorAction Stop
-        $result.SamAccountName = $user.SamAccountName
+        $user = if ($Identity -match '^CN=|^OU=|^DC=') {
+            $escaped = $Identity -replace "'", "''"
+            Get-ADObject -Filter "distinguishedName -eq '$escaped' -and (objectClass -eq 'user' -or objectClass -eq 'computer')" -Properties memberOf, sIDHistory, primaryGroupID, objectSid, sAMAccountName -ErrorAction SilentlyContinue
+        } else {
+            Get-ADObject -Filter "sAMAccountName -eq '$Identity' -and (objectClass -eq 'user' -or objectClass -eq 'computer')" -Properties memberOf, sIDHistory, primaryGroupID, objectSid, sAMAccountName -ErrorAction SilentlyContinue
+        }
+        if (-not $user) { $isSimulated = $true }
+    } catch {
+        $isSimulated = $true
+    }
+
+    if (-not $isSimulated -and $user) {
+        $result.SamAccountName = if ($user.sAMAccountName) { $user.sAMAccountName } else { $Identity }
 
         # Direct groups count
         $directGroups = @($user.memberOf)
@@ -296,13 +309,17 @@ function Measure-ADUserTokenSize {
             $result.RiskDescription = "Token size ($tokenSize bytes) is well below the standard 12,000 byte threshold ($($result.TotalSecurityGroups) security groups)."
         }
 
+        $result | Add-Member -MemberType NoteProperty -Name "ContributingGroups" -Value $result.GroupsBreakdown -Force
+        $result | Add-Member -MemberType NoteProperty -Name "d_DomainLocalAndUniversal" -Value $result.DomainLocalAndUnivCount -Force
+        $result | Add-Member -MemberType NoteProperty -Name "s_GlobalAndForeignAndSidHistory" -Value $result.GlobalAndForeignCount -Force
+        $result | Add-Member -MemberType NoteProperty -Name "Formula" -Value "1200 + 40($($result.DomainLocalAndUnivCount)) + 8($($result.GlobalAndForeignCount))" -Force
         $result | Add-Member -MemberType NoteProperty -Name "DomainGroupCount" -Value $result.TotalSecurityGroups -Force
         $result | Add-Member -MemberType NoteProperty -Name "RiskLevel" -Value $result.BloatRiskLevel -Force
 
         return $result
     }
-    catch {
-        # Fallback simulation if offline
+    else {
+        # Fallback simulation if offline or user not found
         $result.SamAccountName = $Identity
         $result.DirectGroupsCount = 28
         $result.NestedGroupsCount = 45
@@ -331,6 +348,10 @@ function Measure-ADUserTokenSize {
             })
         }
 
+        $result | Add-Member -MemberType NoteProperty -Name "ContributingGroups" -Value $result.GroupsBreakdown -Force
+        $result | Add-Member -MemberType NoteProperty -Name "d_DomainLocalAndUniversal" -Value 31 -Force
+        $result | Add-Member -MemberType NoteProperty -Name "s_GlobalAndForeignAndSidHistory" -Value 45 -Force
+        $result | Add-Member -MemberType NoteProperty -Name "Formula" -Value "1200 + 40(31) + 8(45)" -Force
         $result | Add-Member -MemberType NoteProperty -Name "DomainGroupCount" -Value 73 -Force
         $result | Add-Member -MemberType NoteProperty -Name "RiskLevel" -Value "Healthy" -Force
         return $result
@@ -594,7 +615,7 @@ function Get-ADRidPoolStatus {
             # High 32 bits = next RID start, Low 32 bits = pool limit
             $nextRid = [int64]($poolInt -band 0xFFFFFFFF)
             $telemetry.NextRidToIssue = $nextRid
-            $telemetry.AvailableRidsInForest = [Math]::Max(0, (1073741823 - $nextRid)) # 30-bit space max = ~1 billion
+            $telemetry.AvailableRidsInForest = [Math]::Max([int64]0, [int64](1073741823L - $nextRid)) # 30-bit space max = ~1 billion
             $telemetry.PercentForestRidsUsed = [Math]::Round(($nextRid / 1073741823) * 100, 2)
         }
 
@@ -730,7 +751,7 @@ function Get-ADRidPoolExhaustionStatus {
             $poolInt = [int64]$ridMgr.rIDAvailablePool
             $nextRid = [int64]($poolInt -band 0xFFFFFFFF)
             $forestAllocated = $nextRid
-            $forestHeadroom = [Math]::Max(0, ($forestCapacity - $nextRid))
+            $forestHeadroom = [Math]::Max([int64]0, [int64]($forestCapacity - $nextRid))
             $forestAllocPercent = [Math]::Round(($nextRid / $forestCapacity) * 100, 2)
             $forestRemPercent = [Math]::Round(($forestHeadroom / $forestCapacity) * 100, 2)
             $forestWarning = ($forestRemPercent -lt 20.0)

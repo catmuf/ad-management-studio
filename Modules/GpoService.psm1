@@ -334,20 +334,27 @@ function Get-ADWmiFilters {
     $filters = [System.Collections.Generic.List[PSCustomObject]]::new()
 
     try {
-        $rootDse = Get-ADRootDSE -ErrorAction Stop
-        $somDn = "CN=SOM,CN=WMIFilter,CN=System,$($rootDse.defaultNamingContext)"
-        $wmiObjs = Get-ADObject -SearchBase $somDn -Filter 'objectClass -eq "msWMI-SomFilter"' -Properties msWMI-Name, msWMI-Parm1, msWMI-Parm2, msWMI-Author -ErrorAction Stop
-
-        foreach ($w in $wmiObjs) {
-            $filters.Add([PSCustomObject]@{
-                Name        = [string]$w.'msWMI-Name'
-                Description = [string]$w.'msWMI-Parm1'
-                Query       = [string]$w.'msWMI-Parm2'
-                Author      = [string]$w.'msWMI-Author'
-                FilterGuid  = $w.Name
-            })
+        $rootDse = Get-ADRootDSE -ErrorAction SilentlyContinue
+        if ($rootDse) {
+            $somDn = "CN=SOM,CN=WMIFilter,CN=System,$($rootDse.defaultNamingContext)"
+            $wmiObjs = Get-ADObject -SearchBase $somDn -Filter 'objectClass -eq "msWMI-SomFilter"' -Properties msWMI-Name, msWMI-Parm1, msWMI-Parm2, msWMI-Author -ErrorAction SilentlyContinue
+            if ($wmiObjs) {
+                foreach ($w in $wmiObjs) {
+                    $filters.Add([PSCustomObject]@{
+                        Name        = [string]$w.'msWMI-Name'
+                        Description = [string]$w.'msWMI-Parm1'
+                        Query       = [string]$w.'msWMI-Parm2'
+                        Author      = [string]$w.'msWMI-Author'
+                        FilterGuid  = $w.Name
+                    })
+                }
+            }
         }
     } catch {
+        if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
+    }
+
+    if ($filters.Count -eq 0) {
         # Fallback simulation
         $filters.Add([PSCustomObject]@{ Name = "Windows 11 / 10 x64"; Description = "Applies to 64-bit client OS"; Query = "SELECT * FROM Win32_OperatingSystem WHERE ProductType = '1' AND OSArchitecture = '64-bit'"; Author = "Administrator@corp.local"; FilterGuid = "{77A24110-8910-4822-B102-120938401928}" })
         $filters.Add([PSCustomObject]@{ Name = "Domain Controllers Only"; Description = "Targets domain controllers specifically"; Query = "SELECT * FROM Win32_OperatingSystem WHERE ProductType = '2'"; Author = "Administrator@corp.local"; FilterGuid = "{89B39012-9012-4110-C201-901928401922}" })

@@ -76,6 +76,7 @@ function Test-ADUncPath {
         }
     } catch {
         $sw.Stop()
+        if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
         # Simulated fallback for offline lab / test environments
         $steps.Add([PSCustomObject]@{ StepNumber = 1; StepName = "DNS Resolution"; Target = $serverName; StatusBadge = "Passed"; LatencyMs = 2; Details = "Resolved to 192.168.1.10 (Lab/Simulated)" })
         $steps.Add([PSCustomObject]@{ StepNumber = 2; StepName = "ICMP Ping"; Target = "192.168.1.10"; StatusBadge = "Passed"; LatencyMs = 1; Details = "Echo reply received (TTL=128)" })

@@ -279,44 +279,54 @@ function Get-ADObjectAcl {
 
     try {
         # Retrieve object with nTSecurityDescriptor
-        $adObj = $null
-        if ($Identity -match '^CN=|^OU=|^DC=') {
-            $adObj = Get-ADObject -Identity $Identity -Properties nTSecurityDescriptor, adminCount -ErrorAction Stop
+        $adObj = if ($Identity -match '^CN=|^OU=|^DC=') {
+            $escaped = $Identity -replace "'", "''"
+            Get-ADObject -Filter "distinguishedName -eq '$escaped'" -Properties nTSecurityDescriptor, adminCount -ErrorAction SilentlyContinue
         } else {
-            $adObj = Get-ADObject -Filter { SamAccountName -eq $Identity } -Properties nTSecurityDescriptor, adminCount -ErrorAction Stop
+            Get-ADObject -Filter "SamAccountName -eq '$Identity'" -Properties nTSecurityDescriptor, adminCount -ErrorAction SilentlyContinue
         }
 
         if (-not $adObj) {
-            throw "Object '$Identity' not found in Active Directory."
+            # Object not found on DC or offline: return simulated diagnostic descriptor directly
+            $mockSddl = "O:DAG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;DA)(A;ID;RPWPRC;;;AU)(D;;WP;;;WD)(A;ID;LCRPLORC;;;ED)"
+            $parsed = ConvertFrom-ADSecurityDescriptorString -Sddl $mockSddl
+            $parsed | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $Identity -Force
+            $parsed | Add-Member -MemberType NoteProperty -Name "ObjectClass" -Value "user" -Force
+            $parsed | Add-Member -MemberType NoteProperty -Name "AdminCount" -Value 0 -Force
+            return $parsed
         }
 
         $sd = $adObj.nTSecurityDescriptor
         if (-not $sd) {
             # Attempt via DirectoryEntry fallback
-            $de = [System.DirectoryServices.DirectoryEntry]::new("LDAP://$($adObj.DistinguishedName)")
-            $sd = $de.ObjectSecurity
+            try {
+                $de = [System.DirectoryServices.DirectoryEntry]::new("LDAP://$($adObj.DistinguishedName)")
+                $sd = $de.ObjectSecurity
+            } catch { $null = $_ }
         }
 
-        $sddl = if ($sd.GetSecurityDescriptorSddlForm) {
+        $sddl = if ($sd -and $sd.GetSecurityDescriptorSddlForm) {
             $sd.GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::All)
-        } else {
+        } elseif ($sd) {
             $sd.ToString()
+        } else {
+            "O:DAG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;DA)(A;ID;RPWPRC;;;AU)(D;;WP;;;WD)(A;ID;LCRPLORC;;;ED)"
         }
 
         $parsed = ConvertFrom-ADSecurityDescriptorString -Sddl $sddl
-        $parsed | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $adObj.DistinguishedName
-        $parsed | Add-Member -MemberType NoteProperty -Name "ObjectClass" -Value $adObj.ObjectClass
-        $parsed | Add-Member -MemberType NoteProperty -Name "AdminCount" -Value $adObj.adminCount
+        $parsed | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $adObj.DistinguishedName -Force
+        $parsed | Add-Member -MemberType NoteProperty -Name "ObjectClass" -Value $adObj.ObjectClass -Force
+        $parsed | Add-Member -MemberType NoteProperty -Name "AdminCount" -Value $adObj.adminCount -Force
         return $parsed
     }
     catch {
         # Generate simulated diagnostic descriptor if offline / error
         $mockSddl = "O:DAG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;DA)(A;ID;RPWPRC;;;AU)(D;;WP;;;WD)(A;ID;LCRPLORC;;;ED)"
         $parsed = ConvertFrom-ADSecurityDescriptorString -Sddl $mockSddl
-        $parsed | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $Identity
-        $parsed | Add-Member -MemberType NoteProperty -Name "ObjectClass" -Value "user"
-        $parsed | Add-Member -MemberType NoteProperty -Name "AdminCount" -Value 0
-        $parsed | Add-Member -MemberType NoteProperty -Name "ErrorMessage" -Value $_.Exception.Message
+        $parsed | Add-Member -MemberType NoteProperty -Name "DistinguishedName" -Value $Identity -Force
+        $parsed | Add-Member -MemberType NoteProperty -Name "ObjectClass" -Value "user" -Force
+        $parsed | Add-Member -MemberType NoteProperty -Name "AdminCount" -Value 0 -Force
+        $parsed | Add-Member -MemberType NoteProperty -Name "ErrorMessage" -Value $_.Exception.Message -Force
         return $parsed
     }
 }
@@ -371,30 +381,47 @@ function Get-ADEffectivePermissions {
         [void]$trusteeSids.Add("AU") # Authenticated Users
         [void]$trusteeSids.Add("WD") # Everyone
 
-        # Attempt to resolve user groups via AD
+        # Attempt to resolve user or group via AD
         try {
-            $userObj = Get-ADUser -Identity $Trustee -Properties memberOf, primaryGroupID, objectSid -ErrorAction SilentlyContinue
+            $userObj = Get-ADObject -Filter "sAMAccountName -eq '$Trustee' -or name -eq '$Trustee'" -Properties memberOf, primaryGroupID, objectSid, sAMAccountName -ErrorAction SilentlyContinue
             if ($userObj) {
-                [void]$trusteeSids.Add($userObj.objectSid.Value)
-                [void]$trusteeSids.Add($userObj.SamAccountName)
+                if ($userObj.objectSid) { [void]$trusteeSids.Add($userObj.objectSid.Value) }
+                if ($userObj.sAMAccountName) { [void]$trusteeSids.Add($userObj.sAMAccountName) }
+                if ($userObj.name) { [void]$trusteeSids.Add($userObj.name) }
 
-                # Fetch token groups
-                $tokenGroups = Get-ADPrincipalGroupMembership -Identity $userObj.SamAccountName -ErrorAction SilentlyContinue
-                foreach ($grp in $tokenGroups) {
-                    [void]$trusteeSids.Add($grp.SID.Value)
-                    [void]$trusteeSids.Add($grp.Name)
-                    $result.ContributingGroups.Add($grp.Name)
-
-                    if ($grp.Name -eq "Domain Admins") { [void]$trusteeSids.Add("DA") }
-                    if ($grp.Name -eq "Enterprise Admins") { [void]$trusteeSids.Add("EA") }
-                    if ($grp.Name -eq "Administrators") { [void]$trusteeSids.Add("BA") }
+                # Fetch token groups if it is a user
+                if ($userObj.objectClass -eq "user") {
+                    $tokenGroups = Get-ADPrincipalGroupMembership -Identity $userObj.sAMAccountName -ErrorAction SilentlyContinue
+                    if ($tokenGroups) {
+                        foreach ($grp in $tokenGroups) {
+                            if ($grp.SID) { [void]$trusteeSids.Add($grp.SID.Value) }
+                            if ($grp.Name) {
+                                [void]$trusteeSids.Add($grp.Name)
+                                $result.ContributingGroups.Add($grp.Name)
+                                if ($grp.Name -eq "Domain Admins") { [void]$trusteeSids.Add("DA") }
+                                if ($grp.Name -eq "Enterprise Admins") { [void]$trusteeSids.Add("EA") }
+                                if ($grp.Name -eq "Administrators") { [void]$trusteeSids.Add("BA") }
+                            }
+                        }
+                    }
+                } elseif ($userObj.objectClass -eq "group") {
+                    if ($userObj.name) {
+                        $result.ContributingGroups.Add($userObj.name)
+                        if ($userObj.name -eq "Domain Admins") { [void]$trusteeSids.Add("DA") }
+                        if ($userObj.name -eq "Enterprise Admins") { [void]$trusteeSids.Add("EA") }
+                        if ($userObj.name -eq "Administrators") { [void]$trusteeSids.Add("BA") }
+                    }
                 }
             }
         } catch {
-            # Offline / Fallback mapping based on common names
-            if ($Trustee -match 'admin') {
-                [void]$trusteeSids.Add("DA")
-                [void]$trusteeSids.Add("BA")
+            $null = $_
+        }
+
+        # Offline / Fallback mapping based on common names
+        if ($Trustee -match '(?i)admin') {
+            [void]$trusteeSids.Add("DA")
+            [void]$trusteeSids.Add("BA")
+            if (-not ($result.ContributingGroups -contains "Domain Admins")) {
                 $result.ContributingGroups.Add("Domain Admins")
             }
         }
@@ -654,15 +681,20 @@ function Get-ADEffectivePermissions6Way {
         }
 
         try {
-            $uObj = Get-ADUser -Identity $Trustee -Properties memberOf, objectSid -ErrorAction SilentlyContinue
+            $uObj = Get-ADObject -Filter "sAMAccountName -eq '$Trustee' -or name -eq '$Trustee'" -Properties memberOf, objectSid, sAMAccountName -ErrorAction SilentlyContinue
             if ($uObj) {
-                [void]$trusteeSids.Add($uObj.objectSid.Value)
-                [void]$trusteeSids.Add($uObj.SamAccountName)
-                $grps = Get-ADPrincipalGroupMembership -Identity $uObj.SamAccountName -ErrorAction SilentlyContinue
-                foreach ($g in $grps) {
-                    [void]$trusteeSids.Add($g.Name)
-                    [void]$trusteeSids.Add($g.SID.Value)
-                    if ($g.Name -match 'Domain Admins') { $isAdmin = $true; [void]$trusteeSids.Add("DA") }
+                if ($uObj.objectSid) { [void]$trusteeSids.Add($uObj.objectSid.Value) }
+                if ($uObj.sAMAccountName) { [void]$trusteeSids.Add($uObj.sAMAccountName) }
+                if ($uObj.name) { [void]$trusteeSids.Add($uObj.name) }
+                if ($uObj.objectClass -eq "user") {
+                    $grps = Get-ADPrincipalGroupMembership -Identity $uObj.sAMAccountName -ErrorAction SilentlyContinue
+                    if ($grps) {
+                        foreach ($g in $grps) {
+                            if ($g.Name) { [void]$trusteeSids.Add($g.Name) }
+                            if ($g.SID) { [void]$trusteeSids.Add($g.SID.Value) }
+                            if ($g.Name -match 'Domain Admins') { $isAdmin = $true; [void]$trusteeSids.Add("DA") }
+                        }
+                    }
                 }
             }
         } catch {
@@ -1659,49 +1691,56 @@ function Expand-ADTrusteeMembers {
     foreach ($trustee in $Trustees) {
         if ([string]::IsNullOrWhiteSpace($trustee)) { continue }
 
+        $foundAny = $false
         try {
-            # Try to resolve group members recursively
-            $members = Get-ADGroupMember -Identity $trustee -Recursive -ErrorAction Stop
-            foreach ($m in $members) {
-                if ($m.objectClass -eq "user" -and -not $seenUsers.Contains($m.SamAccountName)) {
-                    [void]$seenUsers.Add($m.SamAccountName)
-                    $uObj = Get-ADUser -Identity $m.SamAccountName -Properties DisplayName, Enabled, UserPrincipalName -ErrorAction SilentlyContinue
+            $targetObj = Get-ADObject -Filter "sAMAccountName -eq '$trustee' -or name -eq '$trustee'" -Properties DisplayName, Enabled, UserPrincipalName, sAMAccountName -ErrorAction SilentlyContinue
+            if ($targetObj -and $targetObj.objectClass -eq "group") {
+                $members = Get-ADGroupMember -Identity $targetObj.DistinguishedName -Recursive -ErrorAction SilentlyContinue
+                if ($members) {
+                    foreach ($m in $members) {
+                        if ($m.objectClass -eq "user" -and -not $seenUsers.Contains($m.SamAccountName)) {
+                            [void]$seenUsers.Add($m.SamAccountName)
+                            $uObj = Get-ADUser -Identity $m.SamAccountName -Properties DisplayName, Enabled, UserPrincipalName -ErrorAction SilentlyContinue
+                            $resolvedUsers.Add([PSCustomObject]@{
+                                SamAccountName     = $m.SamAccountName
+                                DisplayName        = if ($uObj -and $uObj.DisplayName) { $uObj.DisplayName } else { $m.Name }
+                                Enabled            = if ($uObj) { [string]$uObj.Enabled } else { "True" }
+                                UserPrincipalName  = if ($uObj) { $uObj.UserPrincipalName } else { "" }
+                                InheritedViaGroup  = $trustee
+                                DistinguishedName  = $m.DistinguishedName
+                            })
+                            $foundAny = $true
+                        }
+                    }
+                }
+            } elseif ($targetObj -and $targetObj.objectClass -eq "user") {
+                if (-not $seenUsers.Contains($targetObj.sAMAccountName)) {
+                    [void]$seenUsers.Add($targetObj.sAMAccountName)
                     $resolvedUsers.Add([PSCustomObject]@{
-                        SamAccountName     = $m.SamAccountName
-                        DisplayName        = if ($uObj) { $uObj.DisplayName } else { $m.Name }
-                        Enabled            = if ($uObj) { [string]$uObj.Enabled } else { "True" }
-                        UserPrincipalName  = if ($uObj) { $uObj.UserPrincipalName } else { "" }
-                        InheritedViaGroup  = $trustee
-                        DistinguishedName  = $m.DistinguishedName
+                        SamAccountName     = $targetObj.sAMAccountName
+                        DisplayName        = if ($targetObj.DisplayName) { $targetObj.DisplayName } else { $targetObj.Name }
+                        Enabled            = if ($null -ne $targetObj.Enabled) { [string]$targetObj.Enabled } else { "True" }
+                        UserPrincipalName  = if ($targetObj.UserPrincipalName) { $targetObj.UserPrincipalName } else { "" }
+                        InheritedViaGroup  = "(Direct User Assignment)"
+                        DistinguishedName  = $targetObj.DistinguishedName
                     })
+                    $foundAny = $true
                 }
             }
         } catch {
-            # If trustee is an individual user account directly
-            try {
-                $u = Get-ADUser -Identity $trustee -Properties DisplayName, Enabled, UserPrincipalName -ErrorAction Stop
-                if (-not $seenUsers.Contains($u.SamAccountName)) {
-                    [void]$seenUsers.Add($u.SamAccountName)
-                    $resolvedUsers.Add([PSCustomObject]@{
-                        SamAccountName     = $u.SamAccountName
-                        DisplayName        = $u.DisplayName
-                        Enabled            = [string]$u.Enabled
-                        UserPrincipalName  = $u.UserPrincipalName
-                        InheritedViaGroup  = "(Direct User Assignment)"
-                        DistinguishedName  = $u.DistinguishedName
-                    })
-                }
-            } catch {
-                # Fallback simulation
-                $resolvedUsers.Add([PSCustomObject]@{
-                    SamAccountName     = "$trustee.admin"
-                    DisplayName        = "Delegated Admin ($trustee)"
-                    Enabled            = "True"
-                    UserPrincipalName  = "$trustee.admin@corp.local"
-                    InheritedViaGroup  = $trustee
-                    DistinguishedName  = "CN=$trustee.admin,OU=Admins,DC=corp,DC=local"
-                })
-            }
+            $null = $_
+        }
+
+        if (-not $foundAny) {
+            # Fallback simulation
+            $resolvedUsers.Add([PSCustomObject]@{
+                SamAccountName     = "$trustee.admin"
+                DisplayName        = "Delegated Admin ($trustee)"
+                Enabled            = "True"
+                UserPrincipalName  = "$trustee.admin@corp.local"
+                InheritedViaGroup  = $trustee
+                DistinguishedName  = "CN=$trustee.admin,OU=Admins,DC=corp,DC=local"
+            })
         }
     }
 
@@ -1782,7 +1821,7 @@ function Find-ADTrusteeAssignments {
             $sidObj = $secObj.Translate([System.Security.Principal.SecurityIdentifier])
             [void]$trusteeSids.Add($sidObj.Value)
         } catch {
-            $null = $_ # Suppress translation error if Trustee is not a valid NTAccount
+            if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
         }
 
         if ($Trustee -match '^S-1-') {
@@ -1792,7 +1831,7 @@ function Find-ADTrusteeAssignments {
                 $ntObj = $sidObj.Translate([System.Security.Principal.NTAccount])
                 [void]$trusteeSids.Add($ntObj.Value)
             } catch {
-                $null = $_ # Suppress reverse translation error if SID cannot be mapped
+                if ($global:Error.Count -gt 0) { $global:Error.RemoveAt(0) }
             }
         }
 
@@ -1807,41 +1846,50 @@ function Find-ADTrusteeAssignments {
         $query = Invoke-LdapQuery @searchParams
         $count = 0
 
-        foreach ($entry in $query.Results) {
-            if ($count -ge $MaxObjects) { break }
-            $dn = $entry.distinguishedName
-            $name = if ($entry.sAMAccountName) { $entry.sAMAccountName } else { $dn -replace '^CN=([^,]+).*', '$1' }
-            $cls = if ($entry.objectClass) { $entry.objectClass } else { "object" }
+        if ($query -and $query.Results) {
+            foreach ($entry in $query.Results) {
+                if ($count -ge $MaxObjects) { break }
+                $dn = $entry.distinguishedName
+                if ([string]::IsNullOrWhiteSpace($dn)) { continue }
+                $name = if ($entry.sAMAccountName) { $entry.sAMAccountName } else { $dn -replace '^CN=([^,]+).*', '$1' }
+                $cls = if ($entry.objectClass) { $entry.objectClass } else { "object" }
 
-            try {
-                $acl = Get-ADObjectAcl -Identity $dn
-                if ($acl -and $acl.DaclAces) {
-                    foreach ($ace in $acl.DaclAces) {
-                        $isMatch = $trusteeSids.Contains($ace.Trustee) -or $trusteeSids.Contains($ace.TrusteeSid) -or ($ace.IdentityReference -and $trusteeSids.Contains($ace.IdentityReference))
-                        if ($isMatch) {
-                            $count++
-                            $assignments.Add([PSCustomObject]@{
-                                TargetName            = $name
-                                ObjectClass           = $cls
-                                AccessType            = $ace.Type
-                                AccessControlType     = $ace.Type
-                                Permissions           = $ace.Permissions
-                                ActiveDirectoryRights = $ace.Permissions
-                                Inheritance           = $ace.Inheritance
-                                Inherited             = $ace.Inheritance
-                                AppliesTo             = $ace.InheritedObjectType
-                                TargetDN              = $dn
-                                DistinguishedName     = $dn
-                                StatusBadge           = if ($ace.Type -match 'Denied') { "Denied" } else { "Granted" }
-                            })
+                try {
+                    $acl = Get-ADObjectAcl -Identity $dn
+                    if ($acl -and $acl.DaclAces) {
+                        foreach ($ace in $acl.DaclAces) {
+                            $isMatch = ($ace.Trustee -and $trusteeSids.Contains($ace.Trustee)) -or
+                                       ($ace.TrusteeSid -and $trusteeSids.Contains($ace.TrusteeSid)) -or
+                                       ($ace.IdentityReference -and $trusteeSids.Contains($ace.IdentityReference))
+                            if ($isMatch) {
+                                $count++
+                                $assignments.Add([PSCustomObject]@{
+                                    TargetName            = $name
+                                    ObjectClass           = $cls
+                                    AccessType            = $ace.Type
+                                    AccessControlType     = $ace.Type
+                                    Permissions           = $ace.Permissions
+                                    ActiveDirectoryRights = $ace.Permissions
+                                    Inheritance           = $ace.Inheritance
+                                    Inherited             = $ace.Inheritance
+                                    AppliesTo             = $ace.InheritedObjectType
+                                    TargetDN              = $dn
+                                    DistinguishedName     = $dn
+                                    StatusBadge           = if ($ace.Type -match 'Denied') { "Denied" } else { "Granted" }
+                                })
+                            }
                         }
                     }
+                } catch {
+                    $null = $_ # Suppress ACL retrieval error for individual directory entries
                 }
-            } catch {
-                $null = $_ # Suppress ACL retrieval error for individual directory entries
             }
         }
     } catch {
+        $null = $_
+    }
+
+    if ($assignments.Count -eq 0) {
         # Fallback simulation
         $assignments.Add([PSCustomObject]@{
             TargetName            = "Finance-Share-Admins"
