@@ -82,8 +82,8 @@ $appConfig = Get-AppSettings
 $adContext = Get-ADEnvironmentContext -Config $appConfig
 
 # Helper function to load and parse XAML files
-function Load-XamlWindow {
-    param ([string]$XamlPath)
+Set-Alias -Name Load-XamlWindow -Value Import-XamlWindow -Scope Global
+function Import-XamlWindow {    param ([string]$XamlPath)
     if (-not (Test-Path $XamlPath)) {
         throw "XAML file not found at: $XamlPath"
     }
@@ -357,8 +357,8 @@ function Show-ObjectHtmlDossier {
     }
 }
 
-function Populate-ExternalToolsMenu ($parentMenuItem, [scriptblock]$getTargetObjectScript) {
-    if (-not $parentMenuItem) { return }
+Set-Alias -Name Populate-ExternalToolsMenu -Value Update-ExternalToolsMenu -Scope Global
+function Update-ExternalToolsMenu ($parentMenuItem, [scriptblock]$getTargetObjectScript) {    if (-not $parentMenuItem) { return }
     $parentMenuItem.Items.Clear()
     foreach ($tool in $state.ExternalTools) {
         $item = [System.Windows.Controls.MenuItem]::new()
@@ -376,8 +376,8 @@ function Populate-ExternalToolsMenu ($parentMenuItem, [scriptblock]$getTargetObj
     }
 }
 
-function Populate-AllExternalToolsMenus {
-    Populate-ExternalToolsMenu $controls['CtxUserExternalTools'] { if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null } }
+Set-Alias -Name Populate-AllExternalToolsMenus -Value Update-AllExternalToolsMenus -Scope Global
+function Update-AllExternalToolsMenus {    Populate-ExternalToolsMenu $controls['CtxUserExternalTools'] { if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null } }
     Populate-ExternalToolsMenu $controls['CtxCompExternalTools'] { if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null } }
     Populate-ExternalToolsMenu $controls['CtxOUObjExternalTools'] { if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null } }
     Populate-ExternalToolsMenu $controls['CtxSearchExternalTools'] { if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null } }
@@ -514,8 +514,8 @@ function Test-IsDynamicExpression ($node, $prop) {
     }
 }
 
-function Apply-ThemeNode ($node, [string]$targetTheme) {
-    if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
+Set-Alias -Name Apply-ThemeNode -Value Set-ThemeNode -Scope Global
+function Set-ThemeNode ($node, [string]$targetTheme) {    if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
     # Search attribute outcome badge has dedicated theme management via Set-SearchAttrOutcomeBadge
     if ($node.Name -in @('BorderSearchAttrOutcome', 'TxtSearchAttrOutcomeLabel', 'TxtSearchAttrOutcome')) {
         return
@@ -840,8 +840,8 @@ if ($controls['CmbAccentTone']) {
 #endregion
 
 #region 18. In-App HTML Dossier View Logic
-function Init-HtmlViewUI {
-    if (-not $state.CurrentHtmlDN) {
+Set-Alias -Name Init-HtmlViewUI -Value Initialize-HtmlViewUI -Scope Global
+function Initialize-HtmlViewUI {    if (-not $state.CurrentHtmlDN) {
         # Show elegant welcome landing page
         $isLight = ($state.CurrentTheme -eq "Light")
         $bg = if ($isLight) { "#F8FAFC" } else { "#0E1017" }
@@ -969,7 +969,7 @@ function Show-ObjectHtmlView {
                                 $rawProbe = $null
                                 try {
                                     $rawProbe = Get-ADObjectRawAttributes -DistinguishedName $targetDN
-                                } catch { }
+                                } catch { $null = $_ } # Suppress handled error
 
                                 if ($rawProbe -and $rawProbe.Count -gt 0) {
                                     $targetObj = [PSCustomObject]@{ SamAccountName = $targetDN; DisplayName = $targetDN; DistinguishedName = $targetDN; Status = "Active" }
@@ -1006,7 +1006,7 @@ function Show-ObjectHtmlView {
                         $targetObj | Add-Member -NotePropertyName "MemberOf" -NotePropertyValue @($detail.Groups | ForEach-Object { $_.DistinguishedName }) -Force
                     }
                 }
-            } catch { }
+            } catch { $null = $_ } # Suppress handled error
         }
 
         if (-not $targetDN) {
@@ -1020,7 +1020,7 @@ function Show-ObjectHtmlView {
         $attrs = @()
         try {
             $attrs = Get-ADObjectRawAttributes -DistinguishedName $targetDN -IncludeOperational:$true
-        } catch { }
+        } catch { $null = $_ } # Suppress handled error
 
         # Resolve template
         $activeTemplate = if ($Template) { $Template } elseif ($controls['CmbHtmlViewTemplate']) {
@@ -1075,8 +1075,8 @@ function Show-ObjectHtmlView {
     }
 }
 
-function Refresh-HtmlViewUI {
-    if ($state.CurrentHtmlDN) {
+Set-Alias -Name Refresh-HtmlViewUI -Value Update-HtmlViewUI -Scope Global
+function Update-HtmlViewUI {    if ($state.CurrentHtmlDN) {
         Show-ObjectHtmlView -Identity $state.CurrentHtmlDN -Template $state.CurrentHtmlTemplate
     } else {
         Init-HtmlViewUI
@@ -1097,7 +1097,7 @@ if ($controls['BtnHtmlViewGo']) {
 
 if ($controls['TxtHtmlViewDN']) {
     $controls['TxtHtmlViewDN'].Add_KeyDown({
-        param($sender, $e)
+        param($src, $e)
         if ($e.Key -eq [System.Windows.Input.Key]::Return) {
             if ($controls['BtnHtmlViewGo']) { $controls['BtnHtmlViewGo'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
         }
@@ -1120,7 +1120,7 @@ if ($controls['BtnHtmlViewPrint']) {
             try {
                 $controls['BrowserHtmlView'].Document.parentWindow.execScript("window.print()")
             } catch {
-                try { $controls['BrowserHtmlView'].Document.execCommand("Print", $true, $null) } catch { }
+                try { $controls['BrowserHtmlView'].Document.execCommand("Print", $true, $null) } catch { $null = $_ } # Suppress handled error
             }
         }
     })
@@ -1203,8 +1203,8 @@ function Set-Status {
     }
 }
 
-function Log-LdapRequest {
-    param (
+Set-Alias -Name Log-LdapRequest -Value Write-LdapRequest -Scope Global
+function Write-LdapRequest {    param (
         [string]$Operation,
         [string]$TargetDN = "--",
         [string]$FilterOrPayload = "--",
@@ -1249,8 +1249,8 @@ function Update-NavButtons {
     }
 }
 
-function Record-NavHistory {
-    param ([string]$PanelName)
+Set-Alias -Name Record-NavHistory -Value Add-NavHistory -Scope Global
+function Add-NavHistory {    param ([string]$PanelName)
     if ($state.IsNavigatingHistory) { return }
     if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
     
@@ -1272,8 +1272,8 @@ function Record-NavHistory {
 
 #region Workspace Engine (Multi-Tabs & Detachable Multi-Windows)
 
-function Launch-NewApplicationWindow {
-    param([string]$ToolName = "")
+Set-Alias -Name Launch-NewApplicationWindow -Value Start-NewApplicationWindow -Scope Global
+function Start-NewApplicationWindow {    param([string]$ToolName = "")
     $powershellExe = (Get-Process -Id $PID).Path
     $argList = "-STA -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     if (-not [string]::IsNullOrWhiteSpace($ToolName)) {
@@ -1897,7 +1897,7 @@ function Remove-WorkspaceTab {
         $dRec = $state.DetachedWindows[$targetTab.Id]
         $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
         if ($dWin -and $dWin -is [System.Windows.Window]) {
-            try { $dWin.Close() } catch {}
+            try { $dWin.Close() } catch { $null = $_ } # Suppress handled error
         }
         [void]$state.DetachedWindows.Remove($targetTab.Id)
     }
@@ -1955,8 +1955,8 @@ function New-PanelInstance {
     }
 }
 
-function Wire-SecondaryPanelInstance {
-    param(
+Set-Alias -Name Wire-SecondaryPanelInstance -Value Connect-SecondaryPanelInstance -Scope Global
+function Connect-SecondaryPanelInstance {    param(
         $panelObj,
         $win,
         $tab,
@@ -2435,8 +2435,8 @@ function Select-WorkspaceTab {
     Update-WorkspaceTabStrip
 }
 
-function Detach-PanelToWindow {
-    param (
+Set-Alias -Name Detach-PanelToWindow -Value Dismount-PanelToWindow -Scope Global
+function Dismount-PanelToWindow {    param (
         [string]$PanelName = "",
         [string]$TabId = ""
     )
@@ -2628,8 +2628,8 @@ function Detach-PanelToWindow {
     }
 }
 
-function Dock-PanelToMainWindow {
-    param (
+Set-Alias -Name Dock-PanelToMainWindow -Value Mount-PanelToMainWindow -Scope Global
+function Mount-PanelToMainWindow {    param (
         [string]$PanelName = "",
         [string]$TabId = "",
         [switch]$NoActivate
@@ -2659,7 +2659,7 @@ function Dock-PanelToMainWindow {
                 & $closeDockHandler (-not $NoActivate)
             }
             $dWin.Close()
-        } catch {}
+        } catch { $null = $_ } # Suppress handled error
     } else {
         [void]$state.DetachedWindows.Remove($targetTabId)
     }
@@ -2678,8 +2678,8 @@ function Dock-PanelToMainWindow {
     }
 }
 
-function Dock-AllDetachedWindows {
-    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
+Set-Alias -Name Dock-AllDetachedWindows -Value Mount-AllDetachedWindows -Scope Global
+function Mount-AllDetachedWindows {    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
         Set-Status -Message "No detached tool windows are currently open."
         return
     }
@@ -2919,8 +2919,8 @@ function Set-WorkspaceMode {
     Update-WorkspaceTabStrip
 }
 
-function Init-SidebarNavigationContextMenus {
-    $panels = @(
+Set-Alias -Name Init-SidebarNavigationContextMenus -Value Initialize-SidebarNavigationContextMenus -Scope Global
+function Initialize-SidebarNavigationContextMenus {    $panels = @(
         'Dashboard', 'Users', 'Groups', 'OUs', 'Computers',
         'DirectorySearch', 'LdapSql', 'AttributeEditor', 'HtmlView', 'ObjectCompare',
         'LdifStudio', 'AuditReports', 'SchemaBrowser', 'BulkEditor',
@@ -3217,8 +3217,8 @@ if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].Add
 #endregion
 
 #region 1. Dashboard Functions
-function Refresh-Dashboard {
-    Set-Status -Message "Fetching directory health metrics..."
+Set-Alias -Name Refresh-Dashboard -Value Update-Dashboard -Scope Global
+function Update-Dashboard {    Set-Status -Message "Fetching directory health metrics..."
     $stats = Get-ADDashboardStats
     if ($controls['CardTotalUsers'])    { $controls['CardTotalUsers'].Text    = $stats.TotalUsers.ToString() }
     if ($controls['CardActiveUsers'])   { $controls['CardActiveUsers'].Text   = $stats.ActiveUsers.ToString() }
@@ -3583,8 +3583,8 @@ $tableColumnCatalog = @{
     }
 }
 
-function Populate-MissingAttributeInItemsSource {
-    param (
+Set-Alias -Name Populate-MissingAttributeInItemsSource -Value Add-MissingAttributeInItemsSource -Scope Global
+function Add-MissingAttributeInItemsSource {    param (
         [System.Windows.Controls.DataGrid]$DataGrid,
         [string]$PropertyKey
     )
@@ -3610,7 +3610,7 @@ function Populate-MissingAttributeInItemsSource {
                         $propVals = $entry.Properties[$PropertyKey]
                         $val = if ($propVals.Count -gt 1) { ($propVals | ForEach-Object { "$_" }) -join "; " } else { "$($propVals.Value)" }
                     }
-                } catch {}
+                } catch { $null = $_ } # Suppress handled error
             }
             $item | Add-Member -NotePropertyName $PropertyKey -NotePropertyValue $val -Force
         }
@@ -3764,14 +3764,14 @@ function Show-ColumnChooser {
         $dControls['BtnSelectAll'].Add_Click({
             foreach ($item in $attrObservableList) { $item.IsSelected = $true }
             & $updateCountBadge
-            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+            try { $dControls['LstAttributes'].Items.Refresh() } catch { $null = $_ } # Suppress handled error
         })
     }
     if ($dControls['BtnDeselectAll']) {
         $dControls['BtnDeselectAll'].Add_Click({
             foreach ($item in $attrObservableList) { $item.IsSelected = $false }
             & $updateCountBadge
-            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+            try { $dControls['LstAttributes'].Items.Refresh() } catch { $null = $_ } # Suppress handled error
         })
     }
 
@@ -3795,7 +3795,7 @@ function Show-ColumnChooser {
         }
         $dControls['TxtCustomAttribute'].Text = ""
         & $updateCountBadge
-        try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+        try { $dControls['LstAttributes'].Items.Refresh() } catch { $null = $_ } # Suppress handled error
     }
 
     if ($dControls['BtnAddCustomAttribute']) {
@@ -3819,7 +3819,7 @@ function Show-ColumnChooser {
                 $item.IsSelected = $defaultKeys.Contains($item.PropertyKey) -or $defaultKeys.Contains($item.Header)
             }
             & $updateCountBadge
-            try { $dControls['LstAttributes'].Items.Refresh() } catch {}
+            try { $dControls['LstAttributes'].Items.Refresh() } catch { $null = $_ } # Suppress handled error
         })
     }
 
@@ -3857,7 +3857,7 @@ function Show-ColumnChooser {
             }
 
             Sync-DataGridColumnsProperties -DataGrid $grid
-            try { $grid.Items.Refresh() } catch {}
+            try { $grid.Items.Refresh() } catch { $null = $_ } # Suppress handled error
             $dlg.Close()
             Set-Status -Message "Updated columns for $($config.FriendlyName) table ($($grid.Columns.Count) columns active)."
         })
@@ -3894,14 +3894,14 @@ function Reset-TableColumns {
     }
 
     Sync-DataGridColumnsProperties -DataGrid $grid
-    try { $grid.Items.Refresh() } catch {}
+    try { $grid.Items.Refresh() } catch { $null = $_ } # Suppress handled error
     Set-Status -Message "Reset $($config.FriendlyName) table columns to defaults."
 }
 #endregion
 
 #region 2. Users Management Logic
-function Render-PagedUsers {
-    param (
+Set-Alias -Name Render-PagedUsers -Value Show-PagedUsers -Scope Global
+function Show-PagedUsers {    param (
         [array]$SourceItems = $null
     )
     if ($null -eq $SourceItems) {
@@ -3990,7 +3990,7 @@ function Update-UserInspectorCard {
     }
     if ($controls['TxtInspAvatarInitials']) { $controls['TxtInspAvatarInitials'].Text = $initials }
 
-    $statusText = if ($User.Status) { $User.Status } elseif ($User.Enabled -ne $null) { if ($User.Enabled) { "Active" } else { "Disabled" } } else { "Active" }
+    $statusText = if ($User.Status) { $User.Status } elseif ($null -ne $User.Enabled) { if ($User.Enabled) { "Active" } else { "Disabled" } } else { "Active" }
     if ($controls['TxtInspStatus']) { $controls['TxtInspStatus'].Text = $statusText }
     if ($controls['BorderInspStatus']) {
         if ($statusText -eq "Active") {
@@ -4014,11 +4014,11 @@ function Update-UserInspectorCard {
     if ($controls['TxtInspEmail'])      { $controls['TxtInspEmail'].Text = if ($User.Email) { $User.Email } elseif ($User.Mail) { $User.Mail } else { "-" } }
     if ($controls['TxtInspPwdLastSet']) { $controls['TxtInspPwdLastSet'].Text = if ($User.PasswordLastSet) { $User.PasswordLastSet } else { "-" } }
     if ($controls['TxtInspPwdExpires']) { $controls['TxtInspPwdExpires'].Text = if ($User.PasswordNeverExpires) { "Never" } elseif ($User.PasswordExpires) { $User.PasswordExpires } else { "-" } }
-    if ($controls['TxtInspBadPwdCount']) { $controls['TxtInspBadPwdCount'].Text = if ($User.BadPwdCount -ne $null) { "$($User.BadPwdCount)" } else { "0" } }
+    if ($controls['TxtInspBadPwdCount']) { $controls['TxtInspBadPwdCount'].Text = if ($null -ne $User.BadPwdCount) { "$($User.BadPwdCount)" } else { "0" } }
 }
 
-function Refresh-Users {
-    Set-Status -Message "Loading users from Active Directory..."
+Set-Alias -Name Refresh-Users -Value Update-Users -Scope Global
+function Update-Users {    Set-Status -Message "Loading users from Active Directory..."
     $searchText = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
     
     $statusFilter = "All"
@@ -4062,8 +4062,8 @@ function Refresh-Users {
     Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
 }
 
-function Filter-UsersLive {
-    $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
+Set-Alias -Name Filter-UsersLive -Value Select-UsersLive -Scope Global
+function Select-UsersLive {    $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
     if ([string]::IsNullOrWhiteSpace($query)) {
         if ($state.AllScopeUsers) {
             $allUsers = @($state.AllScopeUsers | ForEach-Object { $_ })
@@ -4545,8 +4545,8 @@ function Open-MoveDialog {
     [void]$dlg.ShowDialog()
 }
 
-function Delete-UserAction {
-    param($TargetUser = $null)
+Set-Alias -Name Delete-UserAction -Value Remove-UserAction -Scope Global
+function Remove-UserAction {    param($TargetUser = $null)
     $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) {
         [System.Windows.MessageBox]::Show("Please select a user from the list first.", "No Selection", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
@@ -4572,8 +4572,8 @@ function Delete-UserAction {
     }
 }
 
-function Toggle-UserStatusAction {
-    param($TargetUser = $null)
+Set-Alias -Name Toggle-UserStatusAction -Value Switch-UserStatusAction -Scope Global
+function Switch-UserStatusAction {    param($TargetUser = $null)
     $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) { return }
 
@@ -4765,7 +4765,7 @@ if ($controls['GridUsers']) {
                     }
                 }
                 if ($dep -is [System.Windows.Controls.Primitives.DataGridColumnHeader]) { return }
-            } catch {}
+            } catch { $null = $_ } # Suppress handled error
         }
         $u = $controls['GridUsers'].SelectedItem
         if ($u) { Open-UserDetailDialog -User $u }
@@ -4872,8 +4872,8 @@ if ($controls['BtnUsersPageNext']) {
 #endregion
 
 #region 3. Groups Management Logic
-function Refresh-Groups {
-    Set-Status -Message "Loading groups from Active Directory..."
+Set-Alias -Name Refresh-Groups -Value Update-Groups -Scope Global
+function Update-Groups {    Set-Status -Message "Loading groups from Active Directory..."
     $searchText = if ($controls['TxtSearchGroups']) { $controls['TxtSearchGroups'].Text.Trim() } else { "" }
     
     $catFilter = "All"
@@ -4903,8 +4903,8 @@ function Refresh-Groups {
     Set-Status -Message "Loaded $($groups.Count) group(s)." -Count "$($groups.Count) groups displayed"
 }
 
-function Filter-GroupsLive {
-    $query = if ($controls['TxtSearchGroups']) { $controls['TxtSearchGroups'].Text.Trim() } else { "" }
+Set-Alias -Name Filter-GroupsLive -Value Select-GroupsLive -Scope Global
+function Select-GroupsLive {    $query = if ($controls['TxtSearchGroups']) { $controls['TxtSearchGroups'].Text.Trim() } else { "" }
     
     if ($controls['TxtSearchGroupsPlaceholder']) {
         $controls['TxtSearchGroupsPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
@@ -5256,8 +5256,8 @@ function Open-MemberDialog {
     [void]$dlg.ShowDialog()
 }
 
-function Delete-GroupAction {
-    $selGroup = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+Set-Alias -Name Delete-GroupAction -Value Remove-GroupAction -Scope Global
+function Remove-GroupAction {    $selGroup = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
     if (-not $selGroup) { return }
 
     $confirm = [System.Windows.MessageBox]::Show(
@@ -5349,7 +5349,7 @@ if ($controls['GridGroups']) {
                     }
                 }
                 if ($dep -is [System.Windows.Controls.Primitives.DataGridColumnHeader]) { return }
-            } catch {}
+            } catch { $null = $_ } # Suppress handled error
         }
         $g = $controls['GridGroups'].SelectedItem
         if ($g) { Open-MemberDialog -Group $g }
@@ -5371,8 +5371,8 @@ if ($controls['BtnGroupRawAttributes']) {
 #endregion
 
 #region 4. Organizational Units (OUs) Management Logic
-function Navigate-ToDirectoryObject {
-    param (
+Set-Alias -Name Navigate-ToDirectoryObject -Value Select-ToDirectoryObject -Scope Global
+function Select-ToDirectoryObject {    param (
         [string]$DistinguishedName
     )
     if ([string]::IsNullOrWhiteSpace($DistinguishedName)) { return }
@@ -5456,8 +5456,8 @@ function Navigate-ToDirectoryObject {
     }
 }
 
-function Filter-OUTreeNodes {
-    param ([string]$Query)
+Set-Alias -Name Filter-OUTreeNodes -Value Select-OUTreeNodes -Scope Global
+function Select-OUTreeNodes {    param ([string]$Query)
     if ([string]::IsNullOrWhiteSpace($Query)) {
         if ($state.CachedOUTree -and $controls['TreeOUs']) {
             $controls['TreeOUs'].ItemsSource = @($state.CachedOUTree)
@@ -5466,8 +5466,8 @@ function Filter-OUTreeNodes {
     }
 
     $q = $Query.Trim()
-    function Filter-NodeRecursive ($node) {
-        $matchesSelf = ($node.DisplayName -and $node.DisplayName -like "*$q*") -or ($node.Name -and $node.Name -like "*$q*")
+    Set-Alias -Name Filter-NodeRecursive -Value Select-NodeRecursive -Scope Global
+    function Select-NodeRecursive ($node) {        $matchesSelf = ($node.DisplayName -and $node.DisplayName -like "*$q*") -or ($node.Name -and $node.Name -like "*$q*")
         $filteredChildren = [System.Collections.Generic.List[psobject]]::new()
         if ($node.Children) {
             foreach ($child in $node.Children) {
@@ -5496,8 +5496,8 @@ function Filter-OUTreeNodes {
     }
 }
 
-function Refresh-OUs {
-    Set-Status -Message "Building Organizational Unit hierarchy..."
+Set-Alias -Name Refresh-OUs -Value Update-OUs -Scope Global
+function Update-OUs {    Set-Status -Message "Building Organizational Unit hierarchy..."
     $ouTree = Get-ADOUTree
     $state.CachedOUTree = $ouTree
     if ($ouTree -and $controls['TreeOUs']) {
@@ -5584,8 +5584,8 @@ function Open-OUDialog {
 
 if ($controls['BtnNewOU']) { $controls['BtnNewOU'].Add_Click({ Open-OUDialog }) }
 
-function Load-OUObjectsUI {
-    $selectedNode = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
+Set-Alias -Name Load-OUObjectsUI -Value Import-OUObjectsUI -Scope Global
+function Import-OUObjectsUI {    $selectedNode = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
     if (-not $selectedNode) { return }
 
     if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $selectedNode.Name }
@@ -5758,8 +5758,8 @@ if ($controls['BtnDeleteOU']) {
 #endregion
 
 #region 5. Computers Inventory Logic
-function Refresh-Computers {
-    Set-Status -Message "Loading domain computers..."
+Set-Alias -Name Refresh-Computers -Value Update-Computers -Scope Global
+function Update-Computers {    Set-Status -Message "Loading domain computers..."
     $search = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
     $rawComputers = Get-ADComputersList -SearchText $search -Limit ($appConfig.UI.PageSize)
     $computers = @($rawComputers | ForEach-Object { $_ })
@@ -5774,8 +5774,8 @@ function Refresh-Computers {
     Set-Status -Message "Loaded $($computers.Count) computer(s)." -Count "$($computers.Count) computers displayed"
 }
 
-function Filter-ComputersLive {
-    $query = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
+Set-Alias -Name Filter-ComputersLive -Value Select-ComputersLive -Scope Global
+function Select-ComputersLive {    $query = if ($controls['TxtSearchComputers']) { $controls['TxtSearchComputers'].Text.Trim() } else { "" }
 
     if ($controls['TxtSearchComputersPlaceholder']) {
         $controls['TxtSearchComputersPlaceholder'].Visibility = if ([string]::IsNullOrWhiteSpace($query)) {
@@ -6003,8 +6003,8 @@ function global:Set-SearchAttrOutcomeBadge {
     }
 }
 
-function global:Filter-ComboAttributes {
-    param(
+Set-Alias -Name Filter-ComboAttributes -Value Select-ComboAttributes -Scope Global
+function global:Select-ComboAttributes {    param(
         [System.Windows.Controls.ComboBox]$Combo,
         [string]$Query,
         [bool]$IncludeAny = $false,
@@ -6110,8 +6110,8 @@ function global:Filter-ComboAttributes {
     }
 }
 
-function script:Filter-ComboAttributes {
-    param(
+Set-Alias -Name Filter-ComboAttributes -Value Select-ComboAttributes -Scope Global
+function script:Select-ComboAttributes {    param(
         [System.Windows.Controls.ComboBox]$Combo,
         [string]$Query,
         [bool]$IncludeAny = $false,
@@ -6123,8 +6123,8 @@ function script:Filter-ComboAttributes {
     global:Filter-ComboAttributes @PSBoundParameters
 }
 
-function Attach-SearchableAttributeDropdown {
-    param(
+Set-Alias -Name Attach-SearchableAttributeDropdown -Value Register-SearchableAttributeDropdown -Scope Global
+function Register-SearchableAttributeDropdown {    param(
         [System.Windows.Controls.ComboBox]$Combo,
         [System.Collections.Generic.List[string]]$MasterList,
         [System.Windows.Controls.TextBlock]$OutcomeText,
@@ -6270,8 +6270,8 @@ function Attach-SearchableAttributeDropdown {
     }.GetNewClosure())
 }
 
-function Populate-SearchAttributeDropdowns {
-    if ($state.SearchAttributesLoaded) { return }
+Set-Alias -Name Populate-SearchAttributeDropdowns -Value Update-SearchAttributeDropdowns -Scope Global
+function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded) { return }
 
     # Core high-priority attributes to keep at the top for quick access
     $priorityAttrs = @(
@@ -6382,8 +6382,8 @@ function Populate-SearchAttributeDropdowns {
     }
 }
 
-function Filter-SearchAttributes {
-    if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
+Set-Alias -Name Filter-SearchAttributes -Value Select-SearchAttributes -Scope Global
+function Select-SearchAttributes {    if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
         Populate-SearchAttributeDropdowns
     }
 
@@ -6415,8 +6415,8 @@ function Filter-SearchAttributes {
     }
 }
 
-function Init-DirectorySearch {
-    if ($controls['TxtSearchBaseDn'] -and [string]::IsNullOrEmpty($controls['TxtSearchBaseDn'].Text)) {
+Set-Alias -Name Init-DirectorySearch -Value Initialize-DirectorySearch -Scope Global
+function Initialize-DirectorySearch {    if ($controls['TxtSearchBaseDn'] -and [string]::IsNullOrEmpty($controls['TxtSearchBaseDn'].Text)) {
         $controls['TxtSearchBaseDn'].Text = $adContext.DefaultNamingContext
     }
     Populate-SearchAttributeDropdowns
@@ -6745,8 +6745,8 @@ function Invoke-LdapSearchUI {
     }
 }
 
-function Render-PagedSearchResults {
-    param (
+Set-Alias -Name Render-PagedSearchResults -Value Show-PagedSearchResults -Scope Global
+function Show-PagedSearchResults {    param (
         [array]$SourceItems = $null
     )
     if ($null -eq $SourceItems) {
@@ -7297,8 +7297,8 @@ if ($controls['BtnSqlExportLdif']) {
 #endregion
 
 #region 8. Raw Attribute Editor Logic
-function Load-RawAttributesUI {
-    param ([string]$TargetDN = "")
+Set-Alias -Name Load-RawAttributesUI -Value Import-RawAttributesUI -Scope Global
+function Import-RawAttributesUI {    param ([string]$TargetDN = "")
     if (-not $TargetDN -and $controls['TxtAttrEditorDN']) {
         $TargetDN = $controls['TxtAttrEditorDN'].Text.Trim()
     }
@@ -7461,10 +7461,10 @@ function Show-SpecializedEditorDialog {
 
     if ($dControls['BtnComputeHash']) {
         $dControls['BtnComputeHash'].Add_Click({
-            $pwd = if ($dControls['TxtPasswordPlain']) { $dControls['TxtPasswordPlain'].Text } else { "" }
+            $plainPwd = if ($dControls['TxtPasswordPlain']) { $dControls['TxtPasswordPlain'].Text } else { "" }
             $algo = if ($dControls['CmbPasswordAlgorithm']) { $dControls['CmbPasswordAlgorithm'].Text } else { "SSHA" }
-            if (-not [string]::IsNullOrWhiteSpace($pwd)) {
-                $h = New-LdapPasswordHash -Password $pwd -Algorithm $algo
+            if (-not [string]::IsNullOrWhiteSpace($plainPwd)) {
+                $h = New-LdapPasswordHash -Password $plainPwd -Algorithm $algo
                 if ($dControls['TxtPasswordHashResult']) { $dControls['TxtPasswordHashResult'].Text = $h }
             }
         })
@@ -7717,7 +7717,7 @@ function Open-AttributeEditDialog {
                 try {
                     $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($script:stagedCertBytes)
                     [System.Security.Cryptography.X509Certificates.X509Certificate2UI]::DisplayCertificate($cert)
-                } catch {}
+                } catch { $null = $_ } # Suppress handled error
             }
         })
 
@@ -8369,8 +8369,8 @@ if ($controls['MenuCtxSpecializedEdit']) {
 #endregion
 
 #region 9. Object Compare & Diff Logic
-function Run-ObjectCompareUI {
-    $objA = if ($controls['TxtCompareObjectA']) { $controls['TxtCompareObjectA'].Text.Trim() } else { "" }
+Set-Alias -Name Run-ObjectCompareUI -Value Invoke-ObjectCompareUI -Scope Global
+function Invoke-ObjectCompareUI {    $objA = if ($controls['TxtCompareObjectA']) { $controls['TxtCompareObjectA'].Text.Trim() } else { "" }
     $objB = if ($controls['TxtCompareObjectB']) { $controls['TxtCompareObjectB'].Text.Trim() } else { "" }
 
     if ([string]::IsNullOrWhiteSpace($objA) -or [string]::IsNullOrWhiteSpace($objB)) {
@@ -8432,8 +8432,8 @@ if ($controls['BtnCompareExportCsv']) {
 #endregion
 
 #region 10. RFC 2849 LDIF Studio Logic
-function Init-LdifStudio {
-    if ($controls['TxtLdifEditor'] -and [string]::IsNullOrWhiteSpace($controls['TxtLdifEditor'].Text)) {
+Set-Alias -Name Init-LdifStudio -Value Initialize-LdifStudio -Scope Global
+function Initialize-LdifStudio {    if ($controls['TxtLdifEditor'] -and [string]::IsNullOrWhiteSpace($controls['TxtLdifEditor'].Text)) {
         $domainNC = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "DC=corp,DC=example,DC=com" }
         $controls['TxtLdifEditor'].Text = @"
 dn: CN=Test User,CN=Users,$domainNC
@@ -8543,8 +8543,8 @@ changetype: delete
     })
 }
 
-function Validate-LdifUI {
-    $content = if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text } else { "" }
+Set-Alias -Name Validate-LdifUI -Value Test-LdifUI -Scope Global
+function Test-LdifUI {    $content = if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text } else { "" }
     if ([string]::IsNullOrWhiteSpace($content)) {
         [System.Windows.MessageBox]::Show("Please enter LDIF content to validate.", "Empty LDIF", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
         return
@@ -8571,8 +8571,8 @@ $($dryRun.Log -join "`r`n")
     if ($controls['TxtLdifLog']) { $controls['TxtLdifLog'].Text = $log }
 }
 
-function Execute-LdifUI {
-    $content = if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text } else { "" }
+Set-Alias -Name Execute-LdifUI -Value Invoke-LdifUI -Scope Global
+function Invoke-LdifUI {    $content = if ($controls['TxtLdifEditor']) { $controls['TxtLdifEditor'].Text } else { "" }
     if ([string]::IsNullOrWhiteSpace($content)) {
         [System.Windows.MessageBox]::Show("Please enter LDIF content to execute.", "Empty LDIF", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
         return
@@ -8770,8 +8770,8 @@ if ($controls['ListLdifRecords']) {
 #endregion
 
 #region 11. Security & Audit Reports Logic
-function Run-AuditReportsUI {
-    $catItem = if ($controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
+Set-Alias -Name Run-AuditReportsUI -Value Invoke-AuditReportsUI -Scope Global
+function Invoke-AuditReportsUI {    $catItem = if ($controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
     $daysItem = if ($controls['CmbAuditDays'].SelectedItem) { [int]$controls['CmbAuditDays'].SelectedItem.Content.ToString() } else { 90 }
 
     $auditType = switch -Wildcard ($catItem) {
@@ -8888,8 +8888,8 @@ if ($controls['BtnExportAuditCsv']) {
 }
 
 # Custom Saved Reports Logic (Softerra Ch08 / Screenshot 10 Parity)
-function Refresh-CustomReportsDropdown {
-    if (-not $controls['CmbCustomReports']) { return }
+Set-Alias -Name Refresh-CustomReportsDropdown -Value Update-CustomReportsDropdown -Scope Global
+function Update-CustomReportsDropdown {    if (-not $controls['CmbCustomReports']) { return }
     $controls['CmbCustomReports'].Items.Clear()
 
     if (-not $appConfig.CustomReports -or $appConfig.CustomReports.Count -le 3) {
@@ -8920,8 +8920,8 @@ function Refresh-CustomReportsDropdown {
     }
 }
 
-function Run-SelectedCustomReport {
-    $selItem = if ($controls['CmbCustomReports']) { $controls['CmbCustomReports'].SelectedItem } else { $null }
+Set-Alias -Name Run-SelectedCustomReport -Value Invoke-SelectedCustomReport -Scope Global
+function Invoke-SelectedCustomReport {    $selItem = if ($controls['CmbCustomReports']) { $controls['CmbCustomReports'].SelectedItem } else { $null }
     if (-not $selItem -or -not $selItem.Tag) {
         [System.Windows.MessageBox]::Show("Please select a custom report to run.", "No Report Selected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
         return
@@ -9062,8 +9062,8 @@ if ($controls['BtnDeleteCustomReport']) {
 #endregion
 
 #region 12. Schema Browser Logic
-function Refresh-Schema {
-    $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
+Set-Alias -Name Refresh-Schema -Value Update-Schema -Scope Global
+function Update-Schema {    $isClasses = if ($controls['RadioSchemaClasses']) { [bool]$controls['RadioSchemaClasses'].IsChecked } else { $true }
     $filterText = if ($controls['TxtSearchSchema']) { $controls['TxtSearchSchema'].Text.Trim() } else { "" }
 
     $rawItems = if ($isClasses) { Get-ADSchemaClasses } else { Get-ADSchemaAttributes }
@@ -9449,8 +9449,8 @@ function Save-BasketPersistence {
     Save-AppSettings -Config $appConfig
 }
 
-function Refresh-BasketUI {
-    if ($controls['GridBasket']) {
+Set-Alias -Name Refresh-BasketUI -Value Update-BasketUI -Scope Global
+function Update-BasketUI {    if ($controls['GridBasket']) {
         $controls['GridBasket'].ItemsSource = $null
         $controls['GridBasket'].ItemsSource = $state.BasketItems
     }
@@ -9579,7 +9579,7 @@ if ($controls['BtnBasketModifyAttr']) {
                                 $attrDict[$ra.Name] = "$($ra.Value)"
                             }
                         }
-                    } catch {}
+                    } catch { $null = $_ } # Suppress handled error
                 }
 
                 foreach ($tm in $tokenMatches) {
@@ -9903,8 +9903,8 @@ function Open-ConnectionDialog {
     [void]$dlg.ShowDialog()
 }
 
-function Refresh-Connections {
-    if ($controls['TxtDnsDiscoveryDomain'] -and [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
+Set-Alias -Name Refresh-Connections -Value Update-Connections -Scope Global
+function Update-Connections {    if ($controls['TxtDnsDiscoveryDomain'] -and [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
         $controls['TxtDnsDiscoveryDomain'].Text = if ($adContext.DomainName) { $adContext.DomainName } else { "" }
     }
 
@@ -9957,8 +9957,8 @@ function Refresh-Connections {
     }
 }
 
-function Run-ConnectionDiagnostics {
-    Set-Status -Message "Running full Active Directory connection diagnostics..."
+Set-Alias -Name Run-ConnectionDiagnostics -Value Invoke-ConnectionDiagnostics -Scope Global
+function Invoke-ConnectionDiagnostics {    Set-Status -Message "Running full Active Directory connection diagnostics..."
     $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
     $diag = Test-ADConnectionDiagnostic -Server $server -Port 389
 
@@ -10074,8 +10074,8 @@ if ($controls['BtnConnectDiscoveredDC']) {
     })
 }
 #region 17. Active Directory Recycle Bin & Tombstone Reanimation Logic
-function Refresh-RecycleBin {
-    Set-Status -Message "Querying Active Directory Recycle Bin & Tombstones..."
+Set-Alias -Name Refresh-RecycleBin -Value Update-RecycleBin -Scope Global
+function Update-RecycleBin {    Set-Status -Message "Querying Active Directory Recycle Bin & Tombstones..."
     $search = if ($controls['TxtSearchRecycleBin']) { $controls['TxtSearchRecycleBin'].Text.Trim() } else { "" }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $items = Get-ADDeletedObjects -SearchFilter $search -Limit 500
@@ -10091,8 +10091,8 @@ function Refresh-RecycleBin {
     Log-LdapRequest -Operation "RECYCLE_BIN/LIST" -TargetDN "CN=Deleted Objects" -FilterOrPayload "isDeleted=TRUE; Filter=$search" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details $msg
 }
 
-function Quick-RestoreRecycleItem {
-    if (-not (Test-CanModifyDirectory)) { return }
+Set-Alias -Name Quick-RestoreRecycleItem -Value Restore-RecycleItemQuick -Scope Global
+function Restore-RecycleItemQuick {    if (-not (Test-CanModifyDirectory)) { return }
     $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
     if (-not $sel) {
         [System.Windows.MessageBox]::Show("Please select a deleted object from the Recycle Bin table first.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -10154,8 +10154,8 @@ function Restore-RecycleItemToOU {
     }
 }
 
-function Inspect-RecycleItemAttributes {
-    $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
+Set-Alias -Name Inspect-RecycleItemAttributes -Value Get-RecycleItemAttributes -Scope Global
+function Get-RecycleItemAttributes {    $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
     if (-not $sel) { return }
     $controls['NavAttributeEditor'].IsChecked = $true
     Show-Panel "AttributeEditor"
@@ -10237,8 +10237,8 @@ if ($controls['CtxRecycleCopyLdif']) {
 #endregion
 
 #region 18. LDAP Server Monitor & RootDSE Telemetry Logic
-function Refresh-ServerMonitor {
-    Set-Status -Message "Querying RootDSE telemetry, functional levels and server controls..."
+Set-Alias -Name Refresh-ServerMonitor -Value Update-ServerMonitor -Scope Global
+function Update-ServerMonitor {    Set-Status -Message "Querying RootDSE telemetry, functional levels and server controls..."
     $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $telem = Get-ADServerTelemetry -Server $server
@@ -10279,8 +10279,8 @@ function Refresh-ServerMonitor {
     Refresh-PartitionsUI
 }
 
-function Refresh-PartitionsUI {
-    $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+Set-Alias -Name Refresh-PartitionsUI -Value Update-PartitionsUI -Scope Global
+function Update-PartitionsUI {    $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
     $parts = Get-ADDirectoryPartitions -Server $server
     $state.CachedPartitions = $parts
     if ($controls['GridPartitions']) {
@@ -10371,8 +10371,8 @@ function Add-DirectoryBookmark {
     }
 }
 
-function Refresh-BookmarksUI {
-    $bms = Get-ADBookmarks
+Set-Alias -Name Refresh-BookmarksUI -Value Update-BookmarksUI -Scope Global
+function Update-BookmarksUI {    $bms = Get-ADBookmarks
     $state.Bookmarks.Clear()
     foreach ($bm in $bms) {
         [void]$state.Bookmarks.Add($bm.DistinguishedName)
@@ -10507,8 +10507,8 @@ function Show-RenameDialog {
     return $null
 }
 
-function Handle-ObjectRename {
-    param([string]$DN, [string]$CurrentName, [scriptblock]$RefreshAction)
+Set-Alias -Name Handle-ObjectRename -Value Invoke-ObjectRename -Scope Global
+function Invoke-ObjectRename {    param([string]$DN, [string]$CurrentName, [scriptblock]$RefreshAction)
     if (-not (Test-CanModifyDirectory)) { return }
     if ([string]::IsNullOrWhiteSpace($DN)) { return }
     $newRdn = Show-RenameDialog -TargetDN $DN -CurrentName $CurrentName
@@ -11297,8 +11297,8 @@ if ($controls['TreeOUs']) {
 }
 #region 21. NetTools & Advanced Suite Logic
 
-function Init-ElevationBadge {
-    try {
+Set-Alias -Name Init-ElevationBadge -Value Initialize-ElevationBadge -Scope Global
+function Initialize-ElevationBadge {    try {
         $ident = [Security.Principal.WindowsIdentity]::GetCurrent()
         $princ = [Security.Principal.WindowsPrincipal]$ident
         $isElevated = $princ.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -11314,7 +11314,7 @@ function Init-ElevationBadge {
             }
         }
     } catch {
-        # Fallback
+        $null = $_ # Fallback when elevation check fails
     }
 }
 
@@ -11808,7 +11808,7 @@ function Show-Asn1ViewerDialog {
                             $dlgControls['TxtAsn1HexDump'].Select($targetStart, $highlightLen)
                             $dlgControls['TxtAsn1HexDump'].ScrollToLine($lineIdx)
                         }
-                    } catch {}
+                    } catch { $null = $_ } # Suppress handled error
                 }
             })
         }
@@ -11903,14 +11903,14 @@ function Show-CompareValuesDialog {
 }
 
 # --- 19. Access Control & ACL Suite Handlers ---
-function Init-SecurityAclUI {
-    if ($controls['TxtAclTargetDN'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTargetDN'].Text)) {
+Set-Alias -Name Init-SecurityAclUI -Value Initialize-SecurityAclUI -Scope Global
+function Initialize-SecurityAclUI {    if ($controls['TxtAclTargetDN'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTargetDN'].Text)) {
         $controls['TxtAclTargetDN'].Text = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "DC=corp,DC=local" }
     }
     if ($controls['TxtAclTrustee'] -and [string]::IsNullOrWhiteSpace($controls['TxtAclTrustee'].Text)) {
         $controls['TxtAclTrustee'].Text = "Domain Admins"
     }
-    if ($controls['CmbDelegationScope'] -and $controls['CmbDelegationScope'].ItemsSource -eq $null) {
+    if ($controls['CmbDelegationScope'] -and $null -eq $controls['CmbDelegationScope'].ItemsSource) {
         $controls['CmbDelegationScope'].Items.Clear()
         $cat = Get-ADDelegationReportsCatalog
         $scopeList = [System.Collections.Generic.List[string]]::new()
@@ -12259,8 +12259,8 @@ if ($controls['BtnExportTrusteeAssignments']) {
 }
 
 # --- 20. Kerberos & Authentication Suite Handlers ---
-function Refresh-KerberosTickets {
-    Set-Status -Message "Querying LSA Kerberos ticket cache..."
+Set-Alias -Name Refresh-KerberosTickets -Value Update-KerberosTickets -Scope Global
+function Update-KerberosTickets {    Set-Status -Message "Querying LSA Kerberos ticket cache..."
     $tickets = Get-KerberosTicketCache
     if ($controls['GridKerberosTickets']) { $controls['GridKerberosTickets'].ItemsSource = $tickets }
     if ($controls['TxtTicketCacheSummary']) {
@@ -12335,8 +12335,8 @@ if ($controls['BtnRefreshRidPool']) {
 }
 
 # --- 21. Replication & Topology Suite Handlers ---
-function Refresh-ReplicationTopology {
-    Set-Status -Message "Refreshing Active Directory Sites topology..."
+Set-Alias -Name Refresh-ReplicationTopology -Value Update-ReplicationTopology -Scope Global
+function Update-ReplicationTopology {    Set-Status -Message "Refreshing Active Directory Sites topology..."
     $sites = Get-ADSitesTopology
     if ($controls['BtnScanSubnetOverlaps']) {
         $controls['BtnScanSubnetOverlaps'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
@@ -12642,8 +12642,8 @@ if ($controls['BtnQuerySessions']) {
 }
 
 # --- 23. Network Diagnostics & Connectivity Suite Handlers ---
-function Init-NetworkDiagnosticsUI {
-    if ($controls['TxtDcScanHost'] -and [string]::IsNullOrWhiteSpace($controls['TxtDcScanHost'].Text)) {
+Set-Alias -Name Init-NetworkDiagnosticsUI -Value Initialize-NetworkDiagnosticsUI -Scope Global
+function Initialize-NetworkDiagnosticsUI {    if ($controls['TxtDcScanHost'] -and [string]::IsNullOrWhiteSpace($controls['TxtDcScanHost'].Text)) {
         $controls['TxtDcScanHost'].Text = if ($adContext.DomainController) { $adContext.DomainController } else { "dc1.corp.local" }
     }
     if ($controls['TxtUncPathInput'] -and [string]::IsNullOrWhiteSpace($controls['TxtUncPathInput'].Text)) {
@@ -13016,8 +13016,8 @@ if ($controls['CtxSearchCopyToDetached']) {
 #endregion
 
 #region 15. Settings Panel Logic
-function Load-SettingsPanel {
-    if ($controls['ChkAutoDetect']) { $controls['ChkAutoDetect'].IsChecked = $true }
+Set-Alias -Name Load-SettingsPanel -Value Import-SettingsPanel -Scope Global
+function Import-SettingsPanel {    if ($controls['ChkAutoDetect']) { $controls['ChkAutoDetect'].IsChecked = $true }
     if ($controls['TxtCfgSearchBase']) { $controls['TxtCfgSearchBase'].Text = $appConfig.Domain.SearchBase }
     if ($controls['TxtCfgPasswordLength']) { $controls['TxtCfgPasswordLength'].Text = $appConfig.Defaults.PasswordLength.ToString() }
     if ($controls['ChkCfgRequirePwChange']) {
@@ -13069,13 +13069,13 @@ if ($controls['BtnAddExternalTool']) {
         if (-not $name) { return }
         $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Executable or Command (e.g. ping.exe, mstsc.exe, powershell.exe):", "Tool Executable", "powershell.exe")
         if (-not $cmd) { return }
-        $args = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Arguments with Tokens (%sAMAccountName%, %dNSHostName%, %distinguishedName%, %mail%):", "Tool Arguments", "-NoExit -Command Write-Host 'Inspecting %sAMAccountName%'")
+        $toolArgs = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Arguments with Tokens (%sAMAccountName%, %dNSHostName%, %distinguishedName%, %mail%):", "Tool Arguments", "-NoExit -Command Write-Host 'Inspecting %sAMAccountName%'")
 
         if (-not $state.ExternalTools) { $state.ExternalTools = [System.Collections.ArrayList]::new() }
         $toolObj = [PSCustomObject]@{
             Name = $name
             Command = $cmd
-            Arguments = $args
+            Arguments = $toolArgs
         }
         [void]$state.ExternalTools.Add($toolObj)
         $controls['GridExternalTools'].ItemsSource = $null
@@ -13096,10 +13096,10 @@ if ($controls['BtnEditExternalTool']) {
         if (-not $name) { return }
         $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Executable:", "Edit Executable", $sel.Command)
         if (-not $cmd) { return }
-        $args = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Arguments:", "Edit Arguments", $sel.Arguments)
+        $toolArgs = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Arguments:", "Edit Arguments", $sel.Arguments)
         $sel.Name = $name
         $sel.Command = $cmd
-        $sel.Arguments = $args
+        $sel.Arguments = $toolArgs
         $controls['GridExternalTools'].Items.Refresh()
         Populate-AllExternalToolsMenus
         Set-Status -Message "Updated external tool: $name"
@@ -13261,8 +13261,8 @@ if ($controls['BtnClearLogs']) {
     })
 }
 
-function Refresh-All {
-    Refresh-Dashboard
+Set-Alias -Name Refresh-All -Value Update-All -Scope Global
+function Update-All {    Refresh-Dashboard
     Refresh-OUs
     if ($controls['NavUsers'] -and $controls['NavUsers'].IsChecked)         { Refresh-Users }
     if ($controls['NavGroups'] -and $controls['NavGroups'].IsChecked)       { Refresh-Groups }
@@ -13342,7 +13342,7 @@ $window.Add_Loaded({
 })
 
 $window.Add_Closing({
-    param($sender, $e)
+    param($src, $e)
     # Persist open tabs if enabled
     if ($state.RestoreTabsOnStartup) {
         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
@@ -13361,24 +13361,24 @@ $window.Add_Closing({
                     elseif ($dRec.Window) { $dRec.Window }
                     else { $null }
             if ($dWin -and $dWin.IsVisible) {
-                try { $dWin.Close() } catch {}
+                try { $dWin.Close() } catch { $null = $_ } # Suppress handled error
             }
             $proc = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Process')) { $dRec['Process'] } elseif ($dRec.Process) { $dRec.Process } else { $null }
             if ($proc -and -not $proc.HasExited) {
-                try { $proc.Kill() } catch {}
+                try { $proc.Kill() } catch { $null = $_ } # Suppress handled error
             }
         }
     }
 })
 
 $window.Add_SizeChanged({
-    param($sender, $e)
+    param($src, $e)
     Update-HeaderLayoutResponsive
 })
 
 # Keyboard shortcuts: Ctrl+T theme, Ctrl+R Resolver, Ctrl+W close tab, Ctrl+Tab cycle tabs, Ctrl+Shift+D detach, Ctrl+N new window, Ctrl+Shift+N duplicate tab
 $window.Add_KeyDown({
-    param($sender, $e)
+    param($src, $e)
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
         Set-ApplicationTheme -Theme $newTheme -SavePreference

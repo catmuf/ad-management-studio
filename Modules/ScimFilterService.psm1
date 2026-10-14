@@ -94,6 +94,8 @@ $script:DefaultLdapToScimMap = @{
 }
 
 function Tokenize-ScimFilter {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+    [OutputType([System.Collections.Generic.List[object]])]
     [CmdletBinding()]
     param (
         [string]$Filter
@@ -245,6 +247,8 @@ function Tokenize-ScimFilter {
 }
 
 function Parse-ScimTokens {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     param (
         [System.Collections.Generic.List[object]]$Tokens
@@ -256,12 +260,16 @@ function Parse-ScimTokens {
         Count  = $Tokens.Count
     }
 
-    function Peek-Token ($s) {
+    function Peek-Token {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         if ($s.Index -lt $s.Count) { return $s.Tokens[$s.Index] }
         return $null
     }
 
-    function Consume-Token ($s) {
+    function Consume-Token {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         if ($s.Index -lt $s.Count) {
             $t = $s.Tokens[$s.Index]
             $s.Index++
@@ -270,8 +278,10 @@ function Parse-ScimTokens {
         return $null
     }
 
-    function Expect-Token ($s, [string]$ExpectedType, [string]$Description) {
-        $tok = Consume-Token $s
+    function Expect-Token {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($State, [string]$ExpectedType, [string]$Description)
+        $tok = Consume-Token $State
         if ($null -eq $tok -or $tok.Type -ne $ExpectedType) {
             $pos = if ($tok) { $tok.Position } else { "end of filter" }
             $found = if ($tok) { "'$($tok.Value)' ($($tok.Type))" } else { "end of filter" }
@@ -280,7 +290,9 @@ function Parse-ScimTokens {
         return $tok
     }
 
-    function Parse-OrExpr ($s) {
+    function Parse-OrExpr {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         $left = Parse-AndExpr $s
         $next = Peek-Token $s
         while ($null -ne $next -and $next.Type -eq 'OR') {
@@ -296,7 +308,9 @@ function Parse-ScimTokens {
         return $left
     }
 
-    function Parse-AndExpr ($s) {
+    function Parse-AndExpr {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         $left = Parse-NotExpr $s
         $next = Peek-Token $s
         while ($null -ne $next -and $next.Type -eq 'AND') {
@@ -312,7 +326,9 @@ function Parse-ScimTokens {
         return $left
     }
 
-    function Parse-NotExpr ($s) {
+    function Parse-NotExpr {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         $tok = Peek-Token $s
         if ($null -ne $tok -and $tok.Type -eq 'NOT') {
             [void](Consume-Token $s)
@@ -325,7 +341,9 @@ function Parse-ScimTokens {
         return Parse-PrimaryExpr $s
     }
 
-    function Parse-PrimaryExpr ($s) {
+    function Parse-PrimaryExpr {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+        param ($s)
         $tok = Peek-Token $s
         if ($null -eq $tok) {
             throw "Unexpected end of filter expression."
@@ -335,7 +353,7 @@ function Parse-ScimTokens {
         if ($tok.Type -eq 'LPAREN') {
             [void](Consume-Token $s)
             $inner = Parse-OrExpr $s
-            [void](Expect-Token $s 'RPAREN' "closing parenthesis ')'")
+            [void](Expect-Token -State $s -ExpectedType 'RPAREN' -Description "closing parenthesis ')'")
             return [PSCustomObject]@{
                 Type  = 'Group'
                 Child = $inner
@@ -356,7 +374,7 @@ function Parse-ScimTokens {
             if ($next.Type -eq 'LBRACKET') {
                 [void](Consume-Token $s)
                 $subFilter = Parse-OrExpr $s
-                [void](Expect-Token $s 'RBRACKET' "closing bracket ']'")
+                [void](Expect-Token -State $s -ExpectedType 'RBRACKET' -Description "closing bracket ']'")
                 return [PSCustomObject]@{
                     Type      = 'ValuePath'
                     Attribute = $attr
@@ -444,7 +462,7 @@ function Test-ScimFilterSyntax {
             $result.Position = 0
             return $result
         }
-        $ast = Parse-ScimTokens -Tokens $tokens
+        $null = Parse-ScimTokens -Tokens $tokens
 
         $result.IsValid = $true
         $result.Message = "Valid SCIM 2.0 filter expression."
@@ -508,6 +526,7 @@ function Get-LdapAttributeName {
 }
 
 function Escape-LdapFilterValue {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     param ([object]$Value)
 
     if ($null -eq $Value) { return "" }
@@ -526,6 +545,8 @@ function Escape-LdapFilterValue {
 }
 
 function Flatten-AstNodes {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [object]$Node,
         [string]$TargetType
@@ -617,7 +638,7 @@ function Convert-AstNodeToLdap {
             $inner = $Node.Filter
 
             $subNodes = if ($inner.Type -eq 'And') { Flatten-AstNodes -Node $inner -TargetType 'And' } else { @($inner) }
-            
+
             $targetAttr = $null
             $conditions = [System.Collections.Generic.List[string]]::new()
 
@@ -738,23 +759,26 @@ function Convert-ScimFilterToLdapFilter {
         [hashtable]$AttributeMapping = @{}
     )
 
-    if ([string]::IsNullOrWhiteSpace($Filter)) {
-        throw "Filter expression cannot be empty."
-    }
+    process {
+        if ([string]::IsNullOrWhiteSpace($Filter)) {
+            throw "Filter expression cannot be empty."
+        }
 
-    $tokens = Tokenize-ScimFilter -Filter $Filter
-    if ($tokens.Count -eq 0) {
-        throw "No valid tokens found in filter '$Filter'."
-    }
+        $tokens = Tokenize-ScimFilter -Filter $Filter
+        if ($tokens.Count -eq 0) {
+            throw "No valid tokens found in filter '$Filter'."
+        }
 
-    $ast = Parse-ScimTokens -Tokens $tokens
-    $ldap = Convert-AstNodeToLdap -Node $ast -Mapping $AttributeMapping
-    return $ldap
+        $ast = Parse-ScimTokens -Tokens $tokens
+        $ldap = Convert-AstNodeToLdap -Node $ast -Mapping $AttributeMapping
+        return $ldap
+    }
 }
 
 # --- LDAP to SCIM Inverse Translation ---
 
 function Split-LdapFilterComponents {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param ([string]$InnerContent)
 
     $components = [System.Collections.Generic.List[string]]::new()
@@ -783,6 +807,7 @@ function Split-LdapFilterComponents {
 }
 
 function Parse-LdapFilterTree {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     param ([string]$Filter)
 
     $trimmed = $Filter.Trim()
@@ -1008,13 +1033,15 @@ function Convert-LdapFilterToScimFilter {
         [hashtable]$AttributeMapping = @{}
     )
 
-    if ([string]::IsNullOrWhiteSpace($Filter)) {
-        throw "LDAP filter expression cannot be empty."
-    }
+    process {
+        if ([string]::IsNullOrWhiteSpace($Filter)) {
+            throw "LDAP filter expression cannot be empty."
+        }
 
-    $ast = Parse-LdapFilterTree -Filter $Filter
-    $scim = Convert-LdapAstNodeToScim -Node $ast -Mapping $AttributeMapping
-    return $scim
+        $ast = Parse-LdapFilterTree -Filter $Filter
+        $scim = Convert-LdapAstNodeToScim -Node $ast -Mapping $AttributeMapping
+        return $scim
+    }
 }
 
 Export-ModuleMember -Function `

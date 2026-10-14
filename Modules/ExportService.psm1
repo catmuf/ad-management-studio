@@ -423,17 +423,14 @@ function Get-ADObjectHtmlContent {
     # Theme palette variables (ensures solid rendering in MSHTML/IE WebBrowser and modern browsers)
     $isLight = ($Theme -ieq "Light")
     $bgBody        = if ($isLight) { "#F8FAFC" } else { "#0E1017" }
-    $bgContainer   = if ($isLight) { "#FFFFFF" } else { "#141722" }
     $bgCard        = if ($isLight) { "#FFFFFF" } else { "#161922" }
     $bgCardHeader  = if ($isLight) { "#F1F5F9" } else { "#1E2230" }
-    $bgSubtle      = if ($isLight) { "#F8FAFC" } else { "#111319" }
     $borderColor   = if ($isLight) { "#CBD5E1" } else { "#262B3D" }
     $borderSubtle  = if ($isLight) { "#E2E8F0" } else { "#1E2230" }
     $textPrimary   = if ($isLight) { "#0F172A" } else { "#F1F5F9" }
     $textSecondary = if ($isLight) { "#475569" } else { "#94A3B8" }
     $textMuted     = if ($isLight) { "#64748B" } else { "#64748B" }
     $accentColor   = if ($isLight) { "#0284C7" } else { "#38BDF8" }
-    $accentHover   = if ($isLight) { "#0369A1" } else { "#0284C7" }
     $badgeBg       = if ($isLight) { "#E0F2FE" } else { "#1E293B" }
     $badgeText     = if ($isLight) { "#0369A1" } else { "#93C5FD" }
     $badgeBorder   = if ($isLight) { "#BAE6FD" } else { "#3B82F6" }
@@ -912,6 +909,7 @@ function Export-ADDataToDsml {
     )
 
     try {
+        $null = $DocumentType
         $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
         if ($targetDir -and -not (Test-Path $targetDir)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
@@ -1201,6 +1199,7 @@ function Export-ADDataToScim {
 
 function New-LdifChangeScript {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         $OriginalObject,
@@ -1296,7 +1295,7 @@ function Convert-ScimFilterToLdap {
     $f = [regex]::Replace($f, '(?i)(\w+)\[(?:type\s+eq\s+"[^"]+")\]', '$1')
 
     # Recursive SCIM expression translator
-    function Parse-ScimExpr {
+    function Convert-ScimExpr {
         param([string]$expr)
         $expr = $expr.Trim()
         if ([string]::IsNullOrWhiteSpace($expr)) { return "" }
@@ -1304,7 +1303,7 @@ function Convert-ScimFilterToLdap {
         # Check for top-level OR
         $orParts = Split-ScimLogical $expr "or"
         if ($orParts.Count -gt 1) {
-            $ldapSubs = $orParts | ForEach-Object { Parse-ScimExpr $_ } | Where-Object { $_ }
+            $ldapSubs = $orParts | ForEach-Object { Convert-ScimExpr $_ } | Where-Object { $_ }
             if ($ldapSubs.Count -eq 1) { return $ldapSubs[0] }
             return "(|" + [string]::Join("", $ldapSubs) + ")"
         }
@@ -1312,24 +1311,24 @@ function Convert-ScimFilterToLdap {
         # Check for top-level AND
         $andParts = Split-ScimLogical $expr "and"
         if ($andParts.Count -gt 1) {
-            $ldapSubs = $andParts | ForEach-Object { Parse-ScimExpr $_ } | Where-Object { $_ }
+            $ldapSubs = $andParts | ForEach-Object { Convert-ScimExpr $_ } | Where-Object { $_ }
             if ($ldapSubs.Count -eq 1) { return $ldapSubs[0] }
             return "(&" + [string]::Join("", $ldapSubs) + ")"
         }
 
         # Check for NOT
         if ($expr -match '^(?i)not\s*\((.+)\)$') {
-            $sub = Parse-ScimExpr $matches[1]
+            $sub = Convert-ScimExpr $matches[1]
             return "(!$sub)"
         }
         if ($expr -match '^(?i)not\s+(.+)$') {
-            $sub = Parse-ScimExpr $matches[1]
+            $sub = Convert-ScimExpr $matches[1]
             return "(!$sub)"
         }
 
         # Parenthesized group
         if ($expr.StartsWith("(") -and $expr.EndsWith(")")) {
-            return (Parse-ScimExpr ($expr.Substring(1, $expr.Length - 2)))
+            return (Convert-ScimExpr ($expr.Substring(1, $expr.Length - 2)))
         }
 
         # Special case: active eq true / false
@@ -1396,8 +1395,10 @@ function Convert-ScimFilterToLdap {
         return $result
     }
 
+    Set-Alias -Name Parse-ScimExpr -Value Convert-ScimExpr
+
     try {
-        $translated = Parse-ScimExpr $f
+        $translated = Convert-ScimExpr $f
         if (Get-Command Format-LdapFilter -ErrorAction SilentlyContinue) {
             return (Format-LdapFilter -Filter $translated)
         } elseif (Get-Command Normalize-LdapFilter -ErrorAction SilentlyContinue) {
@@ -1442,23 +1443,23 @@ function Convert-LdapFilterToScim {
         "manager"            = "manager"
     }
 
-    function Parse-LdapBranch {
+    function Convert-LdapBranch {
         param([string]$expr)
         $expr = $expr.Trim()
         if (-not ($expr.StartsWith("(") -and $expr.EndsWith(")"))) { return $expr }
         $inner = $expr.Substring(1, $expr.Length - 2).Trim()
 
         if ($inner.StartsWith("&")) {
-            $children = Extract-LdapChildren $inner.Substring(1)
-            $scimSubs = $children | ForEach-Object { Parse-LdapBranch $_ }
+            $children = Select-LdapChild $inner.Substring(1)
+            $scimSubs = $children | ForEach-Object { Convert-LdapBranch $_ }
             return [string]::Join(" and ", $scimSubs)
         } elseif ($inner.StartsWith("|")) {
-            $children = Extract-LdapChildren $inner.Substring(1)
-            $scimSubs = $children | ForEach-Object { Parse-LdapBranch $_ }
+            $children = Select-LdapChild $inner.Substring(1)
+            $scimSubs = $children | ForEach-Object { Convert-LdapBranch $_ }
             return "(" + [string]::Join(" or ", $scimSubs) + ")"
         } elseif ($inner.StartsWith("!")) {
             $child = $inner.Substring(1).Trim()
-            $scimSub = Parse-LdapBranch $child
+            $scimSub = Convert-LdapBranch $child
             return "not ($scimSub)"
         }
 
@@ -1495,7 +1496,7 @@ function Convert-LdapFilterToScim {
         return $inner
     }
 
-    function Extract-LdapChildren {
+    function Select-LdapChild {
         param([string]$str)
         $list = [System.Collections.Generic.List[string]]::new()
         $depth = 0
@@ -1515,8 +1516,11 @@ function Convert-LdapFilterToScim {
         return $list
     }
 
+    Set-Alias -Name Parse-LdapBranch -Value Convert-LdapBranch
+    Set-Alias -Name Extract-LdapChildren -Value Select-LdapChild
+
     try {
-        return (Parse-LdapBranch $f)
+        return (Convert-LdapBranch $f)
     } catch {
         return $f
     }
@@ -1538,6 +1542,7 @@ function New-ScimBulkRequest {
         Number of errors after which server should abort bulk request. Default is 1.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true, Position = 0)]
         [Alias("Items", "InputObject")]
@@ -1581,7 +1586,7 @@ function New-ScimBulkRequest {
                     givenName  = if ($item.GivenName) { "$($item.GivenName)" } else { "" }
                 }
                 displayName = $displayName
-                active     = if ($item.Enabled -ne $null) { [bool]$item.Enabled } else { $true }
+                active     = if ($null -ne $item.Enabled) { [bool]$item.Enabled } else { $true }
             }
 
             if ($item.EmailAddress -or $item.Mail) {
@@ -1686,6 +1691,7 @@ function Convert-ScimBulkRequestToOperations {
         Parses an RFC 7644 SCIM 2.0 BulkRequest JSON string into a list of staging operations.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Parameter(Mandatory = $true, Position = 0)]
         [Alias("BulkJson")]

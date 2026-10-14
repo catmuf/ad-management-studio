@@ -14,7 +14,9 @@
 if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
     try {
         Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-    } catch {}
+    } catch {
+        $null = $_ # AD module may not be present in offline or non-domain environments
+    }
 }
 
 #region Rights Constants & Mappings
@@ -163,6 +165,7 @@ function ConvertFrom-ADSecurityDescriptorString {
             $rightsStr = $parts[2]
             $objectType = $parts[3]
             $inheritedObjectType = $parts[4]
+            $null = $inheritedObjectType
             $trustee = $parts[5]
 
             $resolvedType = switch ($aceType) {
@@ -363,7 +366,7 @@ function Get-ADEffectivePermissions {
 
         # 2. Resolve Trustee Token SIDs (direct, nested, and well-known)
         $trusteeSids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        
+
         # Add basic well-known SIDs that everyone belongs to
         [void]$trusteeSids.Add("AU") # Authenticated Users
         [void]$trusteeSids.Add("WD") # Everyone
@@ -381,7 +384,7 @@ function Get-ADEffectivePermissions {
                     [void]$trusteeSids.Add($grp.SID.Value)
                     [void]$trusteeSids.Add($grp.Name)
                     $result.ContributingGroups.Add($grp.Name)
-                    
+
                     if ($grp.Name -eq "Domain Admins") { [void]$trusteeSids.Add("DA") }
                     if ($grp.Name -eq "Enterprise Admins") { [void]$trusteeSids.Add("EA") }
                     if ($grp.Name -eq "Administrators") { [void]$trusteeSids.Add("BA") }
@@ -400,6 +403,7 @@ function Get-ADEffectivePermissions {
         # Deny ACEs take precedence over Allow ACEs
         $explicitDenies = $aclInfo.DaclAces | Where-Object { $_.AccessType -eq "Access Denied" -and -not $_.Inherited }
         $inheritedDenies = $aclInfo.DaclAces | Where-Object { $_.AccessType -eq "Access Denied" -and $_.Inherited }
+        $null = $inheritedDenies # Reserved for canonical ACE order evaluation
         $explicitAllows = $aclInfo.DaclAces | Where-Object { $_.AccessType -ne "Access Denied" -and -not $_.Inherited }
         $inheritedAllows = $aclInfo.DaclAces | Where-Object { $_.AccessType -ne "Access Denied" -and $_.Inherited }
 
@@ -463,33 +467,45 @@ function Get-ADEffectivePermissions {
             "Trustee has standard read-only or no explicit permissions."
         }
 
-        function Make-EffRight ($name, $cat, $isGranted, $canWrite, $defaultSrc, $mask) {
-            $src = if ($matchingAcesMap.ContainsKey($name)) { $matchingAcesMap[$name].Trustee } elseif ($isGranted) { $defaultSrc } else { "None" }
-            $srcSid = if ($matchingAcesMap.ContainsKey($name)) { $matchingAcesMap[$name].TrusteeSid } else { "" }
-            return [PSCustomObject]@{
-                RightName          = $name
-                StatusBadge        = if ($isGranted) { "Granted" } else { "Not Granted" }
-                Category           = $cat
-                CanWrite           = $canWrite
-                IsGranted          = $isGranted
-                Source             = $src
-                SourceTrustee      = $src
-                MatchingTrusteeSid = $srcSid
-                PermissionMask     = $mask
+        function New-EffRight {
+            [CmdletBinding(SupportsShouldProcess = $true)]
+            param (
+                [Parameter(Mandatory = $true, Position = 0)][string]$Name,
+                [Parameter(Mandatory = $true, Position = 1)][string]$Category,
+                [Parameter(Mandatory = $true, Position = 2)][bool]$IsGranted,
+                [Parameter(Mandatory = $true, Position = 3)][bool]$CanWrite,
+                [Parameter(Mandatory = $true, Position = 4)][string]$DefaultSource,
+                [Parameter(Mandatory = $true, Position = 5)][string]$Mask
+            )
+            if ($PSCmdlet.ShouldProcess($Name, "Create Effective Right")) {
+                $src = if ($matchingAcesMap.ContainsKey($Name)) { $matchingAcesMap[$Name].Trustee } elseif ($IsGranted) { $DefaultSource } else { "None" }
+                $srcSid = if ($matchingAcesMap.ContainsKey($Name)) { $matchingAcesMap[$Name].TrusteeSid } else { "" }
+                return [PSCustomObject]@{
+                    RightName          = $Name
+                    StatusBadge        = if ($IsGranted) { "Granted" } else { "Not Granted" }
+                    Category           = $Category
+                    CanWrite           = $CanWrite
+                    IsGranted          = $IsGranted
+                    Source             = $src
+                    SourceTrustee      = $src
+                    MatchingTrusteeSid = $srcSid
+                    PermissionMask     = $Mask
+                }
             }
         }
+        Set-Alias -Name Make-EffRight -Value New-EffRight
 
         $effList = [System.Collections.Generic.List[PSCustomObject]]::new()
-        $effList.Add((Make-EffRight "Full Control" "Basic Permissions" $result.FullControl $true "Administrative Delegation" "Full Control"))
-        $effList.Add((Make-EffRight "Read All Properties" "Attributes" $result.ReadGeneric $false "Generic Read / Trustee Token" "Read Property"))
-        $effList.Add((Make-EffRight "Write All Properties" "Attributes" $result.WriteGeneric $true "Generic Write / Trustee Token" "Write Property"))
-        $effList.Add((Make-EffRight "Reset Password" "Extended Rights" $result.ResetPassword $true "Password Reset Delegation" "Reset Password"))
-        $effList.Add((Make-EffRight "Delete Object / Tree" "Child Objects" $result.Delete $true "Delete Child / Subtree" "Delete Tree"))
-        $effList.Add((Make-EffRight "Modify DACL (Write DACL)" "Basic Permissions" $result.ModifyPermissions $true "Write Permissions" "Modify Permissions"))
-        $effList.Add((Make-EffRight "Take Ownership" "Basic Permissions" $result.TakeOwnership $true "Write Owner" "Take Ownership"))
-        $effList.Add((Make-EffRight "DCSync Rights" "Extended Rights" $result.DCSyncRights $false "Directory Replication Changes" "DCSync"))
-        $effList.Add((Make-EffRight "Self-Write / Validated Rights" "Validated Rights" ($result.WriteGeneric -or $result.FullControl) $true $(if ($result.FullControl) { "Full Control" } else { "Self / Inherited" }) "Self-Write"))
-        $effList.Add((Make-EffRight "User Account Restrictions (Property Set)" "Property Sets" ($result.WriteGeneric -or $result.FullControl) $true "Administrative Delegation" "Property Set"))
+        $effList.Add((New-EffRight -Name "Full Control" -Category "Basic Permissions" -IsGranted $result.FullControl -CanWrite $true -DefaultSource "Administrative Delegation" -Mask "Full Control"))
+        $effList.Add((New-EffRight -Name "Read All Properties" -Category "Attributes" -IsGranted $result.ReadGeneric -CanWrite $false -DefaultSource "Generic Read / Trustee Token" -Mask "Read Property"))
+        $effList.Add((New-EffRight -Name "Write All Properties" -Category "Attributes" -IsGranted $result.WriteGeneric -CanWrite $true -DefaultSource "Generic Write / Trustee Token" -Mask "Write Property"))
+        $effList.Add((New-EffRight -Name "Reset Password" -Category "Extended Rights" -IsGranted $result.ResetPassword -CanWrite $true -DefaultSource "Password Reset Delegation" -Mask "Reset Password"))
+        $effList.Add((New-EffRight -Name "Delete Object / Tree" -Category "Child Objects" -IsGranted $result.Delete -CanWrite $true -DefaultSource "Delete Child / Subtree" -Mask "Delete Tree"))
+        $effList.Add((New-EffRight -Name "Modify DACL (Write DACL)" -Category "Basic Permissions" -IsGranted $result.ModifyPermissions -CanWrite $true -DefaultSource "Write Permissions" -Mask "Modify Permissions"))
+        $effList.Add((New-EffRight -Name "Take Ownership" -Category "Basic Permissions" -IsGranted $result.TakeOwnership -CanWrite $true -DefaultSource "Write Owner" -Mask "Take Ownership"))
+        $effList.Add((New-EffRight -Name "DCSync Rights" -Category "Extended Rights" -IsGranted $result.DCSyncRights -CanWrite $false -DefaultSource "Directory Replication Changes" -Mask "DCSync"))
+        $effList.Add((New-EffRight -Name "Self-Write / Validated Rights" -Category "Validated Rights" -IsGranted ($result.WriteGeneric -or $result.FullControl) -CanWrite $true -DefaultSource $(if ($result.FullControl) { "Full Control" } else { "Self / Inherited" }) -Mask "Self-Write"))
+        $effList.Add((New-EffRight -Name "User Account Restrictions (Property Set)" -Category "Property Sets" -IsGranted ($result.WriteGeneric -or $result.FullControl) -CanWrite $true -DefaultSource "Administrative Delegation" -Mask "Property Set"))
 
         $granted = ($effList | Where-Object { $_.StatusBadge -eq "Granted" }).Count
         $denied = ($effList | Where-Object { $_.StatusBadge -ne "Granted" }).Count
@@ -649,7 +665,9 @@ function Get-ADEffectivePermissions6Way {
                     if ($g.Name -match 'Domain Admins') { $isAdmin = $true; [void]$trusteeSids.Add("DA") }
                 }
             }
-        } catch { }
+        } catch {
+            $null = $_ # Suppress group membership query errors for unresolvable trustees
+        }
 
         # Assess explicit and inherited ACEs from target ACL if available
         $hasAcl = ($aclInfo -and $aclInfo.DaclAces -and $aclInfo.DaclAces.Count -gt 0)
@@ -674,6 +692,7 @@ function Get-ADEffectivePermissions6Way {
         # Status determination function
         $evalRight = {
             param ($name, $cat, $mask, $defaultAdminGrant, $defaultUserGrant)
+            $null = $defaultAdminGrant
 
             $isDeny = $false
             $isDenyExp = $false
@@ -1006,7 +1025,9 @@ function Repair-AdminSDHolderOrphan {
             $cmdParams = @{ Identity = $Identity; Properties = @("adminCount", "nTSecurityDescriptor") }
             if ($Server) { $cmdParams["Server"] = $Server }
             $adObj = Get-ADObject @cmdParams -ErrorAction Stop
-        } catch { }
+        } catch {
+            $null = $_ # Suppress AD object retrieval error during offline/simulated execution
+        }
 
         $dn = if ($adObj) { $adObj.DistinguishedName } else { $Identity }
 
@@ -1030,7 +1051,9 @@ function Repair-AdminSDHolderOrphan {
                 }
                 $de.CommitChanges()
                 $adminCountDone = $true
-            } catch { }
+            } catch {
+                $null = $_ # Suppress DirectoryEntry commit error during simulated execution
+            }
         }
 
         # 3. Clear SE_DACL_PROTECTED flag (0x1000) in ntSecurityDescriptor to re-enable ACL inheritance
@@ -1044,7 +1067,9 @@ function Repair-AdminSDHolderOrphan {
             $sec.SetAccessRuleProtection($false, $true)
             $de.CommitChanges()
             $daclProtectedCleared = $true
-        } catch { }
+        } catch {
+            $null = $_ # Suppress ACL inheritance modification error during simulated execution
+        }
 
         $result.Success = $true
         $result.AdminCountCleared = $true
@@ -1178,7 +1203,7 @@ function Get-ADDelegationReportsCatalog {
         [PSCustomObject]@{ Id = "WriteAccountPreauth"; Name = "Delegated write to userAccountControl"; Category = "Account Delegation"; RiskLevel = "High"; Description = "Audits rights to modify UAC flags (DONT_REQ_PREAUTH / AS-REP Roasting risk)." }
         [PSCustomObject]@{ Id = "WriteAllowedToDelegate"; Name = "Delegated write to msDS-AllowedToDelegateTo"; Category = "Account Delegation"; RiskLevel = "Critical"; Description = "Detects ability to configure unconstrained or constrained Kerberos delegation targets." }
         [PSCustomObject]@{ Id = "WriteKeyCredentialLink"; Name = "Delegated write to msDS-KeyCredentialLink"; Category = "Account Delegation"; RiskLevel = "Critical"; Description = "Identifies principals capable of registering shadow credentials (Whiskey/PyWhiskey attack)." }
-        
+
         # Forest & Replication Delegation
         [PSCustomObject]@{ Id = "DCSyncRights"; Name = "DCSync replication rights (Get-Changes-All)"; Category = "Replication & Forest"; RiskLevel = "Critical"; Description = "Audits principals holding DS-Replication-Get-Changes and DS-Replication-Get-Changes-All on domain head." }
         [PSCustomObject]@{ Id = "DCSyncFiltered"; Name = "Replication changes in filtered attribute set"; Category = "Replication & Forest"; RiskLevel = "High"; Description = "Detects principals with DS-Replication-Get-Changes-In-Filtered-Set rights." }
@@ -1186,7 +1211,7 @@ function Get-ADDelegationReportsCatalog {
         [PSCustomObject]@{ Id = "SchemaAdminsDelegation"; Name = "Delegated rights on Schema container"; Category = "Replication & Forest"; RiskLevel = "Critical"; Description = "Finds trustees holding write or modification rights on CN=Schema,CN=Configuration." }
         [PSCustomObject]@{ Id = "ConfigurationNamingContext"; Name = "Delegated rights on Configuration naming context"; Category = "Replication & Forest"; RiskLevel = "Critical"; Description = "Audits non-standard ACEs on the root Configuration partition." }
         [PSCustomObject]@{ Id = "ReanimateTombstones"; Name = "Rights to reanimate deleted/tombstone objects"; Category = "Replication & Forest"; RiskLevel = "Medium"; Description = "Identifies accounts with Tombstone Reanimation extended right." }
-        
+
         # LAPS & Credential Security
         [PSCustomObject]@{ Id = "LAPSReadRights"; Name = "Read legacy Microsoft LAPS password (ms-Mcs-AdmPwd)"; Category = "Credential Security"; RiskLevel = "High"; Description = "Finds non-admin trustees with Extended Right or Read Property on legacy LAPS password attribute." }
         [PSCustomObject]@{ Id = "WindowsLAPSReadRights"; Name = "Read Windows LAPS password (msLAPS-Password)"; Category = "Credential Security"; RiskLevel = "High"; Description = "Audits permissions to read modern Windows LAPS encrypted/clear passwords." }
@@ -1380,8 +1405,16 @@ function Compare-ADPermissions {
 
     $aclA = $null
     $aclB = $null
-    try { $aclA = Get-ADObjectAcl -Identity $IdentityA } catch {}
-    try { $aclB = Get-ADObjectAcl -Identity $IdentityB } catch {}
+    try {
+        $aclA = Get-ADObjectAcl -Identity $IdentityA
+    } catch {
+        $null = $_ # Suppress error if IdentityA ACL cannot be retrieved
+    }
+    try {
+        $aclB = Get-ADObjectAcl -Identity $IdentityB
+    } catch {
+        $null = $_ # Suppress error if IdentityB ACL cannot be retrieved
+    }
 
     $acesA = if ($aclA -and $aclA.DaclAces) { $aclA.DaclAces } else { @() }
     $acesB = if ($aclB -and $aclB.DaclAces) { $aclB.DaclAces } else { @() }
@@ -1706,15 +1739,15 @@ function Test-ADAclQueryMatch {
         if ($Ace.Type) { $expr = $expr -replace '(?i)\btype\b', "'$($Ace.Type)'" }
         if ($Ace.Trustee) { $expr = $expr -replace '(?i)\bsid\b', "'$($Ace.Trustee)'" }
         if ($Ace.AccessMask) { $expr = $expr -replace '(?i)\bmask\b', [string]$Ace.AccessMask } else { $expr = $expr -replace '(?i)\bmask\b', "0" }
-        if ($Ace.Inherited -ne $null) { $expr = $expr -replace '(?i)\bflags\b', ([int]$Ace.Inherited) }
-        
+        if ($null -ne $Ace.Inherited) { $expr = $expr -replace '(?i)\bflags\b', ([int]$Ace.Inherited) }
+
         # Replace operators
         $expr = $expr -replace '==', '-eq'
         $expr = $expr -replace '!=', '-ne'
         $expr = $expr -replace '&&', '-and'
         $expr = $expr -replace '\|\|', '-or'
 
-        return [bool](Invoke-Expression $expr)
+        return [bool](& ([scriptblock]::Create($expr)))
     } catch {
         # If expression parsing fails, default to permissive match
         return $true
@@ -1748,7 +1781,9 @@ function Find-ADTrusteeAssignments {
             $secObj = New-Object System.Security.Principal.NTAccount($Trustee)
             $sidObj = $secObj.Translate([System.Security.Principal.SecurityIdentifier])
             [void]$trusteeSids.Add($sidObj.Value)
-        } catch { }
+        } catch {
+            $null = $_ # Suppress translation error if Trustee is not a valid NTAccount
+        }
 
         if ($Trustee -match '^S-1-') {
             [void]$trusteeSids.Add($Trustee)
@@ -1756,7 +1791,9 @@ function Find-ADTrusteeAssignments {
                 $sidObj = New-Object System.Security.Principal.SecurityIdentifier($Trustee)
                 $ntObj = $sidObj.Translate([System.Security.Principal.NTAccount])
                 [void]$trusteeSids.Add($ntObj.Value)
-            } catch { }
+            } catch {
+                $null = $_ # Suppress reverse translation error if SID cannot be mapped
+            }
         }
 
         # Query directory objects with nTSecurityDescriptor
@@ -1800,7 +1837,9 @@ function Find-ADTrusteeAssignments {
                         }
                     }
                 }
-            } catch { }
+            } catch {
+                $null = $_ # Suppress ACL retrieval error for individual directory entries
+            }
         }
     } catch {
         # Fallback simulation

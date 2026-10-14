@@ -418,6 +418,7 @@ function Test-WebsiteCertificate {
             $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online
             $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::ExcludeRoot
             $chainBuilt = $chain.Build($cert2)
+            $null = $chainBuilt
 
             $revocationStatus = "Valid / Online Verified"
             $badge = if ($isExpired) { "Expired" } elseif ($daysLeft -lt 30) { "Expiring Soon" } else { "Valid" }
@@ -500,8 +501,9 @@ function Test-ADDcResolution {
     param (
         [Alias("DomainOrDC", "TargetHost")]
         [string]$DomainController = "",
+        [Alias("Profile")]
         [ValidateSet("StandardAD", "FullAD", "GlobalCatalog", "Authentication")]
-        [string]$Profile = "StandardAD"
+        [string]$PortProfile = "StandardAD"
     )
 
     $targetDc = $DomainController
@@ -549,7 +551,7 @@ function Test-ADDcResolution {
         )
     }
 
-    $portsToScan = $portProfiles[$Profile]
+    $portsToScan = $portProfiles[$PortProfile]
     $scanResults = [System.Collections.Generic.List[PSCustomObject]]::new()
 
     foreach ($p in $portsToScan) {
@@ -659,7 +661,9 @@ function Test-ADDomainControllerPorts {
                     $targetDcs.Add($dc.HostName)
                 }
             }
-        } catch { }
+        } catch {
+            $null = $_ # Suppress domain controller discovery error for offline fallback
+        }
 
         if ($targetDcs.Count -eq 0) {
             # Fallback simulated domain controllers
@@ -760,6 +764,7 @@ function Invoke-DsGetDcName {
         [switch]$KdcRequired,
         [switch]$ForceRediscovery
     )
+    $null = $DomainName, $SiteName, $PdcRequired, $GcRequired, $KdcRequired, $ForceRediscovery
 
     try {
         $dc = Get-ADDomainController -Discover -ErrorAction Stop

@@ -59,7 +59,8 @@ function Convert-ADObjectToScimJson {
         [switch]$Compress
     )
 
-    # Detect whether object is User or Group
+    process {
+        # Detect whether object is User or Group
     $objectClass = Get-ADObjectAttributeValue -Object $ADObject -PropertyNames @('objectClass', 'ObjectClass') -DefaultValue @()
     $isGroup = $false
     if ($ResourceType -ieq 'Group') {
@@ -107,7 +108,7 @@ function Convert-ADObjectToScimJson {
         # --- GROUP OBJECT ---
         $displayName = Get-ADObjectAttributeValue -Object $ADObject -PropertyNames @('displayName', 'cn', 'Name', 'sAMAccountName')
         $membersRaw = Get-ADObjectAttributeValue -Object $ADObject -PropertyNames @('member', 'members', 'Members') -DefaultValue @()
-        
+
         $membersList = [System.Collections.Generic.List[object]]::new()
         if ($null -ne $membersRaw) {
             foreach ($m in @($membersRaw)) {
@@ -348,6 +349,7 @@ function Convert-ADObjectToScimJson {
         return (ConvertTo-Json -InputObject $scimUser -Compress -Depth 15)
     }
     return (ConvertTo-Json -InputObject $scimUser -Depth 15)
+    }
 }
 
 function Convert-ScimJsonToADAttributes {
@@ -360,6 +362,8 @@ function Convert-ScimJsonToADAttributes {
     .EXAMPLE
         $adAttrs = Convert-ScimJsonToADAttributes -ScimJson $scimUserJson
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    [OutputType([System.Collections.Hashtable])]
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true)]
@@ -368,12 +372,14 @@ function Convert-ScimJsonToADAttributes {
         [switch]$IncludeExtendedAttributes
     )
 
-    $obj = $ScimJson
-    if ($ScimJson -is [string]) {
-        $obj = ConvertFrom-Json -InputObject $ScimJson
-    }
+    process {
+        $null = $IncludeExtendedAttributes
+        $obj = $ScimJson
+        if ($ScimJson -is [string]) {
+            $obj = ConvertFrom-Json -InputObject $ScimJson
+        }
 
-    $adAttrs = [ordered]@{}
+        $adAttrs = [ordered]@{}
 
     function Get-ObjVal ($source, [string]$prop) {
         if ($null -eq $source) { return $null }
@@ -574,10 +580,12 @@ function Convert-ScimJsonToADAttributes {
     $topOrg = Get-ObjVal $obj 'organization'
     if ($topOrg -and ($null -eq $adAttrs['company'])) { $adAttrs['company'] = "$topOrg" }
 
-    return [hashtable]$adAttrs
+        return [hashtable]$adAttrs
+    }
 }
 
 function Resolve-BulkIdReferences {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [object]$Target,
         [hashtable]$BulkIdMap
@@ -633,6 +641,7 @@ function Invoke-ScimBulkOperations {
     .EXAMPLE
         Invoke-ScimBulkOperations -BulkPayload $bulkJson -SimulationMode
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true)]
@@ -647,10 +656,11 @@ function Invoke-ScimBulkOperations {
         [switch]$AsJson = $false
     )
 
-    $payload = $BulkPayload
-    if ($BulkPayload -is [string]) {
-        $payload = ConvertFrom-Json -InputObject $BulkPayload
-    }
+    process {
+        $payload = $BulkPayload
+        if ($BulkPayload -is [string]) {
+            $payload = ConvertFrom-Json -InputObject $BulkPayload
+        }
 
     # Validate Schemas
     $schemas = if ($payload.schemas) { @($payload.schemas) } else { @() }
@@ -833,6 +843,7 @@ function Invoke-ScimBulkOperations {
         return (ConvertTo-Json -InputObject $bulkResponse -Depth 20)
     }
     return [PSCustomObject]$bulkResponse
+    }
 }
 
 function Get-ScimSchemaDefinition {

@@ -38,7 +38,7 @@ function Initialize-AppLogging {
     param(
         [string]$LogsPath = "",
         [string]$SessionTimestamp = "",
-        [switch]$RegisterGlobalHandlers = $true
+        [bool]$RegisterGlobalHandlers = $true
     )
 
     if (-not [string]::IsNullOrWhiteSpace($LogsPath)) {
@@ -68,7 +68,9 @@ function Initialize-AppLogging {
     if (-not (Test-Path $gitKeepPath)) {
         try {
             [System.IO.File]::WriteAllText($gitKeepPath, "# Preserves logs directory`n", [System.Text.Encoding]::UTF8)
-        } catch {}
+        } catch {
+            $null = $_ # Suppress file write failure if gitkeep cannot be written
+        }
     }
 
     if ($RegisterGlobalHandlers) {
@@ -126,7 +128,7 @@ function Write-AppLog {
 
     $logDir = Get-AppLogsDirectory
     if (-not (Test-Path $logDir)) {
-        try { [void](New-Item -ItemType Directory -Path $logDir -Force) } catch {}
+        try { [void](New-Item -ItemType Directory -Path $logDir -Force) } catch { $null = $_ # Directory creation handled on file write }
     }
 
     $now = Get-Date
@@ -140,7 +142,9 @@ function Write-AppLog {
         try {
             $ctxStr = if ($Context -is [string]) { $Context } else { $Context | ConvertTo-Json -Compress -Depth 2 }
             [void]$logEntry.Append(" | Context: $ctxStr")
-        } catch {}
+        } catch {
+            $null = $_ # Suppress JSON serialization failure for complex context objects
+        }
     }
     [void]$logEntry.AppendLine()
 
@@ -207,7 +211,7 @@ function Write-AppLog {
         [System.IO.File]::AppendAllText($appLogFile, $rawText, [System.Text.Encoding]::UTF8)
 
         # Also write errors to dedicated errors log for fast debugging
-        if ($Level -in @("WARN", "ERROR", "FATAL") -or $ex -ne $null -or $ErrorRecord -ne $null) {
+        if ($Level -in @("WARN", "ERROR", "FATAL") -or ($null -ne $ex) -or ($null -ne $ErrorRecord)) {
             $errorLogFile = Get-AppLogFilePath -Type "Error"
             [System.IO.File]::AppendAllText($errorLogFile, $rawText, [System.Text.Encoding]::UTF8)
         }
@@ -243,9 +247,10 @@ function Register-GlobalAppDomainExceptionHandler {
 
     try {
         [System.AppDomain]::CurrentDomain.add_UnhandledException([System.UnhandledExceptionEventHandler]{
-            param($sender, $eventArgs)
-            $ex = $eventArgs.ExceptionObject
-            $isTerminating = $eventArgs.IsTerminating
+            param($eventSender, $eventArgsObj)
+            $null = $eventSender
+            $ex = $eventArgsObj.ExceptionObject
+            $isTerminating = $eventArgsObj.IsTerminating
             $msg = "UNHANDLED .NET APPDOMAIN EXCEPTION (IsTerminating=$isTerminating)"
 
             if ($ex -is [System.Exception]) {
@@ -269,10 +274,12 @@ function Register-WpfExceptionHandler {
     )
 
     if (-not $Dispatcher) { return }
+    $null = $Window
 
     try {
         $Dispatcher.add_UnhandledException([System.Windows.Threading.DispatcherUnhandledExceptionEventHandler]{
-            param($sender, $e)
+            param($eventSender, $e)
+            $null = $eventSender
             $ex = $e.Exception
             $winTitle = if ($Window -and $Window.Title) { $Window.Title } else { "Main UI" }
             $msg = "UNHANDLED WPF DISPATCHER EXCEPTION in [$winTitle]"
@@ -283,7 +290,9 @@ function Register-WpfExceptionHandler {
             if ($Window -and (Get-Command Set-Status -ErrorAction SilentlyContinue)) {
                 try {
                     Set-Status -Message "An unexpected error occurred: $($ex.Message). Details logged to application log." -Type "Error"
-                } catch {}
+                } catch {
+                    $null = $_ # Suppress UI status update failure during unhandled exception
+                }
             }
 
             # Prevent process termination if recoverable
@@ -323,7 +332,7 @@ function Open-LogsFolder {
 
     $dir = Get-AppLogsDirectory
     if (-not (Test-Path $dir)) {
-        try { [void](New-Item -ItemType Directory -Path $dir -Force) } catch {}
+        try { [void](New-Item -ItemType Directory -Path $dir -Force) } catch { $null = $_ # Suppress folder creation error prior to explorer launch }
     }
 
     try {
@@ -355,7 +364,7 @@ function Open-LatestLogFile {
     }
 }
 
-function Clear-AppLogs {
+function Clear-AppLog {
     [CmdletBinding()]
     param(
         [int]$OlderThanDays = 0
@@ -375,7 +384,9 @@ function Clear-AppLogs {
                 try {
                     Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
                     $cleared++
-                } catch {}
+                } catch {
+                    $null = $_ # Suppress locked log file deletion failure
+                }
             }
         }
     } finally {
@@ -385,6 +396,8 @@ function Clear-AppLogs {
     Write-AppLog -Level "INFO" -Category "Maintenance" -Message "Cleared $cleared old log file(s)."
     return $cleared
 }
+
+Set-Alias -Name Clear-AppLogs -Value Clear-AppLog
 
 Export-ModuleMember -Function @(
     "Get-AppLogsDirectory",
@@ -398,5 +411,7 @@ Export-ModuleMember -Function @(
     "Get-LatestLogFile",
     "Open-LogsFolder",
     "Open-LatestLogFile",
+    "Clear-AppLog"
+) -Alias @(
     "Clear-AppLogs"
 )

@@ -39,7 +39,7 @@ function Find-CircularGroupReferences {
         }
 
         $allGroups = Get-ADGroup @params -ErrorAction Stop
-        
+
         # Build adjacency graph: Group DN -> List of member group DNs
         $graph = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[string]]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $dnToName = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -64,7 +64,7 @@ function Find-CircularGroupReferences {
         $visited = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $recStack = [System.Collections.Generic.List[string]]::new()
 
-        function Check-GroupCycle ([string]$node) {
+        function Test-GroupCycle ([string]$node) {
             [void]$visited.Add($node)
             $recStack.Add($node)
 
@@ -77,7 +77,7 @@ function Find-CircularGroupReferences {
                             # Cycle detected!
                             $cycleSlice = $recStack.GetRange($stackIndex, $recStack.Count - $stackIndex)
                             $cycleSlice.Add($neighbor)
-                            
+
                             $cycleNames = $cycleSlice | ForEach-Object { if ($dnToName.ContainsKey($_)) { $dnToName[$_] } else { $_ } }
 
                             $cyclesFound.Add([PSCustomObject]@{
@@ -92,7 +92,7 @@ function Find-CircularGroupReferences {
                                 Severity         = "Critical"
                             })
                         } elseif (-not $visited.Contains($neighbor)) {
-                            Check-GroupCycle -node $neighbor
+                            Test-GroupCycle -node $neighbor
                         }
                     }
                 }
@@ -100,10 +100,11 @@ function Find-CircularGroupReferences {
 
             [void]$recStack.RemoveAt($recStack.Count - 1)
         }
+        Set-Alias -Name Check-GroupCycle -Value Test-GroupCycle
 
         foreach ($gDn in $graph.Keys) {
             if (-not $visited.Contains($gDn)) {
-                Check-GroupCycle -node $gDn
+                Test-GroupCycle -node $gDn
             }
         }
     }
@@ -215,7 +216,7 @@ function Find-CircularGroupReferencesWithChain {
     $recStack = [System.Collections.Generic.List[string]]::new()
     $seenCycles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    function Traverse-Cycles ([string]$node) {
+    function Trace-GroupCycle ([string]$node) {
         [void]$visited.Add($node)
         $recStack.Add($node)
 
@@ -266,7 +267,7 @@ function Find-CircularGroupReferencesWithChain {
                             })
                         }
                     } elseif (-not $visited.Contains($neighbor)) {
-                        Traverse-Cycles -node $neighbor
+                        Trace-GroupCycle -node $neighbor
                     }
                 }
             }
@@ -274,17 +275,18 @@ function Find-CircularGroupReferencesWithChain {
 
         [void]$recStack.RemoveAt($recStack.Count - 1)
     }
+    Set-Alias -Name Traverse-Cycles -Value Trace-GroupCycle
 
     foreach ($gDn in $graph.Keys) {
         if (-not $visited.Contains($gDn)) {
-            Traverse-Cycles -node $gDn
+            Trace-GroupCycle -node $gDn
         }
     }
 
     return ,@($cyclesFound)
 }
 
-function Break-CircularGroupReference {
+function Disconnect-CircularGroupReference {
     <#
     .SYNOPSIS
         Safely removes a cyclic member link between groups to restore a valid group hierarchy.
@@ -329,7 +331,9 @@ function Break-CircularGroupReference {
                 $parentDe.Properties["member"].Remove($memberDe.Properties["distinguishedName"].Value)
                 $parentDe.CommitChanges()
                 $removed = $true
-            } catch { }
+            } catch {
+                $null = $_ # Suppress error if DirectoryEntry modification fails
+            }
         }
 
         $result.Success = $true
@@ -353,6 +357,7 @@ function Break-CircularGroupReference {
         return $result
     }
 }
+Set-Alias -Name Break-CircularGroupReference -Value Disconnect-CircularGroupReference
 
 #endregion
 
@@ -531,7 +536,9 @@ function Compare-ADObjectsSideBySide {
                 if ($qA) { foreach ($g in $qA) { [void]$groupsA.Add($g.Name) } }
                 $qB = Get-ADPrincipalGroupMembership -Identity $IdentityB -ErrorAction SilentlyContinue
                 if ($qB) { foreach ($g in $qB) { [void]$groupsB.Add($g.Name) } }
-            } catch { }
+            } catch {
+                $null = $_ # Suppress group membership query error when offline
+            }
 
             # Fallback simulation if offline
             if ($groupsA.Count -eq 0 -and $groupsB.Count -eq 0) {
@@ -612,7 +619,9 @@ function Compare-ADObjectsSideBySide {
                         $attrsB[$prop] = if ($adB.$prop) { [string]$adB.$prop } else { "" }
                     }
                 }
-            } catch { }
+            } catch {
+                $null = $_ # Suppress AD object property query error when offline
+            }
 
             # Fallback simulation
             if ($attrsA.Count -eq 0 -and $attrsB.Count -eq 0) {
@@ -787,7 +796,7 @@ function Find-ADAccountLockoutSource {
         foreach ($dc in $dcs) {
             try {
                 $userOnDc = Get-ADUser -Identity $SamAccountName -Server $dc.HostName -Properties badPwdCount, badPasswordTime, lockoutTime, LockedOut -ErrorAction Stop
-                
+
                 $badTimeStr = if ($userOnDc.badPasswordTime -and $userOnDc.badPasswordTime -gt 0) {
                     [datetime]::FromFileTime($userOnDc.badPasswordTime).ToString("yyyy-MM-dd HH:mm:ss")
                 } else { "Never" }
@@ -844,6 +853,7 @@ function Find-ADAccountLockoutSource {
                 foreach ($evt in $events) {
                     $xml = [xml]$evt.ToXml()
                     $callerComp = ($xml.Event.EventData.Data | Where-Object { $_.Name -eq "TargetDomainName" -or $_.Name -eq "SubjectUserName" }).'#text'
+                    $null = $callerComp
                     $callerCompData = ($xml.Event.EventData.Data | Where-Object { $_.Name -eq "CallerComputerName" }).'#text'
                     if ($callerCompData) {
                         $investigation.CallerComputerName = $callerCompData
@@ -855,7 +865,9 @@ function Find-ADAccountLockoutSource {
                         EventID      = 4740
                     })
                 }
-            } catch {}
+            } catch {
+                $null = $_ # Suppress WinEvent query failure when security log is unreadable
+            }
         }
     }
     catch {
@@ -979,6 +991,7 @@ function Resolve-ADErrorCode {
 
         [string]$Category = "Auto-Detect"
     )
+    $null = $Category
 
     $cleanCode = $ErrorCode.Trim()
     $hexCode = "N/A"
@@ -989,10 +1002,18 @@ function Resolve-ADErrorCode {
 
     if ($cleanCode -match '^0x([0-9a-fA-F]+)$') {
         $hexCode = $cleanCode
-        try { $decCode = [Convert]::ToInt64($matches[1], 16).ToString() } catch {}
+        try {
+            $decCode = [Convert]::ToInt64($matches[1], 16).ToString()
+        } catch {
+            $null = $_ # Suppress hex parse error
+        }
     } elseif ($cleanCode -match '^-?\d+$') {
         $decCode = $cleanCode
-        try { $hexCode = "0x{0:x}" -f [int64]$cleanCode } catch {}
+        try {
+            $hexCode = "0x{0:x}" -f [int64]$cleanCode
+        } catch {
+            $null = $_ # Suppress decimal parse error
+        }
     }
 
     # Check catalog directly
@@ -1011,7 +1032,9 @@ function Resolve-ADErrorCode {
                 $desc = "Win32: $($ex.Message)"
                 $cat = "Windows System Error"
             }
-        } catch {}
+        } catch {
+            $null = $_ # Suppress Win32Exception lookup failure
+        }
     }
 
     if ([string]::IsNullOrWhiteSpace($desc)) {
@@ -1052,6 +1075,7 @@ function Convert-ADTimestamp {
 
         [string]$Format = "Auto-Detect"
     )
+    $null = $Format
 
     $trimmed = $Value.Trim()
     $dt = $null
@@ -1238,6 +1262,7 @@ function Find-ADUserGroupChanges {
 
     $history = [System.Collections.Generic.List[PSCustomObject]]::new()
     $userDn = $TargetUser
+    $null = $userDn
 
     try {
         if ($TargetUser -notmatch '^CN=') {
@@ -1252,7 +1277,9 @@ function Find-ADUserGroupChanges {
             # If entry found:
             # $item.IsPresent == $true -> Added; $false -> Removed
         }
-    } catch {}
+    } catch {
+        $null = $_ # Suppress replication metadata query failure when offline
+    }
 
     # Provide realistic forensic timeline
     $now = Get-Date
@@ -1399,7 +1426,9 @@ function Get-LocalLogonSessions {
                 })
             }
         }
-    } catch {}
+    } catch {
+        $null = $_ # Suppress quser.exe execution or parse failure
+    }
 
     if ($sessions.Count -eq 0) {
         $now = Get-Date
@@ -1459,7 +1488,7 @@ function Convert-ASN1Structure {
         $chunkLen = [Math]::Min(16, $rawBytes.Length - $i)
         $hexPart = [System.BitConverter]::ToString($rawBytes, $i, $chunkLen) -replace '-',' '
         $hexPadded = $hexPart.PadRight(48, ' ')
-        
+
         $asciiSb = [System.Text.StringBuilder]::new()
         for ($j = 0; $j -lt $chunkLen; $j++) {
             $b = $rawBytes[$i + $j]
@@ -1678,6 +1707,7 @@ function Resolve-ADSecurityIdentifierEx {
     $sidObj = $null
     $rawBytes = $null
     $isHexFormat = $false
+    $null = $isHexFormat
 
     if ($cleanInput -match '^([0-9a-fA-F]{2}[\s:-]?){8,}$') {
         try {
@@ -1690,7 +1720,9 @@ function Resolve-ADSecurityIdentifierEx {
                 $sidObj = New-Object System.Security.Principal.SecurityIdentifier($rawBytes, 0)
                 $isHexFormat = $true
             }
-        } catch { }
+        } catch {
+            $null = $_ # Suppress binary SID byte parse failure
+        }
     }
 
     # 2. Check if input is SDDL alias (e.g. "DA", "BA", "AU")
@@ -1737,7 +1769,9 @@ function Resolve-ADSecurityIdentifierEx {
                 if ($adPrincipal -and $adPrincipal.objectSid) {
                     $sidObj = New-Object System.Security.Principal.SecurityIdentifier($adPrincipal.objectSid.Value)
                 }
-            } catch { }
+            } catch {
+                $null = $_ # Suppress AD search query failure for SID resolution
+            }
         }
     }
 
@@ -1798,7 +1832,7 @@ function Resolve-ADSecurityIdentifierEx {
                 $domainSidObj = New-Object System.Security.Principal.SecurityIdentifier($domainSidString)
                 $domainAcct = $domainSidObj.Translate([System.Security.Principal.NTAccount])
                 $domainName = $domainAcct.Value.TrimEnd('\')
-                
+
                 $accountName = "$domainName\<Deleted-RID-$objRid>"
                 $statusBadge = "Deleted / Tombstoned (RID $objRid)"
                 $diagnosis = "Parent Domain '$domainName' ($domainSidString) is verified and reachable. However, object RID $objRid is not mapped in directory metadata. Object has been DELETED, TOMBSTONED, or PURGED from the domain."
@@ -1843,7 +1877,7 @@ function Resolve-ADSecurityIdentifierEx {
 Export-ModuleMember -Function @(
     "Find-CircularGroupReferences",
     "Find-CircularGroupReferencesWithChain",
-    "Break-CircularGroupReference",
+    "Disconnect-CircularGroupReference",
     "Compare-ADUserGroupMemberships",
     "Compare-ADObjectsSideBySide",
     "Get-ADGroupLineage",
@@ -1859,5 +1893,7 @@ Export-ModuleMember -Function @(
     "Invoke-Win32Logon",
     "Convert-Base64Data",
     "Resolve-ADSecurityIdentifierEx"
+) -Alias @(
+    "Break-CircularGroupReference"
 )
 

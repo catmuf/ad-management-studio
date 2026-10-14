@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Active Directory Management Studio - Headless Automation CLI
 .DESCRIPTION
@@ -92,6 +92,26 @@ param (
     [Parameter(ParameterSetName = "QuerySQL", Mandatory = $true)]
     [switch]$QuerySQL,
 
+    [Parameter(ParameterSetName = "Command", Mandatory = $true)]
+    [ValidateSet("DiscoverDC", "CompileScim", "CalcTokenSize", "ScanGroupCycles", "CheckUnc")]
+    [string]$Command,
+
+    # --- Command-specific Parameters ---
+    [Parameter(ParameterSetName = "Command")]
+    [Alias("DomainName")]
+    [string]$Domain = "",
+
+    [Parameter(ParameterSetName = "Command")]
+    [string]$ScimFilter = "",
+
+    [Parameter(ParameterSetName = "Command")]
+    [Alias("User", "Identity")]
+    [string]$Username = "",
+
+    [Parameter(ParameterSetName = "Command")]
+    [Alias("UncPath", "FilePath")]
+    [string]$Path = "",
+
     # --- Export Parameters ---
     [Parameter(ParameterSetName = "Export")]
     [string]$Filter = "(objectClass=*)",
@@ -123,7 +143,7 @@ param (
 
     # --- Import LDIF Parameters ---
     [Parameter(ParameterSetName = "ImportLDIF", Mandatory = $true)]
-    [string]$InFile = "",
+    [string]$InFile,
 
     [Parameter(ParameterSetName = "ImportLDIF")]
     [Alias("ValidateOnly")]
@@ -148,7 +168,7 @@ param (
     # --- SQL Query Parameters ---
     [Parameter(ParameterSetName = "QuerySQL", Mandatory = $true)]
     [Alias("SQL", "QueryString")]
-    [string]$Query = "",
+    [string]$Query,
 
     [Parameter(ParameterSetName = "QuerySQL")]
     [ValidateSet("Table", "CSV", "JSON")]
@@ -159,7 +179,8 @@ param (
     [string]$Server = "",
 
     [Parameter()]
-    [string]$Profile = "",
+    [Alias("Profile")]
+    [string]$ProfileName = "",
 
     [Parameter()]
     [string]$ConfigPath = "",
@@ -200,12 +221,14 @@ USAGE:
    .\tools\ad-studio-cli.ps1 -ImportLDIF [options]
    .\tools\ad-studio-cli.ps1 -Audit [options]
    .\tools\ad-studio-cli.ps1 -QuerySQL [options]
+   .\tools\ad-studio-cli.ps1 -Command <DiscoverDC|CompileScim|CalcTokenSize|ScanGroupCycles|CheckUnc> [options]
 
 COMMAND MODES:
    -Export      Queries directory using LDAP filter and writes CSV, JSON, or LDIF.
    -ImportLDIF  Parses and executes an RFC 2849 LDIF script (supports -DryRun).
    -Audit       Runs directory hygiene/security checks (inactive, locked, UAC, etc.).
    -QuerySQL    Executes ANSI-SQL queries against LDAP endpoints.
+   -Command     Executes dedicated identity diagnostic routines.
 
 EXPORT OPTIONS:
    -Filter <string>        RFC 4515 LDAP Filter (default: '(objectClass=*)')
@@ -232,6 +255,13 @@ LDAP-SQL OPTIONS:
    -QueryFormat <string>   Table | CSV | JSON (default: Table)
    -OutFile <path>         Destination file path (optional)
 
+DIAGNOSTIC COMMANDS (-Command):
+   DiscoverDC       Query DNS SRV locator records for Domain Controllers (-Domain <name>)
+   CompileScim      Compile RFC 7644 SCIM filter to native RFC 4515 LDAP (-ScimFilter <expr>)
+   CalcTokenSize    Estimate Kerberos PAC Token Size and MaxTokenSize risk (-Username <user>)
+   ScanGroupCycles  Analyze directory group graph for circular loop cycles
+   CheckUnc         Execute sequential 7-tier diagnostics against UNC share (-Path <unc>)
+
 GLOBAL OPTIONS:
    -Server <string>        Domain Controller host or IP override
    -Profile <string>       Named connection profile from config.json
@@ -251,11 +281,14 @@ EXAMPLES:
 
    # Execute LDAP SQL query
    .\tools\ad-studio-cli.ps1 -QuerySQL -Query "SELECT sAMAccountName, mail FROM 'DC=example,DC=com' WHERE objectClass = 'user'"
+
+   # Compile SCIM filter to native LDAP
+   .\tools\ad-studio-cli.ps1 -Command CompileScim -ScimFilter 'userName sw "john" and title pr'
 "@ -ForegroundColor Yellow
 }
 
 # Check if Help was requested or no parameters provided
-if ($Help -or ($PSCmdlet.ParameterSetName -eq "Default" -and -not $Export -and -not $ImportLDIF -and -not $Audit -and -not $QuerySQL)) {
+if ($Help -or ($PSCmdlet.ParameterSetName -eq "Default" -and -not $Export -and -not $ImportLDIF -and -not $Audit -and -not $QuerySQL -and -not $Command)) {
     Show-CliHelp
     exit 0
 }
@@ -269,6 +302,10 @@ try {
     Import-Module (Join-Path $modulesDir "ValidationService.psm1") -ErrorAction Stop
     Import-Module (Join-Path $modulesDir "ADService.psm1") -ErrorAction Stop
     Import-Module (Join-Path $modulesDir "ExportService.psm1") -ErrorAction Stop
+    Import-Module (Join-Path $modulesDir "NetworkService.psm1") -ErrorAction SilentlyContinue
+    Import-Module (Join-Path $modulesDir "KerberosService.psm1") -ErrorAction SilentlyContinue
+    Import-Module (Join-Path $modulesDir "DiagnosticService.psm1") -ErrorAction SilentlyContinue
+    Import-Module (Join-Path $modulesDir "ScimFilterService.psm1") -ErrorAction SilentlyContinue
 }
 catch {
     Write-Error "Failed to load application modules from '$modulesDir': $_"
@@ -283,8 +320,8 @@ $appSettings = Get-AppSettings -ConfigPath $cfgPath
 $resolvedServer = $Server
 $resolvedBaseDN = $BaseDN
 
-if (-not $resolvedServer -and $Profile -and $appSettings.Profiles) {
-    $matchedProfile = $appSettings.Profiles | Where-Object { $_.Name -eq $Profile }
+if (-not $resolvedServer -and $ProfileName -and $appSettings.Profiles) {
+    $matchedProfile = $appSettings.Profiles | Where-Object { $_.Name -eq $ProfileName }
     if ($matchedProfile) {
         if ($matchedProfile.Server) { $resolvedServer = $matchedProfile.Server }
         if (-not $resolvedBaseDN -and $matchedProfile.SearchBase) { $resolvedBaseDN = $matchedProfile.SearchBase }
@@ -607,5 +644,128 @@ if ($QuerySQL) {
         }
     }
 
+    exit 0
+}
+
+# ==============================================================================
+# MODE: -Command
+# ==============================================================================
+if ($Command) {
+    switch ($Command) {
+        "DiscoverDC" {
+            $dom = if ($Domain) { $Domain } elseif ($appSettings.Domain -and $appSettings.Domain.DomainName) { $appSettings.Domain.DomainName } else { "contoso.local" }
+            if (-not $Quiet) {
+                Write-Host "[DISCOVER] Discovering Domain Controllers for domain: $dom" -ForegroundColor Cyan
+            }
+            try {
+                $dcInfo = Invoke-DsGetDcName -DomainName $dom
+                if ($Quiet) {
+                    $dcInfo
+                }
+                else {
+                    $dcInfo | Format-List
+                }
+            }
+            catch {
+                Write-Error "Failed to discover domain controllers for '$dom': $_"
+                exit 1
+            }
+        }
+        "CompileScim" {
+            $rawFilter = if ($ScimFilter) { $ScimFilter } else { $Filter }
+            if (-not $rawFilter) {
+                Write-Error "Please specify -ScimFilter '<expression>'"
+                exit 1
+            }
+            if (-not $Quiet) {
+                Write-Host "[SCIM] Compiling SCIM 2.0 filter expression..." -ForegroundColor Cyan
+                Write-Host "  SCIM:  $rawFilter" -ForegroundColor Gray
+            }
+            try {
+                $ldapFilter = Convert-ScimFilterToLdapFilter -Filter $rawFilter
+                if ($Quiet) {
+                    $ldapFilter
+                }
+                else {
+                    Write-Host "  LDAP:  $ldapFilter" -ForegroundColor Green
+                    [PSCustomObject]@{
+                        ScimFilter = $rawFilter
+                        LdapFilter = $ldapFilter
+                    } | Format-List
+                }
+            }
+            catch {
+                Write-Error "SCIM filter compilation error: $_"
+                exit 1
+            }
+        }
+        "CalcTokenSize" {
+            $targetUser = if ($Username) { $Username } else { "alex.morgan" }
+            if (-not $Quiet) {
+                Write-Host "[KERBEROS] Calculating PAC MaxTokenSize estimate for user: $targetUser" -ForegroundColor Cyan
+            }
+            try {
+                $tokenEstimate = Measure-ADUserTokenSizeWithThresholds -Identity $targetUser
+                if ($Quiet) {
+                    $tokenEstimate
+                }
+                else {
+                    $tokenEstimate | Format-List
+                }
+            }
+            catch {
+                Write-Error "Failed to calculate Kerberos token size: $_"
+                exit 1
+            }
+        }
+        "ScanGroupCycles" {
+            if (-not $Quiet) {
+                Write-Host "[DIAGNOSTICS] Scanning Active Directory for circular group nesting loops..." -ForegroundColor Cyan
+            }
+            try {
+                $cycles = Find-CircularGroupReferences
+                if (-not $cycles -or $cycles.Count -eq 0) {
+                    if (-not $Quiet) {
+                        Write-Host "[PASS] No circular group nesting loops detected in domain." -ForegroundColor Green
+                    }
+                }
+                else {
+                    if ($Quiet) {
+                        $cycles
+                    }
+                    else {
+                        Write-Host "[WARN] Found $($cycles.Count) circular group nesting loop(s):" -ForegroundColor Yellow
+                        $cycles | Format-Table -AutoSize
+                    }
+                }
+            }
+            catch {
+                Write-Error "Failed to scan group cycles: $_"
+                exit 1
+            }
+        }
+        "CheckUnc" {
+            $uncTarget = if ($Path) { $Path } else { "\\dc01.corp.local\SYSVOL\corp.local" }
+            if (-not $Quiet) {
+                Write-Host "[UNC] Executing 7-tier sequential diagnostics on: $uncTarget" -ForegroundColor Cyan
+            }
+            try {
+                $uncResult = Test-ADUncPath7Tier -UncPath $uncTarget
+                if ($Quiet) {
+                    $uncResult
+                }
+                else {
+                    Write-Host "[UNC] Status: $($uncResult.Status) | Total Latency: $($uncResult.TotalLatencyMs) ms" -ForegroundColor $(if ($uncResult.Success) { "Green" } else { "Yellow" })
+                    if ($uncResult.Steps) {
+                        $uncResult.Steps | Format-Table StepNumber, StepName, StatusBadge, LatencyMs, Target, Details -AutoSize
+                    }
+                }
+            }
+            catch {
+                Write-Error "Failed to execute UNC diagnostics: $_"
+                exit 1
+            }
+        }
+    }
     exit 0
 }

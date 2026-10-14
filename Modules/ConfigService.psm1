@@ -7,6 +7,7 @@
 
 function Get-AppSettings {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [Alias("Get-AppConfig")]
     param (
         [string]$ConfigPath = "$PSScriptRoot\..\config.json"
@@ -124,6 +125,7 @@ function Get-AppSettings {
 
 function Save-AppSettings {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [Alias("Save-AppConfig", "Set-AppSettings")]
     param (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -211,7 +213,6 @@ function Get-ADEnvironmentContext {
         
         $defNC = $rootDse.defaultNamingContext
         $dnsHost = $rootDse.dnsHostName
-        $rootNC = $rootDse.rootDomainNamingContext
 
         if ($defNC) {
             $parts = ($defNC -split 'DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
@@ -242,6 +243,7 @@ function Get-ADBookmarks {
         Retrieves directory favorites/bookmarks from application configuration.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$ConfigPath = "$PSScriptRoot\..\config.json"
     )
@@ -290,6 +292,7 @@ function Remove-ADBookmark {
         Removes an Active Directory object from persistent favorites/bookmarks.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$DistinguishedName,

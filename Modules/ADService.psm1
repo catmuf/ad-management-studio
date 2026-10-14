@@ -24,6 +24,8 @@ if (Test-Path $valServicePath) {
 
 #region Helper Functions
 function Remove-DiacriticsText {
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param ([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
     $norm = $Text.Normalize([System.Text.NormalizationForm]::FormD)
@@ -308,10 +310,12 @@ function Get-ADUserDetail {
 
 function Test-ADUsernameExists {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$SamAccountName
     )
+    $null = $SamAccountName
 
     try {
         $existing = Get-ADUser -Filter { SamAccountName -eq $SamAccountName } -ErrorAction SilentlyContinue
@@ -324,6 +328,7 @@ function Test-ADUsernameExists {
 
 function New-ADUserItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$FirstName,
@@ -414,6 +419,7 @@ function New-ADUserItem {
 
 function Set-ADUserItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity,
@@ -462,6 +468,7 @@ function Set-ADUserItem {
 
 function Remove-ADUserItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity
@@ -484,6 +491,7 @@ function Remove-ADUserItem {
 
 function Set-ADUserPassword {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity,
@@ -521,6 +529,7 @@ function Set-ADUserPassword {
 
 function Set-ADUserStatus {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity,
@@ -750,6 +759,7 @@ function Get-ADGroupMembersList {
 
 function Get-ADTransitiveGroupMembers {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity
@@ -759,6 +769,7 @@ function Get-ADTransitiveGroupMembers {
 
 function New-ADGroupItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -805,6 +816,7 @@ function New-ADGroupItem {
 
 function Remove-ADGroupItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity
@@ -852,6 +864,7 @@ function Add-ADPrincipalToGroup {
 
 function Remove-ADPrincipalFromGroup {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$GroupIdentity,
@@ -995,6 +1008,7 @@ function Get-ADOUFlatList {
 
 function New-ADOrganizationalUnitItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -1030,6 +1044,7 @@ function New-ADOrganizationalUnitItem {
 
 function Remove-ADOrganizationalUnitItem {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Identity,
@@ -1169,6 +1184,7 @@ function Get-ADObjectsInOU {
 #region Dashboard Metrics
 function Get-ADDashboardStats {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param ()
 
     $stats = [PSCustomObject]@{
@@ -1311,6 +1327,7 @@ function Invoke-LdapQuery {
 
 function Get-ADObjectRawAttributes {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$DistinguishedName,
@@ -1337,7 +1354,7 @@ function Get-ADObjectRawAttributes {
         if ($IncludeOperational) {
             try {
                 $entry.RefreshCache($operationalAttrs)
-            } catch {}
+            } catch { $null = $_ <# Suppress unhandled exception #> }
         }
 
         $purelyOperational = @(
@@ -1436,6 +1453,7 @@ function Get-ADObjectRawAttributes {
 
 function Set-ADObjectRawAttribute {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$DistinguishedName,
@@ -1505,6 +1523,7 @@ function Add-ADObjectRawAttributeValue {
 
 function Remove-ADObjectRawAttributeValue {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$DistinguishedName,
@@ -1584,9 +1603,9 @@ function Invoke-ADSqlExtendedQuery {
                 $mask = $matches[2]
                 $val  = [int64]$matches[3]
                 if ($val -eq 0) {
-                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                    $filterItems += "(!($($attr):1.2.840.113556.1.4.803:=$mask))"
                 } else {
-                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                    $filterItems += "($($attr):1.2.840.113556.1.4.803:=$mask))"
                 }
             }
             # Bitwise operator & support: attr & mask != val
@@ -1595,25 +1614,25 @@ function Invoke-ADSqlExtendedQuery {
                 $mask = $matches[2]
                 $val  = [int64]$matches[3]
                 if ($val -eq 0) {
-                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                    $filterItems += "($($attr):1.2.840.113556.1.4.803:=$mask))"
                 } else {
-                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                    $filterItems += "(!($($attr):1.2.840.113556.1.4.803:=$mask))"
                 }
             }
             # Bitwise operator & truthy: attr & mask
             elseif ($cond -match '(?i)^(\w+)\s*&\s*(\d+)$') {
                 $attr = $matches[1]
                 $mask = $matches[2]
-                $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                $filterItems += "($($attr):1.2.840.113556.1.4.803:=$mask))"
             }
             elseif ($cond -match '(?i)BITWISE_AND\((\w+),\s*(\d+)\)\s*=\s*(\d+)') {
                 $attr = $matches[1]
                 $mask = $matches[2]
                 $val  = [int64]$matches[3]
                 if ($val -eq 0) {
-                    $filterItems += "(!($attr:1.2.840.113556.1.4.803:=$mask))"
+                    $filterItems += "(!($($attr):1.2.840.113556.1.4.803:=$mask))"
                 } else {
-                    $filterItems += "($attr:1.2.840.113556.1.4.803:=$mask)"
+                    $filterItems += "($($attr):1.2.840.113556.1.4.803:=$mask))"
                 }
             }
             elseif ($cond -match '(?i)BITWISE_OR\((\w+),\s*(\d+)\)\s*=\s*\d+') {
@@ -1650,7 +1669,6 @@ function Invoke-ADSqlExtendedQuery {
     }
 
     # Helper: In-memory WHERE predicate evaluator
-    # Helper: In-memory WHERE predicate evaluator
     $evaluateWherePredicate = {
         param($obj, [string]$wherePart)
         if (-not $wherePart) { return $true }
@@ -1661,61 +1679,56 @@ function Invoke-ADSqlExtendedQuery {
                 $prop = $matches[1]
                 $mask = [int64]$matches[2]
                 $exp  = [int64]$matches[3]
-                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
-                          else { 0 }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { [int64]$propProp.Value } else { 0 }
                 if (($actual -band $mask) -ne $exp) { return $false }
             }
             elseif ($c -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*&\s*(\d+)\s*(?:!=|<>)\s*(\d+)$') {
                 $prop = $matches[1]
                 $mask = [int64]$matches[2]
                 $exp  = [int64]$matches[3]
-                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
-                          else { 0 }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { [int64]$propProp.Value } else { 0 }
                 if (($actual -band $mask) -eq $exp) { return $false }
             }
             elseif ($c -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*&\s*(\d+)$') {
                 $prop = $matches[1]
                 $mask = [int64]$matches[2]
-                $actual = if ($obj.PSObject.Properties[$prop]) { [int64]$obj.$prop }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { [int64]$obj.(($prop -split '\.')[1]) }
-                          else { 0 }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { [int64]$propProp.Value } else { 0 }
                 if (($actual -band $mask) -eq 0) { return $false }
             }
             elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s*=\s*'?(.*?)'?$") {
                 $prop = $matches[1]
                 $expected = $matches[2]
-                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
-                          else { "" }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { "$($propProp.Value)" } else { "" }
                 if ($actual -ine $expected) { return $false }
             }
             elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s*(?:!=|<>)\s*'?(.*?)'?$") {
                 $prop = $matches[1]
                 $expected = $matches[2]
-                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
-                          else { "" }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { "$($propProp.Value)" } else { "" }
                 if ($actual -ieq $expected) { return $false }
             }
             elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+LIKE\s+'?(.*?)'?$") {
                 $prop = $matches[1]
                 $pat  = $matches[2] -replace '%', '*'
-                $actual = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" }
-                          elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" }
-                          else { "" }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $actual = if ($propProp) { "$($propProp.Value)" } else { "" }
                 if ($actual -notlike $pat) { return $false }
             }
             elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+IS\s+NOT\s+NULL$") {
                 $prop = $matches[1]
-                $hasProp = $obj.PSObject.Properties[$prop] -or ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]])
-                $val = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" } elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" } else { "" }
-                if (-not $hasProp -or [string]::IsNullOrEmpty($val)) { return $false }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $val = if ($propProp) { "$($propProp.Value)" } else { "" }
+                if ($null -eq $propProp -or [string]::IsNullOrEmpty($val)) { return $false }
             }
             elseif ($c -match "^([a-zA-Z0-9_\-\.]+)\s+IS\s+NULL$") {
                 $prop = $matches[1]
-                $val = if ($obj.PSObject.Properties[$prop]) { "$($obj.$prop)" } elseif ($prop -match '\.' -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { "$($obj.(($prop -split '\.')[1]))" } else { "" }
+                $propProp = if ($obj.PSObject.Properties[$prop]) { $obj.PSObject.Properties[$prop] } elseif ($prop.Contains('.') -and $obj.PSObject.Properties[($prop -split '\.')[1]]) { $obj.PSObject.Properties[($prop -split '\.')[1]] } else { $null }
+                $val = if ($propProp) { "$($propProp.Value)" } else { "" }
                 if (-not [string]::IsNullOrEmpty($val)) { return $false }
             }
         }
@@ -1769,12 +1782,12 @@ function Invoke-ADSqlExtendedQuery {
             $propName = $expr.Trim('$')
             if ($targetObj.PSObject.Properties[$propName]) {
                 $val = $targetObj.$propName
-                if ($val -ne $null) { return [string]$val } else { return "" }
+                if ($null -ne $val) { return [string]$val } else { return "" }
             }
             if ($propName -match '\.' -and $targetObj.PSObject.Properties[($propName -split '\.')[1]]) {
                 $shortName = ($propName -split '\.')[1]
                 $val = $targetObj.$shortName
-                if ($val -ne $null) { return [string]$val } else { return "" }
+                if ($null -ne $val) { return [string]$val } else { return "" }
             }
             if ($expr -match '^[a-zA-Z][a-zA-Z0-9_\-\.]+$') {
                 return ""
@@ -2494,6 +2507,7 @@ function Invoke-LdifImport {
 
 function Compare-ADObjects {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Parameter(Mandatory = $true)]
         [Alias("ObjectA")]
@@ -2623,7 +2637,7 @@ function Get-ADSecurityAuditReport {
                     try {
                         $dt = [DateTime]$lastLog
                         if ($dt -lt $cutoff) { $isInactive = $true }
-                    } catch {}
+                    } catch { $null = $_ <# Suppress unhandled exception #> }
                 }
 
                 if ($isInactive) {
@@ -2697,7 +2711,7 @@ function Get-ADSecurityAuditReport {
                     }
                 }
                 catch {
-                    # Group might not exist in this domain or language
+                    $null = $_ # Group might not exist in this domain or language
                 }
             }
 
@@ -2719,7 +2733,7 @@ function Get-ADSecurityAuditReport {
                     }
                 }
             }
-            catch {}
+            catch { $null = $_ <# Suppress unhandled exception #> }
 
             $summary["Privileged Accounts"] = $results.Count
             $summary["Groups Monitored"] = $privGroups -join ", "
@@ -2788,7 +2802,7 @@ function Get-ADSecurityAuditReport {
                     try {
                         $dt = [DateTime]$lastLogonStr
                         if ($dt -lt $cutoff) { $isInactive = $true }
-                    } catch {}
+                    } catch { $null = $_ <# Suppress unhandled exception #> }
                 }
 
                 if ($isInactive) {
@@ -2830,7 +2844,7 @@ function Get-ADSecurityAuditReport {
                     $ts = [TimeSpan]::FromTicks(-$maxPwdAgeTicks)
                     if ($ts.TotalDays -gt 0) { $defaultMaxAgeDays = [int]$ts.TotalDays }
                 }
-            } catch {}
+            } catch { $null = $_ <# Suppress unhandled exception #> }
 
             $cutoffExpiry = (Get-Date).AddDays($Days)
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(pwdLastSet>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'distinguishedName') -Server $Server
@@ -2851,7 +2865,7 @@ function Get-ADSecurityAuditReport {
                             DistinguishedName = $r.DistinguishedName
                         })
                     }
-                } catch {}
+                } catch { $null = $_ <# Suppress unhandled exception #> }
             }
             $summary["Policy Max Age"] = "$defaultMaxAgeDays Days"
             $summary["Accounts Expiring Soon"] = $results.Count
@@ -2943,7 +2957,7 @@ function Get-ADSecurityAuditReport {
             $recStack = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             $cyclesDetected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-            function Check-Cycle ($currDN, $path) {
+            function Test-GroupCycle ($currDN, $path) {
                 [void]$visited.Add($currDN)
                 [void]$recStack.Add($currDN)
 
@@ -2964,17 +2978,18 @@ function Get-ADSecurityAuditReport {
                                     })
                                 }
                             } elseif (-not $visited.Contains($m.DistinguishedName)) {
-                                Check-Cycle -currDN $m.DistinguishedName -path "$path -> $($m.Name)"
+                                Test-GroupCycle -currDN $m.DistinguishedName -path "$path -> $($m.Name)"
                             }
                         }
                     }
                 }
                 [void]$recStack.Remove($currDN)
             }
+            Set-Alias -Name Check-Cycle -Value Test-GroupCycle
 
             foreach ($g in $allGroups) {
                 if (-not $visited.Contains($g.DistinguishedName)) {
-                    Check-Cycle -currDN $g.DistinguishedName -path $g.Name
+                    Test-GroupCycle -currDN $g.DistinguishedName -path $g.Name
                 }
             }
             $summary["Total Groups Checked"] = $allGroups.Count
@@ -3032,7 +3047,7 @@ function Get-ADSecurityAuditReport {
             try {
                 $members = Get-ADGroupMembersList -GroupName "Pre-Windows 2000 Compatible Access" -ErrorAction Stop
             }
-            catch {}
+            catch { $null = $_ <# Suppress unhandled exception #> }
             foreach ($m in $members) {
                 $results.Add([PSCustomObject]@{
                     PrincipalName     = $m.Name
@@ -3176,6 +3191,7 @@ function Get-ADSecurityAuditReport {
 
 function Get-ADSchemaClasses {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Server = ""
     )
@@ -3375,6 +3391,7 @@ function Get-ADSchemaAttributeUsage {
 
 function Get-ADSchemaAttributes {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Server = ""
     )
@@ -3754,6 +3771,7 @@ function Test-ADConnectionDiagnostic {
 
 function Find-ADDomainControllersViaDns {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Domain = "",
         [int]$TimeoutMs = 1500
@@ -3765,7 +3783,7 @@ function Find-ADDomainControllersViaDns {
         } else {
             try {
                 $Domain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch {}
+            } catch { $null = $_ <# Suppress unhandled exception #> }
         }
     }
     if ([string]::IsNullOrWhiteSpace($Domain)) {
@@ -3819,7 +3837,7 @@ function Find-ADDomainControllersViaDns {
                 try {
                     $ipEntries = [System.Net.Dns]::GetHostAddresses($hostName)
                     $ipStr = ($ipEntries | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | Select-Object -ExpandProperty IPAddressToString -First 1)
-                } catch {}
+                } catch { $null = $_ <# Suppress unhandled exception #> }
 
                 $sw = [System.Diagnostics.Stopwatch]::StartNew()
                 $isOnline = $false
@@ -3832,7 +3850,7 @@ function Find-ADDomainControllersViaDns {
                         $isOnline = $true
                     }
                     $client.Close()
-                } catch {}
+                } catch { $null = $_ <# Suppress unhandled exception #> }
                 $sw.Stop()
 
                 $discovered.Add([PSCustomObject]@{
@@ -3848,7 +3866,7 @@ function Find-ADDomainControllersViaDns {
                     RecordQuery   = $sq.Name
                 })
             }
-        } catch {}
+        } catch { $null = $_ <# Suppress unhandled exception #> }
     }
 
     if ($discovered.Count -eq 0) {
@@ -3938,7 +3956,7 @@ function Invoke-ADBulkUpdate {
                                     return ""
                                 })
                             }
-                        } catch {}
+                        } catch { $null = $_ <# Suppress unhandled exception #> }
                     }
                     $upd = Set-ADObjectRawAttribute -DistinguishedName $dn -AttributeName $AttributeName -NewValue $targetVal -Server $Server
                     $res['Success'] = $upd.Success
@@ -4018,6 +4036,7 @@ function Invoke-ADBulkUpdate {
 #region Active Directory Recycle Bin & Server Telemetry
 function Get-ADDeletedObjects {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$SearchFilter = "*",
         [int]$Limit = 300,
@@ -4055,7 +4074,7 @@ function Get-ADDeletedObjects {
             }
             return @($results)
         }
-    } catch {}
+    } catch { $null = $_ <# Suppress unhandled exception #> }
 
     # Fallback to ADSI with Tombstone enabled
     try {
@@ -4161,7 +4180,7 @@ function Restore-ADDeletedObject {
                 }
             }
         } catch {
-            # Fall through to native ADSI tombstone reanimation
+            $null = $_ # Fall through to native ADSI tombstone reanimation
         }
     }
 
@@ -4171,7 +4190,7 @@ function Restore-ADDeletedObject {
         $entry = $null
         try {
             $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
-        } catch {}
+        } catch { $null = $_ <# Suppress unhandled exception #> }
 
         $destOU = $TargetOU
         if (-not $destOU -and $entry -and $entry.Properties -and $entry.Properties['lastKnownParent']) {
@@ -4182,7 +4201,7 @@ function Restore-ADDeletedObject {
                 $dsePath = if ($Server) { "LDAP://$Server/RootDSE" } else { "LDAP://RootDSE" }
                 $rootDse = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
                 $destOU = "CN=Users,$($rootDse.defaultNamingContext)"
-            } catch {}
+            } catch { $null = $_ <# Suppress unhandled exception #> }
         }
         if (-not $destOU) {
             $destOU = "OU=RestoredObjects"
@@ -4216,7 +4235,7 @@ function Restore-ADDeletedObject {
             } catch {
                 try {
                     $entry.PutEx(1, "isDeleted", $null) # 1 = ADS_PROPERTY_CLEAR
-                } catch {}
+                } catch { $null = $_ <# Suppress unhandled exception #> }
             }
 
             # 2. Move out of Deleted Objects container to target OU with clean RDN
@@ -4351,6 +4370,7 @@ function Get-ADServerTelemetry {
 #region 17. Fine-Grained Password Policies (PSO) & Partitions Engine
 function Get-ADPasswordSettingsObjects {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Server = ""
     )
@@ -4519,6 +4539,7 @@ function Get-ADUserEffectivePasswordPolicy {
 
 function Get-ADDirectoryPartitions {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Server = ""
     )
@@ -4581,6 +4602,7 @@ function Get-ADDirectoryPartitions {
 
 function New-ADDirectoryPartition {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$PartitionDN,
@@ -5046,6 +5068,7 @@ function Get-ADVlvUsersList {
 
 function Get-AD40SecurityAuditReports {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [Alias("Get-ADSecurityAudits40", "Get-SecurityAuditCatalog")]
     param (
         [string]$Category = "",
@@ -5056,6 +5079,7 @@ function Get-AD40SecurityAuditReports {
         [string]$Server = "",
         [System.Collections.IEnumerable]$MockData = $null
     )
+    $null = $Days
 
     $definitions = @(
         # --- 1. Account Security (11) ---
@@ -5067,7 +5091,7 @@ function Get-AD40SecurityAuditReports {
             Description = "Identifies accounts with the DONT_EXPIRE_PASSWORD flag enabled, which bypasses password aging policies."
             LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))"
             Remediation = "Remove the DONT_EXPIRE_PASSWORD flag (UAC bit 0x10000) and enforce domain password rotation policies."
-            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 65536) -ne 0 } elseif ($u.PasswordNeverExpires -ne $null) { [bool]$u.PasswordNeverExpires } else { $false } }
+            Evaluate    = { param($u) if ($u.userAccountControl) { ([int64]$u.userAccountControl -band 65536) -ne 0 } elseif ($null -ne $u.PasswordNeverExpires) { [bool]$u.PasswordNeverExpires } else { $false } }
         },
         [PSCustomObject]@{
             Id          = "SEC-PASS-NOT-REQUIRED"

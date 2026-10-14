@@ -1,531 +1,332 @@
-# Active Directory Management Studio - Feature Enhancements & Competitor Parity
+# Active Directory Management Studio
+## Step-by-Step Operator Walkthrough & Visual User Guide
+### Real-World Scenarios, Identity Workflows & Diagnostic Demonstrations
 
-## Overview
-
-A comprehensive feature audit and competitor benchmarking analysis was conducted against **Softerra LDAP Administrator 2026** (Chapters 01–22) and **Apache Directory Studio** (LDAP Browser, LDIF Editor, Schema Editor).
-
-All missing enterprise capabilities, UI/usability improvements, deep directory diagnostics, and validation suites have been implemented, tested, and validated with a 100% test pass rate across both Windows PowerShell 5.1 and PowerShell 7+.
+[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md)
 
 ---
 
-## 1. Newly Implemented Competitor Parity Features
+## Table of Contents
 
-### A. Transitive / Nested Group Membership Resolution (OID 1.2.840.113556.1.4.1941)
-* **Competitor Benchmark**: Softerra LDAP Administrator (Direct vs. Indirect Group Members) & Apache Directory Studio Member Resolver.
-* **Architecture & Implementation**:
-  - Leverages Active Directory's server-side recursive chain rule OID `1.2.840.113556.1.4.1941` (`LDAP_MATCHING_RULE_IN_CHAIN`):
-    `(&(objectCategory=person)(objectClass=user)(memberOf:1.2.840.113556.1.4.1941:={GroupDN}))`
-  - Added `-Transitive` switch to `Get-ADGroupMembersList` and implemented `Get-ADTransitiveGroupMembers` in [Modules/ADService.psm1](./Modules/ADService.psm1) with an in-memory BFS fallback for mock/offline modes.
-  - Added Direct vs. Transitive toggles (`RadGroupViewDirect` / `RadGroupViewTransitive`) to `PanelGroups` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) and [Views/MemberDialog.xaml](./Views/MemberDialog.xaml).
-  - Synchronized selection events in [main.ps1](./main.ps1) to dynamically recalculate membership rosters on the fly.
-
-### B. DNS SRV Domain Controller Auto-Discovery & Health Benchmarking
-* **Competitor Benchmark**: Softerra LDAP Administrator (Ch03 - Profile Wizard DC Discovery) & Apache Directory Studio Network Discovery.
-* **Architecture & Implementation**:
-  - Implemented `Find-ADDomainControllersViaDns` in [Modules/ADService.psm1](./Modules/ADService.psm1):
-    - Resolves RFC 2782 DNS SRV locator records:
-      - `_ldap._tcp.dc._msdcs.<Domain>` (Standard Domain Controllers, Port 389)
-      - `_ldap._tcp.pdc._msdcs.<Domain>` (Primary Domain Controller Emulator, Port 389)
-      - `_kerberos._tcp.dc._msdcs.<Domain>` (Kerberos KDC, Port 88)
-      - `_gc._tcp.<Domain>` (Global Catalog, Port 3268)
-    - Performs asynchronous TCP socket probes with configurable timeout (`1500ms`) and records live network latency (`LatencyMs`) and port status (`Online` / `Offline`).
-  - Added dedicated UI section in `PanelConnections` in [Views/MainWindow.xaml](./Views/MainWindow.xaml):
-    - Input domain text box, **"🔍 Discover Domain Controllers"** trigger (`BtnRunDnsDiscovery`).
-    - Multi-column `DataGrid` (`GridDnsDiscoveredDCs`) displaying Service, Role, Host Name, IP Address, Port, Latency, and Status.
-    - **"⚡ Use as Active Profile"** (`BtnConnectDiscoveredDC`) for instant connection profile adoption.
-
-### C. Visual Filter Builder Enhancements & Plain-English Translation Banner
-* **Competitor Benchmark**: Softerra LDAP Administrator (Ch09 - Filter Construction and Verification) & Apache Directory Studio Filter Assistant.
-* **Architecture & Implementation**:
-  - Implemented `Test-LdapFilter` in [Modules/ValidationService.psm1](./Modules/ValidationService.psm1):
-    - RFC 4515 parser validating balanced parentheses, logical operators (`&`, `|`, `!`), and attribute assertion syntax (`attr=val`, `attr>=val`, `attr<=val`, `attr~=val`).
-  - Implemented `Convert-LdapFilterToHumanText` in [Modules/ValidationService.psm1](./Modules/ValidationService.psm1):
-    - Translates raw LDAP expressions into intuitive plain-English sentences (e.g. `(&(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))` -> *"Active Directory user accounts AND NOT Account is Disabled"*).
-  - Added **"✓ Verify Filter Syntax"** button (`BtnVerifyFilterSyntax`) and real-time banner (`BorderFilterExplanation` / `TxtFilterHumanExplanation`) in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
-  - Added 8 enterprise presets to `CmbSearchPresets`:
-    - *Expired Passwords*
-    - *Users in Administrative Groups*
-    - *Fine-Grained Password Settings (PSO)*
-    - *Domain Controllers*
-    - *Exchange / Mail-Enabled Users*
-    - *Smart Card Required*
-    - *Unconstrained Kerberos Delegation*
-    - *Service Accounts (sAMAccountName=svc_*)*
-
-### D. Quick Inspector / Live Dossier Pane (Softerra HTML Pane Parity)
-* **Competitor Benchmark**: Softerra LDAP Administrator (Ch20 - HTML View / Quick Inspector).
-* **Architecture & Implementation**:
-  - Integrated collapsible right-hand dossier pane (`BorderUserInspector`) into `PanelUsers` in [Views/MainWindow.xaml](./Views/MainWindow.xaml):
-    - User avatar badge, display name, username (`sAMAccountName`), and live status pill (Active / Disabled / Locked).
-    - Quick properties grid: Title, Department, Email, Employee ID, Bad Password Count, Last Logon timestamp, and Parent OU.
-    - 1-click quick-action buttons: **"🔑 Reset Password"**, **"🔓 Unlock"**, **"⚡ Toggle Status"**, **"🛒 Add to Basket"**, and **"🧬 Raw Attributes"**.
-  - Controlled via header toggle button (`BtnToggleUserInspector`), close icon (`BtnCloseUserInspector`), and movable `GridSplitter` (`SplitterUserInspector`).
-  - Linked to `GridUsers.SelectionChanged` in [main.ps1](./main.ps1) via `Update-UserInspectorCard`.
-
-### E. Interactive OU Tree Filter & Hierarchical Breadcrumb Navigation
-* **Competitor Benchmark**: Apache Directory Studio (Quick Filter) & Softerra LDAP Administrator (Tree Filtering & Address Ribbon).
-* **Architecture & Implementation**:
-  - Added real-time search filter box (`TxtFilterOUs`) above the OU navigation treeview in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
-    - Implemented `Filter-OUTreeNodes` in [main.ps1](./main.ps1) with auto-expansion of matching sub-trees and hiding non-matching branches.
-  - Added clickable breadcrumb trail (`PanelOUBreadcrumbs`) above `GridOUObjects`:
-    - Parses the Canonical Name hierarchy into distinct clickable buttons (e.g. `corp.example.com` > `Headquarters` > `IT Support`), allowing instant parent folder hopping.
-
-### F. RFC 2849 LDIF Diff Generator & Line-by-Line Syntax Validator
-* **Competitor Benchmark**: Apache Directory Studio LDIF Editor & Softerra LDAP Administrator (Ch08s04 - Export Modifications to LDIF).
-* **Architecture & Implementation**:
-  - Implemented `New-LdifChangeScript` in [Modules/ExportService.psm1](./Modules/ExportService.psm1):
-    - Computes delta attributes between original and modified objects.
-    - Generates RFC 2849 compliant `changetype: modify` scripts with `replace:`, `delete:`, and `add:` blocks separated by `-`.
-  - Implemented `Test-LdifSyntax` in [Modules/ValidationService.psm1](./Modules/ValidationService.psm1):
-    - Validates mandatory `dn:` headers, recognized `changetype:` directives (`add`, `modify`, `delete`, `moddn`), and attribute colon syntax with exact line number error reporting.
-  - Added **"📝 Generate LDIF Diff"** button (`BtnLdifDiffGen`) in [Views/MainWindow.xaml](./Views/MainWindow.xaml) with handler in [main.ps1](./main.ps1).
-
-### G. Dynamic Result Paging Engine
-* **Competitor Benchmark**: Softerra LDAP Administrator (Ch09s08 - Paging and Virtual Lists).
-* **Architecture & Implementation**:
-  - Implemented `Render-PagedUsers` and `Render-PagedSearchResults` in [main.ps1](./main.ps1).
-  - Slices in-memory directory collections using `Select-Object -Skip $skip -First $pageSize` to prevent UI freezing on large datasets.
-  - Added bottom navigation toolbars to Users and Directory Search views:
-    - Page size selector (`CmbUsersPageSize`, `CmbSearchPageSize`: `50`, `100`, `250`, `All`).
-    - Previous / Next buttons and live page indicator (`Page X of Y (Z items)`).
-
-### H. Universal UTF-8 BOM Encoding Hardening
-* **Platform Reliability**: Windows PowerShell 5.1 vs. PowerShell 7+ Compatibility.
-* **Resolution**:
-  - Windows PowerShell 5.1 defaults to Windows-1252 (ANSI) for script files lacking a Byte Order Mark. Multi-byte UTF-8 symbols (such as emoji status badges) caused ANSI character corruption resulting in parser errors.
-  - Applied UTF-8 with BOM (`[System.Text.Encoding]::UTF8` with preamble `EF BB BF`) across all `.ps1` and `.psm1` source files.
-  - Verified with `[System.Management.Automation.Language.Parser]::ParseFile()`: **0 errors across all project files**.
+- [Introduction & Guide Objectives](#introduction--guide-objectives)
+- [Scenario 1: Domain Health Assessment & Global KPI Dashboard](#scenario-1-domain-health-assessment--global-kpi-dashboard)
+- [Scenario 2: User Lifecycle Management & Quick Attribute Inspector](#scenario-2-user-lifecycle-management--quick-attribute-inspector)
+- [Scenario 3: Low-Level Attribute Engineering: Binary & Hex Dump Editor](#scenario-3-low-level-attribute-engineering-binary--hex-dump-editor)
+- [Scenario 4: Cryptographic Auditing: X.509 Certificate Inspector](#scenario-4-cryptographic-auditing-x509-certificate-inspector)
+- [Scenario 5: Cloud Identity Integration: SCIM 2.0 Query & Filter Studio](#scenario-5-cloud-identity-integration-scim-20-query--filter-studio)
+- [Scenario 6: Access Control & Permissions: 6-Way Effective Rights](#scenario-6-access-control--permissions-6-way-effective-rights)
+- [Scenario 7: Kerberos Authentication & PAC Bloat Troubleshooting](#scenario-7-kerberos-authentication--pac-bloat-troubleshooting)
+- [Scenario 8: Forensic Graph Analysis: Circular Group Loop Detection](#scenario-8-forensic-graph-analysis-circular-group-loop-detection)
+- [Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports](#scenario-9-enterprise-security-posture--48-hygiene-audit-reports)
+- [Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker](#scenario-10-infrastructure-diagnostics-nettools-7-tier-unc-share-checker)
+- [Conclusion & Best Practices](#conclusion--best-practices)
 
 ---
 
-## 2. Test Execution & Verification
+## Introduction & Guide Objectives
 
-### Automated Integration Test Suite (`test_competitor_features.ps1`)
-All four test suites passed with 100% success:
+This Walkthrough provides step-by-step guidance for Systems Administrators, Directory Engineers, and Security Auditors. Every scenario is grounded with visual illustrations captured from the application in its factory default **Light Theme** presentation mode (`"Theme": "Light"` in `config.json`).
 
-```
-=== TEST 1: LDAP Filter RFC 4515 Validator ===
- [PASS] Valid: (objectClass=user)
-        Meaning: Active Directory user accounts
- [PASS] Valid: (&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))
-        Meaning: Disabled user accounts
- [PASS] Valid: (|(sAMAccountName=admin*)(sAMAccountName=root*))
-        Meaning: Find objects where: sAMAccountName is 'admin*' OR sAMAccountName is 'root*'
- [PASS] Valid: (&(objectClass=group)(member:1.2.840.113556.1.4.1941:=CN=Admins,DC=corp,DC=local))
-        Meaning: Active Directory security and distribution groups
- [PASS] Correctly rejected: objectClass=user
- [PASS] Correctly rejected: (&(objectClass=user)
- [PASS] Correctly rejected: (objectClass=user))
- [PASS] Correctly rejected: (!(&(a=1)(b=2)(c=3)))x
+Light Theme provides an accessibility-audited, high-contrast palette featuring clean `#FFFFFF` surface cards, soft `#F8FAFC` background canvas, `#CBD5E1` border rules, and deep slate `#0F172A` typography. This ensures crystal-clear visibility when analyzing dense directory grids, raw hex streams, and complex permission matrices under standard daytime office lighting.
 
-=== TEST 2: RFC 2849 LDIF Syntax Validator ===
- [PASS] LDIF Valid: Valid RFC 2849 LDIF format with 2 verified record(s).
-
-=== TEST 3: LDIF Diff Script Generator ===
-Generated LDIF Diff Script:
-dn: CN=John Doe,OU=Users,DC=corp,DC=local
-changetype: modify
-replace: title
-title: Senior Admin
--
-delete: telephoneNumber
--
- [PASS] LDIF Diff Script successfully captured modified and deleted attributes!
-
-=== TEST 4: DNS SRV Infrastructure Discovery ===
- [PASS] Discovered endpoint(s) for microsoft.com via DNS SRV fallback probe.
-  -> Service: LDAP (Domain Controller) | Host: DC01.microsoft.com:389 | Status: Online | Latency: 1 ms
-
-==========================================
- ALL COMPETITOR SUITE TESTS PASSED! 
-==========================================
-```
-
-### Static Analysis & AST Syntax Validation (`check_all_parsefile.ps1`)
-Full AST parser verification across all project files using `[System.Management.Automation.Language.Parser]::ParseFile()`:
-
-| File | Encoding | AST Errors | Status |
-| :--- | :--- | :--- | :--- |
-| `main.ps1` | UTF-8 with BOM | **0** | **PASS** |
-| `tools/ad-studio-cli.ps1` | UTF-8 with BOM | **0** | **PASS** |
-| `Modules/ADService.psm1` | UTF-8 with BOM | **0** | **PASS** |
-| `Modules/ConfigService.psm1` | UTF-8 with BOM | **0** | **PASS** |
-| `Modules/ExportService.psm1` | UTF-8 with BOM | **0** | **PASS** |
-| `Modules/ValidationService.psm1` | UTF-8 with BOM | **0** | **PASS** |
-
-### XAML Schema & XML Parsing (`check_xaml_xml.ps1`)
-All 11 XAML interface files verified via `[xml]`:
-
-| XAML View | XML Schema | Status |
-| :--- | :--- | :--- |
-| `MainWindow.xaml` | Valid XML | **PASS** |
-| `MemberDialog.xaml` | Valid XML | **PASS** |
-| `UserDialog.xaml` | Valid XML | **PASS** |
-| `UserDetailDialog.xaml` | Valid XML | **PASS** |
-| `GroupDialog.xaml` | Valid XML | **PASS** |
-| `OUDialog.xaml` | Valid XML | **PASS** |
-| `MoveDialog.xaml` | Valid XML | **PASS** |
-| `PasswordDialog.xaml` | Valid XML | **PASS** |
-| `ConnectionDialog.xaml` | Valid XML | **PASS** |
-| `AttributeEditDialog.xaml` | Valid XML | **PASS** |
-| `ColumnChooserDialog.xaml` | Valid XML | **PASS** |
+Each tutorial guides the operator from initial problem identification through investigation, diagnostic evaluation, and resolution.
 
 ---
 
-## 3. Softerra Screenshots Gallery Benchmark Parity (Phase 2)
+## Scenario 1: Domain Health Assessment & Global KPI Dashboard
 
-Based on a systematic audit of the [Softerra LDAP Administrator Screenshots Gallery](https://www.ldapadministrator.com/info/screenshots.htm) across all 20 functional screenshot sections, the following five major capabilities were implemented and validated:
+### Objective
+Assess forest-wide Active Directory health, monitor key identity metrics, verify Domain Controller (DC) connectivity, and access quick-launch administrative tools.
 
-### A. Global Quick Search Omnibar (Header)
-* **Competitor Benchmark**: Screenshot 08 (`08_QuickSearch.png`).
-* **Implementation**:
-  - Implemented `Find-ADObjectsQuickSearch` in [Modules/ADService.psm1](./Modules/ADService.psm1): performs rapid multi-attribute lookup (`sAMAccountName`, `displayName`, `mail`, `name`, `ou`) across Users, Groups, Computers, and OUs.
-  - Added `TxtGlobalSearch`, `PopupGlobalSearch`, `ListGlobalSearchResults`, and `TxtGlobalSearchStatus` in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
-  - Wired in [main.ps1](./main.ps1) with real-time popup suggestions on `>= 2` keystrokes and automatic navigation jumping to the corresponding tab (Users, Groups, Computers, OUs, or Attribute Editor) upon selection.
+![Active Directory Overview & Health Dashboard](docs/images/01_dashboard_overview.png)
 
-### B. Object RDN Rename & Extended Clipboard Actions
-* **Competitor Benchmark**: Screenshot 01 (`01_DirectoryBrowsing.png`).
-* **Implementation**:
-  - Implemented `Rename-ADDirectoryObject` in [Modules/ADService.psm1](./Modules/ADService.psm1): supports native RSAT `Rename-ADObject` and ADSI fallback with new DN calculation.
-  - Added `Show-RenameDialog` modal and `Handle-ObjectRename` helper in [main.ps1](./main.ps1).
-  - Added context menu items (`Ctx*Rename` / F2 key shortcut, `Ctx*CopyRdn`, `Ctx*CopyCanonical`) across `GridUsers`, `GridGroups`, `GridOUObjects`, `GridComputers`, and `TreeOUs`.
-  - Implemented `Get-ObjectRDN` and `Get-ObjectCanonicalName` parsing DN hierarchy into canonical paths (e.g. `domain.com/OU1/OU2/Object`).
-
-### C. LDIF Document Record Outline Pane
-* **Competitor Benchmark**: Screenshot 26 (`26_LDIFEditor.png`).
-* **Implementation**:
-  - Upgraded `PanelLdifStudio` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) into a 2-column layout with a left outline sidebar (`ListLdifRecords`), search filter (`TxtFilterLdifRecords`), and grid splitter.
-  - Implemented `Update-LdifOutline` in [main.ps1](./main.ps1): parses RFC 2849 `dn:` and `changetype:` directives in real time.
-  - Clicking any entry in the outline immediately scrolls and focuses `TxtLdifEditor` to the exact line of that record.
-
-### D. Enhanced Schema Viewer with Class Hierarchy & Must/May Attributes
-* **Competitor Benchmark**: Screenshot 12 (`12_SchemaViewer.png`).
-* **Implementation**:
-  - Implemented `Get-ADSchemaClassDetail` in [Modules/ADService.psm1](./Modules/ADService.psm1): queries Schema NC for `governsID` OID, `objectClassCategory` (Structural, Abstract, Auxiliary), `subClassOf`, `mustContain`, `systemMustContain`, `mayContain`, and `systemMayContain`.
-  - Upgraded `PanelSchemaBrowser` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) into a 2-column view with a dedicated Schema Class Inspector card (`TxtSchemaDetailName`, `TxtSchemaDetailOID`, `TxtSchemaDetailCategory`, `TxtSchemaDetailInheritance`, `ListSchemaMust`, `ListSchemaMay`).
-  - Wired `GridSchema.SelectionChanged` in [main.ps1](./main.ps1) to dynamically update the inspector upon selecting any class or attribute.
-
-### E. Custom Saved Reports Creator & Persistence
-* **Competitor Benchmark**: Screenshot 10 (`10_Reports.png`).
-* **Implementation**:
-  - Added `CustomReports` array persistence in [Modules/ConfigService.psm1](./Modules/ConfigService.psm1).
-  - Added custom reports toolbar to `PanelAuditReports` in [Views/MainWindow.xaml](./Views/MainWindow.xaml): `CmbCustomReports`, `BtnRunCustomReport`, `BtnNewCustomReport`, `BtnDeleteCustomReport`.
-  - Implemented modal report builder (`Show-NewCustomReportDialog`) in [main.ps1](./main.ps1) allowing administrators to save arbitrary LDAP filters and target attributes.
-  - Implemented `Run-SelectedCustomReport` executing saved queries and displaying findings in `GridAuditResults`.
+### Step-by-Step Walkthrough
+1. **Launch the Studio**:
+   ```powershell
+   pwsh -NoProfile -STA -File .\main.ps1
+   ```
+   The application initializes and loads directly into the default **Light Theme** presentation.
+2. **Inspect the Active Directory Overview & Health View**:
+   - The top KPI ribbon surfaces key directory metrics at a glance:
+     * **Total Users**: Forest user account count (`1,248`).
+     * **Active / Enabled**: Operational accounts ready for authentication (`1,180`).
+     * **Disabled**: Decommissioned or archived accounts (`54`).
+     * **Locked Out**: Accounts exceeding authentication failure thresholds (`14`).
+     * **Groups**: Security and distribution groups (`185`).
+     * **Computers**: Workstation and server inventory (`320`).
+     * **Org. Units (OUs)**: Container hierarchy count.
+3. **Review the Active Directory Environment Card**:
+   - Confirms the Primary DC Emulator (PDCe) role holder (`corp-dc01.contoso.local`).
+   - Confirms the Default Naming Context (`DC=contoso,DC=local`).
+   - Verifies LDAP protocol capabilities (LDAP v3 RFC 4511 & LDAPS Port 636).
+4. **Use Quick Launchpad**:
+   - Click any quick-action card to jump directly to **Directory Search**, **LDAP-SQL Console**, **Raw Attribute Editor**, or **Security Audits**.
+5. **Theme & Layout Controls**:
+   - The top toolbar displays current session credentials and elevation status (`ELEVATED (ADMIN)`).
+   - Operators can toggle between Light and Dark mode using `Ctrl+T` or the theme selector icon.
 
 ---
 
-## 4. End-to-End Verification Across All 19 Navigation Tabs
+## Scenario 2: User Lifecycle Management & Quick Attribute Inspector
 
-The automated STA UI test harness was executed simulating full user interaction:
+### Objective
+Locate a user account, review identity properties via the slide-out Quick Inspector, unlock a locked user, and provision a new account using template macros.
 
-```
-=== SIMULATING WINDOW LOADED ===
-Initial Loaded complete. Errors: 0
---> Testing Nav Tab: NavDashboard
---> Testing Nav Tab: NavUsers
---> Testing Nav Tab: NavGroups
---> Testing Nav Tab: NavOUs
---> Testing Nav Tab: NavComputers
---> Testing Nav Tab: NavRecycleBin
---> Testing Nav Tab: NavDirectorySearch
---> Testing Nav Tab: NavLdapSql
---> Testing Nav Tab: NavAttributeEditor
---> Testing Nav Tab: NavObjectCompare
---> Testing Nav Tab: NavLdifStudio
---> Testing Nav Tab: NavAuditReports
---> Testing Nav Tab: NavSchemaBrowser
---> Testing Nav Tab: NavBulkEditor
---> Testing Nav Tab: NavBasket
---> Testing Nav Tab: NavRequestLog
---> Testing Nav Tab: NavServerMonitor
---> Testing Nav Tab: NavConnections
---> Testing Nav Tab: NavSettings
+![User Management Grid and Quick Attribute Inspector](docs/images/02_users_and_inspector.png)
 
-=== TESTING SEARCH ACTIONS ===
-Filter RFC4515 valid: True
-
-=== TESTING USER INSPECTOR TOGGLE ===
-User Inspector opened: Visible
-User Inspector closed: Collapsed
-
-=== TESTING OU TREE FILTER & BREADCRUMBS ===
-=== TESTING QUICK SEARCH OMNIBAR ===
-Quick search popup status: Found 15 object(s)
-
-=== TESTING LDIF OUTLINE ENGINE ===
-LDIF outline parsed records count: 2
-
-=== TESTING CUSTOM SAVED REPORTS ===
-Custom reports dropdown items count: 1
-
-=== TESTING RDN & CANONICAL NAME HELPERS ===
-DN: CN=John Doe,OU=Sales,OU=Corp,DC=contoso,DC=com
-RDN: CN=John Doe
-Canonical: contoso.com/Corp/Sales/John Doe
-
-=================================================
-TOTAL ERRORS ENCOUNTERED ACROSS ALL 19 TABS: 0
-=================================================
-```
+### Step-by-Step Walkthrough
+1. **Navigate to the Users Workspace**:
+   - Click **Users** on the left navigation sidebar or press `Ctrl+2`.
+2. **Search and Filter Accounts**:
+   - In the search bar, type `alex.morgan` or a department name such as `IT Infrastructure`.
+   - Click filter chips (`All`, `Active`, `Disabled`, `Locked`) to immediately isolate accounts requiring administrative intervention.
+3. **Inspect Account via Quick Inspector Pane**:
+   - Click on `Alex Morgan` in the data grid.
+   - The slide-out right-hand dossier pane (`Quick Inspector`) instantly renders on a clean white `#FFFFFF` surface:
+     * **Display Name**: `Alex Morgan`
+     * **Username (`sAMAccountName`)**: `alex.morgan`
+     * **Email**: `alex.morgan@contoso.com`
+     * **Job Title**: `Senior Systems Architect`
+     * **Department**: `IT Infrastructure`
+     * **Full Distinguished Name (DN)**: `CN=Alex Morgan,OU=Engineers,OU=Staff,DC=contoso,DC=local`
+4. **Execute Quick Actions**:
+   - **🔑 Reset Password**: Prompts for a secure compliant password with option to force change at next logon.
+   - **🔓 Unlock Account**: Immediately clears `lockoutTime` across domain controllers.
+   - **⚡ Toggle Status**: Enables or disables the account, adjusting `userAccountControl` bitmask flags.
+   - **🛒 Add to Basket**: Stages the object in the Directory Basket for multi-OU batch moves or bulk attribute updates.
+5. **Light Theme Visual Note**:
+   - High-contrast alternating rows (`#FFFFFF` and `#F8FAFC`) with emerald green status pills make active accounts instantly distinguishable from locked or disabled accounts.
 
 ---
 
-## 5. Light Mode Appearance Engine & In-App HTML Dossier View
+## Scenario 3: Low-Level Attribute Engineering: Binary & Hex Dump Editor
 
-### A. Dynamic Light Mode & Accent Tone Engine
-* **Overview & Rationale**:
-  - Provides native Light Mode and customizable accent color schemes selectable from application settings and switchable instantly via header shortcuts.
-* **Architecture & Implementation**:
-  - **Lossless Tree Recurser**: Implemented `Apply-ThemeNode` and `Set-ApplicationTheme` in [main.ps1](./main.ps1). Caches default dark brushes into `$script:OriginalBrushes` on first switch, ensuring 100% pixel-perfect lossless restoration when switching between Dark and Light modes.
-  - **Quick Header Toggle**: Added `BtnQuickThemeToggle` in the top header bar next to `BtnGlobalRefresh` with dynamic sun/moon icons and keyboard accelerator `Ctrl+T`.
-  - **Appearance Configuration**: Added visual theme card in `PanelSettings` in [Views/MainWindow.xaml](./Views/MainWindow.xaml) with Theme selection (`CmbThemeMode`: Dark / Light), Accent Tone (`CmbAccentTone`: Blue, Sky, Emerald, Indigo, Amber), and Auto-Sync HTML View toggle (`ChkThemeAutoSync`).
-  - **Configuration Persistence**: Added `UI.Theme`, `UI.AccentTone`, and `UI.SyncHtmlViewTheme` to [Modules/ConfigService.psm1](./Modules/ConfigService.psm1), persisting user preferences cleanly to `config.json`.
+### Objective
+Inspect raw binary attribute data (e.g. `userCertificate`, `objectGUID`, `objectSid`), modify hex byte streams, and preview decoded ASCII and Base64 representations matching **Apache Directory Studio**.
 
-### B. In-App HTML Dossier View (Softerra LDAP Administrator Parity)
-* **Competitor Benchmark**: Softerra LDAP Administrator Screenshot 02 (`02_HTMLView.png`).
-* **Architecture & Implementation**:
-  - **Dedicated Navigation View**: Added `NavHtmlView` ("📄 HTML Dossier View") under Directory Tools and responsive `PanelHtmlView` in [Views/MainWindow.xaml](./Views/MainWindow.xaml).
-  - **Embedded WebBrowser**: Integrated `<WebBrowser Name="BrowserHtmlView"/>` with `X-UA-Compatible: IE=edge` header support for modern CSS variables, flexbox, border-radii, and responsive typography.
-  - **Multi-Template Generator**: Implemented `Get-ADObjectHtmlContent` in [Modules/ExportService.psm1](./Modules/ExportService.psm1) supporting 4 distinct report card templates:
-    1. **Technical**: Complete identity properties, organizational hierarchy, lifecycle & telemetry timestamps, group memberships, and raw operational attributes.
-    2. **Executive**: Executive summary card featuring job title, department, office, interactive `mailto:` and `tel:` links, manager DN, and group affiliations.
-    3. **Groups**: Group membership analysis and distribution report card.
-    4. **Raw**: Full Active Directory attribute schema dictionary with operational attribute tags.
-  - **Interactive Toolbar**:
-    - DN Address Omnibar (`TxtHtmlViewDN`) with **"Go"** button (`BtnHtmlViewGo`).
-    - Template Selector (`CmbHtmlViewTemplate`) with instant in-memory re-rendering.
-    - Action triggers: Refresh (`BtnHtmlViewRefresh`), Print (`BtnHtmlViewPrint`), Copy HTML markup (`BtnHtmlViewCopyHtml` with COM clipboard retry handling), and Open in Default Browser (`BtnHtmlViewOpenBrowser`).
-  - **Directory-Wide Context Menus**: Added **"📄 View HTML Dossier"** and **"🌐 Open HTML Dossier in Browser"** context menu items across:
-    - User Management (`GridUsers`)
-    - Group Management (`GridGroups`)
-    - OU Object Explorer (`GridOUObjects`)
-    - Computer Management (`GridComputers`)
-    - Directory Search Results (`GridSearchResults`)
+![Specialized Hex and Binary Attribute Editor](docs/images/03_specialized_editor_hex.png)
 
-### C. Comprehensive Integration Test Results
-The automated STA UI harness verified the new features with 100% success:
-* **Syntax & XAML Validation**: `ConfigService.psm1`, `ExportService.psm1`, `main.ps1`, and `MainWindow.xaml` parsed with 0 errors.
-* **HTML Generation**: All 4 templates (`Technical`, `Executive`, `Groups`, `Raw`) verified across both `Dark` and `Light` themes.
-* **Theme Switching**: Verified Light Mode background `#F8FAFC`, icon switch, symmetric toggle, and lossless Dark Mode restoration `#14161C`.
-* **In-App WebBrowser**: Rendered object dossier, switched all 4 templates, and copied HTML without exceptions.
-* **Settings Persistence**: Verified configuration save and reload round-trip for Light Mode and accent tone.
+### Step-by-Step Walkthrough
+1. **Open Object Studio**:
+   - Select any directory object in the **Users** or **Raw Attribute Editor** workspace.
+   - Click **Specialized Editors** or double-click any binary attribute row.
+2. **Inspect the Synchronized Hex Dump**:
+   - Select the **Hex / Binary Editor** tab.
+   - The top pane displays a synchronized 3-column dump in high-contrast monospace formatting:
+     * **Column 1**: Memory offset addresses (`00000000`, `00000010`, `00000020`...).
+     * **Column 2**: Formatted 16-byte spaced hex pairs (`30 82 04 2E 30 82 03 16...`).
+     * **Column 3**: Decoded printable ASCII character representation (`0...0..........;`).
+3. **Edit via Raw Hex Stream Editor**:
+   - Paste or edit raw hex strings into the lower text area.
+   - Click **🔄 Format / Sync Dump** to re-align offsets and calculate byte lengths.
+4. **Inspect Live Previews**:
+   - View instant **ASCII Preview** and **Base64 Preview** (`MIIELjCCAxag...`).
+   - Check the **Total Bytes** indicator badge (`Total Bytes: 1,074 bytes (0x0432)`).
+5. **Save or Export**:
+   - Click **💾 Export File...** to save raw binary payloads to disk, or click **💾 Apply / Save Value** to write changes back to Active Directory.
 
 ---
 
-## 6. Comprehensive UI Theme Audit & Light Mode Visual Harmonization
+## Scenario 4: Cryptographic Auditing: X.509 Certificate Inspector
 
-### A. Root Causes Identified & Fixed
-1. **Sidebar Navigation RadioButtons turning black**:
-   - `Convert-BrushToHex` was converting transparent brushes (`#00FFFFFF`) to `#FFFFFF` via naive substring slicing.
-   - The unified color map mapped `#FFFFFF` to `#0F172A` (intended for text), turning transparent sidebar buttons into pitch-black solid boxes.
-   - **Fix**: Updated `Convert-BrushToHex` to return `"TRANSPARENT"` whenever `$brush.Color.A -eq 0`, and split the unified color map into three dedicated maps: `$script:ColorMapBgLight`, `$script:ColorMapFgLight`, and `$script:ColorMapBorderLight`.
-2. **ComboBox Dropdowns & Popups Rendering Dark with Unreadable Text**:
-   - WPF `Popup` controls render in a separate Win32 HWND outside the primary visual tree before being opened.
-   - In `MainWindow.xaml`, `DropDownBorder` and `ComboBoxItem` had hardcoded dark hex colors.
-   - **Fix**: Upgraded `ModernComboBox` and `ComboBoxItem` control templates to bind dynamically to `{DynamicResource DropDownBg}`, `{DynamicResource DropDownBorderBrush}`, `{DynamicResource DropDownItemHoverBg}`, and `{DynamicResource DropDownItemHoverFg}`. Updated `Set-ApplicationTheme` to register dynamic brushes at both the Window and Application resource levels.
-3. **Hardcoded Container Backgrounds & Card Borders**:
-   - Top App Bar, Status Bar, Left Sidebar, and Settings panel borders were bound to hardcoded dark hex values (`#111319`, `#0F1015`, `#13151D`, `#1A1D27`).
-   - **Fix**: Replaced hardcoded values with `{DynamicResource BgSurface}`, `{DynamicResource BgSidebar}`, `{DynamicResource BgCard}`, and `{DynamicResource BorderBrushColor}`.
-4. **Action Button & Badge Foreground Contrast Protection**:
-   - `Apply-ThemeNode` now checks whether an element or its parent button uses an accent or danger background (`#0078D4`, `#107C41`, `#D13438`, `#D97706`), preserving crisp white text (`#FFFFFF`) on colored action buttons in both Light and Dark modes.
-5. **Modal Dialog Theme Inheritance**:
-   - `Load-XamlWindow` now propagates active theme resources and applies `Apply-ThemeNode` so modal dialogs opened during runtime inherit the selected theme automatically.
-6. **Global Quick Search Omnibar Exception & Contrast Harmonization**:
-   - **SetValueInvocationException**: Fixed single-element array unrolling by wrapping `Find-ADObjectsQuickSearch` results in `@(...)` and clearing `.ItemsSource = $null` before re-binding. In [Modules/ADService.psm1](./Modules/ADService.psm1), updated `return ,@($results.ToArray())` with unary comma to prevent PowerShell pipeline collection flattening.
-   - **Light Theme Contrast**: Replaced hardcoded `#FFFFFF` on `{Binding Name}` in `PopupGlobalSearch` DataTemplate with `{DynamicResource TextPrimary}` (`#0F172A` in Light Mode) and `#9CA3AF` on `{Binding DistinguishedName}` with `{DynamicResource TextSecondary}` (`#475569`). Upgraded popup container to `{DynamicResource DropDownBg}` and `{DynamicResource DropDownBorderBrush}` with subtle drop shadow, ensuring 100% crisp readability.
+### Objective
+Audit a digital certificate stored in Active Directory, verify cryptographic strength, inspect validity periods, and perform a real-time online CRL/OCSP revocation check.
 
-### B. Automated Verification
-- Full STA integration test harness executed via Windows PowerShell 5.1 and PowerShell 7+:
-  - **Syntax & AST**: 0 errors.
-  - **E2E Theme Toggling**: Verified seamless switching between Light and Dark modes without visual artifacts.
-  - **Controls Audited**: All 15 theme and HTML view controls verified.
-  - **Quick Search Verification**: Verified single-element, multi-element, and empty collection bindings without exceptions.---
+![X.509 Certificate Viewer with Online Revocation Check](docs/images/04_specialized_editor_cert.png)
 
-## 7. NetTools (nettools.net) Competitor Parity Implementation
-
-### A. Executive Summary
-A comprehensive competitor benchmarking and parity implementation was conducted against the **NetTools** application suite (`https://nettools.net/features/`), covering all 16 tool categories, submenus, diagnostic workflows, and UX innovations. Active Directory Management Studio now features complete parity across all core troubleshooting disciplines: Access Control, Kerberos & Authentication, Topology & Replication, and Incident Diagnostics.
-
-### B. Newly Implemented Modules & Architecture
-
-#### 1. Access Control & ACL Suite (`Modules/AclService.psm1`, `Views/AclBrowserDialog.xaml`)
-* **Security Descriptor Decoder**: Implemented `ConvertFrom-ADSecurityDescriptorString` and `Get-ADObjectAcl` to parse raw binary and SDDL format strings, identifying Trustee SIDs, canonical ACE ordering, inheritance flags (`CI`, `OI`, `NP`, `IO`), and color-coded permission tiers.
-* **Effective Permissions Engine**: Implemented `Get-ADEffectivePermissions` evaluating token groups and deny/allow ACE precedence to determine granted vs. denied permissions (Full Control, Write DACL, Reset Password, DCSync).
-* **AdminSDHolder & SDProp Auditor**: Implemented `Find-AdminSDHolderOrphans` and `Reset-AdminSDHolderOrphan` to identify accounts with `adminCount=1` that were removed from protected groups, offering 1-click inheritance restoration.
-* **Sensitive Delegation Reporter**: Implemented `Get-ADDelegationReport` querying for dangerous privilege delegations across the domain (Password Resets on AdminSDHolder, DCSync / Replication Rights, and LAPS password read access).
-* **Standalone Modal ACL Inspector**: Added `AclBrowserDialog.xaml` providing dedicated tabs for DACL ACEs, SACL Auditing, Effective Rights Matrix, and Raw SDDL with clipboard export.
-
-#### 2. Kerberos & Token Diagnostics Suite (`Modules/KerberosService.psm1`)
-* **LSA Kerberos Ticket Cache Explorer**: Implemented `Get-KerberosTicketCache` and `Clear-KerberosTicketCache` wrapping `klist.exe` to inspect cached TGT and service tickets (SPN, client, encryption type, flags, lifetime) with 1-click purge.
-* **SPN Ticket Request Tester**: Implemented `Test-KerberosSpnTicket` to validate Kerberos authentication paths for arbitrary service principals and measure acquisition latency.
-* **PAC Token Size Bloat Calculator**: Implemented `Measure-ADUserTokenSize` using Microsoft's PAC token formula (`EstimatedTokenSize = 1200 + 40d + 8s`) evaluating risk thresholds against standard HTTP 400 and MaxTokenSize limits.
-* **Forest RID Pool Capacity Monitor**: Implemented `Get-ADRidPoolStatus` inspecting the domain RID Master and all domain controllers to evaluate remaining forest RID capacity (~1 billion pool) and per-DC allocations.
-
-#### 3. Replication & Topology Suite (`Modules/ReplicationService.psm1`)
-* **Multi-DC Real-Time Last Logon Scanner**: Implemented `Get-ADMultiDCRealTimeLastLogon` querying all reachable DCs concurrently to discover true non-replicated logon timestamps (`lastLogon`), bad password counters, and originating DC consensus.
-* **Subnet Boundary & CIDR Conflict Detector**: Implemented `Test-ADSubnetOverlap` converting subnet names to numeric 32-bit IP ranges to detect overlapping boundary definitions and misconfigured site affinities.
-* **Active Directory Sites Topology**: Implemented `Get-ADSitesTopology` mapping corporate sites, subnets, ISTG role holders, and inter-site transit links.
-* **GPO SYSVOL Consistency Auditor**: Implemented `Test-GpoReplicationConsistency` comparing Active Directory `versionNumber` against SYSVOL `GPT.ini` version across DCs to flag replication delays.
-* **Attribute Replication Metadata**: Implemented `Get-ADReplicationAttributeMetadata` inspecting `msDS-ReplAttributeMetaData` (originating DC, USN, version, timestamp).
-
-#### 4. Diagnostics & Troubleshooting Toolbox (`Modules/DiagnosticService.psm1`)
-* **Circular Group Loop Detector**: Implemented `Find-CircularGroupReferences` executing Depth-First Search (DFS) graph cycle detection across all domain groups with recursion stack tracking.
-* **Side-by-Side User Group Membership Diff**: Implemented `Compare-ADUserGroupMemberships` comparing direct and recursive group rosters of two accounts side-by-side.
-* **Account Lockout Source Investigator**: Implemented `Find-ADAccountLockoutSource` scanning all DCs for bad password activity and parsing Security Event Log **Event ID 4740** on the culprit DC to uncover the calling workstation hostname and IP address.
-* **Multi-DC Account Unlocker**: Implemented `Unlock-ADUserAcrossDCs` offering 1-click expedited account unlocking.
-* **Win32 / HRESULT / LDAP / Kerberos Codec**: Implemented `Resolve-ADErrorCode` translating numeric and hexadecimal error codes into human-readable definitions.
-* **Multi-Format Timestamp Converter**: Implemented `Convert-ADTimestamp` bidirectionally converting between Windows FileTime Int64, Hex 64-bit, GeneralizedTime (LDAP), and Unix Epoch.
-
-### C. Signature UX Innovations & Integration
-
-#### 1. Universal "Use With..." Pivoting Across Grids
-Every major entity grid in Active Directory Studio (`GridUsers`, `GridGroups`, `GridComputers`, `GridSearchResults`) features a dedicated **"Use With..."** context submenu enabling 1-click diagnostic pivoting:
-- **Users**: Check ACL / Effective Rights, Calculate PAC Token Size, Trace Lockout (Event 4740), Real-Time Multi-DC Logon, Send to Resolver Scratchpad, Copy to Detached Grid.
-- **Groups**: Check Security Descriptor, Circular Reference Scan, Compare Group Memberships, Send to Resolver, Copy to Detached Grid.
-- **Computers**: Check Object ACL, Test SPN Ticket, Multi-DC Last Logon, Send to Resolver, Copy to Detached Grid.
-- **Search Results**: Check ACL, Send to Resolver Scratchpad, Copy to Detached Grid.
-
-#### 2. The Incident Scratchpad (`Ctrl+R`, `Views/ResolverDialog.xaml`)
-A multi-line freeform workspace accessible globally via the header button or `Ctrl+R`. Administrators can paste raw dumps of text containing usernames, SIDs, IPv4 addresses, GUIDs, UPNs, or DNs. The resolver automatically classifies each entity, looks up directory attributes, and provides 1-click pivoting to ACL inspection, Lockout traces, and Token Bloat analysis.
-
-#### 3. Detached Floating Analysis Grids (`Views/DetachedGridDialog.xaml`)
-Allows any grid dataset to be cloned into an independent, modeless floating window for multi-monitor workstations. Features a live omnibar filter and 1-click CSV/HTML export.
-
-#### 4. Process Elevation Telemetry Badge
-Header badge actively displaying Windows Principal security tokens (`🛡️ ELEVATED (ADMIN)` with green badge vs. `👤 STANDARD USER` with gray badge), warning administrators when elevation is recommended for raw Event Log queries or Kerberos operations.
-
-### D. Automated Verification & Quality Assurance
-- **AST Parsing**: All 10 PowerShell script and module files parsed cleanly with 0 syntax errors.
-- **XAML Parsing**: All 14 XAML dialog and window files verified with `[System.Windows.Markup.XamlReader]::Load`.
-- **UTF-8 BOM**: Verified and enforced `EF BB BF` encoding on all `.ps1` and `.psm1` files.
-- **Privacy Compliance**: Zero personal usernames found across all codebase files, diffs, and commits.
-- **Commit Author**: Set strictly to `Catmuf <catmuf@gmail.com>`.
+### Step-by-Step Walkthrough
+1. **Open Certificate in Object Studio**:
+   - Open the Specialized Editor dialog for an account with a `userCertificate` attribute or a Domain Controller object.
+   - Select the **📜 X.509 Certificate** tab.
+2. **Review Identification & Subject Hierarchy**:
+   - **Subject (CN)**: `corp-dc01.ad.contoso.com`
+   - **Full Subject DN**: `CN=corp-dc01.ad.contoso.com, OU=Domain Controllers, DC=contoso, DC=local`
+   - **Issuer (CN)**: `Contoso Enterprise Root CA`
+   - **Serial Number**: `3BA4F891C2D0491EB6A51102FFE4902A`
+3. **Verify Cryptographic Parameters**:
+   - **Public Key**: `RSA 2048 bits`
+   - **Signature Algorithm**: `sha256RSA`
+   - **Key Usage**: Server Authentication (`1.3.6.1.5.5.7.3.1`) & Client Authentication (`1.3.6.1.5.5.7.3.2`).
+   - **Subject Alternative Names (SAN)**: `DNS:corp-dc01.ad.contoso.com, DNS:dc01.contoso.local`
+4. **Perform Live Revocation Check**:
+   - Click **🔍 Check Revocation (X509Chain)**.
+   - The studio queries local Certificate Revocation Lists (CRLs) and Online Certificate Status Protocol (OCSP) responders:
+     * **Status**: `VALID (Active: 443 days remaining)`
+     * **Revocation Status**: `ONLINE (CRL and OCSP validated)`
+     * **Chain Trust**: Confirmed complete trusted root chain to `Contoso Enterprise Root CA`.
 
 ---
 
-## 2. Enterprise Identity, Schema & Automation Enhancements
+## Scenario 5: Cloud Identity Integration: SCIM 2.0 Query & Filter Studio
 
-### A. Headless Batch Export & Automation CLI (`Export-ADToolCli.ps1`)
-* **Parity Benchmark**: Softerra LDAP Administrator `laimex.exe` command-line utility.
-* **Capabilities**:
-  - Full unattended batch export for CSV, LDIF, JSON, and RFC 7643 SCIM 2.0 formats.
-  - Arbitrary RFC 4515 LDAP search filters (`-Filter`), search base DN scoping (`-SearchBase`), and custom attribute projections (`-Attributes`).
-  - Supports argument file ingestion via PowerShell `@args.txt` parameter splatting.
-  - Native integration with `config.json` and automatic RootDSE naming context fallback when connected to domain controllers.
+### Objective
+Test and translate cloud identity expressions (Entra ID / Okta SCIM 2.0) into native Active Directory LDAP search filters using RFC 7644 compilation.
 
-### B. Kerberos PAC Token Size ($1200 + 40d + 8s$) & Bloat Forensics
-* **Parity Benchmark**: NetTools Token Size & Bloat Calculator.
-* **Architecture & Metrics**:
-  - Exact implementation of Microsoft's PAC token size equation:
-    $$\text{TokenSize} = 1200 + 40d + 8s$$
-    where $d$ represents Domain Local and intra-domain Universal groups, and $s$ represents Global groups, foreign security principals, and SID History items.
-  - Comprehensive operational threshold classification:
-    - *Healthy* ($< 12,000$ bytes)
-    - *Warning / Elevated* ($12,000 - 48,000$ bytes)
-    - *Critical / MaxTokenSize Limit Reached* ($\ge 48,000$ bytes or $> 1015$ total security groups)
-  - Dedicated 5-column metric dashboard in `PanelKerberosSuite` showing PAC Size, Domain Groups ($d$), Extra SIDs ($s$), Formula Breakdown, and Risk Badge.
+![SCIM 2.0 Query and Native LDAP Filter Studio](docs/images/05_scim_filter_studio.png)
 
-### C. SDProp Instant PDC Trigger & Bulk AdminSDHolder Remediation
-* **Parity Benchmark**: NetTools SDProp & Access Control Forensics.
-* **Architecture & Mechanics**:
-  - **Manual SDProp Trigger (`Invoke-ADSDPropTask`)**: Modifies `RootDSE` with operational attribute `runProtectAdminGroupTask=1` against the Primary Domain Controller (PDC) Emulator, forcing instantaneous propagation of AdminSDHolder DACLs without waiting for the default 60-minute background cycle.
-  - **Bulk Orphan Remediation (`Reset-AllAdminSDHolderOrphans`)**: Identifies all domain principals retaining orphaned `adminCount=1` flags and automatically clears the flag while resetting ACL inheritance flags (`SE_DACL_PROTECTED` -> inherited).
-
-### D. Dynamic Attribute Pattern Placeholder Engine
-* **Parity Benchmark**: Softerra LDAP Administrator Entry Creation & Bulk Modification Templates.
-* **Syntax**: `%[transform:]attrName[:length[:padChar]]%`
-* **Features**:
-  - Transforms: `lower:`, `upper:`, `cap:` (Capitalize first letter).
-  - Truncation & character limits: `:length`.
-  - Padding: `:padChar` (e.g. `%lower:givenName:1%%lower:sn:7:_ %`).
-  - Seamlessly integrated into `Invoke-ADBulkUpdate` and entry creation workflows.
-
-### E. Schema Inheritance Hierarchy & Reverse Usage Indexer
-* **Parity Benchmark**: Apache Directory Studio Schema Editor & NetTools Schema Class Browser.
-* **Features**:
-  - Superclass inheritance resolution traversal (`top` $\leftarrow$ parent $\leftarrow$ class) for all schema classes.
-  - Class category badges: `[Abs]` (Abstract), `[Str]` (Structural), `[Aux]` (Auxiliary), `[88]` (1988).
-  - Reverse attribute usage indexer (`Get-ADSchemaAttributeUsage`): Discovers all classes requiring (`mustContain`) or optionally referencing (`mayContain`) a given attribute.
-
-### F. Bidirectional SCIM 2.0 (RFC 7644) $\leftrightarrow$ LDAP (RFC 4515) Filter Translator
-* **Parity Benchmark**: Apache SCIMple & Cloud Identity Federation.
-* **Features**:
-  - Translates RFC 7644 SCIM operators (`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `ge`, `lt`, `le`, `and`, `or`, `not`) to RFC 4515 LDAP search filters.
-  - Bidirectional translation from LDAP filters back into RFC 7644 SCIM query filter syntax.
-  - Direct 1-click modal conversion assistant in Directory Search (`BtnConvertScim`).
-
-### G. Directory Basket Persistence & "Locate in Directory Tree" Jump-to
-* **Parity Benchmark**: Softerra LDAP Administrator Directory Basket & Apache Directory Studio Quick Locate.
-* **Features**:
-  - **"Keep Contents Across Sessions"**: Config-backed persistence of basket items in `config.json` with dynamic reload on launch.
-  - **"📍 Locate in Directory Tree"**: Context menu option across Users, Groups, Computers, Search Results, Basket, and Raw Attribute Grid to instantly navigate to the container OU in the tree view and highlight the object.
+### Step-by-Step Walkthrough
+1. **Navigate to SCIM Studio**:
+   - Click **SCIM 2.0 Studio** (or **LDAP-SQL Console**) on the sidebar.
+2. **Formulate a Cloud SCIM 2.0 Filter**:
+   - In the query input, enter a standard RFC 7644 filter expression:
+     ```text
+     userName sw "alex" and title pr and emails[type eq "work"].value ew "@contoso.com"
+     ```
+3. **Compile to Native LDAP Syntax**:
+   - Click **⚡ Compile SCIM Filter** or execute query.
+   - The studio lexes, parses, and translates the expression to RFC 4515 LDAP syntax:
+     ```text
+     (&(objectCategory=person)(objectClass=user)(sAMAccountName=alex*)(title=*)(mail=*@contoso.com))
+     ```
+4. **Inspect Schema Projections**:
+   - Review attribute mappings between SCIM Core (`urn:ietf:params:scim:schemas:core:2.0:User`) and Enterprise extensions (`urn:ietf:params:scim:schemas:extension:enterprise:2.0:User`).
+5. **Review Execution Results**:
+   - View matching directory objects returned with sub-second response times (`1 Object Matched in 4.2ms [VLV Page 1/1]`).
 
 ---
 
-## 3. Advanced Forensic Utilities, Value Editors & Deep Directory Engines
+## Scenario 6: Access Control & Permissions: 6-Way Effective Rights
 
-### A. Access Control Traceability & Domain-Wide Trustee Rights Finder
-* **Parity Benchmark**: NetTools Effective Permissions & Softerra LDAP Administrator Security Inspector.
-* **Architecture & Mechanics**:
-  - **Bidirectional DACL $\leftrightarrow$ Effective Rights Traceability**: Selecting any calculated effective permission in `GridAclEffective` automatically locates and scrolls to the granting DACL ACE in `GridAclAces`. Double-clicking any ACE in `GridAclAces` instantly filters effective permissions down to that specific trustee.
-  - **Domain-Wide Trustee Rights Finder (`Find-ADTrusteeAssignments`)**: Scans all directory objects within a given search base scope (or domain root) to discover where a given user, group, or SID holds explicit or inherited rights. Results display Target Object, Object Class, Type, Permissions / Rights, Inheritance, and Distinguished Name, with 1-click CSV export (`BtnExportTrusteeAssignments`).
+### Objective
+Diagnose complex Active Directory permissions on a sensitive OU or User, calculate 6-Way Effective Rights, and remediate lingering `adminCount=1` AdminSDHolder orphans.
 
-### B. Deep SID Resolver & Error 1332 Authority Fallback
-* **Parity Benchmark**: NetTools SID Resolver & Sid-Converter.
-* **Architecture & Mechanics**:
-  - `Resolve-ADSecurityIdentifierEx` accepts String SIDs, raw Hex binary bytes, SDDL well-known tokens (e.g. `DA`, `EA`, `BA`, `SY`, `AU`), RID integers, and account names.
-  - When Windows throws `ERROR_NONE_MAPPED` (Win32 Error 1332), the engine strips the trailing object RID (`-(\d+)$`) and translates the parent domain authority SID (`S-1-5-21-X-Y-Z`). If the parent domain resolves, the engine confirms the object was a **Deleted / Tombstoned Account** in the domain. If the parent domain fails, it identifies an **Orphaned / Unreachable External Trust or Foreign Security Principal**.
+![Access Control and 6-Way Effective Rights Matrix](docs/images/06_security_acl_6way.png)
 
-### C. Active Canary Replication Latency Tester
-* **Parity Benchmark**: NetTools DC Updates & Softerra Multi-DC Latency Diagnostics.
-* **Architecture & Mechanics**:
-  - `Invoke-ADCanaryReplicationTest` queries all discoverable Domain Controllers concurrently, benchmarks socket and RootDSE response latency relative to the Primary Domain Controller (PDC) Emulator, and extracts `highestCommittedUSN`.
-  - Classifies convergence states:
-    - *Converged (<500ms)*: Normal intra-site response time.
-    - *Moderate Delay*: Transport transit delay across site links.
-    - *High Latency*: Significant replication or network transit delay.
-    - *Unreachable / Timed Out*: DC communication failure.
-  - Available under Replication Suite Tab 8 with real-time summary indicator and 1-click CSV export (`BtnExportCanaryResults`).
+### Step-by-Step Walkthrough
+1. **Navigate to the Security & ACL Suite**:
+   - Click **Security & ACL Suite** on the sidebar.
+2. **Select Target Object & Trustee**:
+   - Target Object: `CN=Alex Morgan,OU=Engineers,OU=Staff,DC=contoso,DC=local`
+   - Trustee: `CONTOSO\Domain Admins`
+   - Click **Inspect ACL**.
+3. **Review Access Control Entries (DACL)**:
+   - Evaluates direct vs. inherited permissions from parent OUs.
+   - Inspects ACE types (`Allow`/`Deny`), trustees, Active Directory rights masks, and inheritance flags.
+4. **Calculate 6-Way Effective Rights**:
+   - Click **⚡ Calculate Effective**.
+   - The matrix calculates resultant permissions across 6 core classes, displayed with emerald green `GRANTED` badges:
+     * `GenericAll (Full Control)`: **GRANTED**
+     * `ReadProperty (All)`: **GRANTED**
+     * `WriteProperty (All)`: **GRANTED**
+     * `ResetPassword`: **GRANTED**
+     * `ChangePassword`: **GRANTED**
+     * `DeleteChild`: **GRANTED**
+5. **Remediate AdminSDHolder Orphans**:
+   - If an account was previously in Domain Admins, Active Directory leaves inheritance disabled.
+   - Switch to the **⚠️ AdminSDHolder Orphans** tab.
+   - Click **🛡️ Re-enable Inheritance & Clear adminCount** to restore automated OU delegation with 1 click.
 
-### D. Specialized Value Editors: RFC 4517 Postal Address & Password Hash / Bind Verifier
-* **Parity Benchmark**: Apache Directory Studio Address Editor & Password Value Editor.
-* **Architecture & Mechanics**:
-  - **RFC 4517 Postal Address Editor**: Multi-line editor automatically translating dollar sign delimiters (`$`) into visual newlines and re-encoding back to standard RFC 4517 postal address strings. Features a structured helper builder with dedicated fields for Street, City, State/Province, Postal Code, and Country.
-  - **Password Bind & Plaintext Hash Tester**: Allows directory administrators to verify passwords:
-    - *Verify Plaintext Match (`BtnVerifyPlaintextHash`)*: Live salting and hash comparison supporting `{SSHA}`, `{SHA}`, `{MD5}`, and `{CRYPT}` formats.
-    - *Test LDAP Bind (`BtnTestLdapBindPassword`)*: Performs a live LDAP simple bind against the target object's Distinguished Name to verify credentials without modifying the directory.
+---
 
-### E. Schema Dependency & Integrity Linter ("Problems View")
-* **Parity Benchmark**: Apache Directory Studio Schema Projects & Problems View.
-* **Architecture & Mechanics**:
-  - `Test-ADSchemaIntegrity` scans the schema partition and audits:
-    - Broken superclass inheritance chains (`subClassOf` pointing to non-existent classes).
-    - Circular inheritance loops.
-    - Missing mandatory (`mustContain`) or optional (`mayContain`) attribute definitions.
-    - Duplicate ISO/ITU-T OID collisions (`governsID` or `attributeID` duplicates).
-  - Integrated into `PanelSchemaBrowser` under the **"⚠️ Schema Problems"** view mode with 1-click audit trigger (`BtnRunSchemaAudit`).
+## Scenario 7: Kerberos Authentication & PAC Bloat Troubleshooting
 
-### F. Cloud Identity RFC 7644 SCIM 2.0 Bulk Request Engine
-* **Parity Benchmark**: Apache SCIMple & Cloud Directory Synchronization.
-* **Architecture & Mechanics**:
-  - `New-ScimBulkRequest` compiles directory basket items or collections into RFC 7644 Section 3.7 `urn:ietf:params:scim:api:messages:2.0:BulkRequest` JSON payloads.
-  - Supports configurable `failOnErrors` thresholds, auto-assigned `bulkId` tokens, and cross-referenced group membership references.
-  - `Convert-ScimBulkRequestToOperations` parses incoming bulk request JSON payloads back into staged operations for directory provisioning.
-  - Accessible via **"📦 Export SCIM Bulk"** in the Directory Basket panel.
+### Objective
+Investigate user authentication failures and HTTP 400 Bad Request errors caused by Kerberos Token Bloat from deep security group nesting.
 
-### G. LDAP-SQL Dialect with Concatenation, String Functions & EXPLAIN Plan
-* **Parity Benchmark**: Softerra LDAP-SQL Console & Execution Plan Viewer.
-* **Architecture & Mechanics**:
-  - **String Concatenation (`||`)**: Supports SQL ANSI concatenation, e.g. `SELECT UPPER(displayName) || ' (' || sAMAccountName || ')' AS FullTag FROM SUBTREE`.
-  - **Scalar String Functions**: Evaluates `UPPER()`, `LOWER()`, `SUBSTRING(expr, start, len)`, and `LENGTH()`.
-  - **Execution Plan Viewer (`BtnSqlExplain` / `EXPLAIN SELECT ...`)**: Generates an execution plan outlining the operation, target container base, search scope, constructed RFC 4515 LDAP filter, projected attributes, server-side paging strategy (RFC 2696), index estimates, and sort strategy.
+![Kerberos Token PAC Bloat Calculator](docs/images/07_kerberos_token_bloat.png)
 
-### H. Persistent Bookmarks / Favorites & Ribbon Ergonomics
-* **Parity Benchmark**: Softerra LDAP Administrator Bookmarks & Favorites Menu.
-* **Architecture & Mechanics**:
-  - Persistent bookmarks stored in `config.json` via `Get-ADBookmarks`, `Add-ADBookmark`, and `Remove-ADBookmark` in [Modules/ConfigService.psm1](./Modules/ConfigService.psm1).
-  - Ribbon header button **"⭐ Bookmarks"** (`BtnHeaderFavorites`) displays a popup menu listing all saved directory objects with icon badges, 1-click jump-to navigation (OU tree view or Raw Attribute Editor), **"⭐ Add Current Object to Bookmarks..."**, and **"🗑️ Clear All Bookmarks"**.
-  - Context menu items **"⭐ Add to Bookmarks"** integrated across Users, OU Objects, Search Results, and Directory Basket.
-  - Fully responsive header collapsing text labels gracefully below 1240px.
+### Step-by-Step Walkthrough
+1. **Navigate to the Kerberos Suite**:
+   - Click **Kerberos Suite** on the sidebar.
+   - Select the **🧮 MaxTokenSize & PAC Bloat** tab.
+2. **Specify Target User**:
+   - Enter username: `alex.morgan`
+   - Click **🧮 Calculate Token Size**.
+3. **Analyze Token Metrics & PAC Formula**:
+   - Evaluates Microsoft's PAC Expansion Formula:
+     $$\text{TokenSize} = 1200 + 40d + 8s$$
+   - Surfaces real-time values:
+     * **Estimated PAC Size**: `18,240 Bytes`
+     * **Domain / Universal Groups ($d$)**: `68`
+     * **Global / SID History Groups ($s$)**: `74`
+     * **HTTP 400 Risk Level**: `Normal (OK)` (Safe below 48,000 bytes).
+4. **Identify Contributing Groups**:
+   - The lower grid lists all contributing transitive groups (`Domain Admins`, `Enterprise Admins`, `Cloud-Platform-Architects`).
+   - Group nesting can be pruned directly from the list to reduce token footprint.
 
+---
+
+## Scenario 8: Forensic Graph Analysis: Circular Group Loop Detection
+
+### Objective
+Scan Active Directory for circular group nesting loops (infinite recursive loops) and break cyclic references to prevent identity sync failures.
+
+![Circular Group Nesting Loop Cycle Detector](docs/images/08_circular_groups_loop.png)
+
+### Step-by-Step Walkthrough
+1. **Navigate to Diagnostics Toolbox**:
+   - Click **Diagnostics Toolbox** on the sidebar.
+   - Select the **🔄 Circular Group Loops** tab.
+2. **Execute Forest-Wide Cycle Scan**:
+   - Click **⚡ Scan Entire Domain**.
+   - The engine traverses the entire group membership graph using Depth-First Search (DFS).
+3. **Inspect Detected Loops**:
+   - High-contrast amber badges highlight detected cyclic loops:
+     * **Status**: `LOOP DETECTED`
+     * **Root Group**: `IT-Admins-Core`
+     * **Cycle Path**: `IT-Admins-Core ➔ DevOps-Infrastructure ➔ SecOps-Auditors ➔ IT-Admins-Core`
+     * **Depth**: `3`
+     * **Severity**: `CRITICAL`
+4. **Break Cyclic Reference**:
+   - Click **Disconnect Reference** on the finding row.
+   - The studio executes `Disconnect-CircularGroupReference`, safely severing the loop while preserving valid parent-child relationships.
+
+---
+
+## Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports
+
+### Objective
+Execute automated compliance audits, identify stale/unprotected accounts, and export an executive HTML security report for audit compliance.
+
+![Enterprise Security and 48 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
+
+### Step-by-Step Walkthrough
+1. **Navigate to Audit Reports**:
+   - Click **Security Audits** on the sidebar and select the **Audit Reports** tab.
+2. **Select Audit Category & Threshold**:
+   - Category: `Inactive Users`
+   - Days Threshold: `90 Days`
+   - Click **🛡️ Run Audit**.
+3. **Review Audit Findings**:
+   - Displays all matching accounts with last logon timestamps, department, and expiration details.
+   - Summary badge displays: `Audit Complete: Found 28 stale inactive user accounts (> 90 days without interactive logon)`.
+4. **Generate Executive Compliance Reports**:
+   - Click **📄 HTML Executive Report** to generate a styled, print-ready dossier.
+   - Click **📤 Export CSV** for spreadsheet ingestion into SIEM or compliance portals.
+
+---
+
+## Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker
+
+### Objective
+Diagnose network accessibility to domain controller file shares (`SYSVOL` / `NETLOGON`) through firewalls and verify port response latencies.
+
+![NetTools 7-Tier UNC Share and DC Port Latency Diagnostics](docs/images/10_network_7tier_unc.png)
+
+### Step-by-Step Walkthrough
+1. **Navigate to Network Diagnostics**:
+   - Click **Network Diagnostics** on the sidebar.
+   - Select the **📁 7-Step UNC Share Checker** tab.
+2. **Enter Target Share Path**:
+   - Target: `\\dc01.corp.local\SYSVOL\corp.local`
+   - Click **⚡ Run 7-Step Test**.
+3. **Monitor Sequential Diagnostic Stages**:
+   - **Step 1: DNS Resolution**: Resolves A/AAAA records to IP (`10.0.1.10`) [1.2 ms] - `PASS`
+   - **Step 2: ICMP Ping**: Confirms IP routing and latency [0.8 ms] - `PASS`
+   - **Step 3: RPC Endpoint Mapper**: Probes TCP port 135 [1.5 ms] - `PASS`
+   - **Step 4: SMB Protocol Port**: Negotiates SMB 3.1.1 on TCP port 445 [2.1 ms] - `PASS`
+   - **Step 5: NetShareGetInfo**: Validates share existence and disk type [3.4 ms] - `PASS`
+   - **Step 6: Share Permissions**: Confirms Read/Execute permissions [2.8 ms] - `PASS`
+   - **Step 7: Path Traversal & Read**: Confirms access to policy folder and `GPT.INI` [1.9 ms] - `PASS`
+4. **DC Locator Port Matrix**:
+   - Switch to **📡 DC Resolution & Port Profiles** to inspect live socket response times across ports 389, 636, 88, 445, 53, 3268, and 135.
+
+---
+
+## Conclusion & Best Practices
+
+1. **Light Theme for Precision**: The default high-contrast Light Theme guarantees optimal readability when analyzing fine-grained ACL matrices, cryptographic keys, and dense hex streams.
+2. **Leverage Staged Basket Moves**: When moving users or groups between OUs, stage them in the **Directory Basket** (`Ctrl+B`) first to preview changes before committing.
+3. **Verify LDIF Diffs**: Always review dry-run diffs in **LDIF Studio** before committing batch schema or attribute updates.
+4. **Automate with CLI**: Repetitive diagnostic sweeps (circular group scans, Kerberos token calculations, health audits) can be scheduled using `tools/ad-studio-cli.ps1`.
+5. **Technical Architecture Reference**: For deep protocol specifications, RFC compliance mappings, and schema definitions, consult the [**Enterprise SysAdmin Handbook (HANDBOOK.md)**](HANDBOOK.md).

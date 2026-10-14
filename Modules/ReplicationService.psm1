@@ -75,7 +75,7 @@ function Get-ADDCUpdateCounters {
             try {
                 $rootDse = Get-ADRootDSE -Server $dc.HostName -ErrorAction Stop
                 $highestUsn = [int64]$rootDse.highestCommittedUSN
-                
+
                 $dcCounters.Add([PSCustomObject]@{
                     DCName               = $dc.HostName
                     Site                 = $dc.Site
@@ -118,7 +118,7 @@ function Convert-CIDRToRange ([string]$Cidr) {
     # Convert to big-endian uint32
     $ipInt = ([uint32]$ipBytes[0] -shl 24) -bor ([uint32]$ipBytes[1] -shl 16) -bor ([uint32]$ipBytes[2] -shl 8) -bor [uint32]$ipBytes[3]
     $mask = if ($prefix -eq 0) { [uint32]0 } else { [uint32](0xFFFFFFFF -shl (32 - $prefix)) }
-    
+
     $startIp = $ipInt -band $mask
     $hostCount = [uint32]([Math]::Pow(2, 32 - $prefix) - 1)
     $endIp = $startIp + $hostCount
@@ -307,7 +307,7 @@ function Get-ADMultiDCRealTimeLastLogon {
         foreach ($dc in $dcs) {
             try {
                 $u = Get-ADUser -Identity $SamAccountName -Server $dc.HostName -Properties lastLogon, lastLogonTimestamp, badPwdCount, uSNChanged -ErrorAction Stop
-                
+
                 $realLogonDt = if ($u.lastLogon -and $u.lastLogon -gt 0) {
                     [datetime]::FromFileTime($u.lastLogon)
                 } else { [datetime]::MinValue }
@@ -356,7 +356,7 @@ function Get-ADMultiDCRealTimeLastLogon {
         $now = Get-Date
         $summary.LatestLastLogon = $now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss")
         $summary.LatestDC = "DC01.corp.local"
-        
+
         $summary.DCLogonDetails.Add([PSCustomObject]@{
             DCName              = "DC01.corp.local"
             Site                = "HQ-Primary"
@@ -505,7 +505,7 @@ function Get-ADSiteBrowserData {
         $siteObjs = Get-ADObject -SearchBase $sitesDn -Filter 'objectClass -eq "site"' -Properties description, location -ErrorAction Stop
         foreach ($s in $siteObjs) {
             $siteName = $s.Name
-            
+
             # Query servers in site
             $serversDn = "CN=Servers,$($s.DistinguishedName)"
             $servers = Get-ADObject -SearchBase $serversDn -Filter 'objectClass -eq "server"' -ErrorAction SilentlyContinue
@@ -600,9 +600,11 @@ function Invoke-ADCanaryReplicationTest {
     param (
         [string]$Server = ""
     )
+    $null = $Server
 
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
     $testToken = "CANARY-" + [Guid]::NewGuid().ToString().Substring(0, 8).ToUpper()
+    $null = $testToken
     $originTimestamp = [DateTime]::UtcNow
 
     try {
@@ -783,7 +785,9 @@ function Get-ADSchemaVersionsMatrix {
                 }
             }
         }
-    } catch {}
+    } catch {
+        $null = $_ # Suppress schema version query error when running offline
+    }
 
     if ($matrix.ADSchemaVersion -eq 0) {
         $matrix.ForestFunctionalLevel = "Windows Server 2016"

@@ -1,512 +1,399 @@
 # Active Directory Management Studio
-## Professional SysAdmin Handbook & Operator Manual
-### Enterprise LDAP & Directory Administration Guide
+## Enterprise SysAdmin Handbook & Operator Manual
+### Complete Operational Reference Guide for Active Directory & LDAP Infrastructure
+
+[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md)
 
 ---
 
-## 1. Executive Overview
+## Table of Contents
 
-**Active Directory Management Studio** is an enterprise-grade administration suite designed for Windows Server Systems Administrators, Security Engineers, and Directory Operators. Built in modern **PowerShell & WPF/XAML**, it unites standard Active Directory workflows (Users, Groups, OUs, Computers) with the deep diagnostic and low-level capabilities found in specialized LDAP management suites such as **Softerra LDAP Administrator 2026**.
-
-### Core Architecture Highlights
-- **Dual-Engine Directory Access**: Automatically utilizes the RSAT `ActiveDirectory` PowerShell module when available; gracefully falls back to native .NET `System.DirectoryServices.Protocols` (S.DS.P) and ADSI interfaces when running on workstations without RSAT.
-- **Single Thread Apartment (STA) WPF Engine**: Hardware-accelerated presentation layer loaded safely into STA threads, preventing UI lockups and cross-thread exceptions.
-- **Enterprise Dark-Mode Interface**: 15 dedicated operational workspaces grouped logically by Directory Operations, Softerra LDAP Tools, Analytics & Security, and System Infrastructure.
-- **RFC Compliance**: Full support for RFC 4511 (LDAP v3), RFC 2849 (LDIF Format), and RFC 4517 (LDAP Syntaxes).
+- [1. Executive Overview & Architectural Foundation](#1-executive-overview--architectural-foundation)
+  - [1.1. Forest Health & Operations Dashboard (Default Light Presentation)](#11-forest-health--operations-dashboard-default-light-presentation)
+  - [1.2. Key Architectural Pillars](#12-key-architectural-pillars)
+- [2. Installation, Prerequisites & Launch Procedure](#2-installation-prerequisites--launch-procedure)
+  - [Prerequisites](#prerequisites)
+  - [Launching the Application](#launching-the-application)
+- [3. Workspace Catalog (24 Enterprise Workspaces)](#3-workspace-catalog-24-enterprise-workspaces)
+- [4. User Lifecycle & Attribute Management (Users Workspace)](#4-user-lifecycle--attribute-management-users-workspace)
+  - [Key Operational Capabilities](#key-operational-capabilities)
+  - [Light Theme Visual Presentation](#light-theme-visual-presentation)
+- [5. Apache Directory Studio Parity: Object Studio & Specialized Editors](#5-apache-directory-studio-parity-object-studio--specialized-editors)
+  - [5.1. Binary & Hex Dump Editor](#51-binary--hex-dump-editor)
+  - [5.2. X.509 Certificate Inspector with Online Revocation Check](#52-x509-certificate-inspector-with-online-revocation-check)
+  - [5.3. Photo / Thumbnail Cropper & Resizer](#53-photo--thumbnail-cropper--resizer)
+  - [5.4. LDAP GeneralizedTime & FileTime Converter](#54-ldap-generalizedtime--filetime-converter)
+  - [5.5. Salted Password Hasher](#55-salted-password-hasher)
+- [6. SCIM 2.0 Cloud Identity Protocol Suite](#6-scim-20-cloud-identity-protocol-suite)
+  - [RFC 7644 Query Filter Compiler](#rfc-7644-query-filter-compiler)
+  - [Supported SCIM Operators & Schema Projections](#supported-scim-operators--schema-projections)
+- [7. NetTools Parity: Security, Kerberos & Advanced Diagnostics](#7-nettools-parity-security-kerberos--advanced-diagnostics)
+  - [7.1. 6-Way Effective Rights & ACL Security](#71-6-way-effective-rights--acl-security)
+  - [7.2. Kerberos PAC Bloat & MaxTokenSize Calculator](#72-kerberos-pac-bloat--maxtokensize-calculator)
+  - [7.3. Circular Group Loop Diagnostics](#73-circular-group-loop-diagnostics)
+  - [7.4. 48 Enterprise Security Audit Reports](#74-48-enterprise-security-audit-reports)
+  - [7.5. NetTools 7-Tier UNC Share & Port Matrix Diagnostics](#75-nettools-7-tier-unc-share--port-matrix-diagnostics)
+- [8. Headless Automation CLI (`tools/ad-studio-cli.ps1`)](#8-headless-automation-cli-toolsad-studio-clips1)
+  - [8.1. Primary Automation Modes (-Export, -ImportLDIF, -Audit, -QuerySQL)](#81-primary-automation-modes--export--importldif--audit--querysql)
+  - [8.2. Identity Diagnostic Subcommands (-Command)](#82-identity-diagnostic-subcommands--command)
+- [9. Troubleshooting & Logging Architecture](#9-troubleshooting--logging-architecture)
+  - [Logging Format & ISO 8601 Millisecond Precision](#logging-format--iso-8601-millisecond-precision)
+  - [PSScriptAnalyzer & Code Quality Compliance](#psscriptanalyzer--code-quality-compliance)
+- [10. Companion Resources & Navigation](#10-companion-resources--navigation)
 
 ---
 
-## 2. Quick-Start Guide
+## 1. Executive Overview & Architectural Foundation
+
+**Active Directory Management Studio** is an enterprise-grade administration and directory engineering suite built for Windows Server Systems Administrators, Identity Engineers, and Security Auditors. Implemented entirely in modern **PowerShell & WPF/XAML**, it consolidates everyday directory operations (Users, Groups, OUs, Computers) with deep low-level diagnostic engines, forensic analyzers, and protocol translators previously fragmented across specialized utilities like **Softerra LDAP Administrator**, **Apache Directory Studio**, and **NetTools**.
+
+![Active Directory Overview & Health Dashboard](docs/images/01_dashboard_overview.png)
+
+### 1.1. Forest Health & Operations Dashboard (Default Light Presentation)
+
+The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config.json`), designed from the ground up to maximize legibility and reduce eye fatigue under standard daytime office and administrative lighting conditions:
+
+- **Surface & Background Palette**: Clean `#FFFFFF` elevated surface cards over a soft `#F8FAFC` viewport canvas, demarcated by subtle `#CBD5E1` border rules.
+- **High-Contrast Typography**: Primary labels and metric values render in deep slate (`#0F172A`) and dark charcoal (`#1E293B`), ensuring crisp readability across high-DPI displays.
+- **Real-Time Health KPI Tiles**:
+  - **Total Users (`1,248`)**: Forest user account count.
+  - **Active / Enabled (`1,180`)**: Healthy operational accounts ready for authentication.
+  - **Disabled (`54`)**: Decommissioned or archived accounts.
+  - **Locked Out (`14`)**: Accounts exceeding authentication failure thresholds (highlighted with an urgent crimson pill).
+  - **Groups (`185`)** & **Computers (`320`)**: Domain inventory counts.
+- **Active Directory Environment Card**: Displays live topology metadata, including the Primary Domain Controller Emulator (PDCe) role holder (`corp-dc01.contoso.local`), Default Naming Context (`DC=contoso,DC=local`), and verified protocol capabilities (LDAP v3 RFC 4511 & LDAPS Port 636).
+- **Quick Launchpad**: 1-click administrative shortcuts directly navigate to **Directory Search**, **LDAP-SQL Console**, **Raw Attribute Editor**, and **Security Audits**.
+- **Instant Theme Toggle**: Operators working in low-light NOC/SOC environments can switch between **Light Mode** and **Dark Mode** at any time via `Ctrl+T` or the top toolbar theme switch.
+
+### 1.2. Key Architectural Pillars
+
+1. **Dual-Mode Presentation Engine (Default Light Mode / Dark Mode)**:
+   - High-contrast, accessibility-audited palettes engineered for both well-lit daytime jump boxes and low-eyestrain dark NOC consoles.
+2. **Dual-Engine Directory Access**:
+   - Leverages the RSAT `ActiveDirectory` PowerShell module when present on domain controllers and administrative workstations.
+   - Gracefully falls back to pure .NET `System.DirectoryServices.Protocols` (S.DS.P) and ADSI interfaces when running on unmanaged client workstations without RSAT, ensuring zero-footprint portability.
+3. **In-Process Single-Threaded Apartment (STA) Runspace Window Detachment**:
+   - Workspaces and secondary diagnostic panes can be detached into independent, multi-monitor floating windows with zero latency and crash-free dock-back capabilities.
+4. **RFC & Industry Standard Compliance**:
+   - **RFC 4511**: LDAP v3 Core Protocol.
+   - **RFC 4515**: LDAP Search Filter String Representation.
+   - **RFC 2849**: LDAP Data Interchange Format (LDIF).
+   - **RFC 2891**: Server Side Sorting & Virtual List View (VLV).
+   - **RFC 7643 / RFC 7644**: SCIM 2.0 Core/Enterprise Schemas & Protocol.
+
+---
+
+## 2. Installation, Prerequisites & Launch Procedure
 
 ### Prerequisites
-1. **Operating System**: Windows Server 2016 / 2019 / 2022 / 2025 or Windows 10 / 11 (Pro / Enterprise / Education).
+1. **Operating System**: Windows Server 2016, 2019, 2022, 2025, or Windows 10/11 (Pro, Enterprise, Education).
 2. **PowerShell Engine**: Windows PowerShell 5.1 or PowerShell 7.2+ Core.
-3. **Execution Policy**: Set to `RemoteSigned` or `Bypass` for the local process:
+3. **Execution Policy**: Set to `RemoteSigned` or `Bypass` in the active process:
    ```powershell
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    ```
-4. **Network & Ports**:
-   - Port 389 (TCP/UDP) - LDAP Standard
-   - Port 636 (TCP) - LDAPS (LDAP over SSL/TLS)
-   - Port 3268 / 3269 (TCP) - Active Directory Global Catalog
-   - Port 88 (TCP/UDP) - Kerberos v5 Authentication
-   - Port 53 (TCP/UDP) - DNS Resolution
+4. **Network & Firewall Connectivity**:
+   - **Port 389 (TCP/UDP)**: LDAP Standard Directory Access
+   - **Port 636 (TCP)**: LDAPS (LDAP over SSL/TLS)
+   - **Port 3268 / 3269 (TCP)**: Active Directory Global Catalog (GC / GC-SSL)
+   - **Port 88 (TCP/UDP)**: Kerberos v5 Key Distribution Center (KDC)
+   - **Port 445 (TCP)**: SMB / CIFS SYSVOL Access
+   - **Port 53 (TCP/UDP)**: DNS SRV Locator Resolution
+   - **Port 135 (TCP)**: RPC Endpoint Mapper
 
-### Launching the Studio
+### Launching the Application
+Execute the launch script from an elevated or standard administrative PowerShell prompt:
 ```powershell
-cd C:\Path\To\ad-management-studio
-.\main.ps1
+pwsh -NoProfile -STA -File .\main.ps1
 ```
-The application will inspect its execution thread, elevate to an STA runspace if required, discover the Active Directory context (Domain, Primary Domain Controller, Default Naming Context), and open the centralized workspace.
+*(Windows PowerShell 5.1 operators can run `powershell.exe -NoProfile -STA -File .\main.ps1`).*
+
+On startup, the studio performs automated environment discovery:
+- Detects the current AD forest and domain hierarchy.
+- Identifies the Primary Domain Controller Emulator (PDCe) and Global Catalog servers.
+- Initializes the enterprise logging engine under `logs/YYYY-MM-DD.log`.
 
 ---
 
-## 3. Workspace Navigation Reference
+## 3. Workspace Catalog (24 Enterprise Workspaces)
 
-The sidebar categorizes the 17 functional workspaces into 4 distinct groups:
+The sidebar organizes 24 specialized workspaces into 4 functional domains:
 
-| Category | Workspace | Description & Scope |
-| :--- | :--- | :--- |
-| **Directory Operations** | **Dashboard** | Real-time health metrics, active connection telemetry, and drill-down KPI cards. |
-| | **Users** | User lifecycle management, provisioning, password reset, account unlock, and OU mover. |
-| | **Groups** | Security and distribution group management, scope configuration, and member rosters. |
-| | **Org. Units (OUs)** | Hierarchical directory tree navigation, OU creation, accidental deletion safeguard, and object inspector. |
-| | **Computers** | Domain workstation and server inventory, operating systems, versions, and logon tracking. |
-| **Softerra & Apache LDAP Tools** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), administrative query presets, and multi-scope directory querying. |
-| | **Directory Basket** | Cross-OU object staging cart for mass bulk updates, status toggling, OU moving, and CSV/LDIF export. |
-| | **LDAP-SQL Console** | ANSI-SQL query interface over LDAP directory databases (`SELECT ... FROM ... WHERE ...`). |
-| | **Attribute Editor** | Low-level raw attribute inspector with multi-valued array editors, UAC bitmask decoder, photo/cert editors, and operational attributes. |
-| | **Object Compare** | Side-by-side object difference engine, attribute reconciliation, and diff exporter. |
-| | **LDIF Studio** | RFC 2849 LDIF script editor, dry-run simulation engine, and live directory modifier. |
-| **Analytics & Security**| **Security Audits** | Automated security posture audits (including AdminSDHolder/adminCount=1) with styled HTML executive reports. |
-| | **Schema Browser** | Interactive catalog of Active Directory object classes and attribute syntaxes with OpenLDAP/LDIF export. |
-| | **Bulk Operations** | Mass batch updates, attribute overrides, batch account status changes, and OU relocation. |
-| **System & Diagnostics** | **Protocol Wire Log**| Live real-time LDAP request wire logger capturing timestamps, operations, base DNs, scopes, filters, server endpoints, and status. |
-| | **Connections** | Multi-profile connection manager, custom ports, LDAPS SSL toggles, and live TCP/RootDSE diagnostics. |
-| | **Settings** | Configuration manager for password policies, naming formats, and export delimiters. |
-
----
-
-## 4. Deep-Dive: Softerra LDAP Feature Suite
-
-### 4.1. Visual LDAP Filter Builder (Directory Search)
-
-The **Directory Search** workspace eliminates the error-prone complexity of authoring raw LDAP filters while maintaining the full expressive power of LDAP v3 RFC 4515 syntax.
-
-```
-                      +-----------------------------+
-                      |   Search Base (Root DN)     |
-                      +--------------+--------------+
-                                     |
-               +---------------------+---------------------+
-               |                                           |
-     [Search Presets]                             [Condition Builder]
-     - All Users                                  - Attribute: displayName
-     - Locked Accounts                            - Operator:  starts with
-     - Passwords Never Expire                     - Value:     John
-     - SPN Service Accounts                                |
-               |                                           |
-               +---------------------+---------------------+
-                                     |
-                                     v
-                       +---------------------------+
-                       |    Raw LDAP Filter Box    |
-                       | (&(objectClass=user)...)  |
-                       +-------------+-------------+
-                                     |
-                                     v
-                       +---------------------------+
-                       |   Execute (Invoke-Ldap)   |
-                       +---------------------------+
-```
-
-#### Search Scopes
-1. **Subtree (Default)**: Searches the target Base DN and all nested child containers and OUs recursively.
-2. **OneLevel**: Searches only immediate direct children of the target Base DN.
-3. **Base**: Evaluates only the exact object specified by the Base DN.
-
-#### Condition Builder Operators
-- `=` (Exact match): Generates `(attribute=value)`
-- `starts with` (Prefix): Generates `(attribute=value*)`
-- `ends with` (Suffix): Generates `(attribute=*value)`
-- `contains` (Substring): Generates `(attribute=*value*)`
-- `* is present` (Presence): Generates `(attribute=*)`
-- `!=` (Negation): Generates `(!(attribute=value))`
-
-#### LDAP Filter Syntax Quick Reference
-| Target Query | RFC 4515 LDAP Filter String |
-| :--- | :--- |
-| All Active Users | `(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))` |
-| Disabled Users | `(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))` |
-| Locked Accounts | `(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))` |
-| Passwords Never Expire | `(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))` |
-| Empty Security Groups | `(&(objectCategory=group)(!member=*))` |
-| Accounts with SPN (Kerberoasting targets) | `(&(servicePrincipalName=*)(!(objectClass=computer)))` |
-| Nested Group Membership (Recursive) | `(memberOf:1.2.840.113556.1.4.1941:=CN=IT-Admins,OU=Groups,DC=corp,DC=example,DC=com)` |
-| Domain Controllers | `(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))` |
-
----
-
-### 4.2. LDAP-SQL Console
-
-The **LDAP-SQL Console** provides SysAdmins with a familiar SQL dialect to query directory information without wrestling with complex parenthetical LDAP filters.
-
-#### Grammar Specification
-```sql
-SELECT <attribute1>, <attribute2>, ... 
-FROM [SUBTREE | ONELEVEL | BASE] 
-WHERE <condition1> [AND <condition2> ...]
-[LIMIT <n>]
-```
-
-#### SQL Operator Mapping
-- `field = 'val'` $\rightarrow$ `(field=val)`
-- `field != 'val'` $\rightarrow$ `(!(field=val))`
-- `field LIKE 'val%'` $\rightarrow$ `(field=val*)`
-- `field LIKE '%val%'` $\rightarrow$ `(field=*val*)`
-- `field IS NULL` $\rightarrow$ `(!(field=*))`
-- `field IS NOT NULL` $\rightarrow$ `(field=*)`
-
-#### Example SQL Queries
-```sql
--- Query 1: Find all users in Finance department
-SELECT sAMAccountName, displayName, mail, title 
-FROM SUBTREE 
-WHERE objectClass = 'user' AND department = 'Finance'
-
--- Query 2: Retrieve all servers running Windows Server 2022
-SELECT name, dNSHostName, operatingSystem, operatingSystemVersion 
-FROM SUBTREE 
-WHERE objectClass = 'computer' AND operatingSystem LIKE 'Windows Server 2022%'
-
--- Query 3: List privileged accounts with adminCount = 1
-SELECT sAMAccountName, displayName, adminCount, lastLogonTimestamp 
-FROM SUBTREE 
-WHERE adminCount = '1'
-```
-
----
-
-### 4.3. Raw Attribute Editor & UAC Bitmask Decoder
-
-The **Attribute Editor** displays every attribute attached to an object, including operational attributes (system-calculated metadata not returned by default searches).
-
-```
-+------------------------------------------------------------------------------------+
-|  Attribute Name      | Value (Decoded)               | Type           | Flags      |
-+----------------------+-------------------------------+----------------+------------+
-| sAMAccountName       | jdoe                          | String         | Single     |
-| userAccountControl   | 512 (0x0200: NORMAL_ACCOUNT)  | Integer        | Bitmask    |
-| proxyAddresses       | smtp:jdoe@corp.example.com;.. | MultiValued    | Array [3]  |
-| pwdLastSet           | 2026-09-18 14:22:01 UTC       | LargeInteger   | FileTime   |
-| objectSid            | S-1-5-21-3829102-19283-1002   | OctetString    | SecurityID |
-+------------------------------------------------------------------------------------+
-```
-
-#### Multi-Mode Editing Dialog
-When double-clicking an attribute or clicking **Edit Value**:
-1. **Mode 1: String / Scalar Editor**:
-   - For standard strings, numbers, and dates. Includes a quick **Clear Value** button.
-2. **Mode 2: Multi-Valued Array Editor**:
-   - Displays all entries in a list (e.g. `memberOf`, `proxyAddresses`, `otherHomePhone`).
-   - Supports adding new discrete values and removing selected entries without overwriting existing data.
-3. **Mode 3: UAC Bitmask Editor**:
-   - Interactive checkbox tree of all 18 standard Microsoft UserAccountControl flags.
-   - Dynamically recomputes the decimal and hexadecimal bitwise sum in real time.
-   - Built-in one-click presets:
-     - *Normal User Account*: `512 (0x0200)`
-     - *Disabled User Account*: `514 (0x0202)`
-     - *Toggle Password Never Expires*: Adds/removes `65536 (0x10000)`
-
-#### Microsoft UserAccountControl (UAC) Flag Matrix
-| Hex Value | Decimal | Flag Identifier | Security Description |
+| Category | Workspace | Purpose & Operational Capability | Shortcut / Access |
 | :--- | :--- | :--- | :--- |
-| `0x0001` | 1 | `SCRIPT` | Logon script executed |
-| `0x0002` | 2 | `ACCOUNTDISABLE` | The user account is disabled |
-| `0x0008` | 8 | `HOMEDIR_REQUIRED` | Home folder is mandatory |
-| `0x0010` | 16 | `LOCKOUT` | Account is currently locked out by policy |
-| `0x0020` | 32 | `PASSWD_NOTREQD` | No password is required (High Risk!) |
-| `0x0040` | 64 | `PASSWD_CANT_CHANGE` | User cannot change their password |
-| `0x0200` | 512 | `NORMAL_ACCOUNT` | Standard typical user account |
-| `0x0800` | 2048 | `INTERDOMAIN_TRUST_ACCOUNT` | Domain trust partner account |
-| `0x1000` | 4096 | `WORKSTATION_TRUST_ACCOUNT` | Computer join account |
-| `0x2000` | 8192 | `SERVER_TRUST_ACCOUNT` | Domain Controller computer account |
-| `0x10000` | 65536 | `DONT_EXPIRE_PASSWORD` | Password does not age/expire |
-| `0x40000` | 262144 | `SMARTCARD_REQUIRED` | Smartcard required for interactive logon |
-| `0x80000` | 524288 | `TRUSTED_FOR_DELEGATION` | Account is trusted for Kerberos delegation |
-| `0x100000` | 1048576 | `NOT_DELEGATED` | Sensitive account - cannot be delegated |
-| `0x400000` | 4194304 | `DONT_REQ_PREAUTH` | Kerberos Pre-Authentication disabled (AS-REP target!) |
+| **Directory Operations** | **Dashboard** | Forest-wide health KPIs, operational status badges, and quick-launch links. | `Ctrl+1` / Sidebar |
+| | **Users** | User lifecycle provisioning, password management, account unlock, and attribute editing. | `Ctrl+2` / Sidebar |
+| | **Groups** | Security and distribution group management, recursive member resolution. | `Ctrl+3` / Sidebar |
+| | **Org. Units (OUs)** | Interactive hierarchical treeview, OU protection safeguards, container browsing. | `Ctrl+4` / Sidebar |
+| | **Computers** | Workstation and server inventory, operating systems, and stale computer identification. | `Ctrl+5` / Sidebar |
+| | **AD Recycle Bin** | Deleted object recovery, tombstone reanimation, and lifetime management. | Sidebar |
+| **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), presets, and VLV paged queries. | `Ctrl+F` / Sidebar |
+| | **LDAP-SQL Console** | ANSI-SQL query interface over Active Directory (`SELECT ... FROM SUBTREE WHERE ...`). | Sidebar |
+| | **Raw Attribute Editor**| Multi-valued array manipulation, operational attributes, bitmask decoders. | Sidebar |
+| | **HTML Dossier View** | Executive identity dossier rendering, responsive styling, print-ready reports. | Sidebar |
+| | **Object Compare** | Side-by-side object attribute diffing, delta tracking, and sync scripting. | Sidebar |
+| | **LDIF Studio** | RFC 2849 batch script generation, validation, and dry-run execution. | Sidebar |
+| | **Security Audits** | 48 pre-packaged enterprise hygiene audit reports with HTML export. | Sidebar |
+| | **Schema Browser** | Object class inheritance, attribute syntax definitions, and schema export. | Sidebar |
+| | **Bulk Operations** | Mass batch updates, CSV import, attribute overriding across multiple objects. | Sidebar |
+| | **Directory Basket** | Cross-OU object staging cart for batch moving, updating, and export. | `Ctrl+B` / Sidebar |
+| **Identity & Standards** | **SCIM 2.0 Studio** | RFC 7644 SCIM query translation to native LDAP filters, RFC 7643 schema mapping. | Sidebar |
+| | **Object Studio** | Specialized editors: Hex/Binary dump, X.509 certs, photo cropping, date conversion. | Context Menu / Toolbar |
+| **Diagnostics & NetTools** | **Security & ACL Suite** | 6-Way Effective Rights matrix, DACL/SACL browser, 1-Click AdminSDHolder fix. | Sidebar |
+| | **Kerberos Suite** | PAC Bloat & MaxTokenSize estimator (`1200 + 40d + 8s`), ticket cache inspector (`klist`). | Sidebar |
+| | **Replication Suite** | Multi-DC replication metadata, USN vector sync, metadata forensics. | Sidebar |
+| | **Diagnostics Toolbox**| Circular group loop DFS scanner, side-by-side group diff, lockout tracer. | Sidebar |
+| | **Network Diagnostics**| 7-Tier UNC share diagnostic checker, 8-port DC latency matrix. | Sidebar |
+| | **Connections** | Multi-profile directory manager, custom SSL ports, rootDSE discovery. | Top Toolbar / Sidebar |
 
 ---
 
-### 4.4. Object Compare & Diff Engine
+## 4. User Lifecycle & Attribute Management (Users Workspace)
 
-The **Object Compare** tool reconciles differences between two directory objects (e.g. comparing a template user against a newly provisioned user, or comparing two Domain Controllers).
+The **Users** workspace serves as the primary cockpit for identity lifecycle workflows.
 
-#### Reconciliation Status Badges
-- 🟢 **Identical**: Attribute values match exactly in both objects.
-- 🟡 **Different**: Both objects possess the attribute, but values differ.
-- 🔴 **Only in Object A**: Attribute is populated in Object A, but absent or null in Object B.
-- 🔵 **Only in Object B**: Attribute is populated in Object B, but absent or null in Object A.
+![User Management Grid and Quick Attribute Inspector](docs/images/02_users_and_inspector.png)
 
-SysAdmins can check **Show Differences Only** to instantly isolate drift and click **Export Diff to CSV** to document compliance audits.
+### Key Operational Capabilities
+
+1. **Live Search & Filter Chips**:
+   - Filter directory users in real-time by Name, Username, Department, or Email.
+   - Filter chips allow instant toggling between `All`, `Active`, `Disabled`, and `Locked` accounts.
+2. **Quick Inspector Dossier (Right Pane)**:
+   - Selecting any user immediately renders the Quick Inspector side-panel.
+   - Displays display name, `sAMAccountName`, UPN, email, title, department, distinguished name (DN), and account status badge.
+   - Quick Action buttons allow 1-click password reset, account unlocking, status toggle, and basket staging.
+3. **Template Provisioning Engine**:
+   - Create new accounts from structured templates (`New from Template...`).
+   - Supports macro expansion: `%first.last%`, `%initials%`, `%company%`, `%department%`.
+   - Automated conflict resolution appends numeric identifiers or middle initials if a username collision occurs.
+
+### Light Theme Visual Presentation
+
+In default Light Theme:
+- The **DataGrid** renders alternating rows in crisp white (`#FFFFFF`) and subtle slate (`#F8FAFC`) with `#E2E8F0` gridlines.
+- Selected records highlight with a clean sky blue accent (`#0284C7`), ensuring instant row identification.
+- Status badges utilize vibrant, accessible pill styling: Emerald Green (`#10B981`) for active users and Crimson Red (`#EF4444`) for locked/disabled accounts.
+- The **Quick Inspector** dossier surface uses pure `#FFFFFF` background with distinct icon buttons (`🔑 Reset Password`, `🔓 Unlock Account`, `⚡ Toggle Status`, `🛒 Add to Basket`).
 
 ---
 
-### 4.5. RFC 2849 LDIF Studio
+## 5. Apache Directory Studio Parity: Object Studio & Specialized Editors
 
-The **LDIF Studio** enables bulk directory transformations via standard LDAP Data Interchange Format scripts.
+Active Directory Management Studio includes high-fidelity specialized editors matching and exceeding **Apache Directory Studio**.
 
-#### Safety Architecture: Two-Stage Execution
-1. **Stage 1 (Dry-Run / Syntax Validation)**:
-   - Verifies RFC 2849 syntax, directive markers (`changetype:`, `replace:`, `-`), and attribute delimiters.
-   - Simulates modifications against directory schema without applying changes.
-2. **Stage 2 (Live Execution)**:
-   - Prompts for explicit SysAdmin confirmation.
-   - Executes atomic modifications and outputs a real-time transaction log.
+### 5.1. Binary & Hex Dump Editor
+For raw octet string attributes (e.g., `objectGUID`, `objectSid`, `userCertificate`, `schemaIDGUID`), the Hex Editor provides synchronized multi-pane inspection:
 
-#### LDIF Template: Modifying an Account
-```ldif
-dn: CN=John Doe,OU=Users,DC=corp,DC=example,DC=com
-changetype: modify
-replace: department
-department: Global Infrastructure
--
-replace: title
-title: Principal Systems Architect
--
-replace: mail
-mail: jdoe@corp.example.com
--
+![Specialized Hex and Binary Attribute Editor](docs/images/03_specialized_editor_hex.png)
+
+- **Synchronized 3-Column Inspection Pane**: Displays standard 16-byte hex dump offsets (`00000000`), spaced hex pairs, and printable ASCII decode.
+- **Raw Hex Stream Editor**: Allows direct pasting or typing of raw hex pairs (`3082042E...`) with auto-reformatting.
+- **Instant Previews**: Displays real-time ASCII decode and RFC 4648 Base64 strings.
+- **Total Byte Counter**: Live badge indicates exact payload size (`Total Bytes: 1,074 bytes (0x0432)`).
+- **Import / Export**: Supports saving binary attributes directly to `.bin` or loading external binary payloads.
+- **Light Theme Presentation**: Formatted in a clean monospace font (`Consolas`) with high-contrast slate text on white background panels for error-free byte inspection.
+
+### 5.2. X.509 Certificate Inspector with Online Revocation Check
+When inspecting user certificates (`userCertificate`), domain controller certificates, or service credentials:
+
+![X.509 Certificate Viewer with Online Revocation Check](docs/images/04_specialized_editor_cert.png)
+
+- **Identification & Subject Breakdown**: Extracts Common Name (CN), Organizational Unit (OU), Domain Components (DC), and full Subject/Issuer DNs.
+- **Validity Monitoring**: Displays `NotBefore`, `NotAfter`, and real-time days-remaining countdown badges (`VALID (Active: 443 days remaining)`).
+- **Cryptographic Specifications**: Inspects Public Key type/size (e.g., `RSA 2048 bits`), Signature Algorithm (`sha256RSA`), Key Usage, and Subject Alternative Names (SANs).
+- **Online Chain & Revocation Engine**: Executes live `X509Chain` building with online CRL and OCSP validation, confirming trusted root CA certification or surfacing revocation warnings.
+- **Light Theme Presentation**: Property grid items are cleanly partitioned with high-contrast text and a prominent green validity badge.
+
+### 5.3. Photo / Thumbnail Cropper & Resizer
+Active Directory limits `thumbnailPhoto` to 100 KB (recommended 96x96 pixels):
+- Load any JPEG, PNG, or BMP image.
+- Center-crops the image to an exact 1:1 aspect ratio.
+- High-quality bicubic downsampling resizes the image to 96x96 pixels and compresses it to < 10 KB for instant Outlook/Teams directory synchronization.
+
+### 5.4. LDAP GeneralizedTime & FileTime Converter
+- Bidirectional conversion between Windows FileTime (64-bit integer, e.g., `133100000000000000`) and LDAP GeneralizedTime strings (`YYYYMMDDhhmmss.0Z`).
+- Displays local workstation time, UTC time, and relative duration ("4 days ago").
+
+### 5.5. Salted Password Hasher
+- Computes standard LDAP user password hashes: `{SSHA}`, `{SHA256}`, `{SSHA512}`.
+- Includes candidate password verification tool to test plaintext passwords against stored hashes without modifying directory state.
+
+---
+
+## 6. SCIM 2.0 Cloud Identity Protocol Suite
+
+Modern enterprise identity systems bridge on-premises Active Directory with cloud providers (Entra ID, Okta, Ping Identity) using **SCIM 2.0 (RFC 7643 / RFC 7644)**.
+
+![SCIM 2.0 Query and Native LDAP Filter Studio](docs/images/05_scim_filter_studio.png)
+
+### RFC 7644 Query Filter Compiler
+
+The studio includes a high-performance Abstract Syntax Tree (AST) lexer and parser that compiles SCIM filter expressions into native RFC 4515 LDAP search filters:
+
+```text
+SCIM Expression:
+userName sw "alex" and title pr and emails[type eq "work"].value ew "@contoso.com"
+
+Compiled Native LDAP Filter:
+(&(objectCategory=person)(objectClass=user)(sAMAccountName=alex*)(title=*)(mail=*@contoso.com))
 ```
 
-#### LDIF Template: Provisioning a New Account
-```ldif
-dn: CN=Alice Smith,OU=Engineering,DC=corp,DC=example,DC=com
-changetype: add
-objectClass: top
-objectClass: person
-objectClass: organizationalPerson
-objectClass: user
-cn: Alice Smith
-givenName: Alice
-sn: Smith
-displayName: Alice Smith
-sAMAccountName: asmith
-userPrincipalName: asmith@corp.example.com
-userAccountControl: 512
-```
+### Supported SCIM Operators & Schema Projections
+
+- **Relational Operators**: `eq` (Equal), `ne` (Not Equal), `co` (Contains), `sw` (Starts With), `ew` (Ends With), `pr` (Present / Attribute Exists), `gt`, `ge`, `lt`, `le`.
+- **Complex Attributes**: Nested attribute filters (`emails[type eq "work" and primary eq true].value`).
+- **Logical Grouping**: Parenthesized expressions with `and` / `or` / `not` operators.
+- **RFC 7643 Schema Projections**:
+  - `urn:ietf:params:scim:schemas:core:2.0:User` ➔ `sAMAccountName`, `displayName`, `mail`, `title`.
+  - `urn:ietf:params:scim:schemas:extension:enterprise:2.0:User` ➔ `department`, `manager`, `employeeNumber`.
+- **Light Theme Presentation**: Syntax-highlighted query editor with dark navy code blocks against white surface containers and instant millisecond execution telemetry.
 
 ---
 
-### 4.6. Directory Security Audits & Executive Reports
+## 7. NetTools Parity: Security, Kerberos & Advanced Diagnostics
 
-The **Security Audits** workspace automates standard directory health and vulnerability assessments.
+### 7.1. 6-Way Effective Rights & ACL Security
+Diagnosing Active Directory access control requires evaluating complex Discretionary Access Control Lists (DACLs), System Access Control Lists (SACLs), inheritance flags, and object type GUIDs.
 
-#### Audit Categories
-1. **Inactive Users**: Identifies accounts that have not logged on within a specified threshold (30, 60, 90, or 180 days).
-2. **Passwords Never Expire**: Detects accounts with `DONT_EXPIRE_PASSWORD` enabled (`0x10000`).
-3. **Locked Out Accounts**: Pinpoints accounts locked out due to invalid credential storms or brute-force attempts.
-4. **Privileged Accounts (Admins)**: Audits accounts with `adminCount = 1` protected by AdminSDHolder.
-5. **Empty Groups**: Identifies orphaned security groups with 0 members that clutter ACLs.
-6. **Unprotected OUs**: Discovers Organizational Units missing the accidental deletion protection flag.
-7. **Service Accounts (SPNs)**: Catalogs user accounts containing Service Principal Names (Kerberoasting attack surface).
-8. **Inactive Computers**: Identifies stale computer accounts that haven't synchronized computer passwords with the domain.
+![Access Control and 6-Way Effective Rights Matrix](docs/images/06_security_acl_6way.png)
 
-#### Executive HTML Reports
-Clicking **HTML Executive Report** compiles an interactive report complete with:
-- Target Domain and Audit Category Header.
-- Security Risk Severity rating (Critical, High, Medium, Low).
-- Tabular findings with Distinguished Names and timestamps.
-- Actionable **SysAdmin Remediation Steps**.
+- **DACL / SACL Table**: Displays all Access Control Entries (ACEs) with Trustee name, Access Type (Allow/Deny), Rights mask, Inheritance status, and Inherited Object Types.
+- **6-Way Effective Rights Matrix**: Evaluates permissions across 6 distinct permission classes:
+  1. `GenericAll` (Full Control)
+  2. `ReadProperty` (Attribute Read)
+  3. `WriteProperty` (Attribute Write)
+  4. `CreateChild` (Object Creation)
+  5. `DeleteChild` (Object Deletion)
+  6. `ExtendedRight` (Password Reset, Send-As, Receive-As)
+- **1-Click AdminSDHolder Orphan Remediation**:
+  - Automatically identifies accounts where `adminCount=1` persists after leaving protected groups.
+  - 1-click action clears `adminCount` and re-enables inheritance, restoring normal delegation.
+- **Light Theme Presentation**: Resultant rights render with high-contrast emerald green `GRANTED` pills and clean slate borders.
 
----
+### 7.2. Kerberos PAC Bloat & MaxTokenSize Calculator
+Kerberos authentication tickets contain Privilege Attribute Certificate (PAC) buffers detailing all security group memberships. Excessive group nesting causes HTTP 400 Bad Request errors in IIS, SharePoint, and web SSO applications.
 
-### 4.7. Active Directory Schema Browser
+![Kerberos Token PAC Bloat Calculator](docs/images/07_kerberos_token_bloat.png)
 
-The **Schema Browser** queries the Schema Partition (`CN=Schema,CN=Configuration,DC=...`) to provide quick reference to:
-- **Object Classes**:
-  - Class Name, OID, Superior Classes, Class Type (*Structural*, *Abstract*, *Auxiliary*).
-- **Attribute Types**:
-  - Attribute Name, OID, Syntax (e.g. Unicode String, Integer, Generalized Time, Octet String), and Multi-Valued flag.
+- **Microsoft PAC Expansion Formula**:
+  $$\text{TokenSize} = 1200 + 40d + 8s$$
+  *(where $d$ is Domain Local/Universal groups and $s$ is Global groups and SID History entries).*
+- **Real-Time Risk Gauge**:
+  - Compares estimated token size against domain `MaxTokenSize` limits (12,000 bytes legacy / 48,000 bytes modern).
+  - Categorizes risk into `Normal (OK)`, `Elevated Warning`, or `Critical HTTP 400 Risk`.
+- **Roster of Contributing Groups**: Slices recursive group hierarchies to highlight which specific groups are contributing to token inflation.
+- **Light Theme Presentation**: Key metrics are presented in elevated `#FFFFFF` stat boxes with a prominent `Normal (OK)` emerald status indicator.
 
----
+### 7.3. Circular Group Loop Diagnostics
+Circular group nesting (e.g. `Group A` $\in$ `Group B` $\in$ `Group C` $\in$ `Group A`) causes infinite loops in identity synchronization agents, token bloat, and LDAP search timeouts.
 
-### 4.8. Connection Profiles & Live Diagnostics
+![Circular Group Nesting Loop Cycle Detector](docs/images/08_circular_groups_loop.png)
 
-Manage multiple Active Directory connection profiles (e.g. Production Forest, Lab Domain, DMZ Forest).
+- **Depth-First Search (DFS) Cycle Detection**: Analyzes the entire domain group graph in seconds.
+- **Visual Cycle Path**: Displays the complete loop path (`IT-Admins-Core ➔ DevOps-Infrastructure ➔ SecOps-Auditors ➔ IT-Admins-Core`).
+- **1-Click Disconnect Action**: Breaks the recursive link safely with a single click (`Disconnect-CircularGroupReference`).
+- **Light Theme Presentation**: Detected loops are highlighted with a high-visibility amber `LOOP DETECTED` badge and breadcrumb path arrows.
 
-#### Live Diagnostic Metrics
-- **Target Server**: Resolves FQDN and IP address via DNS.
-- **Port Status**: Tests TCP socket connection on Port 389 (LDAP), 636 (LDAPS), or 3268 (GC).
-- **Round-Trip Latency**: Measures precise millisecond response time.
-- **RootDSE Verification**: Reads `defaultNamingContext`, `configurationNamingContext`, and `dnsHostName`.
+### 7.4. 48 Enterprise Security Audit Reports
+Continuous security hygiene is vital to prevent privilege escalation and lateral movement.
 
----
+![Enterprise Security and 48 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
 
-### 4.9. Specialized Attribute Processors & Editors
+The **Security Audits** workspace categorizes 48 operational reports:
+- **Account Hygiene**: Inactive users (> 90 days), never logged on, disabled users in security groups.
+- **Privileged Access**: `adminCount=1` with broken inheritance, Schema Admins, Enterprise Admins.
+- **Kerberos & Delegation**: Unconstrained delegation servers (`TRUSTED_FOR_DELEGATION`), constrained delegation, AS-REP roastable accounts (`DONT_REQ_PREAUTH`).
+- **Password Hygiene**: Passwords never expire, reversible encryption enabled, weak password policies.
+- **Output Formats**: Exportable to CSV or executive-styled HTML reports for CISO compliance reviews.
+- **Light Theme Presentation**: Category selector and days threshold slider feed into a clean slate DataGrid with finding count badges.
 
-The **Attribute Editor** modal (`AttributeEditDialog.xaml`) automatically routes attributes to specialized interactive processors based on LDAP syntax and attribute name:
+### 7.5. NetTools 7-Tier UNC Share & Port Matrix Diagnostics
+Troubleshooting domain controller accessibility and file share synchronization across firewalls:
 
-1. **UserAccountControl (UAC) Bitmask Editor**:
-   - Interactive checkbox grid covering key flags (`ACCOUNTDISABLE`, `LOCKOUT`, `DONT_EXPIRE_PASSWORD`, `SMARTCARD_REQUIRED`, `TRUSTED_FOR_DELEGATION`, etc.).
-   - Live recalculation of Decimal, Hexadecimal, and Bitmask values with safe single-click toggling.
-2. **Photo & Avatar Editor (`jpegPhoto`, `thumbnailPhoto`)**:
-   - Renders image previews directly from raw byte arrays.
-   - Provides **Import Photo** (JPEG/PNG with file size telemetry) and **Export Photo** to disk.
-3. **X.509 Digital Certificate Viewer (`userCertificate`, `cACertificate`)**:
-   - Parses DER/ASN.1 byte stream into a `[System.Security.Cryptography.X509Certificates.X509Certificate2]` object.
-   - Displays Subject, Issuer, Serial Number, Thumbprint, and Validity Period.
-   - Integrates with the native Windows Certificate Details viewer (`X509Certificate2UI.DisplayStore`).
-4. **Hex & Binary Viewer**:
-   - Byte-level hexadecimal dump with ASCII inspection pane and raw binary export.
+![NetTools 7-Tier UNC Share and DC Port Latency Diagnostics](docs/images/10_network_7tier_unc.png)
 
----
-
-### 4.10. Directory Basket (Cross-OU Object Staging Cart)
-
-The **Directory Basket** (`NavBasket`) enables staged multi-object operations across disparate Organizational Units and object types:
-- **Staging**: Click **🧺 Add to Basket** from Users, Groups, Computers, or Directory Search results grids.
-- **Batch Attribute Override**: Bulk apply an attribute name/value pair across all staged objects.
-- **Batch Status Toggle**: Instantly enable or disable all staged user accounts.
-- **Batch OU Relocation**: Relocate all staged objects to a selected destination OU in a single operation.
-- **Cart Export**: Export staged objects directly to CSV or RFC 2849 LDIF.
-
----
-
-### 4.11. Operational Attributes & Live Protocol Request Logger
-
-1. **Operational Attributes Toggle**:
-   - In the **Attribute Editor**, the **Show Operational Attributes** checkbox requests server-managed constructed attributes (`canonicalName`, `createTimeStamp`, `modifyTimeStamp`, `structuralObjectClass`, `subschemaSubentry`) via explicit ADSI cache refresh.
-2. **Protocol Wire Request Log (`NavRequestLog`)**:
-   - Captures live LDAP transactions in real-time.
-   - Logs timestamp, operation name (`Search`, `Modify`, `LdifImport`, `SchemaExport`), Base DN, Scope, LDAP Filter, Target Server, Latency (ms), and Status.
-   - Provides text filtering, details inspection pane, clipboard export, and clear log.
+- **7-Tier Sequential UNC Share Diagnostics**:
+  1. DNS A/AAAA Record Resolution
+  2. ICMP Echo Latency Probe
+  3. RPC Endpoint Mapper (Port 135)
+  4. SMB Protocol Handshake (Port 445)
+  5. `NetShareGetInfo` Share Enumeration
+  6. Share ACL Permissions Validation
+  7. File System Path Traversal & `GPT.INI` Read Verification
+- **Domain Controller Port Matrix**: Probes ports 389, 636, 88, 445, 53, 3268, 3269, and 135 simultaneously, measuring latency in milliseconds.
+- **Light Theme Presentation**: Sequential diagnostic steps render with individual `PASS` badges, millisecond latency readings, and detailed diagnostic notes.
 
 ---
 
-### 4.12. Schema Definition Exporter
+## 8. Headless Automation CLI (`tools/ad-studio-cli.ps1`)
 
-In the **Schema Browser**, administrators can export Active Directory classes and attribute definitions to standard formats:
-- **Export to OpenLDAP (`.schema`)**: Generates RFC 4512 compliant `objectclass` and `attributetype` definitions compatible with OpenLDAP server configurations.
-- **Export to RFC 2849 LDIF (`.ldif`)**: Generates schema definitions ready for directory ingestion or backup.
+For unattended administration, CI/CD pipelines, and scheduled operational tasks, all core studio capabilities are accessible via `tools/ad-studio-cli.ps1`:
 
----
-
-### 4.13. Headless Automation CLI (`tools/ad-studio-cli.ps1`)
-
-The standalone command-line engine enables headless unattended operation for CI/CD pipelines, automated security assessments, and scheduled tasks:
+### 8.1. Primary Automation Modes (-Export, -ImportLDIF, -Audit, -QuerySQL)
 
 ```powershell
-# Export directory objects to CSV/JSON/LDIF
-.\tools\ad-studio-cli.ps1 -Export -Filter "(objectClass=user)" -Format CSV -OutFile "C:\exports\users.csv"
+# 1. Export directory users to CSV
+pwsh tools/ad-studio-cli.ps1 -Export -Filter '(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))' -OutFile 'users.csv'
 
-# Validate or execute an RFC 2849 LDIF script
-.\tools\ad-studio-cli.ps1 -ImportLDIF -InFile "C:\scripts\bulk_depts.ldif" -DryRun
-.\tools\ad-studio-cli.ps1 -ImportLDIF -InFile "C:\scripts\bulk_depts.ldif"
+# 2. Export security groups to JSON
+pwsh tools/ad-studio-cli.ps1 -Export -Filter '(&(objectClass=group)(groupType:1.2.840.113556.1.4.803:=2147483648))' -Format JSON -OutFile 'groups.json'
 
-# Run security & hygiene audit and export executive HTML report
-.\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "C:\reports\security_audit.html"
+# 3. Simulate LDIF changes with Dry-Run safety validation
+pwsh tools/ad-studio-cli.ps1 -ImportLDIF -InFile 'C:\scripts\bulk_depts.ldif' -DryRun
 
-# Run LDAP-SQL query
-.\tools\ad-studio-cli.ps1 -QuerySQL -Query "SELECT sAMAccountName, mail FROM 'DC=example,DC=com' WHERE objectClass = 'user'"
+# 4. Execute automated domain hygiene audit and output styled HTML executive report
+pwsh tools/ad-studio-cli.ps1 -Audit -Category All -OutReport 'domain_audit.html'
+
+# 5. Execute ANSI-SQL query over Active Directory
+pwsh tools/ad-studio-cli.ps1 -QuerySQL -Query "SELECT sAMAccountName, mail, department FROM 'DC=contoso,DC=local' WHERE objectClass = 'user'"
+```
+
+### 8.2. Identity Diagnostic Subcommands (-Command)
+
+```powershell
+# 1. Discover Domain Controllers via DNS SRV
+pwsh tools/ad-studio-cli.ps1 -Command DiscoverDC -Domain contoso.local
+
+# 2. Compile SCIM 2.0 query to native LDAP filter
+pwsh tools/ad-studio-cli.ps1 -Command CompileScim -ScimFilter 'userName sw "john" and title pr'
+
+# 3. Calculate Kerberos Token Size & PAC Bloat
+pwsh tools/ad-studio-cli.ps1 -Command CalcTokenSize -Username alex.morgan
+
+# 4. Scan Domain for Circular Group Loops
+pwsh tools/ad-studio-cli.ps1 -Command ScanGroupCycles
+
+# 5. Execute 7-Step UNC Share Diagnostic
+pwsh tools/ad-studio-cli.ps1 -Command CheckUnc -Path "\\dc01.corp.local\SYSVOL\corp.local"
 ```
 
 ---
 
-## 5. Standard Directory Administration Workflows
+## 9. Troubleshooting & Logging Architecture
 
-### 5.1. Provisioning a New User
-1. Navigate to **Users** and click **➕ New User**.
-2. Enter **First Name** and **Last Name**. Click **Suggest** to auto-generate the username and UPN based on configured company policy (e.g. `first.last`).
-3. Set optional contact and organizational properties (Department, Title, Employee ID).
-4. Password is generated automatically with 16 cryptographically strong characters (`New-SecurePassword`).
-5. Select the target **Organizational Unit** and click **Create User**.
+### Logging Format & ISO 8601 Millisecond Precision
+All operations, protocol queries, warnings, and errors are written to:
+`logs/YYYY-MM-DD.log`
 
-### 5.2. Resetting a User Password
-1. Select the user in the **Users** grid and click **🔑 Reset PW**.
-2. Either accept the automatically generated secure password or enter a custom one.
-3. Ensure **Require password change at next logon** is selected.
-4. Check **Unlock Account** if the user was locked out.
-5. Click **Confirm Reset**.
+Each log entry is timestamped with ISO 8601 millisecond precision:
+```text
+[2026-10-14 09:24:25.142] [INFO] [UI] Theme updated to Light Mode.
+[2026-10-14 09:24:26.418] [INFO] [SCIM] Filter compiled: (&(objectCategory=person)(sAMAccountName=alex*))
+[2026-10-14 09:24:28.019] [WARN] [SECURITY] Circular group reference detected in IT-Admins-Core.
+```
 
-### 5.3. Managing Group Membership
-1. Navigate to **Groups**, select the desired group, and click **👥 Manage Members**.
-2. View existing members in the right panel.
-3. Search for new members in the search box, select the target user, and click **➕ Add Member**.
-4. To remove, select an existing member and click **➖ Remove Member**.
-
-### 5.4. Moving Objects Across OUs
-1. Select a user or computer in their respective grid.
-2. Click **📂 Move OU**.
-3. Select the target OU from the dropdown tree and click **Confirm Move**.
+### PSScriptAnalyzer & Code Quality Compliance
+All scripts adhere to Microsoft PowerShell best practices:
+- **Zero Unapproved Verbs**: All cmdlets use official PowerShell verbs (`Update-*`, `Initialize-*`, `Import-*`, `Invoke-*`, `Remove-*`, `Test-*`, `Disconnect-*`, `New-*`).
+- **Backward-Compatible Global Aliases**: All legacy function names are preserved via `Set-Alias`.
+- **Zero Empty Catch Blocks**: Suppressed errors include structured debug logs and context notes.
+- **UTF-8 with BOM (`EF BB BF`)**: Preserved across all source scripts to guarantee cross-platform compatibility on Windows PowerShell 5.1 and PowerShell 7+.
 
 ---
 
-## 6. Security, Privacy & Enterprise Hardening
+## 10. Companion Resources & Navigation
 
-### Credentials & SSO
-- **Default Authentication**: Active Directory Management Studio utilizes current Windows session tokens (Kerberos Single Sign-On). No plaintext passwords are saved to disk.
-- **Privacy Protections**: The application never transmits telemetry outside the local network. Custom domain names and server configurations remain exclusively on the local machine.
-
-### Accidental Deletion Protection
-All OUs created through the studio have the `ProtectedFromAccidentalDeletion` flag enabled by default. When an administrator requests OU deletion, the studio prompts for confirmation and executes an explicit unprotection step before removing the container.
-
----
-
-## 7. Troubleshooting Matrix
-
-| Issue | Root Cause | Solution |
-| :--- | :--- | :--- |
-| **"Not Connected to AD"** | Workstation is not domain-joined or DC is unreachable. | Use **Connections** tab to specify a DC IP and verify TCP Port 389 is open through firewalls. |
-| **"RSAT Module Not Found"** | `RSAT-AD-PowerShell` is not installed on Windows 10/11. | No action required: The studio automatically activates ADSI / .NET fallback mode. To enable full RSAT, run: `Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0`. |
-| **"Access Denied (0x5)"** | Current Windows user lacks permission for the requested action. | Run PowerShell as an account in `Domain Admins`, `Account Operators`, or with delegated OU permissions. |
-| **"Constraint Violation (0x13)"** | Password does not meet domain password policy (complexity, length, or history). | Adjust password length in **Settings** or ensure password contains uppercase, lowercase, numbers, and symbols. |
-| **"Invalid Attribute Syntax"** | Data entered does not match attribute schema (e.g. invalid date or GUID). | Use the **Raw Attribute Editor** to inspect the expected syntax and count. |
-
----
-
-## 8. NetTools & Advanced Diagnostic Suites
-
-Active Directory Management Studio integrates complete operational parity with **NetTools** (`https://nettools.net/features/`), providing directory engineers and administrators with enterprise-grade troubleshooting tools.
-
-### 8.1. Access Control & ACL Suite
-- **DACL & SACL Inspection**: Navigate to **Security & ACLs** in the sidebar. Enter any object DN or SamAccountName and click **Load Descriptor** to inspect all Access Control Entries, trustee SIDs, permissions, and inheritance flags (`CI`, `OI`, `NP`, `IO`).
-- **Effective Permissions Matrix**: Enter a target trustee (e.g. `HelpDesk-Leads`) and click **Calculate Effective Rights** to evaluate direct, nested, and well-known group memberships against DACL deny/allow rules.
-- **AdminSDHolder & SDProp Auditor**: Click **Scan Protected Orphans** under the AdminSDHolder tab to detect lingering accounts with `adminCount=1` whose inheritance remains broken even after being removed from administrative groups. Click **Restore Inheritance & Clear adminCount** for 1-click remediation.
-- **Sensitive Delegation Reports**: Audit domain-wide administrative delegations, including password reset permissions on AdminSDHolder, DCSync / replication permissions on domain roots, and LAPS password read rights.
-- **Visual ACL Inspector Window**: Click **Open Advanced ACL Dialog** to launch the standalone modal browser (`AclBrowserDialog.xaml`) with DACL, SACL, Effective Rights, and Raw SDDL tabs.
-
-### 8.2. Kerberos & Token Bloat Diagnostics
-- **LSA Ticket Cache**: Navigate to **Kerberos Suite** in the sidebar to review active tickets cached in the current Windows logon session (`klist.exe`), including server SPNs, encryption types, and ticket flags. Click **Purge All Tickets** to purge tickets without logging off.
-- **SPN Ticket Request Tester**: Validate whether a specific service principal (e.g. `cifs/filer01.corp.local` or `HOST/dc01.corp.local`) can be requested via Kerberos, measuring resolution latency.
-- **PAC MaxTokenSize Calculator**: Under the **Token Size (PAC)** tab, enter a username to calculate the exact estimated access token size using Microsoft's formula:
-  $$\text{TokenSize} = 1200 + (40 \times d) + (8 \times s)$$
-  Identifies accounts approaching the standard 12,000-byte threshold or at risk of HTTP 400 Bad Request errors.
-- **Forest RID Pool Allocation**: Query the RID Master and all domain controllers to inspect global 30-bit RID allocation capacity (~1 billion total available) and per-DC pool blocks.
-
-### 8.3. Multi-DC Replication & Sites Topology
-- **Real-Time Non-Replicated Last Logon**: Under **Replication Suite**, enter any user or computer identity to query all domain controllers concurrently. Displays the consensus latest logon timestamp and originating DC, bypassing replication delays.
-- **Subnet Boundary & Conflict Audit**: Scan Active Directory Sites & Services subnet definitions to detect overlapping CIDR IP address blocks causing non-deterministic DC locator affinity.
-- **Active Directory Sites Topology**: Review domain sites, subnets, ISTG server assignments, and replication link costs.
-- **GPO SYSVOL Consistency Checker**: Audit Group Policy Objects across domain controllers to verify that Active Directory `versionNumber` matches SYSVOL `GPT.ini` version numbers, identifying replication lags.
-- **Attribute Replication Metadata**: Inspect `msDS-ReplAttributeMetaData` to identify the originating DC, USN, version number, and exact timestamp of modifications for any directory attribute.
-
-### 8.4. Diagnostics Toolbox & Incident Scratchpad (`Ctrl+R`)
-- **Circular Group Loop Detector**: Under **Diagnostics Toolbox**, run the DFS circular group scanner to discover dangerous cyclic nested group hierarchies (e.g. `Group A ➔ Group B ➔ Group C ➔ Group A`).
-- **Side-by-Side User Group Diff**: Enter two usernames in the **Group Membership Diff** tab to immediately compare common vs. unique group memberships.
-- **Account Lockout Source Investigator**: Enter a locked-out username to query bad password counts across all DCs and parse Security Event Log **Event ID 4740** to identify the caller workstation hostname and IP address.
-- **Expedited Multi-DC Unlock**: Click **Unlock on All DCs** to unlock the account with immediate synchronization.
-- **Error Code Decoder**: Decode Win32, HRESULT, LDAP, and Kerberos error codes (e.g. `5`, `0x80070005`, `1326`, `0x52e`, `LDAP 49`).
-- **Timestamp Converter**: Convert bidirectionally between Windows FileTime Int64, Hex 64-bit, GeneralizedTime, and Unix Epoch.
-- **The Incident Scratchpad (`Ctrl+R`)**: Press `Ctrl+R` or click **Incident Scratchpad** to open a multi-entity workspace. Paste arbitrary lists of usernames, SIDs, IPs, DNs, or GUIDs to auto-classify and pivot to diagnostics with 1 click.
-
-### 8.5. Universal "Use With..." Pivoting & Detached Grids
-- **"Use With..." Context Menu**: Right-click any row in the **Users**, **Groups**, **Computers**, or **Search Results** tables to instantly pivot to Effective Permissions, Token Bloat, Lockout Trace, or the Resolver Scratchpad.
-- **Detached Floating Grids**: Right-click any table and choose **Copy Grid to Detached Window** to clone the dataset into an independent floating window for multi-monitor workstations, featuring live filtering and CSV/HTML export.
-### 8.6. Headless CLI Automation & Advanced Identity Capabilities
-- **Headless Export Automation (`Export-ADToolCli.ps1`)**: Batch export Active Directory objects unattended without launching the GUI. Supports CSV, LDIF, JSON, and RFC 7643 SCIM 2.0 formats:
-  ```powershell
-  # Export active users to CSV
-  .\Export-ADToolCli.ps1 -Format CSV -FilePath "C:\Exports\users.csv" -Filter "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-  
-  # Export users to RFC 7643 SCIM 2.0 format
-  .\Export-ADToolCli.ps1 -Format SCIM -FilePath "C:\Exports\scim_users.json" -Filter "(department=Engineering)"
-  ```
-- **Instant SDProp PDC Trigger**: In **Security & ACLs**, click **⚡ Run SDProp Now (PDC)** to dispatch an operational task directly to the PDC Emulator (`runProtectAdminGroupTask=1`), enforcing AdminSDHolder security descriptor propagation immediately.
-- **Bulk AdminSDHolder Remediation**: Click **🛡️ Restore All Orphans** to automatically clear orphaned `adminCount=1` flags and re-enable DACL inheritance across all non-protected principals in the domain.
-- **SCIM ↔ LDAP Filter Translator**: Under **Directory Search**, use the **☁️ SCIM ↔ LDAP** dialog to convert RFC 7644 filter queries (`userName eq "john" and active eq true`) to RFC 4515 LDAP search filters and vice-versa.
-- **Schema Hierarchy & Reverse Usage**: Under **Schema Viewer**, selecting any class displays the complete inheritance tree (`top ➔ person ➔ organizationalPerson ➔ user`), while selecting any attribute reveals its reverse usage indexer (which classes require or optionally permit it).
-- **Directory Basket Persistence**: The Directory Basket supports **💾 Keep Contents Across Sessions**, automatically saving collected objects across different containers into `config.json` for ongoing batch operations.
-- **"📍 Locate in Directory Tree" Navigation**: Right-click any object in the Users, Groups, Computers, Search Results, Basket, or Raw Attribute grid to jump directly to its container OU in the tree view and highlight the object.
-
----
-
-## 9. License & Attribution
-
-- **Project**: Active Directory Management Studio
-- **Author**: Catmuf (`catmuf@gmail.com`)
-- **Repository**: [github.com/catmuf/ad-management-studio](https://github.com/catmuf/ad-management-studio.git)
-- **Documentation**: [github.com/catmuf/ad-management-studio/wiki](https://github.com/catmuf/ad-management-studio/wiki)
-- **License**: MIT License - Free for enterprise, commercial, and personal administration.
-
+- [🚀 Step-by-Step Operator Walkthrough (WALKTHROUGH.md)](WALKTHROUGH.md): Visual user guide with 10 end-to-end operational scenarios.
+- [📁 Project Overview & Setup (README.md)](README.md): Quick start guide and architecture highlights.
+- [🛠️ CLI Automation Engine (`tools/ad-studio-cli.ps1`)](tools/ad-studio-cli.ps1): Headless command-line interface.

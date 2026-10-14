@@ -1,0 +1,6 @@
+{
+    "powershell.scriptAnalysis.enable": true,
+    "powershell.scriptAnalysis.settingsPath": "PSScriptAnalyzerSettings.psd1",
+    "files.encoding": "utf8bom",
+    "files.autoGuessEncoding": true
+}

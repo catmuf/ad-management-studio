@@ -8,6 +8,7 @@ A modern, high-performance administration suite built with **PowerShell & WPF/XA
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green)
 ![LDAP](https://img.shields.io/badge/LDAP-RFC%204511%20%7C%20RFC%202849-orange)
 [![Handbook](https://img.shields.io/badge/Manual-SysAdmin%20Handbook-purple)](HANDBOOK.md)
+[![Walkthrough](https://img.shields.io/badge/Guide-Visual%20Walkthrough-blue)](WALKTHROUGH.md)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange)](https://github.com/catmuf/ad-management-studio/wiki)
 
 ---
@@ -36,9 +37,10 @@ A modern, high-performance administration suite built with **PowerShell & WPF/XA
 
 ---
 
-## 📖 SysAdmin Handbook
+## 📖 Documentation & Guides
 
-For detailed guides, LDAP filter recipes, SQL grammar, and UAC bitmask tables, consult the comprehensive [**SysAdmin Handbook (HANDBOOK.md)**](HANDBOOK.md).
+- Consult the [**SysAdmin Handbook (HANDBOOK.md)**](HANDBOOK.md) for technical architecture, RFC compliance, schema references, and CLI automation.
+- Follow the [**Visual Operator Walkthrough (WALKTHROUGH.md)**](WALKTHROUGH.md) for 10 step-by-step real-world scenarios illustrated with Light theme screenshots.
 
 ---
 
@@ -69,19 +71,37 @@ cd ad-management-studio
 ```
 ad-management-studio/
 ├── main.ps1                   # Application entrypoint & STA launcher
-├── HANDBOOK.md                # Comprehensive SysAdmin Handbook & Operator Manual
+├── HANDBOOK.md                # Comprehensive SysAdmin Handbook & Technical Architecture
+├── WALKTHROUGH.md             # Step-by-step Visual Operator Walkthrough (10 Scenarios)
+├── README.md                  # Project overview and quick start
 ├── config.json                # Application configuration & connection profiles
+├── docs/
+│   └── images/                # 10 High-resolution Light theme application screenshots
 ├── tools/
-│   └── ad-studio-cli.ps1      # Headless automation CLI (export, LDIF, audit, SQL)
+│   ├── ad-studio-cli.ps1      # Headless automation CLI (export, LDIF, audit, SQL, diagnostics)
+│   └── Capture-AppScreenshots.ps1 # Automated WPF Light theme screen capture engine
 ├── Modules/
-│   ├── ADService.psm1         # LDAP engine, RSAT/ADSI bridge, SQL, LDIF, Compare, Audits
+│   ├── ADService.psm1         # LDAP engine, RSAT/ADSI bridge, SQL, LDIF, Compare, 48 Audits
+│   ├── AclService.psm1        # 6-Way Effective Rights matrix, DACL/SACL, AdminSDHolder
+│   ├── KerberosService.psm1   # PAC Bloat formula, MaxTokenSize, ticket cache inspector
+│   ├── DiagnosticService.psm1 # DFS circular group loop detector, lockout tracer, group diff
+│   ├── NetworkService.psm1    # 7-Tier sequential UNC share verifier, 8-port DC latency matrix
+│   ├── ScimFilterService.psm1 # Bidirectional RFC 7644 SCIM to RFC 4515 LDAP filter compiler
+│   ├── ScimService.psm1       # SCIM 2.0 Core/Enterprise schema models and bulk processing
+│   ├── SpecializedEditorService.psm1 # Hex/Binary dump, X.509 certs, photo cropping, date/hash
+│   ├── TemplateService.psm1   # Provisioning templates, macro expansions, collision resolution
 │   ├── ValidationService.psm1 # UAC bitmask, LargeInteger, GUID, SID, LDAP filter validation
 │   ├── ExportService.psm1     # CSV, JSON, LDIF, and HTML Executive Report exporter
-│   └── ConfigService.psm1     # Settings persistence, Profiles, and RootDSE discovery
+│   ├── ConfigService.psm1     # Settings persistence, Profiles, and RootDSE discovery
+│   ├── GpoService.psm1        # GPO SYSVOL consistency and versioning checker
+│   └── LoggingService.psm1    # ISO 8601 millisecond logger (logs/YYYY-MM-DD.log)
 ├── Views/
-│   ├── MainWindow.xaml        # Central workspace (17 panels, dark-mode, telemetry ribbon)
-│   ├── AttributeEditDialog.xaml# Multi-mode attribute editor (Scalar, Multi-Valued, UAC, Photo, Cert, Hex)
-│   ├── ColumnChooserDialog.xaml# DataGrid dynamic column customizer modal
+│   ├── MainWindow.xaml        # Central workspace (24 workspaces, Light/Dark theme, telemetry)
+│   ├── SpecializedEditorDialog.xaml # Hex dump, X.509 CRL/OCSP cert, photo, timestamp, hasher
+│   ├── AclBrowserDialog.xaml  # Advanced ACL browser and 6-Way Effective Rights modal
+│   ├── GpoExplorerDialog.xaml # GPO consistency and policy explorer modal
+│   ├── AttributeEditDialog.xaml # Multi-mode attribute editor
+│   ├── ColumnChooserDialog.xaml # DataGrid dynamic column customizer modal
 │   ├── ConnectionDialog.xaml  # Connection profile modal with live TCP diagnostics
 │   ├── UserDialog.xaml        # User provisioning and modification modal
 │   ├── UserDetailDialog.xaml  # User inspection and group membership viewer
@@ -90,7 +110,7 @@ ad-management-studio/
 │   ├── MemberDialog.xaml      # Group membership manager modal
 │   ├── OUDialog.xaml          # Organizational Unit creation modal
 │   └── MoveDialog.xaml        # Object OU mover modal
-└── README.md                  # Project overview
+└── tests/                     # Automated Pester/PowerShell test suites (265+ assertions)
 ```
 
 ---
@@ -108,7 +128,7 @@ Application settings and profiles are stored in `config.json`:
     "SearchBase": ""
   },
   "UI": {
-    "Theme": "Dark",
+    "Theme": "Light",
     "AutoRefresh": false,
     "RefreshIntervalSeconds": 60,
     "PageSize": 500
@@ -137,4 +157,4 @@ Application settings and profiles are stored in `config.json`:
 
 - **Author**: Catmuf (`catmuf@gmail.com`)
 - **License**: MIT License
-- **Documentation**: [Project Wiki](https://github.com/catmuf/ad-management-studio/wiki) | [SysAdmin Handbook](HANDBOOK.md)
+- **Documentation**: [SysAdmin Handbook](HANDBOOK.md) | [Visual Walkthrough](WALKTHROUGH.md) | [Project Wiki](https://github.com/catmuf/ad-management-studio/wiki)

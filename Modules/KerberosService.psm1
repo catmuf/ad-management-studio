@@ -63,7 +63,9 @@ function Get-KerberosTicketCache {
                         if ($parsedEnd -lt (Get-Date)) {
                             $currentTicket.StatusBadge = "Expired"
                         }
-                    } catch {}
+                    } catch {
+                        $null = $_ # Suppress datetime parse error for non-standard ticket formats
+                    }
                 }
                 elseif ($trimmed -match '^Renew Time:\s*(.+)$') {
                     $currentTicket.RenewTime = $matches[1].Trim()
@@ -241,7 +243,7 @@ function Measure-ADUserTokenSize {
             foreach ($grp in $tokenGroups) {
                 $isDirect = ($directGroups -contains $grp.DistinguishedName)
                 $scope = if ($grp.GroupScope) { [string]$grp.GroupScope } else { "Global" }
-                
+
                 # In Microsoft formula:
                 # d = domain local + universal groups in home domain
                 # s = global groups + domain security principals + cross-domain universal
@@ -456,7 +458,9 @@ function Measure-ADUserTokenSizeWithThresholds {
                 $s += $sidHist
                 $queriedLive = $true
             }
-        } catch { }
+        } catch {
+            $null = $_ # Suppress AD query error when evaluating tokens offline
+        }
 
         if (-not $queriedLive) {
             # Offline / simulation fallback based on identity hints or standard defaults
@@ -599,7 +603,7 @@ function Get-ADRidPoolStatus {
         if ($dcs) {
             foreach ($dc in $dcs) {
                 $dcNtds = Get-ADObject -Identity "CN=RID Set,CN=$($dc.Name),OU=Domain Controllers,$($rootDse.defaultNamingContext)" -Properties rIDAllocationPool, rIDPreviousAllocationPool, rIDNextRID -ErrorAction SilentlyContinue
-                
+
                 $currentPoolStart = 0
                 $currentPoolEnd = 0
                 if ($dcNtds -and $dcNtds.rIDAllocationPool) {
@@ -780,7 +784,9 @@ function Get-ADRidPoolExhaustionStatus {
             }
             $queriedLive = ($dcPoolsList.Count -gt 0)
         }
-    } catch { }
+    } catch {
+        $null = $_ # Suppress DC RID pool query error when running offline or without AD connectivity
+    }
 
     if (-not $queriedLive) {
         # Fallback simulation with realistic metrics and warning flag verification

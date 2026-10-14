@@ -30,6 +30,7 @@ function Format-BinaryHexDump {
     .OUTPUTS
         Array of PSCustomObject with Offset, Hex, HexView, Ascii, Text, and Bytes, or multiline string.
     #>
+    [OutputType([string], [psobject[]], [object[]])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$false, Position=0, ValueFromPipeline=$true)]
@@ -40,12 +41,13 @@ function Format-BinaryHexDump {
         [switch]$AsText
     )
 
-    if ($null -eq $Bytes -or $Bytes.Length -eq 0) {
-        if ($AsText) { return "" }
-        return @()
-    }
+    process {
+        if ($null -eq $Bytes -or $Bytes.Length -eq 0) {
+            if ($AsText) { return "" }
+            return @()
+        }
 
-    if ($BytesPerLine -le 0) { $BytesPerLine = 16 }
+        if ($BytesPerLine -le 0) { $BytesPerLine = 16 }
 
     $rows = New-Object System.Collections.Generic.List[psobject]
     $textLines = New-Object System.Collections.Generic.List[string]
@@ -118,7 +120,8 @@ function Format-BinaryHexDump {
         return ($textLines -join "`r`n")
     }
 
-    return ,$rows.ToArray()
+        return ,$rows.ToArray()
+    }
 }
 
 function Convert-HexStringToByteArray {
@@ -133,15 +136,17 @@ function Convert-HexStringToByteArray {
     .OUTPUTS
         [byte[]] containing the decoded bytes.
     #>
+    [OutputType([byte[]], [object[]])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$false, Position=0, ValueFromPipeline=$true)]
         [string]$HexString
     )
 
-    if ([string]::IsNullOrWhiteSpace($HexString)) {
-        return [byte[]]@()
-    }
+    process {
+        if ([string]::IsNullOrWhiteSpace($HexString)) {
+            return [byte[]]@()
+        }
 
     $lines = $HexString -split "[\r\n]+"
     $cleanSb = New-Object System.Text.StringBuilder
@@ -190,7 +195,8 @@ function Convert-HexStringToByteArray {
         $result[$i] = [Convert]::ToByte($clean.Substring($i * 2, 2), 16)
     }
 
-    return ,$result
+        return ,$result
+    }
 }
 
 function Get-X509CertificateMetadata {
@@ -210,6 +216,7 @@ function Get-X509CertificateMetadata {
     .OUTPUTS
         PSCustomObject with parsed X.509 fields and revocation evaluation.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
@@ -221,12 +228,13 @@ function Get-X509CertificateMetadata {
         [string]$RevocationMode = 'NoCheck'
     )
 
-    $cert = $null
+    process {
+        $cert = $null
 
-    if ($CertificateInput -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) {
-        $cert = $CertificateInput
-    }
-    elseif ($CertificateInput -is [byte[]]) {
+        if ($CertificateInput -is [System.Security.Cryptography.X509Certificates.X509Certificate2]) {
+            $cert = $CertificateInput
+        }
+        elseif ($CertificateInput -is [byte[]]) {
         $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(,$CertificateInput)
     }
     elseif ($CertificateInput -is [string]) {
@@ -321,7 +329,7 @@ function Get-X509CertificateMetadata {
             $keySize = $cert.PublicKey.Key.KeySize
         }
     } catch {
-        # PublicKey.Key can throw in certain environments where key provider is CNG
+        $null = $_ # PublicKey.Key can throw in certain environments where key provider is CNG
     }
 
     # Validity calculations
@@ -349,7 +357,7 @@ function Get-X509CertificateMetadata {
     try {
         $isChainValid = $chain.Build($cert)
     } catch {
-        # ignore chain exceptions
+        $null = $_ # Ignore chain exceptions during certificate revocation evaluation
     }
 
     $revocationStatus = "Not Checked"
@@ -405,6 +413,7 @@ function Get-X509CertificateMetadata {
         RawBytes               = $cert.RawData
         Base64                 = [Convert]::ToBase64String($cert.RawData)
     }
+    }
 }
 
 function Convert-GeneralizedTimeToDateTime {
@@ -420,6 +429,7 @@ function Convert-GeneralizedTimeToDateTime {
     .OUTPUTS
         [DateTime] object in UTC or local timezone.
     #>
+    [OutputType([DateTime])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
@@ -428,7 +438,8 @@ function Convert-GeneralizedTimeToDateTime {
         [switch]$ToLocal
     )
 
-    if ([string]::IsNullOrWhiteSpace($GeneralizedTime)) { return $null }
+    process {
+        if ([string]::IsNullOrWhiteSpace($GeneralizedTime)) { return $null }
     $gt = $GeneralizedTime.Trim()
 
     $formats = @(
@@ -472,7 +483,8 @@ function Convert-GeneralizedTimeToDateTime {
         return $utcDt
     }
 
-    throw [System.ArgumentException]"Invalid LDAP GeneralizedTime format: '$GeneralizedTime'"
+        throw [System.ArgumentException]"Invalid LDAP GeneralizedTime format: '$GeneralizedTime'"
+    }
 }
 
 function Convert-DateTimeToGeneralizedTime {
@@ -488,6 +500,7 @@ function Convert-DateTimeToGeneralizedTime {
     .OUTPUTS
         [string] formatted as LDAP GeneralizedTime.
     #>
+    [OutputType([string])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
@@ -496,11 +509,13 @@ function Convert-DateTimeToGeneralizedTime {
         [switch]$OmitFraction
     )
 
-    $utc = $DateTime.ToUniversalTime()
-    if ($OmitFraction) {
-        return $utc.ToString("yyyyMMddHHmmss\Z", [System.Globalization.CultureInfo]::InvariantCulture)
-    } else {
-        return $utc.ToString("yyyyMMddHHmmss.0\Z", [System.Globalization.CultureInfo]::InvariantCulture)
+    process {
+        $utc = $DateTime.ToUniversalTime()
+        if ($OmitFraction) {
+            return $utc.ToString("yyyyMMddHHmmss\Z", [System.Globalization.CultureInfo]::InvariantCulture)
+        } else {
+            return $utc.ToString("yyyyMMddHHmmss.0\Z", [System.Globalization.CultureInfo]::InvariantCulture)
+        }
     }
 }
 
@@ -518,6 +533,7 @@ function Convert-FileTimeToDateTime {
     .OUTPUTS
         [DateTime] representing the FileTime value.
     #>
+    [OutputType([DateTime])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
@@ -526,7 +542,8 @@ function Convert-FileTimeToDateTime {
         [switch]$ToLocal
     )
 
-    $val = 0L
+    process {
+        $val = 0L
     if ($FileTime -is [long] -or $FileTime -is [int]) {
         $val = [long]$FileTime
     } elseif ($FileTime -is [string]) {
@@ -561,8 +578,9 @@ function Convert-FileTimeToDateTime {
     }
 
     $dt = [DateTime]::FromFileTimeUtc($val)
-    if ($ToLocal) { return $dt.ToLocalTime() }
-    return $dt
+        if ($ToLocal) { return $dt.ToLocalTime() }
+        return $dt
+    }
 }
 
 function Convert-DateTimeToFileTime {
@@ -576,20 +594,23 @@ function Convert-DateTimeToFileTime {
     .OUTPUTS
         [long] 64-bit FileTime integer.
     #>
+    [OutputType([long])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
         [DateTime]$DateTime
     )
 
-    if ($DateTime -eq [DateTime]::MaxValue) {
-        return [long]::MaxValue
-    }
-    if ($DateTime -le [DateTime]::new(1601, 1, 1)) {
-        return 0L
-    }
+    process {
+        if ($DateTime -eq [DateTime]::MaxValue) {
+            return [long]::MaxValue
+        }
+        if ($DateTime -le [DateTime]::new(1601, 1, 1)) {
+            return 0L
+        }
 
-    return $DateTime.ToUniversalTime().ToFileTimeUtc()
+        return $DateTime.ToUniversalTime().ToFileTimeUtc()
+    }
 }
 
 function New-LdapPasswordHash {
@@ -611,6 +632,9 @@ function New-LdapPasswordHash {
     .OUTPUTS
         [string] formatted LDAP password hash with scheme prefix (e.g. '{SSHA}abc...').
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [OutputType([string])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0)]
@@ -719,6 +743,8 @@ function Test-LdapPasswordHash {
     .OUTPUTS
         [bool] True if password matches hash, False otherwise.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
+    [OutputType([bool])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0)]
@@ -831,6 +857,7 @@ function Format-ThumbnailPhotoImage {
     .OUTPUTS
         PSCustomObject with validation and processed image bytes, or raw [byte[]].
     #>
+    [OutputType([psobject], [byte[]], [object[]])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
@@ -847,7 +874,8 @@ function Format-ThumbnailPhotoImage {
         [switch]$PassThruBytes
     )
 
-    $bytes = $null
+    process {
+        $bytes = $null
     if ($ImageInput -is [byte[]]) {
         $bytes = $ImageInput
     } elseif ($ImageInput -is [string]) {
@@ -975,6 +1003,7 @@ function Format-ThumbnailPhotoImage {
         ProcessedHeight      = $processedHeight
         ProcessedSizeBytes   = $processedSize
         ProcessedSizeKB      = [Math]::Round($processedSize / 1KB, 2)
+    }
     }
 }
 

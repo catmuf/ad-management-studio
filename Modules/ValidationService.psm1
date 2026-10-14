@@ -8,6 +8,8 @@
 
 function Remove-Diacritics {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string]$Text
     )
@@ -34,9 +36,10 @@ function Remove-Diacritics {
 
 function New-SecurePassword {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [int]$Length = 16,
-        [switch]$IncludeSpecial = $true
+        [bool]$IncludeSpecial = $true
     )
 
     if ($Length -lt 12) { $Length = 12 }
@@ -50,7 +53,6 @@ function New-SecurePassword {
     if ($IncludeSpecial) { $allChars += $symbols }
 
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $bytes = New-Object byte[]($Length)
 
     # Ensure at least 1 upper, 1 lower, 1 digit, and 1 symbol
     $charList = New-Object System.Collections.Generic.List[char]
@@ -91,6 +93,7 @@ function New-SecurePassword {
 
 function Test-PasswordComplexity {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
     param (
         [string]$Password,
         [int]$MinLength = 10
@@ -231,6 +234,7 @@ $script:UAC_FLAGS = [ordered]@{
 
 function ConvertFrom-UACFlags {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [Alias("UACValue")]
         [int64]$UAC
@@ -266,6 +270,7 @@ function ConvertFrom-UACFlags {
 
 function ConvertTo-UACFlags {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     param (
         [string[]]$Flags
     )
@@ -589,6 +594,7 @@ function Test-ADEmail {
 
 function Test-ADPasswordComplexity {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
     param (
         [string]$Password,
         [int]$MinLength = 10
@@ -726,7 +732,7 @@ function Format-LdapFilter {
     }
 
     # Recursive AST simplifier
-    function Simplify-Branch {
+    function Optimize-Branch {
         param([string]$expr)
         $expr = $expr.Trim()
         if (-not ($expr.StartsWith("(") -and $expr.EndsWith(")"))) { return $expr }
@@ -750,12 +756,11 @@ function Format-LdapFilter {
                     $depth--
                     if ($depth -eq 0 -and $start -ge 0) {
                         $chunk = $payload.Substring($start, $i - $start + 1)
-                        $simplifiedChunk = Simplify-Branch $chunk
+                        $simplifiedChunk = Optimize-Branch $chunk
                         if (-not [string]::IsNullOrWhiteSpace($simplifiedChunk)) {
                             # If child has same operator as parent (e.g. & inside &), flatten its children directly
                             if ($simplifiedChunk.StartsWith("($op") -and $simplifiedChunk.EndsWith(")")) {
                                 $subPayload = $simplifiedChunk.Substring(2, $simplifiedChunk.Length - 3).Trim()
-                                $subSimplified = Simplify-Branch "($op$subPayload)"
                                 # Extract subchildren
                                 $subDepth = 0; $subStart = -1
                                 for ($j = 0; $j -lt $subPayload.Length; $j++) {
@@ -796,12 +801,12 @@ function Format-LdapFilter {
             return "($op" + [string]::Join("", $uniqueChildren) + ")"
         } elseif ($op -eq '!') {
             $child = $inner.Substring(1).Trim()
-            $simplifiedChild = Simplify-Branch $child
+            $simplifiedChild = Optimize-Branch $child
             if ([string]::IsNullOrWhiteSpace($simplifiedChild)) { return "" }
             # Double negation: (!(!(cn=A))) -> (cn=A)
             if ($simplifiedChild.StartsWith("(!") -and $simplifiedChild.EndsWith(")")) {
                 $grandChild = $simplifiedChild.Substring(2, $simplifiedChild.Length - 3).Trim()
-                return (Simplify-Branch $grandChild)
+                return (Optimize-Branch $grandChild)
             }
             return "(!$simplifiedChild)"
         }
@@ -818,8 +823,10 @@ function Format-LdapFilter {
         return "($inner)"
     }
 
+    Set-Alias -Name Simplify-Branch -Value Optimize-Branch
+
     try {
-        return (Simplify-Branch $trimmed)
+        return (Optimize-Branch $trimmed)
     } catch {
         return $trimmed
     }
@@ -849,5 +856,5 @@ Export-ModuleMember -Function `
     Test-ADPasswordComplexity, `
     Expand-ADAttributePattern, `
     Format-LdapFilter `
-    -Alias Normalize-LdapFilter, Optimize-LdapFilter
+    -Alias Normalize-LdapFilter, Optimize-LdapFilter, Simplify-Branch
 

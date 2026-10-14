@@ -18,6 +18,8 @@ function Invoke-TemplateSubstitution {
         [psobject]$Attributes
     )
 
+    $null = $Attributes
+
     if ([string]::IsNullOrEmpty($Template)) {
         return ""
     }
@@ -96,15 +98,15 @@ function Invoke-TemplateSubstitution {
             }
         }
 
-        $strVal = if ($rawVal -ne $null) { [string]$rawVal } else { "" }
+        $strVal = if ($null -ne $rawVal) { [string]$rawVal } else { "" }
 
         # Apply substring or count slice
-        if ($substrStart -ne $null) {
+        if ($null -ne $substrStart) {
             $startIdx = if ($substrStart -gt 0) { $substrStart - 1 } else { 0 }
             if ($startIdx -ge $strVal.Length) {
                 $strVal = ""
             } else {
-                if ($substrLen -ne $null -and $substrLen -gt 0) {
+                if ($null -ne $substrLen -and $substrLen -gt 0) {
                     $takeLen = [Math]::Min($substrLen, $strVal.Length - $startIdx)
                     $strVal = $strVal.Substring($startIdx, $takeLen)
                 } else {
@@ -112,7 +114,7 @@ function Invoke-TemplateSubstitution {
                 }
             }
         }
-        elseif ($count -ne $null -and $count -gt 0) {
+        elseif ($null -ne $count -and $count -gt 0) {
             if ($strVal.Length -gt $count) {
                 $strVal = $strVal.Substring(0, $count)
             }
@@ -149,6 +151,9 @@ function Resolve-AccountNameConflict {
         [int]$MaxAttempts = 100
     )
 
+    $null = $Server
+    $null = $ExistsPredicate
+
     if ([string]::IsNullOrWhiteSpace($Candidate)) {
         return $Candidate
     }
@@ -183,7 +188,9 @@ function Resolve-AccountNameConflict {
                 $found = Get-ADUser @params
                 if ($found) { return $true }
             }
-        } catch {}
+        } catch {
+            $null = $_ # Suppress AD user lookup errors during collision check fallback
+        }
 
         try {
             if (Get-Command Invoke-LdapQuery -ErrorAction SilentlyContinue) {
@@ -191,7 +198,9 @@ function Resolve-AccountNameConflict {
                 $res = Invoke-LdapQuery -Filter $filter -PropertiesToLoad @($AttributeName) -Server $Server
                 if ($res -and $res.Count -gt 0) { return $true }
             }
-        } catch {}
+        } catch {
+            $null = $_ # Suppress LDAP query errors during collision check fallback
+        }
 
         return $false
     }
@@ -241,6 +250,7 @@ function Resolve-AccountNameConflict {
 
 function Get-ADProvisioningTemplates {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [Alias("Get-ProvisioningProfiles")]
     param (
         [string]$Id = "",
@@ -329,6 +339,7 @@ function Get-ADProvisioningTemplates {
 
 function Save-ADProvisioningTemplates {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [Alias("Set-ProvisioningProfiles")]
     param (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -364,6 +375,7 @@ function Save-ADProvisioningTemplates {
 
 function New-ADProvisioningProfile {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$Id,

@@ -13,10 +13,18 @@
 
 # Ensure ActiveDirectory and GroupPolicy modules are available if present
 if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
-    try { Import-Module ActiveDirectory -ErrorAction SilentlyContinue } catch {}
+    try {
+        Import-Module ActiveDirectory -ErrorAction SilentlyContinue
+    } catch {
+        $null = $_ # ActiveDirectory module optional
+    }
 }
 if (-not (Get-Module -Name GroupPolicy -ErrorAction SilentlyContinue)) {
-    try { Import-Module GroupPolicy -ErrorAction SilentlyContinue } catch {}
+    try {
+        Import-Module GroupPolicy -ErrorAction SilentlyContinue
+    } catch {
+        $null = $_ # GroupPolicy module optional
+    }
 }
 
 #region GPO Hierarchy & OU Allocation
@@ -167,7 +175,7 @@ function Read-GpoRegistryPol {
             if ($char -eq [char]'[') {
                 $key = Read-Utf16String ([ref]$pos)
                 $val = Read-Utf16String ([ref]$pos)
-                
+
                 # Next 4 bytes: Type
                 $typeVal = if ($pos + 3 -lt $len) { [System.BitConverter]::ToUInt32($bytes, $pos) } else { 0 }
                 $pos += 4
@@ -267,6 +275,7 @@ function Test-GpoReplicationMultiDC {
                 $sysvolIniPath = "\\$dcHost\SYSVOL\$domainName\Policies\$guid\GPT.ini"
                 $sysvolVer = -1
                 $status = "OK"
+                $null = $status
 
                 if (Test-Path $sysvolIniPath) {
                     try {
@@ -277,7 +286,9 @@ function Test-GpoReplicationMultiDC {
                                 break
                             }
                         }
-                    } catch {}
+                    } catch {
+                        $null = $_ # Suppress file read error during SYSVOL version parsing
+                    }
                 } else {
                     $status = "SYSVOL Path Inaccessible / Delayed"
                 }
