@@ -11,6 +11,7 @@
 $script:LogsDirectory = $null
 $script:LogLock = [System.Object]::new()
 $script:IsInitialized = $false
+$script:SessionTimestamp = $null
 
 function Get-AppLogsDirectory {
     [CmdletBinding()]
@@ -23,10 +24,20 @@ function Get-AppLogsDirectory {
     return $script:LogsDirectory
 }
 
+function Get-AppLogSessionTimestamp {
+    [CmdletBinding()]
+    param()
+    if ([string]::IsNullOrWhiteSpace($script:SessionTimestamp)) {
+        $script:SessionTimestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm")
+    }
+    return $script:SessionTimestamp
+}
+
 function Initialize-AppLogging {
     [CmdletBinding()]
     param(
         [string]$LogsPath = "",
+        [string]$SessionTimestamp = "",
         [switch]$RegisterGlobalHandlers = $true
     )
 
@@ -34,6 +45,12 @@ function Initialize-AppLogging {
         $script:LogsDirectory = [System.IO.Path]::GetFullPath($LogsPath)
     } else {
         $script:LogsDirectory = Get-AppLogsDirectory
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($SessionTimestamp)) {
+        $script:SessionTimestamp = $SessionTimestamp
+    } elseif ([string]::IsNullOrWhiteSpace($script:SessionTimestamp)) {
+        $script:SessionTimestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm")
     }
 
     # Ensure logs directory exists
@@ -78,11 +95,13 @@ function Get-AppLogFilePath {
         [ValidateSet("App", "Error")][string]$Type = "App"
     )
     $dir = Get-AppLogsDirectory
-    $dateStamp = (Get-Date).ToString("yyyy-MM-dd")
+    if ([string]::IsNullOrWhiteSpace($script:SessionTimestamp)) {
+        $script:SessionTimestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm")
+    }
     $fileName = if ($Type -eq "Error") {
-        "errors_$dateStamp.log"
+        "errors_$($script:SessionTimestamp).log"
     } else {
-        "app_$dateStamp.log"
+        "$($script:SessionTimestamp).log"
     }
     return (Join-Path $dir $fileName)
 }
@@ -284,8 +303,11 @@ function Get-LatestLogFile {
     $dir = Get-AppLogsDirectory
     if (-not (Test-Path $dir)) { return $null }
 
-    $pattern = if ($Type -eq "Error") { "errors_*.log" } else { "app_*.log" }
-    $files = @(Get-ChildItem -Path $dir -Filter $pattern | Sort-Object LastWriteTime -Descending)
+    $files = if ($Type -eq "Error") {
+        @(Get-ChildItem -Path $dir -Filter "errors_*.log" | Sort-Object LastWriteTime -Descending)
+    } else {
+        @(Get-ChildItem -Path $dir -Filter "*.log" | Where-Object { $_.Name -notlike "errors_*" } | Sort-Object LastWriteTime -Descending)
+    }
 
     if ($files.Count -gt 0) {
         return $files[0].FullName
@@ -366,6 +388,7 @@ function Clear-AppLogs {
 
 Export-ModuleMember -Function @(
     "Get-AppLogsDirectory",
+    "Get-AppLogSessionTimestamp",
     "Initialize-AppLogging",
     "Get-AppLogFilePath",
     "Write-AppLog",
