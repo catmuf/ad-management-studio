@@ -11908,7 +11908,7 @@ function Open-ConnectionDialog {
         if (-not $appConfig.Profiles) {
             $appConfig | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
         }
-        $existingProfiles = @($appConfig.Profiles) + @($newProf)
+        $existingProfiles = @($appConfig.Profiles | Where-Object { $_.Name -ne $pName }) + @($newProf)
         $appConfig.Profiles = $existingProfiles
         Save-AppSettings -Config $appConfig
 
@@ -11927,14 +11927,26 @@ function Update-Connections {    if ($controls['TxtDnsDiscoveryDomain'] -and [st
 
     if ($controls['ListProfiles']) {
         $controls['ListProfiles'].Items.Clear()
-        $profiles = @($appConfig.Profiles)
+        $profiles = @()
+        if ($appConfig.Profiles) {
+            $seenListNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($p in $appConfig.Profiles) {
+                if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
+                    if ($seenListNames.Add($p.Name)) {
+                        $profiles += $p
+                    }
+                }
+            }
+        }
+
         if ($profiles.Count -eq 0) {
             $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-            $controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
+            [void]$controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
         } else {
             foreach ($p in $profiles) {
                 $roTag = if ($p.ReadOnly) { " 🔒 [READ-ONLY]" } else { "" }
-                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($p.Server):$($p.Port)]$roTag")
+                $srv = if ($p.Server) { $p.Server } else { "Auto-Detect" }
+                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($srv):$($p.Port)]$roTag")
             }
         }
     }
@@ -11945,9 +11957,17 @@ function Update-Connections {    if ($controls['TxtDnsDiscoveryDomain'] -and [st
         $defaultLabel = "Default ($defaultServer)"
         [void]$controls['CmbActiveProfile'].Items.Add($defaultLabel)
         if ($appConfig.Profiles) {
+            $seenCmbNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            [void]$seenCmbNames.Add("Default")
+            [void]$seenCmbNames.Add($defaultLabel)
+            [void]$seenCmbNames.Add("Default (Auto-Detect)")
             foreach ($p in $appConfig.Profiles) {
-                $roLabel = if ($p.ReadOnly) { " 🔒" } else { "" }
-                [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)$roLabel")
+                if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
+                    if ($seenCmbNames.Add($p.Name)) {
+                        $roLabel = if ($p.ReadOnly) { " 🔒" } else { "" }
+                        [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)$roLabel")
+                    }
+                }
             }
         }
         $controls['CmbActiveProfile'].SelectedIndex = 0
@@ -12006,11 +12026,13 @@ if ($controls['BtnDeleteProfile']) {
     $controls['BtnDeleteProfile'].Add_Click({
         $selIdx = $controls['ListProfiles'].SelectedIndex
         if ($selIdx -ge 0 -and $appConfig.Profiles -and $selIdx -lt $appConfig.Profiles.Count) {
-            $updated = @($appConfig.Profiles)
-            $updated = $updated[0..($selIdx - 1)] + $updated[($selIdx + 1)..($updated.Count - 1)]
-            $appConfig.Profiles = $updated
-            Save-AppSettings -Config $appConfig
-            Refresh-Connections
+            $list = [System.Collections.Generic.List[psobject]]::new(@($appConfig.Profiles))
+            if ($selIdx -ge 0 -and $selIdx -lt $list.Count) {
+                $list.RemoveAt($selIdx)
+                $appConfig.Profiles = @($list)
+                Save-AppSettings -Config $appConfig
+                Refresh-Connections
+            }
         }
     })
 }

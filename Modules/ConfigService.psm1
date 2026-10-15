@@ -46,17 +46,7 @@ function Get-AppSettings {
             TimeoutSeconds = 30
             PageSize       = 1000
         }
-        Profiles = @(
-            [PSCustomObject]@{
-                Name                  = "Default (Auto-Detect)"
-                Server                = ""
-                Port                  = 389
-                UseSSL                = $false
-                SearchBase            = ""
-                UseCurrentCredentials = $true
-                Username              = ""
-            }
-        )
+        Profiles = @()
         ExternalTools = @(
             [PSCustomObject]@{ Name = "Ping Hostname"; Command = "ping.exe"; Arguments = "%dNSHostName% -t" },
             [PSCustomObject]@{ Name = "Remote Desktop (RDP)"; Command = "mstsc.exe"; Arguments = "/v:%dNSHostName%" },
@@ -110,6 +100,20 @@ function Get-AppSettings {
             if (-not $jsonContent.CustomReports) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "CustomReports" -Value $defaultConfig.CustomReports -Force
             }
+            if (-not $jsonContent.Profiles) {
+                $jsonContent | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
+            } else {
+                $sanitized = @()
+                $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                foreach ($p in $jsonContent.Profiles) {
+                    if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
+                        if ($seen.Add($p.Name)) {
+                            $sanitized += $p
+                        }
+                    }
+                }
+                $jsonContent.Profiles = $sanitized
+            }
             return $jsonContent
         }
         catch {
@@ -136,7 +140,8 @@ function Save-AppSettings {
 
     try {
         $json = $Config | ConvertTo-Json -Depth 5
-        [System.IO.File]::WriteAllText($ConfigPath, $json, [System.Text.Encoding]::UTF8)
+        $utf8WithBom = [System.Text.UTF8Encoding]::new($true)
+        [System.IO.File]::WriteAllText($ConfigPath, $json, $utf8WithBom)
         return $true
     }
     catch {
