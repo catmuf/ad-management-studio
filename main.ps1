@@ -1145,20 +1145,38 @@ function Show-ObjectHtmlView {
                 $currTab.State['CurrentHtmlRaw'] = $html
                 $currTab.State['CurrentHtmlObject'] = $targetObj
             }
-            if ($currTab.DockedPanelInstance -and $currTab.DockedPanelInstance.Tag) {
-                $secControls = $currTab.DockedPanelInstance.Tag
+            $secControls = if ($currTab.PSObject.Properties['DockedPanelControls'] -and $currTab.DockedPanelControls) {
+                $currTab.DockedPanelControls
+            } elseif ($currTab.DockedPanelInstance -and $currTab.DockedPanelInstance.Tag -is [System.Collections.IDictionary]) {
+                $currTab.DockedPanelInstance.Tag
+            } else { $null }
+
+            if ($secControls) {
                 if ($secControls['TxtHtmlViewDN']) { $secControls['TxtHtmlViewDN'].Text = $targetDN }
                 if ($secControls['TxtHtmlViewDNPlaceholder']) { $secControls['TxtHtmlViewDNPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed }
                 if ($secControls['TxtHtmlViewStatusBadge']) { $secControls['TxtHtmlViewStatusBadge'].Text = "$nameDisp" }
                 if ($secControls['BrowserHtmlView']) { $secControls['BrowserHtmlView'].NavigateToString($html) }
             }
+            if ($state.DetachedWindows.ContainsKey($currTab.Id)) {
+                $dRec = $state.DetachedWindows[$currTab.Id]
+                if ($dRec -and $dRec.Controls) {
+                    if ($dRec.Controls['TxtHtmlViewDN']) { $dRec.Controls['TxtHtmlViewDN'].Text = $targetDN }
+                    if ($dRec.Controls['TxtHtmlViewDNPlaceholder']) { $dRec.Controls['TxtHtmlViewDNPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed }
+                    if ($dRec.Controls['TxtHtmlViewStatusBadge']) { $dRec.Controls['TxtHtmlViewStatusBadge'].Text = "$nameDisp" }
+                    if ($dRec.Controls['BrowserHtmlView']) { $dRec.Controls['BrowserHtmlView'].NavigateToString($html) }
+                }
+            }
             Update-WorkspaceTabStrip
         }
 
-        # Navigate to panel
-        Show-Panel "HtmlView"
+        # Navigate to panel if not already on an HtmlView tab
+        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+        if (-not $activeTab -or $activeTab.PanelName -ne "HtmlView") {
+            Show-Panel "HtmlView"
+        }
         if ($controls['NavHtmlView']) {
-            $controls['NavHtmlView'].IsChecked = $true
+            $state.IsSelectingTab = $true
+            try { $controls['NavHtmlView'].IsChecked = $true } finally { $state.IsSelectingTab = $false }
         }
 
         Set-Status -Message "HTML Dossier loaded successfully ($activeTemplate template)."
@@ -1306,6 +1324,20 @@ function Set-Status {
         Write-AppLog -Level "INFO" -Category "Status" -Message $Message
     }
 }
+
+function Set-AppClipboardText {
+    param([string]$Text)
+    if ([string]::IsNullOrEmpty($Text)) { return }
+    for ($i = 0; $i -lt 5; $i++) {
+        try {
+            [System.Windows.Clipboard]::SetDataObject($Text, $true)
+            return
+        } catch {
+            [System.Threading.Thread]::Sleep(50)
+        }
+    }
+}
+Set-Alias -Name Set-ClipboardSafe -Value Set-AppClipboardText -Scope Global
 
 Set-Alias -Name Log-LdapRequest -Value Write-LdapRequest -Scope Global
 function Write-LdapRequest {    param (
@@ -2091,12 +2123,25 @@ function global:Remove-WorkspaceTab {
 function Get-NamedElements {
     param([System.Windows.DependencyObject]$element)
     $res = @{}
+    if (-not $element) { return $res }
     $queue = [System.Collections.Queue]::new()
+    $visited = [System.Collections.Generic.HashSet[System.Windows.DependencyObject]]::new()
     $queue.Enqueue($element)
     while ($queue.Count -gt 0) {
         $curr = $queue.Dequeue()
+        if (-not $curr -or -not $visited.Add($curr)) { continue }
         if ($curr -is [System.Windows.FrameworkElement] -and -not [string]::IsNullOrWhiteSpace($curr.Name)) {
             $res[$curr.Name] = $curr
+        }
+        if ($curr -is [System.Windows.FrameworkElement] -and $curr.ContextMenu) {
+            $queue.Enqueue($curr.ContextMenu)
+        }
+        if ($curr -is [System.Windows.Controls.ItemsControl]) {
+            foreach ($item in $curr.Items) {
+                if ($item -is [System.Windows.DependencyObject]) {
+                    $queue.Enqueue($item)
+                }
+            }
         }
         foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($curr)) {
             if ($child -is [System.Windows.DependencyObject]) {
@@ -2122,6 +2167,648 @@ function New-PanelInstance {
     return [PSCustomObject]@{
         Panel    = $panel
         Controls = $ctrls
+    }
+}
+
+Set-Alias -Name Open-ResetPasswordDialog -Value Open-PasswordDialog -Scope Global
+Set-Alias -Name Open-MoveOUDialog -Value Open-MoveDialog -Scope Global
+Set-Alias -Name Show-UserDetails -Value Open-UserDetailDialog -Scope Global
+Set-Alias -Name Open-GroupMembersDialog -Value Open-MemberDialog -Scope Global
+Set-Alias -Name Delete-SelectedGroup -Value Remove-GroupAction -Scope Global
+
+Set-Alias -Name Wire-UserContextMenu -Value Connect-UserContextMenu -Scope Global
+function Connect-UserContextMenu {
+    param(
+        [System.Collections.IDictionary]$Ctrls,
+        [System.Windows.Controls.DataGrid]$TargetGrid,
+        [System.Windows.Window]$OwnerWindow = $null
+    )
+    $null = $OwnerWindow
+    if (-not $Ctrls -or -not $TargetGrid) { return }
+
+    $getSelectedUser = {
+        if ($TargetGrid) { $TargetGrid.SelectedItem } else { $null }
+    }.GetNewClosure()
+
+    if ($Ctrls['CtxUserEdit']) {
+        $Ctrls['CtxUserEdit'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Open-UserDialog -Mode "Edit" -UserToEdit $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserRename']) {
+        $Ctrls['CtxUserRename'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Handle-ObjectRename -DN $u.DistinguishedName -CurrentName $u.DisplayName -RefreshAction { Refresh-Users } }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserResetPwd']) {
+        $Ctrls['CtxUserResetPwd'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Open-PasswordDialog -User $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserUnlock']) {
+        $Ctrls['CtxUserUnlock'].Add_Click({
+            if (-not (Test-CanModifyDirectory)) { return }
+            $u = & $getSelectedUser
+            if ($u) {
+                $res = Unlock-ADUserAccount -Identity $u.SamAccountName
+                Set-Status -Message $res.Message
+                Refresh-Users
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserToggleStatus']) {
+        $Ctrls['CtxUserToggleStatus'].Add_Click({
+            if (-not (Test-CanModifyDirectory)) { return }
+            $u = & $getSelectedUser
+            if ($u) {
+                Toggle-UserStatusAction -TargetUser $u
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserMoveOU']) {
+        $Ctrls['CtxUserMoveOU'].Add_Click({
+            if (-not (Test-CanModifyDirectory)) { return }
+            $u = & $getSelectedUser
+            if ($u) { Open-MoveDialog -Principal $u -Type "User" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserDelete']) {
+        $Ctrls['CtxUserDelete'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Remove-UserAction -TargetUser $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserLocateInTree']) {
+        $Ctrls['CtxUserLocateInTree'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u -and $u.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $u.DistinguishedName }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyDN']) {
+        $Ctrls['CtxUserCopyDN'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Set-AppClipboardText $u.DistinguishedName; Set-Status -Message "Copied DN: $($u.DistinguishedName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyRdn']) {
+        $Ctrls['CtxUserCopyRdn'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $rdn = Get-ObjectRDN -DN $u.DistinguishedName
+                Set-AppClipboardText $rdn
+                Set-Status -Message "Copied RDN: $rdn"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyCanonical']) {
+        $Ctrls['CtxUserCopyCanonical'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $can = Get-ObjectCanonicalName -DN $u.DistinguishedName
+                Set-AppClipboardText $can
+                Set-Status -Message "Copied Canonical Name: $can"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopySam']) {
+        $Ctrls['CtxUserCopySam'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Set-AppClipboardText $u.SamAccountName; Set-Status -Message "Copied SamAccountName: $($u.SamAccountName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyUrl']) {
+        $Ctrls['CtxUserCopyUrl'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+                $ldapUrl = "ldap://$server/$($u.DistinguishedName)"
+                Set-AppClipboardText $ldapUrl
+                Set-Status -Message "Copied LDAP URL: $ldapUrl"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyLdif']) {
+        $Ctrls['CtxUserCopyLdif'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $attrs = Get-ADObjectRawAttributes -DistinguishedName $u.DistinguishedName
+                $ldifBlock = "dn: $($u.DistinguishedName)`r`nchangetype: add`r`nobjectClass: user`r`nsAMAccountName: $($u.SamAccountName)`r`n"
+                foreach ($a in $attrs) {
+                    if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+                }
+                Set-AppClipboardText $ldifBlock
+                Set-Status -Message "Copied LDIF record to clipboard for $($u.SamAccountName)."
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserAddToBasket']) {
+        $Ctrls['CtxUserAddToBasket'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Add-ObjectToBasket -DN $u.DistinguishedName -Name $u.DisplayName -ObjectClass "user" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserAddToBookmarks']) {
+        $Ctrls['CtxUserAddToBookmarks'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u -and $u.DistinguishedName) {
+                $name = if ($u.DisplayName) { $u.DisplayName } else { $u.SamAccountName }
+                $res = Add-ADBookmark -DistinguishedName $u.DistinguishedName -Name $name -ObjectClass "user"
+                if ($res) { Set-Status -Message "Added '$name' to Bookmarks." }
+                else { Set-Status -Message "'$name' is already in Bookmarks." }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserInspectAttr']) {
+        $Ctrls['CtxUserInspectAttr'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $controls['NavAttributeEditor'].IsChecked = $true
+                Show-Panel "AttributeEditor"
+                $controls['TxtAttrEditorDN'].Text = $u.DistinguishedName
+                Load-RawAttributesUI -TargetDN $u.DistinguishedName
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCompare']) {
+        $Ctrls['CtxUserCompare'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                $controls['NavObjectCompare'].IsChecked = $true
+                Show-Panel "ObjectCompare"
+                if (-not $controls['TxtCompareObjectA'].Text) {
+                    $controls['TxtCompareObjectA'].Text = $u.DistinguishedName
+                } else {
+                    $controls['TxtCompareObjectB'].Text = $u.DistinguishedName
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserViewDetails']) {
+        $Ctrls['CtxUserViewDetails'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Open-UserDetailDialog -User $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserViewHtml']) {
+        $Ctrls['CtxUserViewHtml'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Show-ObjectHtmlView -Identity $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserOpenBrowser']) {
+        $Ctrls['CtxUserOpenBrowser'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Show-ObjectHtmlDossier -TargetObject $u }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserExternalTools']) {
+        Populate-ExternalToolsMenu $Ctrls['CtxUserExternalTools'] { & $getSelectedUser }
+    }
+    # NetTools Suite / Use With items
+    if ($Ctrls['CtxUserUseWithAcl']) {
+        $Ctrls['CtxUserUseWithAcl'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                Show-Panel "SecurityAcl"
+                if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+                if ($controls['TxtAclTargetDN']) {
+                    $controls['TxtAclTargetDN'].Text = if ($u.DistinguishedName) { $u.DistinguishedName } else { $u.SamAccountName }
+                    if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserUseWithTokenSize']) {
+        $Ctrls['CtxUserUseWithTokenSize'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                Show-Panel "KerberosSuite"
+                if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
+                if ($controls['TxtTokenUser']) {
+                    $controls['TxtTokenUser'].Text = $u.SamAccountName
+                    if ($controls['BtnCalcTokenSize']) { $controls['BtnCalcTokenSize'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserUseWithLockout']) {
+        $Ctrls['CtxUserUseWithLockout'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                Show-Panel "DiagnosticsToolbox"
+                if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+                if ($controls['TxtLockoutTargetUser']) {
+                    $controls['TxtLockoutTargetUser'].Text = $u.SamAccountName
+                    if ($controls['BtnTraceLockout']) { $controls['BtnTraceLockout'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserUseWithReplication']) {
+        $Ctrls['CtxUserUseWithReplication'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) {
+                Show-Panel "ReplicationSuite"
+                if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
+                if ($controls['TxtMultiDcTarget']) {
+                    $controls['TxtMultiDcTarget'].Text = $u.SamAccountName
+                    if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserUseWithResolver']) {
+        $Ctrls['CtxUserUseWithResolver'].Add_Click({
+            $u = & $getSelectedUser
+            if ($u) { Show-ResolverDialog -InitialInput "$($u.SamAccountName)`r`n$($u.DistinguishedName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxUserCopyToDetached']) {
+        $Ctrls['CtxUserCopyToDetached'].Add_Click({
+            Show-DetachedGridDialog -ItemsSource $TargetGrid.ItemsSource -Title "Users Directory Dataset"
+        }.GetNewClosure())
+    }
+}
+
+Set-Alias -Name Wire-GroupContextMenu -Value Connect-GroupContextMenu -Scope Global
+function Connect-GroupContextMenu {
+    param(
+        [System.Collections.IDictionary]$Ctrls,
+        [System.Windows.Controls.DataGrid]$TargetGrid,
+        [System.Windows.Window]$OwnerWindow = $null
+    )
+    $null = $OwnerWindow
+    if (-not $Ctrls -or -not $TargetGrid) { return }
+
+    $getSelectedGroup = {
+        if ($TargetGrid) { $TargetGrid.SelectedItem } else { $null }
+    }.GetNewClosure()
+
+    if ($Ctrls['CtxGroupManageMembers']) {
+        $Ctrls['CtxGroupManageMembers'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Open-MemberDialog -Group $g }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupRename']) {
+        $Ctrls['CtxGroupRename'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Handle-ObjectRename -DN $g.DistinguishedName -CurrentName $g.Name -RefreshAction { Refresh-Groups } }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupMoveOU']) {
+        $Ctrls['CtxGroupMoveOU'].Add_Click({
+            if (-not (Test-CanModifyDirectory)) { return }
+            $g = & $getSelectedGroup
+            if ($g) { Open-MoveDialog -Principal $g -Type "Group" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupDelete']) {
+        $Ctrls['CtxGroupDelete'].Add_Click({
+            if (-not (Test-CanModifyDirectory)) { return }
+            $g = & $getSelectedGroup
+            if ($g) { Delete-GroupAction -TargetGroup $g }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyDN']) {
+        $Ctrls['CtxGroupCopyDN'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Set-AppClipboardText $g.DistinguishedName; Set-Status -Message "Copied Group DN: $($g.DistinguishedName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyRdn']) {
+        $Ctrls['CtxGroupCopyRdn'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $rdn = Get-ObjectRDN -DN $g.DistinguishedName
+                Set-AppClipboardText $rdn
+                Set-Status -Message "Copied Group RDN: $rdn"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyCanonical']) {
+        $Ctrls['CtxGroupCopyCanonical'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $can = Get-ObjectCanonicalName -DN $g.DistinguishedName
+                Set-AppClipboardText $can
+                Set-Status -Message "Copied Group Canonical Name: $can"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyUrl']) {
+        $Ctrls['CtxGroupCopyUrl'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+                Set-AppClipboardText "ldap://$server/$($g.DistinguishedName)"
+                Set-Status -Message "Copied LDAP URL for group $($g.Name)"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyLdif']) {
+        $Ctrls['CtxGroupCopyLdif'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $attrs = Get-ADObjectRawAttributes -DistinguishedName $g.DistinguishedName
+                $ldifBlock = "dn: $($g.DistinguishedName)`r`nchangetype: add`r`nobjectClass: group`r`nsAMAccountName: $($g.SamAccountName)`r`n"
+                foreach ($a in $attrs) {
+                    if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+                }
+                Set-AppClipboardText $ldifBlock
+                Set-Status -Message "Copied LDIF record to clipboard for group $($g.Name)."
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupAddToBasket']) {
+        $Ctrls['CtxGroupAddToBasket'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Add-ObjectToBasket -DN $g.DistinguishedName -Name $g.Name -ObjectClass "group" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupLocateInTree']) {
+        $Ctrls['CtxGroupLocateInTree'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g -and $g.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $g.DistinguishedName }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupInspectAttr']) {
+        $Ctrls['CtxGroupInspectAttr'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $controls['NavAttributeEditor'].IsChecked = $true
+                Show-Panel "AttributeEditor"
+                $controls['TxtAttrEditorDN'].Text = $g.DistinguishedName
+                Load-RawAttributesUI -TargetDN $g.DistinguishedName
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCompare']) {
+        $Ctrls['CtxGroupCompare'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                $controls['NavObjectCompare'].IsChecked = $true
+                Show-Panel "ObjectCompare"
+                if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $g.DistinguishedName }
+                else { $controls['TxtCompareObjectB'].Text = $g.DistinguishedName }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupViewHtml']) {
+        $Ctrls['CtxGroupViewHtml'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Show-ObjectHtmlView -Identity $g }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupOpenBrowser']) {
+        $Ctrls['CtxGroupOpenBrowser'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Show-ObjectHtmlDossier -TargetObject $g }
+        }.GetNewClosure())
+    }
+    # Use With items
+    if ($Ctrls['CtxGroupUseWithAcl']) {
+        $Ctrls['CtxGroupUseWithAcl'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                Show-Panel "SecurityAcl"
+                if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+                if ($controls['TxtAclTargetDN']) {
+                    $controls['TxtAclTargetDN'].Text = if ($g.DistinguishedName) { $g.DistinguishedName } else { $g.Name }
+                    if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupUseWithCircular']) {
+        $Ctrls['CtxGroupUseWithCircular'].Add_Click({
+            Show-Panel "DiagnosticsToolbox"
+            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+            if ($controls['BtnScanCircularGroups']) { $controls['BtnScanCircularGroups'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupUseWithDiff']) {
+        $Ctrls['CtxGroupUseWithDiff'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) {
+                Show-Panel "DiagnosticsToolbox"
+                if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+                if ($controls['TxtDiffUserA']) { $controls['TxtDiffUserA'].Text = $g.Name }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupUseWithResolver']) {
+        $Ctrls['CtxGroupUseWithResolver'].Add_Click({
+            $g = & $getSelectedGroup
+            if ($g) { Show-ResolverDialog -InitialInput "$($g.Name)`r`n$($g.DistinguishedName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxGroupCopyToDetached']) {
+        $Ctrls['CtxGroupCopyToDetached'].Add_Click({
+            Show-DetachedGridDialog -ItemsSource $TargetGrid.ItemsSource -Title "Groups Directory Dataset"
+        }.GetNewClosure())
+    }
+}
+
+Set-Alias -Name Wire-ComputerContextMenu -Value Connect-ComputerContextMenu -Scope Global
+function Connect-ComputerContextMenu {
+    param(
+        [System.Collections.IDictionary]$Ctrls,
+        [System.Windows.Controls.DataGrid]$TargetGrid,
+        [System.Windows.Window]$OwnerWindow = $null
+    )
+    $null = $OwnerWindow
+    if (-not $Ctrls -or -not $TargetGrid) { return }
+
+    $getSelectedComputer = {
+        if ($TargetGrid) { $TargetGrid.SelectedItem } else { $null }
+    }.GetNewClosure()
+
+    if ($Ctrls['CtxCompRdp']) {
+        $Ctrls['CtxCompRdp'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $target = if ($c.DNSHostName) { $c.DNSHostName } elseif ($c.IPv4Address) { $c.IPv4Address } else { $c.Name }
+                Set-Status -Message "Launching Remote Desktop Connection to $target..."
+                Start-Process "mstsc.exe" -ArgumentList "/v:$target"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompPing']) {
+        $Ctrls['CtxCompPing'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $target = if ($c.DNSHostName) { $c.DNSHostName } else { $c.Name }
+                Set-Status -Message "Pinging $target..."
+                try {
+                    $ping = Test-Connection -ComputerName $target -Count 1 -Quiet -ErrorAction SilentlyContinue
+                    if ($ping) {
+                        Set-Status -Message "Host '$target' is ONLINE and reachable."
+                        [System.Windows.MessageBox]::Show("Host '$target' is reachable over network (ICMP ping reply received).", "Host Online", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                    } else {
+                        Set-Status -Message "Host '$target' did not respond to ping."
+                        [System.Windows.MessageBox]::Show("Host '$target' did not respond (offline or ICMP blocked by firewall).", "Ping Timed Out", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                    }
+                } catch {
+                    Set-Status -Message "Ping error: $_"
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompRename']) {
+        $Ctrls['CtxCompRename'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Handle-ObjectRename -DN $c.DistinguishedName -CurrentName $c.Name -RefreshAction { Refresh-Computers } }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyDN']) {
+        $Ctrls['CtxCompCopyDN'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Set-AppClipboardText $c.DistinguishedName; Set-Status -Message "Copied Computer DN: $($c.DistinguishedName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyName']) {
+        $Ctrls['CtxCompCopyName'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Set-AppClipboardText $c.Name; Set-Status -Message "Copied Name: $($c.Name)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyRdn']) {
+        $Ctrls['CtxCompCopyRdn'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $rdn = Get-ObjectRDN -DN $c.DistinguishedName
+                Set-AppClipboardText $rdn
+                Set-Status -Message "Copied Computer RDN: $rdn"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyCanonical']) {
+        $Ctrls['CtxCompCopyCanonical'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $can = Get-ObjectCanonicalName -DN $c.DistinguishedName
+                Set-AppClipboardText $can
+                Set-Status -Message "Copied Computer Canonical Name: $can"
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyLdif']) {
+        $Ctrls['CtxCompCopyLdif'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $attrs = Get-ADObjectRawAttributes -DistinguishedName $c.DistinguishedName
+                $ldifBlock = "dn: $($c.DistinguishedName)`r`nchangetype: add`r`nobjectClass: computer`r`nsAMAccountName: $($c.SamAccountName)`r`n"
+                foreach ($a in $attrs) {
+                    if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
+                }
+                Set-AppClipboardText $ldifBlock
+                Set-Status -Message "Copied LDIF record to clipboard for computer $($c.Name)."
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompAddToBasket']) {
+        $Ctrls['CtxCompAddToBasket'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Add-ObjectToBasket -DN $c.DistinguishedName -Name $c.Name -ObjectClass "computer" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompLocateInTree']) {
+        $Ctrls['CtxCompLocateInTree'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c -and $c.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $c.DistinguishedName }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompInspectAttr']) {
+        $Ctrls['CtxCompInspectAttr'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $controls['NavAttributeEditor'].IsChecked = $true
+                Show-Panel "AttributeEditor"
+                $controls['TxtAttrEditorDN'].Text = $c.DistinguishedName
+                Load-RawAttributesUI -TargetDN $c.DistinguishedName
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCompare']) {
+        $Ctrls['CtxCompCompare'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                $controls['NavObjectCompare'].IsChecked = $true
+                Show-Panel "ObjectCompare"
+                if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $c.DistinguishedName }
+                else { $controls['TxtCompareObjectB'].Text = $c.DistinguishedName }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompViewHtml']) {
+        $Ctrls['CtxCompViewHtml'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Show-ObjectHtmlView -Identity $c }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompOpenBrowser']) {
+        $Ctrls['CtxCompOpenBrowser'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Show-ObjectHtmlDossier -TargetObject $c }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompExternalTools']) {
+        Populate-ExternalToolsMenu $Ctrls['CtxCompExternalTools'] { & $getSelectedComputer }
+    }
+    # Use With items
+    if ($Ctrls['CtxCompUseWithAcl']) {
+        $Ctrls['CtxCompUseWithAcl'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                Show-Panel "SecurityAcl"
+                if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
+                if ($controls['TxtAclTargetDN']) {
+                    $controls['TxtAclTargetDN'].Text = if ($c.DistinguishedName) { $c.DistinguishedName } else { "$($c.Name)$" }
+                    if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompUseWithSpn']) {
+        $Ctrls['CtxCompUseWithSpn'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                Show-Panel "KerberosSuite"
+                if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
+                if ($controls['TxtTestSpn']) {
+                    $controls['TxtTestSpn'].Text = if ($c.DNSHostName) { "HOST/$($c.DNSHostName)" } else { "HOST/$($c.Name)" }
+                    if ($controls['BtnTestSpnTicket']) { $controls['BtnTestSpnTicket'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompUseWithReplication']) {
+        $Ctrls['CtxCompUseWithReplication'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) {
+                Show-Panel "ReplicationSuite"
+                if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
+                if ($controls['TxtMultiDcTarget']) {
+                    $controls['TxtMultiDcTarget'].Text = "$($c.Name)$"
+                    if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompUseWithResolver']) {
+        $Ctrls['CtxCompUseWithResolver'].Add_Click({
+            $c = & $getSelectedComputer
+            if ($c) { Show-ResolverDialog -InitialInput "$($c.Name)`r`n$($c.DNSHostName)" }
+        }.GetNewClosure())
+    }
+    if ($Ctrls['CtxCompCopyToDetached']) {
+        $Ctrls['CtxCompCopyToDetached'].Add_Click({
+            Show-DetachedGridDialog -ItemsSource $TargetGrid.ItemsSource -Title "Computers Inventory Dataset"
+        }.GetNewClosure())
     }
 }
 
@@ -2344,6 +3031,7 @@ function Connect-SecondaryPanelInstance {    param(
                 $u = $grid.SelectedItem
                 if ($u) { Open-UserDetailDialog -User $u }
             }.GetNewClosure())
+            Connect-UserContextMenu -Ctrls $c -TargetGrid $grid -OwnerWindow $win
         }
 
         # Initial populate
@@ -2464,6 +3152,7 @@ function Connect-SecondaryPanelInstance {    param(
                 $g = $grid.SelectedItem
                 if ($g) { Open-GroupDialog -Mode "Edit" -GroupToEdit $g }
             }.GetNewClosure())
+            Connect-GroupContextMenu -Ctrls $c -TargetGrid $grid -OwnerWindow $win
         }
 
         # Initial populate
@@ -2563,6 +3252,9 @@ function Connect-SecondaryPanelInstance {    param(
             $c['BtnCompResetColumns'].Add_Click({
                 Reset-TableColumns -TableName "Computers" -TargetGrid $grid
             }.GetNewClosure())
+        }
+        if ($grid) {
+            Connect-ComputerContextMenu -Ctrls $c -TargetGrid $grid -OwnerWindow $win
         }
 
         # Initial populate
@@ -2786,14 +3478,28 @@ function Connect-SecondaryPanelInstance {    param(
 
         $panel.Tag = $c
 
-        # Initial render if DN available
-        $initDN = if ($tab -and $tab.State -and $tab.State.ContainsKey('CurrentHtmlDN')) {
-            $tab.State['CurrentHtmlDN']
-        } elseif ($state.CurrentHtmlDN) {
-            $state.CurrentHtmlDN
+        # Initial render if raw HTML or DN available
+        $initHtml = if ($tab -and $tab.State -and $tab.State.ContainsKey('CurrentHtmlRaw') -and $tab.State['CurrentHtmlRaw']) {
+            $tab.State['CurrentHtmlRaw']
+        } elseif ($localScope.CurrentRaw) {
+            $localScope.CurrentRaw
         } else { "" }
 
-        if ($initDN) {
+        $initDN = if ($tab -and $tab.State -and $tab.State.ContainsKey('CurrentHtmlDN') -and $tab.State['CurrentHtmlDN']) {
+            $tab.State['CurrentHtmlDN']
+        } elseif ($localScope.CurrentDN) {
+            $localScope.CurrentDN
+        } else { "" }
+
+        if ($initHtml -and $browser) {
+            $browser.NavigateToString($initHtml)
+            if ($txtDN -and $initDN) { $txtDN.Text = $initDN }
+            if ($txtDNPlaceholder) { $txtDNPlaceholder.Visibility = [System.Windows.Visibility]::Collapsed }
+            if ($badge -and $initDN) {
+                $disp = ($initDN -split ',')[0] -replace '^CN=|^OU=', ''
+                $badge.Text = $disp
+            }
+        } elseif ($initDN) {
             & $renderDossier $initDN $localScope.CurrentTemplate
         }
     }
@@ -3006,6 +3712,15 @@ function global:Save-SecondaryPanelSessionState {
     switch ($PanelName) {
         "HtmlView" {
             if ($c['TxtHtmlViewDN']) { $Tab.State['CurrentHtmlDN'] = $c['TxtHtmlViewDN'].Text }
+            if ($state.CurrentHtmlRaw -and (-not $Tab.State.ContainsKey('CurrentHtmlRaw') -or -not $Tab.State['CurrentHtmlRaw'])) {
+                $Tab.State['CurrentHtmlRaw'] = $state.CurrentHtmlRaw
+            }
+            if ($state.CurrentHtmlTemplate -and (-not $Tab.State.ContainsKey('CurrentHtmlTemplate') -or -not $Tab.State['CurrentHtmlTemplate'])) {
+                $Tab.State['CurrentHtmlTemplate'] = $state.CurrentHtmlTemplate
+            }
+            if ($state.CurrentHtmlObject -and (-not $Tab.State.ContainsKey('CurrentHtmlObject') -or -not $Tab.State['CurrentHtmlObject'])) {
+                $Tab.State['CurrentHtmlObject'] = $state.CurrentHtmlObject
+            }
         }
         "Users" {
             if ($c['TxtSearchUsers']) { $Tab.State['SearchUsers'] = $c['TxtSearchUsers'].Text }
@@ -3115,6 +3830,22 @@ function global:Restore-SecondaryPanelSessionState {
         "SecurityAcl" {
             if ($c['TxtAclTargetDN'] -and $Tab.State.ContainsKey('AclDN')) { $c['TxtAclTargetDN'].Text = $Tab.State['AclDN'] }
             if ($c['TxtAclTrustee'] -and $Tab.State.ContainsKey('AclTrustee')) { $c['TxtAclTrustee'].Text = $Tab.State['AclTrustee'] }
+        }
+        "HtmlView" {
+            if ($c['TxtHtmlViewDN'] -and $Tab.State.ContainsKey('CurrentHtmlDN')) {
+                $c['TxtHtmlViewDN'].Text = $Tab.State['CurrentHtmlDN']
+            }
+            if ($c['TxtHtmlViewDNPlaceholder']) {
+                $hasText = -not [string]::IsNullOrEmpty($c['TxtHtmlViewDN'].Text)
+                $c['TxtHtmlViewDNPlaceholder'].Visibility = if ($hasText) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+            }
+            if ($c['TxtHtmlViewStatusBadge'] -and $Tab.State.ContainsKey('CurrentHtmlDN') -and $Tab.State['CurrentHtmlDN']) {
+                $disp = ($Tab.State['CurrentHtmlDN'] -split ',')[0] -replace '^CN=|^OU=', ''
+                $c['TxtHtmlViewStatusBadge'].Text = $disp
+            }
+            if ($c['BrowserHtmlView'] -and $Tab.State.ContainsKey('CurrentHtmlRaw') -and $Tab.State['CurrentHtmlRaw']) {
+                $c['BrowserHtmlView'].NavigateToString($Tab.State['CurrentHtmlRaw'])
+            }
         }
     }
 }
@@ -4079,7 +4810,7 @@ if ($controls['NavComputers'])          { $controls['NavComputers'].Add_Checked(
 if ($controls['NavDirectorySearch'])    { $controls['NavDirectorySearch'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "DirectorySearch"; Init-DirectorySearch } }) }
 if ($controls['NavLdapSql'])            { $controls['NavLdapSql'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "LdapSql" } }) }
 if ($controls['NavAttributeEditor'])    { $controls['NavAttributeEditor'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "AttributeEditor" } }) }
-if ($controls['NavHtmlView'])           { $controls['NavHtmlView'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "HtmlView"; Init-HtmlViewUI } }) }
+if ($controls['NavHtmlView'])           { $controls['NavHtmlView'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "HtmlView"; if (-not $state.CurrentHtmlDN) { Init-HtmlViewUI } } }) }
 if ($controls['NavObjectCompare'])      { $controls['NavObjectCompare'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "ObjectCompare" } }) }
 if ($controls['NavLdifStudio'])         { $controls['NavLdifStudio'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "LdifStudio"; Init-LdifStudio } }) }
 if ($controls['NavAuditReports'])       { $controls['NavAuditReports'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "AuditReports"; Refresh-CustomReportsDropdown } }) }
@@ -4267,7 +4998,7 @@ if ($controls['ListGlobalSearchResults']) {
 
             $dispName = if ($sel.Name) { $sel.Name } elseif ($sel.SamAccountName) { $sel.SamAccountName } else { ($sel.DistinguishedName -split ',')[0] }
             Add-WorkspaceTab -PanelName "HtmlView" -CustomTitle "Dossier: $dispName" -NewInstance -Activate $true
-            Show-ObjectHtmlView -Identity $sel.DistinguishedName
+            Show-ObjectHtmlView -Identity $sel
         }
     })
 }
@@ -6185,7 +6916,9 @@ function Open-MemberDialog {
 }
 
 Set-Alias -Name Delete-GroupAction -Value Remove-GroupAction -Scope Global
-function Remove-GroupAction {    $selGroup = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
+function Remove-GroupAction {
+    param($TargetGroup = $null)
+    $selGroup = if ($TargetGroup) { $TargetGroup } elseif ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
     if (-not $selGroup) { return }
 
     $confirm = [System.Windows.MessageBox]::Show(
@@ -11816,282 +12549,13 @@ function Invoke-ObjectRename {    param([string]$DN, [string]$CurrentName, [scri
 }
 
 # Users Grid ContextMenu
-if ($controls['CtxUserEdit']) {
-    $controls['CtxUserEdit'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Open-UserDialog -Mode "Edit" -UserToEdit $u }
-    })
-}
-if ($controls['CtxUserResetPwd']) {
-    $controls['CtxUserResetPwd'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Open-ResetPasswordDialog -User $u }
-    })
-}
-if ($controls['CtxUserUnlock']) {
-    $controls['CtxUserUnlock'].Add_Click({
-        if (-not (Test-CanModifyDirectory)) { return }
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $res = Unlock-ADUserAccount -Identity $u.SamAccountName
-            Set-Status -Message $res.Message
-            Refresh-Users
-        }
-    })
-}
-if ($controls['CtxUserToggleStatus']) {
-    $controls['CtxUserToggleStatus'].Add_Click({
-        if (-not (Test-CanModifyDirectory)) { return }
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $newStatus = if ($u.Enabled) { $false } else { $true }
-            $res = Set-ADUserStatus -Identity $u.SamAccountName -Enabled $newStatus
-            Set-Status -Message $res.Message
-            Refresh-Users
-        }
-    })
-}
-if ($controls['CtxUserMoveOU']) {
-    $controls['CtxUserMoveOU'].Add_Click({
-        if (-not (Test-CanModifyDirectory)) { return }
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Open-MoveOUDialog -ObjectDN $u.DistinguishedName }
-    })
-}
-if ($controls['CtxUserDelete']) {
-    $controls['CtxUserDelete'].Add_Click({ Delete-UserAction })
-}
-if ($controls['CtxUserLocateInTree']) {
-    $controls['CtxUserLocateInTree'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u -and $u.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $u.DistinguishedName }
-    })
-}
-if ($controls['CtxUserRename']) {
-    $controls['CtxUserRename'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Handle-ObjectRename -DN $u.DistinguishedName -CurrentName $u.DisplayName -RefreshAction { Refresh-Users } }
-    })
-}
-if ($controls['CtxUserCopyDN']) {
-    $controls['CtxUserCopyDN'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { [System.Windows.Clipboard]::SetText($u.DistinguishedName); Set-Status -Message "Copied DN: $($u.DistinguishedName)" }
-    })
-}
-if ($controls['CtxUserCopySam']) {
-    $controls['CtxUserCopySam'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { [System.Windows.Clipboard]::SetText($u.SamAccountName); Set-Status -Message "Copied SamAccountName: $($u.SamAccountName)" }
-    })
-}
-if ($controls['CtxUserCopyUrl']) {
-    $controls['CtxUserCopyUrl'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-            $ldapUrl = "ldap://$server/$($u.DistinguishedName)"
-            [System.Windows.Clipboard]::SetText($ldapUrl)
-            Set-Status -Message "Copied LDAP URL: $ldapUrl"
-        }
-    })
-}
-if ($controls['CtxUserCopyRdn']) {
-    $controls['CtxUserCopyRdn'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $rdn = Get-ObjectRDN -DN $u.DistinguishedName
-            [System.Windows.Clipboard]::SetText($rdn)
-            Set-Status -Message "Copied RDN: $rdn"
-        }
-    })
-}
-if ($controls['CtxUserCopyCanonical']) {
-    $controls['CtxUserCopyCanonical'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $can = Get-ObjectCanonicalName -DN $u.DistinguishedName
-            [System.Windows.Clipboard]::SetText($can)
-            Set-Status -Message "Copied Canonical Name: $can"
-        }
-    })
-}
-if ($controls['CtxUserCopyLdif']) {
-    $controls['CtxUserCopyLdif'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $attrs = Get-ADObjectRawAttributes -DistinguishedName $u.DistinguishedName
-            $ldifBlock = "dn: $($u.DistinguishedName)`r`nchangetype: add`r`nobjectClass: user`r`nsAMAccountName: $($u.SamAccountName)`r`n"
-            foreach ($a in $attrs) {
-                if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
-            }
-            [System.Windows.Clipboard]::SetText($ldifBlock)
-            Set-Status -Message "Copied LDIF record to clipboard for $($u.SamAccountName)."
-        }
-    })
-}
-if ($controls['CtxUserAddToBasket']) {
-    $controls['CtxUserAddToBasket'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Add-ObjectToBasket -DN $u.DistinguishedName -Name $u.DisplayName -ObjectClass "user" }
-    })
-}
-if ($controls['CtxUserAddToBookmarks']) {
-    $controls['CtxUserAddToBookmarks'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u -and $u.DistinguishedName) {
-            $name = if ($u.DisplayName) { $u.DisplayName } else { $u.SamAccountName }
-            $res = Add-ADBookmark -DistinguishedName $u.DistinguishedName -Name $name -ObjectClass "user"
-            if ($res) { Set-Status -Message "Added '$name' to Bookmarks." }
-            else { Set-Status -Message "'$name' is already in Bookmarks." }
-        }
-    })
-}
-if ($controls['CtxUserInspectAttr']) {
-    $controls['CtxUserInspectAttr'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $controls['NavAttributeEditor'].IsChecked = $true
-            Show-Panel "AttributeEditor"
-            $controls['TxtAttrEditorDN'].Text = $u.DistinguishedName
-            Load-RawAttributesUI -TargetDN $u.DistinguishedName
-        }
-    })
-}
-if ($controls['CtxUserCompare']) {
-    $controls['CtxUserCompare'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) {
-            $controls['NavObjectCompare'].IsChecked = $true
-            Show-Panel "ObjectCompare"
-            if (-not $controls['TxtCompareObjectA'].Text) {
-                $controls['TxtCompareObjectA'].Text = $u.DistinguishedName
-            } else {
-                $controls['TxtCompareObjectB'].Text = $u.DistinguishedName
-            }
-        }
-    })
-}
-if ($controls['CtxUserViewDetails']) {
-    $controls['CtxUserViewDetails'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Show-UserDetails -User $u }
-    })
-}
-if ($controls['CtxUserViewHtml']) {
-    $controls['CtxUserViewHtml'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Show-ObjectHtmlView -Identity $u }
-    })
-}
-if ($controls['CtxUserOpenBrowser']) {
-    $controls['CtxUserOpenBrowser'].Add_Click({
-        $u = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
-        if ($u) { Show-ObjectHtmlDossier -TargetObject $u }
-    })
+if ($controls['GridUsers']) {
+    Connect-UserContextMenu -Ctrls $controls -TargetGrid $controls['GridUsers'] -OwnerWindow $window
 }
 
 # Groups Grid ContextMenu
-if ($controls['CtxGroupManageMembers']) {
-    $controls['CtxGroupManageMembers'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Open-GroupMembersDialog -Group $g }
-    })
-}
-if ($controls['CtxGroupDelete']) {
-    $controls['CtxGroupDelete'].Add_Click({
-        if (-not (Test-CanModifyDirectory)) { return }
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Delete-SelectedGroup -Group $g }
-    })
-}
-if ($controls['CtxGroupRename']) {
-    $controls['CtxGroupRename'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Handle-ObjectRename -DN $g.DistinguishedName -CurrentName $g.Name -RefreshAction { Refresh-Groups } }
-    })
-}
-if ($controls['CtxGroupCopyDN']) {
-    $controls['CtxGroupCopyDN'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { [System.Windows.Clipboard]::SetText($g.DistinguishedName); Set-Status -Message "Copied Group DN: $($g.DistinguishedName)" }
-    })
-}
-if ($controls['CtxGroupCopyUrl']) {
-    $controls['CtxGroupCopyUrl'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) {
-            $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-            [System.Windows.Clipboard]::SetText("ldap://$server/$($g.DistinguishedName)")
-            Set-Status -Message "Copied LDAP URL for group $($g.Name)"
-        }
-    })
-}
-if ($controls['CtxGroupCopyRdn']) {
-    $controls['CtxGroupCopyRdn'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) {
-            $rdn = Get-ObjectRDN -DN $g.DistinguishedName
-            [System.Windows.Clipboard]::SetText($rdn)
-            Set-Status -Message "Copied Group RDN: $rdn"
-        }
-    })
-}
-if ($controls['CtxGroupCopyCanonical']) {
-    $controls['CtxGroupCopyCanonical'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) {
-            $can = Get-ObjectCanonicalName -DN $g.DistinguishedName
-            [System.Windows.Clipboard]::SetText($can)
-            Set-Status -Message "Copied Group Canonical Name: $can"
-        }
-    })
-}
-if ($controls['CtxGroupAddToBasket']) {
-    $controls['CtxGroupAddToBasket'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Add-ObjectToBasket -DN $g.DistinguishedName -Name $g.Name -ObjectClass "group" }
-    })
-}
-if ($controls['CtxGroupLocateInTree']) {
-    $controls['CtxGroupLocateInTree'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g -and $g.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $g.DistinguishedName }
-    })
-}
-if ($controls['CtxGroupInspectAttr']) {
-    $controls['CtxGroupInspectAttr'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) {
-            $controls['NavAttributeEditor'].IsChecked = $true
-            Show-Panel "AttributeEditor"
-            $controls['TxtAttrEditorDN'].Text = $g.DistinguishedName
-            Load-RawAttributesUI -TargetDN $g.DistinguishedName
-        }
-    })
-}
-if ($controls['CtxGroupCompare']) {
-    $controls['CtxGroupCompare'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) {
-            $controls['NavObjectCompare'].IsChecked = $true
-            Show-Panel "ObjectCompare"
-            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $g.DistinguishedName }
-            else { $controls['TxtCompareObjectB'].Text = $g.DistinguishedName }
-        }
-    })
-}
-if ($controls['CtxGroupViewHtml']) {
-    $controls['CtxGroupViewHtml'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Show-ObjectHtmlView -Identity $g }
-    })
-}
-if ($controls['CtxGroupOpenBrowser']) {
-    $controls['CtxGroupOpenBrowser'].Add_Click({
-        $g = if ($controls['GridGroups']) { $controls['GridGroups'].SelectedItem } else { $null }
-        if ($g) { Show-ObjectHtmlDossier -TargetObject $g }
-    })
+if ($controls['GridGroups']) {
+    Connect-GroupContextMenu -Ctrls $controls -TargetGrid $controls['GridGroups'] -OwnerWindow $window
 }
 
 # OUs TreeView ContextMenu
@@ -12277,120 +12741,8 @@ if ($controls['CtxOUObjOpenBrowser']) {
 }
 
 # Computers ContextMenu
-if ($controls['CtxCompRdp']) {
-    $controls['CtxCompRdp'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $target = if ($c.DNSHostName) { $c.DNSHostName } elseif ($c.IPv4Address) { $c.IPv4Address } else { $c.Name }
-            Set-Status -Message "Launching Remote Desktop Connection to $target..."
-            Start-Process "mstsc.exe" -ArgumentList "/v:$target"
-        }
-    })
-}
-if ($controls['CtxCompPing']) {
-    $controls['CtxCompPing'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $target = if ($c.DNSHostName) { $c.DNSHostName } else { $c.Name }
-            Set-Status -Message "Pinging $target..."
-            try {
-                $ping = Test-Connection -ComputerName $target -Count 1 -Quiet -ErrorAction SilentlyContinue
-                if ($ping) {
-                    Set-Status -Message "Host '$target' is ONLINE and reachable."
-                    [System.Windows.MessageBox]::Show("Host '$target' is reachable over network (ICMP ping reply received).", "Host Online", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
-                } else {
-                    Set-Status -Message "Host '$target' did not respond to ping."
-                    [System.Windows.MessageBox]::Show("Host '$target' did not respond (offline or ICMP blocked by firewall).", "Ping Timed Out", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
-                }
-            } catch {
-                Set-Status -Message "Ping error: $_"
-            }
-        }
-    })
-}
-if ($controls['CtxCompRename']) {
-    $controls['CtxCompRename'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { Handle-ObjectRename -DN $c.DistinguishedName -CurrentName $c.Name -RefreshAction { Refresh-Computers } }
-    })
-}
-if ($controls['CtxCompCopyDN']) {
-    $controls['CtxCompCopyDN'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { [System.Windows.Clipboard]::SetText($c.DistinguishedName); Set-Status -Message "Copied Computer DN: $($c.DistinguishedName)" }
-    })
-}
-if ($controls['CtxCompCopyName']) {
-    $controls['CtxCompCopyName'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { [System.Windows.Clipboard]::SetText($c.Name); Set-Status -Message "Copied Name: $($c.Name)" }
-    })
-}
-if ($controls['CtxCompCopyRdn']) {
-    $controls['CtxCompCopyRdn'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $rdn = Get-ObjectRDN -DN $c.DistinguishedName
-            [System.Windows.Clipboard]::SetText($rdn)
-            Set-Status -Message "Copied Computer RDN: $rdn"
-        }
-    })
-}
-if ($controls['CtxCompCopyCanonical']) {
-    $controls['CtxCompCopyCanonical'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $can = Get-ObjectCanonicalName -DN $c.DistinguishedName
-            [System.Windows.Clipboard]::SetText($can)
-            Set-Status -Message "Copied Computer Canonical Name: $can"
-        }
-    })
-}
-if ($controls['CtxCompAddToBasket']) {
-    $controls['CtxCompAddToBasket'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { Add-ObjectToBasket -DN $c.DistinguishedName -Name $c.Name -ObjectClass "computer" }
-    })
-}
-if ($controls['CtxCompLocateInTree']) {
-    $controls['CtxCompLocateInTree'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c -and $c.DistinguishedName) { Navigate-ToDirectoryObject -DistinguishedName $c.DistinguishedName }
-    })
-}
-if ($controls['CtxCompInspectAttr']) {
-    $controls['CtxCompInspectAttr'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $controls['NavAttributeEditor'].IsChecked = $true
-            Show-Panel "AttributeEditor"
-            $controls['TxtAttrEditorDN'].Text = $c.DistinguishedName
-            Load-RawAttributesUI -TargetDN $c.DistinguishedName
-        }
-    })
-}
-if ($controls['CtxCompCompare']) {
-    $controls['CtxCompCompare'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) {
-            $controls['NavObjectCompare'].IsChecked = $true
-            Show-Panel "ObjectCompare"
-            if (-not $controls['TxtCompareObjectA'].Text) { $controls['TxtCompareObjectA'].Text = $c.DistinguishedName }
-            else { $controls['TxtCompareObjectB'].Text = $c.DistinguishedName }
-        }
-    })
-}
-if ($controls['CtxCompViewHtml']) {
-    $controls['CtxCompViewHtml'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { Show-ObjectHtmlView -Identity $c }
-    })
-}
-if ($controls['CtxCompOpenBrowser']) {
-    $controls['CtxCompOpenBrowser'].Add_Click({
-        $c = if ($controls['GridComputers']) { $controls['GridComputers'].SelectedItem } else { $null }
-        if ($c) { Show-ObjectHtmlDossier -TargetObject $c }
-    })
+if ($controls['GridComputers']) {
+    Connect-ComputerContextMenu -Ctrls $controls -TargetGrid $controls['GridComputers'] -OwnerWindow $window
 }
 
 # Search ContextMenu
@@ -14248,165 +14600,7 @@ if ($controls['BtnHeaderFavorites']) {
 }
 
 # --- Universal "Use With..." Context Menus ---
-# Users DataGrid
-if ($controls['CtxUserUseWithAcl']) {
-    $controls['CtxUserUseWithAcl'].Add_Click({
-        $u = $controls['GridUsers'].SelectedItem
-        if ($u) {
-            Show-Panel "SecurityAcl"
-            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
-            if ($controls['TxtAclTargetDN']) {
-                $controls['TxtAclTargetDN'].Text = if ($u.DistinguishedName) { $u.DistinguishedName } else { $u.SamAccountName }
-                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxUserUseWithTokenSize']) {
-    $controls['CtxUserUseWithTokenSize'].Add_Click({
-        $u = $controls['GridUsers'].SelectedItem
-        if ($u) {
-            Show-Panel "KerberosSuite"
-            if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
-            if ($controls['TxtTokenUser']) {
-                $controls['TxtTokenUser'].Text = $u.SamAccountName
-                if ($controls['BtnCalcTokenSize']) { $controls['BtnCalcTokenSize'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxUserUseWithLockout']) {
-    $controls['CtxUserUseWithLockout'].Add_Click({
-        $u = $controls['GridUsers'].SelectedItem
-        if ($u) {
-            Show-Panel "DiagnosticsToolbox"
-            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
-            if ($controls['TxtLockoutTargetUser']) {
-                $controls['TxtLockoutTargetUser'].Text = $u.SamAccountName
-                if ($controls['BtnTraceLockout']) { $controls['BtnTraceLockout'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxUserUseWithReplication']) {
-    $controls['CtxUserUseWithReplication'].Add_Click({
-        $u = $controls['GridUsers'].SelectedItem
-        if ($u) {
-            Show-Panel "ReplicationSuite"
-            if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
-            if ($controls['TxtMultiDcTarget']) {
-                $controls['TxtMultiDcTarget'].Text = $u.SamAccountName
-                if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxUserUseWithResolver']) {
-    $controls['CtxUserUseWithResolver'].Add_Click({
-        $u = $controls['GridUsers'].SelectedItem
-        if ($u) { Show-ResolverDialog -InitialInput "$($u.SamAccountName)`r`n$($u.DistinguishedName)" }
-    })
-}
-if ($controls['CtxUserCopyToDetached']) {
-    $controls['CtxUserCopyToDetached'].Add_Click({
-        Show-DetachedGridDialog -ItemsSource $controls['GridUsers'].ItemsSource -Title "Users Directory Dataset"
-    })
-}
-
-# Groups DataGrid
-if ($controls['CtxGroupUseWithAcl']) {
-    $controls['CtxGroupUseWithAcl'].Add_Click({
-        $g = $controls['GridGroups'].SelectedItem
-        if ($g) {
-            Show-Panel "SecurityAcl"
-            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
-            if ($controls['TxtAclTargetDN']) {
-                $controls['TxtAclTargetDN'].Text = if ($g.DistinguishedName) { $g.DistinguishedName } else { $g.Name }
-                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxGroupUseWithCircular']) {
-    $controls['CtxGroupUseWithCircular'].Add_Click({
-        Show-Panel "DiagnosticsToolbox"
-        if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
-        if ($controls['BtnScanCircularGroups']) { $controls['BtnScanCircularGroups'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-    })
-}
-if ($controls['CtxGroupUseWithDiff']) {
-    $controls['CtxGroupUseWithDiff'].Add_Click({
-        $g = $controls['GridGroups'].SelectedItem
-        if ($g) {
-            Show-Panel "DiagnosticsToolbox"
-            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
-            if ($controls['TxtDiffUserA']) { $controls['TxtDiffUserA'].Text = $g.Name }
-        }
-    })
-}
-if ($controls['CtxGroupUseWithResolver']) {
-    $controls['CtxGroupUseWithResolver'].Add_Click({
-        $g = $controls['GridGroups'].SelectedItem
-        if ($g) { Show-ResolverDialog -InitialInput "$($g.Name)`r`n$($g.DistinguishedName)" }
-    })
-}
-if ($controls['CtxGroupCopyToDetached']) {
-    $controls['CtxGroupCopyToDetached'].Add_Click({
-        Show-DetachedGridDialog -ItemsSource $controls['GridGroups'].ItemsSource -Title "Groups Directory Dataset"
-    })
-}
-
-# Computers DataGrid
-if ($controls['CtxCompUseWithAcl']) {
-    $controls['CtxCompUseWithAcl'].Add_Click({
-        $c = $controls['GridComputers'].SelectedItem
-        if ($c) {
-            Show-Panel "SecurityAcl"
-            if ($controls['NavSecurityAcl']) { $controls['NavSecurityAcl'].IsChecked = $true }
-            if ($controls['TxtAclTargetDN']) {
-                $controls['TxtAclTargetDN'].Text = if ($c.DistinguishedName) { $c.DistinguishedName } else { "$($c.Name)$" }
-                if ($controls['BtnAclLoad']) { $controls['BtnAclLoad'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxCompUseWithSpn']) {
-    $controls['CtxCompUseWithSpn'].Add_Click({
-        $c = $controls['GridComputers'].SelectedItem
-        if ($c) {
-            Show-Panel "KerberosSuite"
-            if ($controls['NavKerberosSuite']) { $controls['NavKerberosSuite'].IsChecked = $true }
-            if ($controls['TxtTestSpn']) {
-                $controls['TxtTestSpn'].Text = if ($c.DNSHostName) { "HOST/$($c.DNSHostName)" } else { "HOST/$($c.Name)" }
-                if ($controls['BtnTestSpnTicket']) { $controls['BtnTestSpnTicket'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxCompUseWithReplication']) {
-    $controls['CtxCompUseWithReplication'].Add_Click({
-        $c = $controls['GridComputers'].SelectedItem
-        if ($c) {
-            Show-Panel "ReplicationSuite"
-            if ($controls['NavReplicationSuite']) { $controls['NavReplicationSuite'].IsChecked = $true }
-            if ($controls['TxtMultiDcTarget']) {
-                $controls['TxtMultiDcTarget'].Text = "$($c.Name)$"
-                if ($controls['BtnScanMultiDcLogon']) { $controls['BtnScanMultiDcLogon'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
-            }
-        }
-    })
-}
-if ($controls['CtxCompUseWithResolver']) {
-    $controls['CtxCompUseWithResolver'].Add_Click({
-        $c = $controls['GridComputers'].SelectedItem
-        if ($c) { Show-ResolverDialog -InitialInput "$($c.Name)`r`n$($c.DNSHostName)" }
-    })
-}
-if ($controls['CtxCompCopyToDetached']) {
-    $controls['CtxCompCopyToDetached'].Add_Click({
-        Show-DetachedGridDialog -ItemsSource $controls['GridComputers'].ItemsSource -Title "Computers Inventory Dataset"
-    })
-}
+# Users, Groups, and Computers Use With items are wired via Connect-UserContextMenu, Connect-GroupContextMenu, and Connect-ComputerContextMenu.
 
 # Search Results DataGrid
 if ($controls['CtxSearchUseWithAcl']) {
