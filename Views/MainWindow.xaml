@@ -447,6 +447,11 @@
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="RowHeight" Value="32"/>
             <Setter Property="Cursor" Value="Arrow"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+            <Setter Property="VirtualizingPanel.IsContainerVirtualizable" Value="True"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
             <Setter Property="RowStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridRow">

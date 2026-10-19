@@ -73,6 +73,20 @@ function Initialize-AppLogging {
         }
     }
 
+    # Auto-prune stale log files older than 7 days to maintain fast disk I/O and low footprint
+    try {
+        $staleDate = (Get-Date).AddDays(-7)
+        $oldLogs = Get-ChildItem -Path $script:LogsDirectory -Filter "*.log" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -lt $staleDate }
+        if ($oldLogs) {
+            foreach ($oldFile in $oldLogs) {
+                Remove-Item -Path $oldFile.FullName -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {
+        $null = $_
+    }
+
     if ($RegisterGlobalHandlers) {
         Register-GlobalAppDomainExceptionHandler
     }
