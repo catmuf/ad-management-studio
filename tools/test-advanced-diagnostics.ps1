@@ -279,6 +279,24 @@ try {
     Show-Panel "Connections"
     Invoke-DispatcherPump
 
+    Assert-ControlAction "BtnAutoDetectConnections" "Auto-detect Active Directory connections and probe latency" {
+        $controls['BtnAutoDetectConnections'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    }
+
+    Assert-ControlAction "BtnSortPingAsc" "Sort AD connections by ping latency ascending" {
+        $controls['BtnSortPingAsc'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    }
+
+    Assert-ControlAction "BtnSortPingDesc" "Sort AD connections by ping latency descending" {
+        $controls['BtnSortPingDesc'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    }
+
+    Assert-ControlAction "GridActiveConnections" "Select connection from active connections grid" {
+        if ($controls['GridActiveConnections'] -and $controls['GridActiveConnections'].Items.Count -gt 0) {
+            $controls['GridActiveConnections'].SelectedIndex = 0
+        }
+    }
+
     Assert-ControlAction "ListSavedProfiles" "View saved connection profiles" {
         if ($controls['ListProfiles'].Items.Count -gt 0) {
             $controls['ListProfiles'].SelectedIndex = 0

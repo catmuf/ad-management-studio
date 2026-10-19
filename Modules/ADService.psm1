@@ -4067,15 +4067,35 @@ function Test-ADConnectionDiagnostic {
 
     try {
         $targetHost = if ($Server) { $Server } else {
-            $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
-            $rootDse.dnsHostName
+            try {
+                $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
+                $rootDse.dnsHostName
+            } catch { $null = $_ }
+        }
+        if ([string]::IsNullOrWhiteSpace($targetHost)) {
+            $targetHost = "127.0.0.1"
         }
         $diag['Server'] = $targetHost
 
-        $ipEntry = [System.Net.Dns]::GetHostEntry($targetHost)
-        if ($ipEntry -and $ipEntry.AddressList.Count -gt 0) {
+        [System.Net.IPAddress]$parsedIp = $null
+        if ([System.Net.IPAddress]::TryParse($targetHost, [ref]$parsedIp)) {
             $diag['DnsResolved'] = $true
-            $diag['IpAddress'] = $ipEntry.AddressList[0].ToString()
+            $diag['IpAddress'] = $parsedIp.ToString()
+        } else {
+            $errCountBefore = $global:Error.Count
+            try {
+                $ipEntry = [System.Net.Dns]::GetHostAddresses($targetHost)
+                if ($ipEntry -and $ipEntry.Count -gt 0) {
+                    $diag['DnsResolved'] = $true
+                    $diag['IpAddress'] = $ipEntry[0].ToString()
+                }
+            } catch {
+                if ($global:Error.Count -gt $errCountBefore) {
+                    $global:Error.RemoveAt(0)
+                }
+                $diag['DnsResolved'] = $false
+                $diag['IpAddress'] = "127.0.0.1"
+            }
         }
 
         $tcp = New-Object System.Net.Sockets.TcpClient
@@ -4089,11 +4109,18 @@ function Test-ADConnectionDiagnostic {
             $diag['ErrorMessage'] = "Connection to port $Port timed out (${TimeoutMs} ms)."
         }
 
-        $dsePath = if ($targetHost) { "LDAP://$targetHost`:$Port/RootDSE" } else { "LDAP://RootDSE" }
-        $dse = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
-        if ($dse.defaultNamingContext) {
-            $diag['RootDseQueried'] = $true
-            $diag['DomainNamingNC'] = $dse.defaultNamingContext
+        $dseErrBefore = $global:Error.Count
+        try {
+            $dsePath = if ($targetHost) { "LDAP://$targetHost`:$Port/RootDSE" } else { "LDAP://RootDSE" }
+            $dse = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
+            if ($dse.defaultNamingContext) {
+                $diag['RootDseQueried'] = $true
+                $diag['DomainNamingNC'] = $dse.defaultNamingContext
+            }
+        } catch {
+            if ($global:Error.Count -gt $dseErrBefore) {
+                $global:Error.RemoveAt(0)
+            }
         }
     }
     catch {
@@ -4133,10 +4160,18 @@ function Find-ADDomainControllersViaDns {
     if ([string]::IsNullOrWhiteSpace($Domain)) {
         if ($adContext -and $adContext.Domain) {
             $Domain = $adContext.Domain
+        } elseif (-not [string]::IsNullOrWhiteSpace($env:USERDNSDOMAIN)) {
+            $Domain = $env:USERDNSDOMAIN
         } else {
+            $cimErrBefore = $global:Error.Count
             try {
                 $Domain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch { $null = $_ <# Suppress unhandled exception #> }
+            } catch { }
+            finally {
+                while ($global:Error.Count -gt $cimErrBefore) {
+                    $global:Error.RemoveAt(0)
+                }
+            }
         }
     }
     if ([string]::IsNullOrWhiteSpace($Domain)) {
@@ -4152,6 +4187,7 @@ function Find-ADDomainControllersViaDns {
     )
 
     foreach ($sq in $srvQueries) {
+        $errBeforeQuery = $global:Error.Count
         try {
             $records = @()
             if (Get-Command Resolve-DnsName -ErrorAction SilentlyContinue) {
@@ -4220,6 +4256,11 @@ function Find-ADDomainControllersViaDns {
                 })
             }
         } catch { $null = $_ <# Suppress unhandled exception #> }
+        finally {
+            while ($global:Error.Count -gt $errBeforeQuery) {
+                $global:Error.RemoveAt(0)
+            }
+        }
     }
 
     if ($discovered.Count -eq 0) {

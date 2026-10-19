@@ -3104,22 +3104,73 @@
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="🌐 Active Directory Connection Profiles" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
-                                        <TextBlock Text="Manage domain controller profiles, custom ports, LDAPS SSL, and diagnostic checks." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="🌐 Active Directory Connections &amp; Auto-Discovery" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                        <TextBlock Text="Auto-detect domain controllers, evaluate ICMP/TCP ping latency, and manage connection profiles." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                                     </StackPanel>
 
                                     <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Name="BtnNewProfile" Style="{StaticResource PrimaryButton}" Content="➕ Add Profile" Margin="0,0,6,6"/>
+                                        <Button Name="BtnAutoDetectConnections" Style="{StaticResource PrimaryButton}" Content="⚡ Auto-Detect Connections" Margin="0,0,6,6" ToolTip="Query domain controllers via AD DS and DNS SRV, measure ping latency, and order by speed"/>
+                                        <Button Name="BtnSortPingAsc" Style="{StaticResource ModernButton}" Content="📶 Ping ⬆️ (Fastest)" Margin="0,0,6,6" ToolTip="Sort connections by ping latency ascending (lowest ms first)"/>
+                                        <Button Name="BtnSortPingDesc" Style="{StaticResource ModernButton}" Content="📶 Ping ⬇️ (Slowest)" Margin="0,0,6,6" ToolTip="Sort connections by ping latency descending (highest ms first)"/>
+                                        <Button Name="BtnNewProfile" Style="{StaticResource ModernButton}" Content="➕ Add Profile" Margin="0,0,6,6"/>
                                         <Button Name="BtnTestConnection" Style="{StaticResource ModernButton}" Content="📡 Test Connection" Margin="0,0,6,6"/>
                                         <Button Name="BtnRunDiagFull" Style="{StaticResource ModernButton}" Content="🔍 Full Diagnostics" Margin="0,0,0,6"/>
                                     </WrapPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- Diagnostics Card & Profile Manager -->
-                            <Grid Grid.Row="1">
+                            <!-- Main Active Directory Connections & Auto-Detected Servers -->
+                            <Border Grid.Row="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="⚡ Active Directory Connections &amp; Domain Controllers" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Directly detected Active Directory servers, DNS SRV records, and configured profiles with real-time ping latency." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBox Name="TxtDnsDiscoveryDomain" Style="{StaticResource ModernTextBox}" Width="160" Height="28" Margin="0,0,6,0" ToolTip="Domain to query and auto-detect connections for"/>
+                                            <Button Name="BtnRunDnsDiscovery" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Detect Domain" Margin="0,0,6,0" ToolTip="Discover infrastructure for specified domain"/>
+                                            <Button Name="BtnConnectDiscoveredDC" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Connect Selected" ToolTip="Switch active connection to selected Domain Controller or profile"/>
+                                        </WrapPanel>
+                                    </Grid>
+
+                                    <DataGrid Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="170" MaxHeight="270" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="95"/>
+                                            <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" Width="190"/>
+                                            <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" Width="130"/>
+                                            <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="150"/>
+                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="120"/>
+                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" Width="65"/>
+                                            <DataGridTextColumn Header="Ping Connection (ms)" Binding="{Binding PingDisplay}" SortMemberPath="PingMs" Width="145"/>
+                                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="95"/>
+                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" Width="*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <!-- Backward compatibility DataGrid for DNS SRV bindings -->
+                                    <DataGrid Name="GridDnsDiscoveredDCs" Visibility="Collapsed" AutoGenerateColumns="False">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Service" Binding="{Binding Service}"/>
+                                            <DataGridTextColumn Header="Role" Binding="{Binding Role}"/>
+                                            <DataGridTextColumn Header="Host Name" Binding="{Binding HostName}"/>
+                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}"/>
+                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}"/>
+                                            <DataGridTextColumn Header="Latency (ms)" Binding="{Binding LatencyMs}"/>
+                                            <DataGridTextColumn Header="Status" Binding="{Binding Status}"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Diagnostics Card & Saved Profile Manager -->
+                            <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="320"/>
+                                    <ColumnDefinition Width="340"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
@@ -3132,8 +3183,8 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Configured Profiles" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
-                                        <ListBox Grid.Row="1" Name="ListProfiles" Background="{DynamicResource BgInput}" BorderThickness="1" BorderBrush="{DynamicResource BorderBrushColor}" Foreground="{DynamicResource TextPrimary}" MinHeight="180"/>
+                                        <TextBlock Grid.Row="0" Text="Saved Connection Profiles" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
+                                        <ListBox Grid.Row="1" Name="ListProfiles" Background="{DynamicResource BgInput}" BorderThickness="1" BorderBrush="{DynamicResource BorderBrushColor}" Foreground="{DynamicResource TextPrimary}" MinHeight="170"/>
 
                                         <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                                             <Button Name="BtnConnectProfile" Style="{StaticResource PrimaryButton}" Content="⚡ Connect" Margin="0,0,6,6" ToolTip="Connect to selected profile"/>
@@ -3177,39 +3228,6 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
-
-                            <!-- DNS SRV Auto-Discovery (Softerra Ch06s05 Parity) -->
-                            <Border Grid.Row="2" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,14,0,0">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="🌐 DNS SRV Domain Controller &amp; Service Auto-Discovery" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
-                                            <TextBlock Text="Discover all Domain Controllers, Kerberos KDCs, and Global Catalogs using DNS SRV records (_ldap, _kerberos, _gc)." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                        <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBox Name="TxtDnsDiscoveryDomain" Style="{StaticResource ModernTextBox}" Width="180" Height="30" Margin="0,0,8,0" ToolTip="Domain to query DNS SRV records for"/>
-                                            <Button Name="BtnRunDnsDiscovery" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Discover Infrastructure" Margin="0,0,8,0"/>
-                                            <Button Name="BtnConnectDiscoveredDC" Style="{StaticResource ModernButton}" Height="30" Content="⚡ Connect to Selected DC" ToolTip="Switch active connection profile to selected Domain Controller"/>
-                                        </WrapPanel>
-                                    </Grid>
-
-                                    <DataGrid Name="GridDnsDiscoveredDCs" Style="{StaticResource ModernDataGrid}" MinHeight="140" MaxHeight="220" AutoGenerateColumns="False">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Service" Binding="{Binding Service}" Width="170"/>
-                                            <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="160"/>
-                                            <DataGridTextColumn Header="Host Name" Binding="{Binding HostName}" Width="190"/>
-                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="130"/>
-                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" Width="60"/>
-                                            <DataGridTextColumn Header="Latency (ms)" Binding="{Binding LatencyMs}" Width="90"/>
-                                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                </StackPanel>
-                            </Border>
                         </Grid>
                     </ScrollViewer>
                 </Grid>

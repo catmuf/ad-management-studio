@@ -158,6 +158,7 @@ function Get-ADEnvironmentContext {
 
     $context = [PSCustomObject]@{
         IsConnected          = $false
+        Server               = ""
         DomainName           = ""
         ForestName           = ""
         NetBIOSName          = ""
