@@ -684,6 +684,26 @@ try {
         $null = $controls['PopupGlobalSearch'].IsOpen
     }
 
+    Assert-ControlAction "BtnHeaderQuickTools" "Open Quick Tools Dropdown Menu" {
+        $controls['BtnHeaderQuickTools'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    }
+
+    Assert-ControlAction "MenuToolsResolver" "Launch Resolver Scratchpad via Menu" {
+        $controls['MenuToolsResolver'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+    }
+
+    Assert-ControlAction "MenuToolsGpoExplorer" "Launch GPO Explorer via Menu" {
+        $controls['MenuToolsGpoExplorer'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+    }
+
+    Assert-ControlAction "MenuToolsAsn1Viewer" "Launch ASN.1 Viewer via Menu" {
+        $controls['MenuToolsAsn1Viewer'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+    }
+
+    Assert-ControlAction "MenuToolsDiffViewer" "Launch Side-by-Side Diff Viewer via Menu" {
+        $controls['MenuToolsDiffViewer'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+    }
+
     Assert-ControlAction "BtnHeaderResolver" "Launch Resolver Scratchpad" {
         $controls['BtnHeaderResolver'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     }

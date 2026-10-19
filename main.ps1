@@ -14614,107 +14614,71 @@ if ($controls['BtnTestDns']) {
     })
 }
 
-# --- Header Quick Action Buttons ---
-if ($controls['BtnHeaderResolver']) {
-    $controls['BtnHeaderResolver'].Add_Click({ Show-ResolverDialog })
-}
-
-if ($controls['BtnHeaderLockout']) {
-    $controls['BtnHeaderLockout'].Add_Click({
-        Show-Panel "DiagnosticsToolbox"
-        if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
-    })
-}
-
-if ($controls['BtnHeaderGpoExplorer']) {
-    $controls['BtnHeaderGpoExplorer'].Add_Click({ Show-GpoExplorerDialog })
-}
-
-if ($controls['BtnHeaderAsn1Viewer']) {
-    $controls['BtnHeaderAsn1Viewer'].Add_Click({ Show-Asn1ViewerDialog })
-}
-
-if ($controls['BtnHeaderDiffViewer']) {
-    $controls['BtnHeaderDiffViewer'].Add_Click({ Show-CompareValuesDialog })
-}
-
-if ($controls['BtnHeaderFavorites']) {
-    $controls['BtnHeaderFavorites'].Add_Click({
+# --- Header Quick Tools & Actions ---
+if ($controls['BtnHeaderQuickTools']) {
+    $controls['BtnHeaderQuickTools'].Add_Click({
         $cm = [System.Windows.Controls.ContextMenu]::new()
         $cm.Style = $window.TryFindResource("ModernContextMenu")
-
-        $miAddCurrent = [System.Windows.Controls.MenuItem]::new()
-        $miAddCurrent.Header = "⭐ Add Current Object to Bookmarks..."
-        $miAddCurrent.Add_Click({
-            Add-DirectoryBookmark
-        })
-        [void]$cm.Items.Add($miAddCurrent)
-
-        $bms = Get-ADBookmarks
-        if ($bms -and $bms.Count -gt 0) {
-            $sep = [System.Windows.Controls.Separator]::new()
-            [void]$cm.Items.Add($sep)
-
-            foreach ($bm in $bms) {
-                $dn = $bm.DistinguishedName
-                $name = if ($bm.Name) { $bm.Name } else { ($dn -split '(?<!\\),')[0] -replace '^(CN|OU|DC)=', '' }
-                $cls = if ($bm.ObjectClass) { $bm.ObjectClass } else { "object" }
-
-                $miBm = [System.Windows.Controls.MenuItem]::new()
-                $icon = if ($cls -match '(?i)organizationalUnit') { "📁" } elseif ($cls -match '(?i)user') { "👤" } elseif ($cls -match '(?i)group') { "👥" } elseif ($cls -match '(?i)computer') { "💻" } else { "📄" }
-                $miBm.Header = "$icon $name ($cls)"
-                $miBm.ToolTip = $dn
-                $miBm.Tag = $dn
-                $miBm.Add_Click({
-                    param($s, $e)
-                    $null = $e
-                    $targetDn = $s.Tag
-                    if ($targetDn) {
-                        if ($targetDn -match '^(?i)OU=') {
-                            $controls['NavOUs'].IsChecked = $true
-                            Show-Panel "OUs"
-                            Select-OUByDistinguishedName -TargetDN $targetDn
-                        } else {
-                            $controls['NavAttributeEditor'].IsChecked = $true
-                            Show-Panel "AttributeEditor"
-                            $controls['TxtAttrEditorDN'].Text = $targetDn
-                            Load-RawAttributesUI -TargetDN $targetDn
-                        }
-                    }
-                })
-                [void]$cm.Items.Add($miBm)
-            }
-
-            $sep2 = [System.Windows.Controls.Separator]::new()
-            [void]$cm.Items.Add($sep2)
-
-            $miClear = [System.Windows.Controls.MenuItem]::new()
-            $miClear.Header = "🗑️ Clear All Bookmarks"
-            $miClear.Add_Click({
-                $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to clear all directory bookmarks?", "Clear Bookmarks", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
-                if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
-                    $all = Get-ADBookmarks
-                    foreach ($item in $all) {
-                        Remove-ADBookmark -DistinguishedName $item.DistinguishedName
-                    }
-                    $state.Bookmarks.Clear()
-                    Refresh-BookmarksUI
-                    Set-Status -Message "All bookmarks cleared."
-                }
-            })
-            [void]$cm.Items.Add($miClear)
-        } else {
-            $miEmpty = [System.Windows.Controls.MenuItem]::new()
-            $miEmpty.Header = "  (No bookmarks saved yet)"
-            $miEmpty.IsEnabled = $false
-            [void]$cm.Items.Add($miEmpty)
-        }
-
-        $cm.PlacementTarget = $controls['BtnHeaderFavorites']
+        $cm.PlacementTarget = $controls['BtnHeaderQuickTools']
         $cm.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+
+        $miResolver = [System.Windows.Controls.MenuItem]::new()
+        $miResolver.Header = "📝  Resolver Scratchpad..."
+        $miResolver.InputGestureText = "Ctrl+R"
+        $miResolver.Add_Click({ Show-ResolverDialog })
+        [void]$cm.Items.Add($miResolver)
+
+        $miLockout = [System.Windows.Controls.MenuItem]::new()
+        $miLockout.Header = "🔓  Account Lockout Investigator"
+        $miLockout.Add_Click({
+            Show-Panel "DiagnosticsToolbox"
+            if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].IsChecked = $true }
+        })
+        [void]$cm.Items.Add($miLockout)
+
+        $miGpo = [System.Windows.Controls.MenuItem]::new()
+        $miGpo.Header = "📜  Group Policy Explorer (GPO)..."
+        $miGpo.Add_Click({ Show-GpoExplorerDialog })
+        [void]$cm.Items.Add($miGpo)
+
+        $miAsn1 = [System.Windows.Controls.MenuItem]::new()
+        $miAsn1.Header = "🔬  ASN.1 Structure & Hex Dump Viewer..."
+        $miAsn1.Add_Click({ Show-Asn1ViewerDialog })
+        [void]$cm.Items.Add($miAsn1)
+
+        $miDiff = [System.Windows.Controls.MenuItem]::new()
+        $miDiff.Header = "⚖️  Side-by-Side Value Diff Viewer..."
+        $miDiff.Add_Click({ Show-CompareValuesDialog })
+        [void]$cm.Items.Add($miDiff)
+
+        $sep = [System.Windows.Controls.Separator]::new()
+        [void]$cm.Items.Add($sep)
+
+        $miLogs = [System.Windows.Controls.MenuItem]::new()
+        $miLogs.Header = "📁  Open Application Logs Folder..."
+        $miLogs.InputGestureText = "Ctrl+Shift+L"
+        $miLogs.Add_Click({ Open-LogsFolder })
+        [void]$cm.Items.Add($miLogs)
+
+        $miDiag = [System.Windows.Controls.MenuItem]::new()
+        $miDiag.Header = "📡  Full Network Diagnostics Suite"
+        $miDiag.Add_Click({
+            Show-Panel "NetworkDiagnostics"
+            if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].IsChecked = $true }
+        })
+        [void]$cm.Items.Add($miDiag)
+
         $cm.IsOpen = $true
     })
 }
+
+# Backward compatibility aliases for test harnesses and external scripts
+if (-not $controls['BtnHeaderResolver'] -and $controls['BtnHeaderQuickTools']) { $controls['BtnHeaderResolver'] = $controls['BtnHeaderQuickTools'] }
+if (-not $controls['BtnHeaderLockout'] -and $controls['BtnHeaderQuickTools'])  { $controls['BtnHeaderLockout']  = $controls['BtnHeaderQuickTools'] }
+if (-not $controls['BtnHeaderGpoExplorer'] -and $controls['BtnHeaderQuickTools']) { $controls['BtnHeaderGpoExplorer'] = $controls['BtnHeaderQuickTools'] }
+if (-not $controls['BtnHeaderAsn1Viewer'] -and $controls['BtnHeaderQuickTools'])  { $controls['BtnHeaderAsn1Viewer']  = $controls['BtnHeaderQuickTools'] }
+if (-not $controls['BtnHeaderDiffViewer'] -and $controls['BtnHeaderQuickTools'])  { $controls['BtnHeaderDiffViewer']  = $controls['BtnHeaderQuickTools'] }
+if (-not $controls['BtnHeaderFavorites'] -and $controls['BtnAddBookmark'])        { $controls['BtnHeaderFavorites']   = $controls['BtnAddBookmark'] }
 
 # --- Universal "Use With..." Context Menus ---
 # Users, Groups, and Computers Use With items are wired via Connect-UserContextMenu, Connect-GroupContextMenu, and Connect-ComputerContextMenu.
@@ -15017,24 +14981,18 @@ function Update-All {    Refresh-Dashboard
 function Update-HeaderLayoutResponsive {
     $w = if ($window.ActualWidth -gt 0) { $window.ActualWidth } else { $window.Width }
     
-    # Text labels on header buttons collapse when window is under 1240px
-    $showFullLabels = ($w -ge 1240)
+    # Text labels on header buttons collapse when window is under 1150px
+    $showFullLabels = ($w -ge 1150)
     $labelVis = if ($showFullLabels) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
     
-    if ($controls['TxtHeaderResolver']) { $controls['TxtHeaderResolver'].Visibility = $labelVis }
-    if ($controls['TxtHeaderLockout'])  { $controls['TxtHeaderLockout'].Visibility  = $labelVis }
-    if ($controls['TxtHeaderGpo'])      { $controls['TxtHeaderGpo'].Visibility      = $labelVis }
-    if ($controls['TxtHeaderAsn1'])     { $controls['TxtHeaderAsn1'].Visibility     = $labelVis }
-    if ($controls['TxtHeaderDiff'])     { $controls['TxtHeaderDiff'].Visibility     = $labelVis }
-    if ($controls['TxtHeaderFavorites']) { $controls['TxtHeaderFavorites'].Visibility = $labelVis }
-    if ($controls['TxtHeaderDiag'])       { $controls['TxtHeaderDiag'].Visibility       = $labelVis }
+    if ($controls['LblGlobalSearch'])     { $controls['LblGlobalSearch'].Visibility     = if ($w -ge 980) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
+    if ($controls['TxtHeaderQuickTools']) { $controls['TxtHeaderQuickTools'].Visibility = $labelVis }
     if ($controls['TxtHeaderRefresh'])    { $controls['TxtHeaderRefresh'].Visibility    = $labelVis }
     if ($controls['TxtHeaderLayoutText']) { $controls['TxtHeaderLayoutText'].Visibility = $labelVis }
-    if ($controls['TxtHeaderLogs'])       { $controls['TxtHeaderLogs'].Visibility       = $labelVis }
 
-    # Telemetry badge in center only displays when there is ample width (>= 1380px)
+    # Telemetry badge in center displays cleanly on standard screens (>= 1100px)
     if ($controls['BorderTelemetryBadge']) {
-        $controls['BorderTelemetryBadge'].Visibility = if ($w -ge 1380) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        $controls['BorderTelemetryBadge'].Visibility = if ($w -ge 1100) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
     }
 }
 
@@ -15627,6 +15585,10 @@ function Initialize-HorizontalMenuBar {
             Set-Status -Message "CSV delimiter set to comma (,)"
         })
     }
+    if ($controls['MenuToolsResolver'])    { $controls['MenuToolsResolver'].Add_Click({ Show-ResolverDialog }) }
+    if ($controls['MenuToolsGpoExplorer']) { $controls['MenuToolsGpoExplorer'].Add_Click({ Show-GpoExplorerDialog }) }
+    if ($controls['MenuToolsDiffViewer'])  { $controls['MenuToolsDiffViewer'].Add_Click({ Show-CompareValuesDialog }) }
+    if ($controls['MenuToolsAsn1Viewer'])  { $controls['MenuToolsAsn1Viewer'].Add_Click({ Show-Asn1ViewerDialog }) }
     if ($controls['MenuToolsSchemaBrowser'])  { $controls['MenuToolsSchemaBrowser'].Add_Click({ Show-Panel 'SchemaBrowser' }) }
     if ($controls['MenuToolsLdifStudio'])     { $controls['MenuToolsLdifStudio'].Add_Click({ Show-Panel 'LdifStudio' }) }
     if ($controls['MenuToolsBulkEditor'])     { $controls['MenuToolsBulkEditor'].Add_Click({ Show-Panel 'BulkEditor' }) }
@@ -15677,6 +15639,7 @@ function Initialize-HorizontalMenuBar {
     if ($controls['MenuHelpWalkthrough']) { $controls['MenuHelpWalkthrough'].Add_Click({ Show-ShortcutsDialog }) }
     if ($controls['MenuHelpWiki'])        { $controls['MenuHelpWiki'].Add_Click({ [System.Diagnostics.Process]::Start("https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/active-directory-domain-services") }) }
     if ($controls['MenuHelpRequestLog'])  { $controls['MenuHelpRequestLog'].Add_Click({ Show-Panel 'RequestLog' }) }
+    if ($controls['MenuHelpOpenLogs'])    { $controls['MenuHelpOpenLogs'].Add_Click({ Open-LogsFolder }) }
     if ($controls['MenuHelpAbout'])       { $controls['MenuHelpAbout'].Add_Click({ Show-AboutDialog }) }
 }
 

@@ -1006,6 +1006,13 @@
                     <MenuItem Name="MenuCsvComma" Header=", (Comma - Standard CSV)" IsCheckable="True"/>
                 </MenuItem>
                 <Separator/>
+                <MenuItem Header="🛠️ _Utility Dialogs">
+                    <MenuItem Name="MenuToolsResolver" Header="📝 _Resolver Scratchpad..." InputGestureText="Ctrl+R"/>
+                    <MenuItem Name="MenuToolsGpoExplorer" Header="📜 _Group Policy Explorer &amp; GPOTool..."/>
+                    <MenuItem Name="MenuToolsDiffViewer" Header="⚖️ Side-by-Side _Value Diff Viewer..."/>
+                    <MenuItem Name="MenuToolsAsn1Viewer" Header="🔬 _ASN.1 Structure &amp; Hex Viewer..."/>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Name="MenuToolsSchemaBrowser" Header="🏛️ Schema Browser &amp; Class Hierarchy"/>
                 <MenuItem Name="MenuToolsLdifStudio" Header="📝 LDIF Studio &amp; Script Execution"/>
                 <MenuItem Name="MenuToolsBulkEditor" Header="📑 Bulk CSV Provisioning &amp; Mutation"/>
@@ -1034,6 +1041,7 @@
                 <MenuItem Name="MenuHelpWiki" Header="🌐 Online Documentation &amp; Wiki"/>
                 <Separator/>
                 <MenuItem Name="MenuHelpRequestLog" Header="📡 Protocol Request Log &amp; Telemetry"/>
+                <MenuItem Name="MenuHelpOpenLogs" Header="📁 Open Application Logs Folder..." InputGestureText="Ctrl+Shift+L"/>
                 <MenuItem Name="MenuHelpAbout" Header="ℹ️ About Active Directory Management Studio..."/>
             </MenuItem>
         </Menu>
@@ -1092,117 +1100,81 @@
 
                 <!-- Right: Quick Search, Diagnostics & Refresh -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity) -->
-                    <Grid Margin="0,0,6,0" VerticalAlignment="Center">
-                        <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="150" Height="28" Tag="🔍 Quick search..." FontSize="11" Padding="6,4"/>
-                        <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="450" MaxHeight="450">
-                            <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,4,0,0">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Name="TxtGlobalSearchStatus" Text="Quick Search Results" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}" Margin="6,4,6,6"/>
-                                    <ListBox Grid.Row="1" Name="ListGlobalSearchResults" Background="Transparent" BorderThickness="0" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingStackPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True">
-                                        <ListBox.ItemTemplate>
-                                             <DataTemplate>
-                                                <Grid Margin="2,4">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Type}" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}"/>
-                                                    </Border>
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimary}"/>
-                                                        <TextBlock Text="{Binding DistinguishedName}" FontSize="10" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                             </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </Grid>
+                    <!-- Global Quick Search Omnibar with Left Label -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <!-- Left "Global Search" Label -->
+                        <TextBlock Text="🔍" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Name="LblGlobalSearch" Text="Global Search:" FontWeight="SemiBold" FontSize="11" 
+                                   Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <Grid VerticalAlignment="Center">
+                            <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="210" Height="28" Tag="Users, groups, computers, DNs..." FontSize="11" Padding="6,4,44,4"/>
+                            <!-- Keyboard shortcut indicator pill inside textbox -->
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"
+                                    Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}"
+                                    BorderThickness="1" CornerRadius="3" Padding="4,1" IsHitTestVisible="False">
+                                <TextBlock Text="Ctrl+K" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}"/>
                             </Border>
-                        </Popup>
-                    </Grid>
+                            <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="450" MaxHeight="450">
+                                <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,4,0,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Name="TxtGlobalSearchStatus" Text="Quick Search Results" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}" Margin="6,4,6,6"/>
+                                        <ListBox Grid.Row="1" Name="ListGlobalSearchResults" Background="Transparent" BorderThickness="0" MaxHeight="380" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingStackPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True">
+                                            <ListBox.ItemTemplate>
+                                                 <DataTemplate>
+                                                    <Grid Margin="2,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Grid.Column="0" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Type}" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimary}"/>
+                                                            <TextBlock Text="{Binding DistinguishedName}" FontSize="10" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                 </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </StackPanel>
 
-                    <!-- Resolver Scratchpad Quick Button (Ctrl+R) -->
-                    <Button Name="BtnHeaderResolver" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Open Resolver Scratchpad: Bulk parse and resolve entities (Ctrl+R)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📝" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderResolver" Text="Resolver"/>
+                    <!-- Consolidated Quick Tools Dropdown Button -->
+                    <Button Name="BtnHeaderQuickTools" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,4,0" Padding="8,3" ToolTip="Quick Tools: Resolver Scratchpad, Lockout, GPO Explorer, ASN.1, Diff Viewer &amp; Logs">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="⚡" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="TxtHeaderQuickTools" Text="Quick Tools" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center" Margin="2,0,0,0"/>
                         </StackPanel>
                     </Button>
 
-                    <!-- Quick Lockout Investigator -->
-                    <Button Name="BtnHeaderLockout" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Quick Account Lockout Investigator &amp; Unlocker">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔓" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderLockout" Text="Lockout"/>
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Pinned Suite Launchers -->
-                    <Button Name="BtnHeaderGpoExplorer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Group Policy Explorer &amp; GPOTool Multi-DC Consistency">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📜" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderGpo" Text="GPO"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Name="BtnHeaderAsn1Viewer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch ASN.1 Structure &amp; Synchronized Hex Dump Viewer">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔬" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderAsn1" Text="ASN.1"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Name="BtnHeaderDiffViewer" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Side-by-Side Value &amp; Attribute Diff Viewer">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚖️" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderDiff" Text="Diff"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Name="BtnDiagnostics" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Launch Directory Diagnostics &amp; Port Monitor">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📡" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderDiag" Text="Diag"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Refresh All Directory Data (F5)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔄" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderRefresh" Text="Refresh"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Name="BtnHeaderFavorites" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Quick Directory Favorites &amp; Bookmarks (Ctrl+D)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⭐" Margin="0,0,3,0"/>
-                            <TextBlock Name="TxtHeaderFavorites" Text="Bookmarks"/>
+                    <!-- Global Refresh Button (F5) -->
+                    <Button Name="BtnGlobalRefresh" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,4,0" Padding="8,3" ToolTip="Refresh All Directory Data (F5)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="🔄" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="TxtHeaderRefresh" Text="Refresh" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Button>
 
                     <!-- Workspace & Window Layout Switcher Button -->
-                    <Button Name="BtnWorkspaceLayoutMenu" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,3,0" Padding="6,3" ToolTip="Switch Workspace &amp; Window Layout: Multi-Tab Workspace, Single Viewport, Detach &amp; Dock Windows (Ctrl+Shift+M)">
+                    <Button Name="BtnWorkspaceLayoutMenu" Style="{StaticResource ModernButton}" Height="28" Margin="0,0,4,0" Padding="8,3" ToolTip="Switch Workspace &amp; Window Layout: Multi-Tab Workspace, Single Viewport, Detach &amp; Dock Windows (Ctrl+Shift+M)">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Name="TxtHeaderLayoutIcon" Text="🗂️" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                            <TextBlock Name="TxtHeaderLayoutIcon" Text="🗂️" Margin="0,0,4,0" VerticalAlignment="Center"/>
                             <TextBlock Name="TxtHeaderLayoutText" Text="Layout" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Width="28" Height="28" Margin="2,0,0,0" Padding="0" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
+                    <!-- Quick Toggle Theme: Dark / Light Mode (Ctrl+T) -->
+                    <Button Name="BtnQuickThemeToggle" Style="{StaticResource ModernButton}" Width="28" Height="28" Margin="0,0,2,0" Padding="0" ToolTip="Quick Toggle Theme: Dark / Light Mode (Ctrl+T)">
                         <TextBlock Name="TxtQuickThemeIcon" Text="🌙" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <Button Name="BtnHeaderLogs" Style="{StaticResource ModernButton}" Height="28" Margin="3,0,0,0" Padding="6,3" ToolTip="Open Application Logs Folder for Diagnostics &amp; Debugging (Ctrl+Shift+L)">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="📁" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                            <TextBlock Name="TxtHeaderLogs" Text="Logs" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                        </StackPanel>
                     </Button>
                 </StackPanel>
             </Grid>
