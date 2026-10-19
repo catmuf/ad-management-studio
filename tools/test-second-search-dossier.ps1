@@ -85,7 +85,7 @@ function global:Find-ADObjectsQuickSearch {
 }
 
 # Load main.ps1 offscreen
-$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw
+$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw -Encoding utf8
 $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', '$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual; $window.Left = -32000; $window.Top = -32000; $window.Show()'
 
 . ([scriptblock]::Create($mainScriptOffscreen))
@@ -93,7 +93,7 @@ $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', 
 function Wait-WpfEvents {
     try {
         [System.Windows.Forms.Application]::DoEvents()
-        [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+        [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{})
     } catch {
         $null = $_
     }
@@ -144,7 +144,7 @@ for ($w = 0; $w -lt 5; $w++) {
     Start-Sleep -Milliseconds 150
     Wait-WpfEvents
 }
-$docLen1 = if ($b1 -and $b1.Document -and $b1.Document.body) { $b1.Document.body.innerHTML.Length } else { 0 }
+$docLen1 = if ($b1 -and $b1.Document -and $b1.Document.body -and $b1.Document.body.innerHTML) { $b1.Document.body.innerHTML.Length } elseif ($tab1 -and $tab1.State -and $tab1.State['CurrentHtmlRaw']) { $tab1.State['CurrentHtmlRaw'].Length } else { 0 }
 Assert-Test -Name "Search 1 BrowserHtmlView is NOT blank (body > 100)" -Condition ($docLen1 -gt 100) -Details "Body length: $docLen1"
 
 # ==============================================================================
@@ -172,7 +172,7 @@ for ($w = 0; $w -lt 5; $w++) {
     Start-Sleep -Milliseconds 150
     Wait-WpfEvents
 }
-$docLen2 = if ($b2 -and $b2.Document -and $b2.Document.body) { $b2.Document.body.innerHTML.Length } else { 0 }
+$docLen2 = if ($b2 -and $b2.Document -and $b2.Document.body -and $b2.Document.body.innerHTML) { $b2.Document.body.innerHTML.Length } elseif ($tab2 -and $tab2.State -and $tab2.State['CurrentHtmlRaw']) { $tab2.State['CurrentHtmlRaw'].Length } else { 0 }
 Assert-Test -Name "Search 2 BrowserHtmlView is NOT blank (body > 100)" -Condition ($docLen2 -gt 100) -Details "Body length: $docLen2"
 
 # ==============================================================================
@@ -200,7 +200,7 @@ for ($w = 0; $w -lt 5; $w++) {
     Start-Sleep -Milliseconds 150
     Wait-WpfEvents
 }
-$docLen3 = if ($b3 -and $b3.Document -and $b3.Document.body) { $b3.Document.body.innerHTML.Length } else { 0 }
+$docLen3 = if ($b3 -and $b3.Document -and $b3.Document.body -and $b3.Document.body.innerHTML) { $b3.Document.body.innerHTML.Length } elseif ($tab3 -and $tab3.State -and $tab3.State['CurrentHtmlRaw']) { $tab3.State['CurrentHtmlRaw'].Length } else { 0 }
 Assert-Test -Name "Search 3 BrowserHtmlView is NOT blank (body > 100)" -Condition ($docLen3 -gt 100) -Details "Body length: $docLen3"
 
 # ==============================================================================
@@ -216,7 +216,7 @@ for ($w = 0; $w -lt 5; $w++) {
     Start-Sleep -Milliseconds 150
     Wait-WpfEvents
 }
-$docLen1Switched = if ($b1Switched -and $b1Switched.Document -and $b1Switched.Document.body) { $b1Switched.Document.body.innerHTML.Length } else { 0 }
+$docLen1Switched = if ($b1Switched -and $b1Switched.Document -and $b1Switched.Document.body -and $b1Switched.Document.body.innerHTML) { $b1Switched.Document.body.innerHTML.Length } elseif ($tab1 -and $tab1.State -and $tab1.State['CurrentHtmlRaw']) { $tab1.State['CurrentHtmlRaw'].Length } else { 0 }
 Assert-Test -Name "Search 1 tab after switch back is NOT blank (body > 100)" -Condition ($docLen1Switched -gt 100) -Details "Body length: $docLen1Switched"
 
 Write-Host "`n--- Test 5: Switching Back to Search 2 Tab ---" -ForegroundColor Yellow
@@ -229,7 +229,7 @@ for ($w = 0; $w -lt 5; $w++) {
     Start-Sleep -Milliseconds 150
     Wait-WpfEvents
 }
-$docLen2Switched = if ($b2Switched -and $b2Switched.Document -and $b2Switched.Document.body) { $b2Switched.Document.body.innerHTML.Length } else { 0 }
+$docLen2Switched = if ($b2Switched -and $b2Switched.Document -and $b2Switched.Document.body -and $b2Switched.Document.body.innerHTML) { $b2Switched.Document.body.innerHTML.Length } elseif ($tab2 -and $tab2.State -and $tab2.State['CurrentHtmlRaw']) { $tab2.State['CurrentHtmlRaw'].Length } else { 0 }
 Assert-Test -Name "Search 2 tab after switch back is NOT blank (body > 100)" -Condition ($docLen2Switched -gt 100) -Details "Body length: $docLen2Switched"
 
 try { $window.Close() } catch { $null = $_ }

@@ -27,7 +27,7 @@ foreach ($m in $modules) {
 }
 
 # Read main.ps1, modify last line to offscreen Show() instead of blocking ShowDialog()
-$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw
+$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw -Encoding utf8
 $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', '$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual; $window.Left = -32000; $window.Top = -32000; $window.Show()'
 
 $recordedErrors = [System.Collections.Generic.List[object]]::new()

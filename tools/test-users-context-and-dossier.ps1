@@ -70,7 +70,7 @@ function global:Find-ADObjectsQuickSearch {
 }
 
 # Load main.ps1 offscreen
-$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw
+$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw -Encoding utf8
 $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', '$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual; $window.Left = -32000; $window.Top = -32000; $window.Show()'
 
 . ([scriptblock]::Create($mainScriptOffscreen))

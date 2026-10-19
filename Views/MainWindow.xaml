@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Active Directory Management Studio - SysAdmin Edition"
@@ -600,40 +600,126 @@
             </Setter>
         </Style>
 
+        <!-- Multi-Role Modern MenuItem Templates (Menu Bar & Context Menus) -->
+        <ControlTemplate x:Key="TopLevelHeaderTemplate" TargetType="MenuItem">
+            <Grid SnapsToDevicePixels="True">
+                <Border Name="HeaderBorder" Background="{TemplateBinding Background}" Padding="8,4" CornerRadius="3">
+                    <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+                </Border>
+                <Popup Name="PART_Popup" Placement="Bottom"
+                       IsOpen="{TemplateBinding IsSubmenuOpen}"
+                       AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                    <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="4" Margin="0,2,0,0" SnapsToDevicePixels="True">
+                        <ScrollViewer CanContentScroll="True" MaxHeight="550">
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsSubmenuOpen" Value="True">
+                    <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource NavSelectedBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="SubmenuHeaderTemplate" TargetType="MenuItem">
+            <Border Name="HeaderBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,5" Margin="2,1" SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="22"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" Margin="4,0,12,0"/>
+                    <TextBlock Grid.Column="2" Text="▶" FontSize="9" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="8,0,2,0"/>
+                    <Popup Name="PART_Popup" Placement="Right"
+                           IsOpen="{TemplateBinding IsSubmenuOpen}"
+                           AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                        <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="4" Margin="2,0,0,0" SnapsToDevicePixels="True">
+                            <ScrollViewer CanContentScroll="True" MaxHeight="550">
+                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsSubmenuOpen" Value="True">
+                    <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource NavSelectedBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="SubmenuItemTemplate" TargetType="MenuItem">
+            <Border Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,5" Margin="2,1" SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="22"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Name="CheckMark" Text="✓" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AccentPrimary}" Visibility="Collapsed"/>
+                        <ContentPresenter Content="{TemplateBinding Icon}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" Margin="4,0,12,0"/>
+                    <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                </Trigger>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
         <Style x:Key="ModernMenuItem" TargetType="MenuItem">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="MenuItem">
-                        <Border Name="itemBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}" Margin="2,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="22"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Foreground="{DynamicResource TextMuted}" FontSize="11" Margin="14,0,0,0" VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource NavHoverBg}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Role" Value="TopLevelHeader">
+                    <Setter Property="Template" Value="{StaticResource TopLevelHeaderTemplate}"/>
+                </Trigger>
+                <Trigger Property="Role" Value="TopLevelItem">
+                    <Setter Property="Template" Value="{StaticResource TopLevelHeaderTemplate}"/>
+                </Trigger>
+                <Trigger Property="Role" Value="SubmenuHeader">
+                    <Setter Property="Template" Value="{StaticResource SubmenuHeaderTemplate}"/>
+                </Trigger>
+                <Trigger Property="Role" Value="SubmenuItem">
+                    <Setter Property="Template" Value="{StaticResource SubmenuItemTemplate}"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="ModernMenuSeparator" TargetType="Separator">
@@ -702,13 +788,258 @@
 
     <Grid Background="{DynamicResource BgDark}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="54"/>  <!-- Top App Bar / Telemetry -->
-            <RowDefinition Height="*"/>   <!-- Main Body: Navigation + Viewport -->
-            <RowDefinition Height="30"/>  <!-- Bottom Status Bar -->
+            <RowDefinition Height="Auto"/> <!-- Row 0: Top Horizontal Menu Bar -->
+            <RowDefinition Height="54"/>   <!-- Row 1: Top App Bar / Telemetry -->
+            <RowDefinition Height="*"/>    <!-- Row 2: Main Body: Navigation + Viewport -->
+            <RowDefinition Height="30"/>   <!-- Row 3: Bottom Status Bar -->
         </Grid.RowDefinitions>
 
+        <!-- TOP HORIZONTAL MENU BAR -->
+        <Menu Name="AppHorizontalMenuBar" Grid.Row="0" VerticalAlignment="Top"
+              Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}"
+              BorderThickness="0,0,0,1" TextElement.FontSize="12" TextElement.Foreground="{DynamicResource TextPrimary}"
+              SnapsToDevicePixels="True" Height="28">
+            <Menu.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <DockPanel HorizontalAlignment="Stretch"/>
+                </ItemsPanelTemplate>
+            </Menu.ItemsPanel>
+
+            <!-- 1. FILE -->
+            <MenuItem Header="_File">
+                <MenuItem Header="➕ _New Object">
+                    <MenuItem Name="MenuFileNewUser" Header="👤 New _User..." InputGestureText="Ctrl+N"/>
+                    <MenuItem Name="MenuFileNewGroup" Header="👥 New _Group..."/>
+                    <MenuItem Name="MenuFileNewOU" Header="📁 New _Organizational Unit..."/>
+                    <MenuItem Name="MenuFileNewComputer" Header="💻 New _Computer Account..."/>
+                    <MenuItem Name="MenuFileNewContact" Header="📇 New _Contact..."/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuFileConnectProfile" Header="⚡ _Connect Profile..." InputGestureText="Ctrl+P"/>
+                <MenuItem Name="MenuFileNewProfile" Header="➕ New Connection Profile..."/>
+                <MenuItem Name="MenuFileDisconnect" Header="🔌 Disconnect Active Session"/>
+                <Separator/>
+                <MenuItem Header="🔄 _Data Interchange">
+                    <MenuItem Name="MenuFileExportSubtree" Header="📤 _Export Directory Data..." InputGestureText="Ctrl+E"/>
+                    <MenuItem Name="MenuFileImportLDIF" Header="📥 _Import LDIF / DSML Data..."/>
+                    <MenuItem Name="MenuFileExportCsv" Header="📑 Export Active Subtree to CSV..."/>
+                    <MenuItem Name="MenuFileExportDsml" Header="🌐 Export as DSML v2 Document..."/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuFilePrintDossier" Header="🖨️ Print Active Dossier..." InputGestureText="Ctrl+Shift+P"/>
+                <Separator/>
+                <MenuItem Name="MenuFileExit" Header="🚪 E_xit" InputGestureText="Alt+F4"/>
+            </MenuItem>
+
+            <!-- 2. EDIT -->
+            <MenuItem Header="_Edit">
+                <MenuItem Name="MenuEditUndo" Header="↩️ _Undo Directory Mutation" InputGestureText="Ctrl+Z"/>
+                <MenuItem Name="MenuEditRedo" Header="↪️ _Redo" InputGestureText="Ctrl+Y" IsEnabled="False"/>
+                <Separator/>
+                <MenuItem Name="MenuEditCut" Header="✂️ Cut to Basket" InputGestureText="Ctrl+X"/>
+                <MenuItem Name="MenuEditCopy" Header="📋 Copy (DN / Attribute)" InputGestureText="Ctrl+C"/>
+                <MenuItem Name="MenuEditPaste" Header="📋 Paste Object / Attributes" InputGestureText="Ctrl+V"/>
+                <Separator/>
+                <MenuItem Header="🛒 Directory _Basket">
+                    <MenuItem Name="MenuEditBasketAdd" Header="🛒 Add Selected to Basket" InputGestureText="Ctrl+B"/>
+                    <MenuItem Name="MenuEditBasketView" Header="👁️ View Basket Workspace"/>
+                    <MenuItem Name="MenuEditBasketToLdif" Header="📜 Generate Batch LDIF Script"/>
+                    <MenuItem Name="MenuEditBasketClear" Header="🗑️ Clear Directory Basket"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuEditObjectProperties" Header="⚙️ Object _Properties..." InputGestureText="Alt+Enter"/>
+            </MenuItem>
+
+            <!-- 3. VIEW -->
+            <MenuItem Header="_View">
+                <MenuItem Header="🎨 _Theme Mode">
+                    <MenuItem Name="MenuThemeDark" Header="🌙 Dark Mode (Slate &amp; Midnight)" IsCheckable="True" IsChecked="True"/>
+                    <MenuItem Name="MenuThemeLight" Header="☀️ Light Mode (Clean Slate &amp; Polar White)" IsCheckable="True"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuViewRefresh" Header="🔄 _Refresh Active View" InputGestureText="F5"/>
+                <MenuItem Name="MenuViewShowOperational" Header="👁️ Show Operational Attributes" IsCheckable="True"/>
+                <Separator/>
+                <MenuItem Header="📐 Grid _Columns">
+                    <MenuItem Name="MenuViewColumnChooser" Header="📑 Add / Remove Columns..."/>
+                    <MenuItem Name="MenuViewResetColumns" Header="↺ Reset to Default Columns"/>
+                    <MenuItem Name="MenuViewAutoFitColumns" Header="↔️ Auto-Fit Column Widths"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuViewFullscreen" Header="⛶ Full Screen Mode" InputGestureText="F11"/>
+            </MenuItem>
+
+            <!-- 4. DIRECTORY -->
+            <MenuItem Header="_Directory">
+                <MenuItem Header="👤 _Account Actions">
+                    <MenuItem Name="MenuDirResetPw" Header="🔑 Reset Password..."/>
+                    <MenuItem Name="MenuDirUnlockAccount" Header="🔓 Unlock Account"/>
+                    <MenuItem Name="MenuDirEnableAccount" Header="✅ Enable Account"/>
+                    <MenuItem Name="MenuDirDisableAccount" Header="⛔ Disable Account"/>
+                    <MenuItem Name="MenuDirExpirePw" Header="⏰ Expire Password Now"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuDirDashboard" Header="📊 Operational Dashboard" InputGestureText="Ctrl+1"/>
+                <MenuItem Name="MenuDirUsers" Header="👤 User Lifecycle Manager" InputGestureText="Ctrl+2"/>
+                <MenuItem Name="MenuDirGroups" Header="👥 Group &amp; Membership Matrix" InputGestureText="Ctrl+3"/>
+                <MenuItem Name="MenuDirOUs" Header="📁 Organizational Units Tree" InputGestureText="Ctrl+4"/>
+                <MenuItem Name="MenuDirComputers" Header="💻 Computer Accounts &amp; OS" InputGestureText="Ctrl+5"/>
+                <Separator/>
+                <MenuItem Name="MenuDirAttrEditor" Header="✏️ Raw Attribute Editor" InputGestureText="Ctrl+8"/>
+                <MenuItem Name="MenuDirHtmlDossier" Header="📄 HTML Executive Dossier" InputGestureText="Ctrl+9"/>
+                <MenuItem Name="MenuDirObjectCompare" Header="⚖️ Dual Object Diff Comparator" InputGestureText="Ctrl+0"/>
+                <MenuItem Name="MenuDirRecycleBin" Header="♻️ AD Deleted Objects / Recycle Bin"/>
+            </MenuItem>
+
+            <!-- 5. SEARCH -->
+            <MenuItem Header="_Search">
+                <MenuItem Header="🎯 Filter _Presets">
+                    <MenuItem Header="🧼 Account Hygiene">
+                        <MenuItem Name="MenuPresetLocked" Header="🔒 Locked Accounts"/>
+                        <MenuItem Name="MenuPresetDisabled" Header="⛔ Disabled Accounts"/>
+                        <MenuItem Name="MenuPresetPwNeverExpires" Header="⏳ Passwords Never Expire"/>
+                        <MenuItem Name="MenuPresetInactive90" Header="💤 Inactive Accounts (90+ Days)"/>
+                        <MenuItem Name="MenuPresetPwNotReq" Header="🔓 Password Not Required"/>
+                    </MenuItem>
+                    <MenuItem Header="⚠️ Security Risks">
+                        <MenuItem Name="MenuPresetUnconstrained" Header="⚠️ Unconstrained Kerberos Delegation"/>
+                        <MenuItem Name="MenuPresetAsrepRoasting" Header="🔓 AS-REP Roasting (No Pre-Auth)"/>
+                        <MenuItem Name="MenuPresetAdminSdHolder" Header="🛡️ AdminSDHolder Protected Accounts"/>
+                        <MenuItem Name="MenuPresetKerberoasting" Header="🎯 Kerberoasting (User with SPN)"/>
+                        <MenuItem Name="MenuPresetDesOnly" Header="🗝️ DES Encryption Only"/>
+                    </MenuItem>
+                    <MenuItem Header="💻 Computer Systems">
+                        <MenuItem Name="MenuPresetDcs" Header="🏢 Domain Controllers (All Roles)"/>
+                        <MenuItem Name="MenuPresetServers" Header="🖥️ Windows Server Hierarchy"/>
+                        <MenuItem Name="MenuPresetWorkstations" Header="💻 Windows Workstations"/>
+                        <MenuItem Name="MenuPresetInactiveComps" Header="💤 Inactive Computers (90+ Days)"/>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="📄 Search _Page Size">
+                    <MenuItem Name="MenuPageSize100" Header="100 entries" IsCheckable="True"/>
+                    <MenuItem Name="MenuPageSize250" Header="250 entries" IsCheckable="True"/>
+                    <MenuItem Name="MenuPageSize500" Header="500 entries (Default)" IsCheckable="True" IsChecked="True"/>
+                    <MenuItem Name="MenuPageSize1000" Header="1,000 entries" IsCheckable="True"/>
+                    <MenuItem Name="MenuPageSize2000" Header="2,000 entries" IsCheckable="True"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuSearchDirectory" Header="🔍 RFC 4515 Directory Search" InputGestureText="Ctrl+6"/>
+                <MenuItem Name="MenuSearchSql" Header="🗄️ Extended LDAP-SQL Console" InputGestureText="Ctrl+7"/>
+                <Separator/>
+                <MenuItem Name="MenuSearchNormalizeFilter" Header="🪄 Normalize LDAP Filter" InputGestureText="Ctrl+R"/>
+                <MenuItem Name="MenuSearchScimConvert" Header="🔄 Transpile SCIM &lt;-&gt; LDAP Filter"/>
+                <Separator/>
+                <MenuItem Name="MenuSearchAnrGlobal" Header="⚡ Global ANR Search Quick Jump" InputGestureText="Ctrl+K"/>
+            </MenuItem>
+
+            <!-- 6. SECURITY -->
+            <MenuItem Header="_Security">
+                <MenuItem Header="🛡️ Admin_SDHolder">
+                    <MenuItem Name="MenuSecScanAdminSd" Header="⚠️ Scan Protected Orphan Accounts"/>
+                    <MenuItem Name="MenuSecFixAdminSd" Header="⚡ 1-Click Remediation (Restore Inheritance)"/>
+                    <MenuItem Name="MenuSecTriggerSdProp" Header="🔄 Trigger SDProp Background Task"/>
+                </MenuItem>
+                <MenuItem Header="📋 Access _Rights &amp; ACL">
+                    <MenuItem Name="MenuSecAclBrowser" Header="🛡️ 6-Way Effective Rights &amp; ACL Suite"/>
+                    <MenuItem Name="MenuSecDelegation" Header="📋 AD Delegation Matrix Report"/>
+                    <MenuItem Name="MenuSecFindTrustees" Header="🔍 Scan Assigned Trustees"/>
+                    <MenuItem Name="MenuSecExtRights" Header="📜 View Extended Rights Definition"/>
+                    <MenuItem Name="MenuSecPropertySets" Header="📦 Search Property Sets"/>
+                </MenuItem>
+                <MenuItem Header="🎫 Kerberos &amp; _Tokens">
+                    <MenuItem Name="MenuSecKerberos" Header="🎫 Kerberos Ticket Cache &amp; Purge"/>
+                    <MenuItem Name="MenuSecPacBloat" Header="📏 MaxTokenSize &amp; PAC Bloat Calculator"/>
+                    <MenuItem Name="MenuSecTestSpn" Header="🧪 Test Kerberos SPN Ticket Request"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuSecRidPool" Header="🔢 RID Pool Allocation &amp; PDC Master"/>
+                <MenuItem Name="MenuSecGpoConsistency" Header="📜 GPO SYSVOL Replication &amp; Policies"/>
+            </MenuItem>
+
+            <!-- 7. REPLICATION -->
+            <MenuItem Header="_Replication">
+                <MenuItem Header="🌐 Sync &amp; _Latency">
+                    <MenuItem Name="MenuReplTopology" Header="🌐 Forest Topology &amp; Latency Matrix"/>
+                    <MenuItem Name="MenuReplLatencyProbe" Header="⚡ Active Canary Latency Probe"/>
+                    <MenuItem Name="MenuReplMultiDcLogon" Header="🕒 Multi-DC Last Logon Timeline"/>
+                    <MenuItem Name="MenuReplGpoSync" Header="📜 Check GPO SYSVOL Sync Across DCs"/>
+                </MenuItem>
+                <MenuItem Header="🏢 Sites &amp; _Subnets">
+                    <MenuItem Name="MenuReplSiteBrowser" Header="🏢 3-Branch AD Site &amp; Subnet Browser"/>
+                    <MenuItem Name="MenuReplSubnetOverlaps" Header="⚠️ Overlapping Subnet Scanner"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuReplMetadata" Header="📊 msDS-ReplAttributeMetaData Inspector"/>
+                <MenuItem Name="MenuReplSchemaMatrix" Header="📐 DC Schema Versions Matrix"/>
+                <MenuItem Name="MenuReplTrusts" Header="🌲 Active Directory Trusts &amp; Domains"/>
+            </MenuItem>
+
+            <!-- 8. DIAGNOSTICS -->
+            <MenuItem Header="Dia_gnostics">
+                <MenuItem Header="🔢 _Codecs &amp; Decoders">
+                    <MenuItem Name="MenuDiagErrorCodeLookup" Header="🔢 Win32, LSA &amp; LDAP Error Code Lookup"/>
+                    <MenuItem Name="MenuDiagTimeConverter" Header="⏰ GeneralizedTime &amp; FileTime Converter"/>
+                    <MenuItem Name="MenuDiagSidScratchpad" Header="🆔 Interactive SID &amp; GUID Scratchpad"/>
+                    <MenuItem Name="MenuDiagAsn1Viewer" Header="📜 ASN.1 Structure Viewer (DER/PEM)"/>
+                </MenuItem>
+                <MenuItem Header="🔄 Group _Forensics">
+                    <MenuItem Name="MenuDiagGroupLoops" Header="🔄 Circular Group Membership Loop Detector"/>
+                    <MenuItem Name="MenuDiagGroupChanges" Header="📜 Group Changes Forensics (ReplValueMetaData)"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuDiagLockout" Header="🔒 Account Lockout Investigator"/>
+                <MenuItem Name="MenuDiagPsoPolicy" Header="🛡️ Fine-Grained Password Policy (PSO)"/>
+                <MenuItem Name="MenuDiagLogonSessions" Header="🖥️ Local Logon Sessions (NetSessionEnum)"/>
+                <MenuItem Name="MenuDiagUncChecker" Header="🔗 7-Step Sequential UNC Share Checker"/>
+                <MenuItem Name="MenuDiagCertValidation" Header="🔐 X.509 Certificate Chain &amp; Revocation"/>
+                <MenuItem Name="MenuDiagDcPortMatrix" Header="⚡ DC 8-Port Latency &amp; CLDAP Probe"/>
+                <MenuItem Name="MenuDiagOrgStructure" Header="🌳 Org Structure Hierarchy (Manager / Direct Reports)"/>
+            </MenuItem>
+
+            <!-- 9. TOOLS -->
+            <MenuItem Header="_Tools">
+                <MenuItem Name="MenuToolsProfiles" Header="⚡ _Active Connection Profile">
+                    <MenuItem Name="MenuProfileManage" Header="⚙️ Manage Connection Profiles..."/>
+                </MenuItem>
+                <MenuItem Header="📑 CSV _Delimiter">
+                    <MenuItem Name="MenuCsvSemicolon" Header="; (Semicolon - Excel Europe)" IsCheckable="True" IsChecked="True"/>
+                    <MenuItem Name="MenuCsvComma" Header=", (Comma - Standard CSV)" IsCheckable="True"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Name="MenuToolsSchemaBrowser" Header="🏛️ Schema Browser &amp; Class Hierarchy"/>
+                <MenuItem Name="MenuToolsLdifStudio" Header="📝 LDIF Studio &amp; Script Execution"/>
+                <MenuItem Name="MenuToolsBulkEditor" Header="📑 Bulk CSV Provisioning &amp; Mutation"/>
+                <MenuItem Name="MenuToolsAuditReports" Header="📊 48 Security &amp; Hygiene Audit Reports"/>
+                <Separator/>
+                <MenuItem Name="MenuToolsModLogs" Header="📜 Real-time Modification Logs Stream"/>
+                <MenuItem Name="MenuToolsScimPlayground" Header="🌐 SCIM 2.0 Identity Playground"/>
+                <Separator/>
+                <MenuItem Name="MenuToolsSettings" Header="⚙️ Application Settings..." InputGestureText="Ctrl+,"/>
+            </MenuItem>
+
+            <!-- 10. WINDOW -->
+            <MenuItem Header="_Window">
+                <MenuItem Name="MenuWinNewWindow" Header="🗖 Open New Application Window" InputGestureText="Ctrl+Shift+N"/>
+                <MenuItem Name="MenuWinDetachTab" Header="⧉ Detach Active Workspace to Floating Window" InputGestureText="Ctrl+Shift+D"/>
+                <MenuItem Name="MenuWinDockAll" Header="⬇️ Dock All Floating Windows Back"/>
+                <Separator/>
+                <MenuItem Name="MenuWinCloseTab" Header="✕ Close Active Tab" InputGestureText="Ctrl+W"/>
+                <MenuItem Name="MenuWinCloseAllTabs" Header="✕ Close All Tabs"/>
+            </MenuItem>
+
+            <!-- 11. HELP -->
+            <MenuItem Header="_Help">
+                <MenuItem Name="MenuHelpHandbook" Header="📖 SysAdmin Handbook (F1)" InputGestureText="F1"/>
+                <MenuItem Name="MenuHelpWalkthrough" Header="🚀 Visual Operator Walkthrough"/>
+                <MenuItem Name="MenuHelpWiki" Header="🌐 Online Documentation &amp; Wiki"/>
+                <Separator/>
+                <MenuItem Name="MenuHelpRequestLog" Header="📡 Protocol Request Log &amp; Telemetry"/>
+                <MenuItem Name="MenuHelpAbout" Header="ℹ️ About Active Directory Management Studio..."/>
+            </MenuItem>
+        </Menu>
+
         <!-- TOP APP BAR -->
-        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="10,0">
+        <Border Grid.Row="1" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="10,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/> <!-- Logo, Profiles & Bookmarks -->
@@ -878,14 +1209,14 @@
         </Border>
 
         <!-- MAIN BODY -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" MinWidth="180"/> <!-- Sidebar -->
                 <ColumnDefinition Width="*"/>   <!-- Viewport -->
             </Grid.ColumnDefinitions>
 
             <!-- LEFT SIDEBAR -->
-            <Border Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
+            <Border Name="PrimarySidebar" Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,8,0,12">
                         <!-- Group 1: DIRECTORY SERVICES -->
@@ -1106,7 +1437,6 @@
                         </StackPanel>
                     </Grid>
                 </Border>
-
                 <!-- VIEWPORT CONTAINER (Row 1) -->
                 <Grid Grid.Row="1" Name="ViewportContainer">
 
@@ -4518,18 +4848,57 @@
 
                 </Grid> <!-- ViewportContainer -->
             </Grid> <!-- Grid.Column="1" -->
-        </Grid> <!-- Grid.Row="1" Main Body -->
+        </Grid> <!-- Grid.Row="2" Main Body -->
 
-        <!-- BOTTOM STATUS BAR -->
-        <Border Grid.Row="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="14,0">
+        <!-- BOTTOM STATUS BAR (Softerra & Apache Parity 7-Segment Bar) -->
+        <Border Grid.Row="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="12,0" Height="30">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>    <!-- Seg 1: Status Feedback Message & Progress -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 2: Server URI -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 3: Bind Identity -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 4: SSL/TLS Lock Badge -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 5: Object Counter -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 6: Read-Only Safety Badge -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 7: Scope Message & Cancel -->
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Name="TxtStatusMessage" Text="Ready: Active Directory Management Studio initialized." FontSize="12" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                <!-- Seg 1: Status Feedback Message -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusMessage" Text="Ready: Active Directory Management Studio initialized." FontSize="11.5" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <ProgressBar Name="ProgStatusTask" Width="90" Height="10" IsIndeterminate="True" Margin="10,0,6,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+                    <Button Name="BtnCancelStatusTask" Style="{StaticResource ModernButton}" Height="20" Padding="4,0" Content="✕ Cancel" Margin="2,0,6,0" FontSize="10" Visibility="Collapsed" ToolTip="Cancel active background query"/>
+                </StackPanel>
+
+                <!-- Seg 2: Active Server URI -->
+                <Border Grid.Column="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusServerUri" Text="ldap://(auto-detect):389" FontSize="10.5" Foreground="#60A5FA" ToolTip="Active Directory Server Endpoint"/>
+                </Border>
+
+                <!-- Seg 3: Bind Identity -->
+                <Border Grid.Column="2" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusBindUser" Text="Bind: Current Windows Token" FontSize="10.5" Foreground="{DynamicResource TextSecondary}" ToolTip="Authenticated Bind Identity"/>
+                </Border>
+
+                <!-- Seg 4: SSL/TLS Lock Badge -->
+                <Border Name="BorderStatusTlsBadge" Grid.Column="3" Background="#1E3A5F" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center" ToolTip="Click to view SSL/TLS Certificate Details">
+                    <TextBlock Name="TxtStatusTls" Text="🔒 Standard LDAP (Clear/SASL)" FontSize="10" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                </Border>
+
+                <!-- Seg 5: Object Counter -->
+                <Border Grid.Column="4" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusObjectCount" Text="0 objects" FontSize="10.5" Foreground="{DynamicResource TextMuted}" ToolTip="Loaded and selected object counter"/>
+                </Border>
+
+                <!-- Seg 6: Read-Only Safety Badge -->
+                <Border Name="BorderStatusReadOnly" Grid.Column="5" Background="#78350F" BorderBrush="#D97706" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Read-Only Mode: All directory write and modification operations are disabled">
+                    <TextBlock Text="🛡️ READ-ONLY MODE" FontSize="10" FontWeight="Bold" Foreground="#FDE68A"/>
+                </Border>
+
+                <!-- Seg 7: Operational Scope Context -->
+                <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                    <TextBlock Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

@@ -1,423 +1,420 @@
 ﻿{
-    "Domain":  {
-                   "AutoDetect":  true,
-                   "DomainName":  "",
-                   "DomainController":  "",
-                   "SearchBase":  "",
-                   "DisableOU":  ""
-               },
-    "Ldap":  {
-                 "Port":  389,
-                 "UseSSL":  false,
-                 "TimeoutSeconds":  30,
-                 "PageSize":  1000
-             },
-    "UI":  {
-               "Theme":  "Dark",
-               "AutoRefresh":  false,
-               "RefreshIntervalSeconds":  60,
-               "PageSize":  500,
-               "AccentTone":  "Blue",
-               "SyncHtmlViewTheme":  true,
-               "WorkspaceMode":  "Tabs",
-               "AllowMultiWindow":  true,
-               "RestoreTabsOnStartup":  true,
-               "OpenTabs":  [
-                                "Dashboard"
-                            ]
-           },
-    "Defaults":  {
-                     "PasswordLength":  16,
-                     "PasswordRequireChange":  true,
-                     "UsernameFormat":  "first.last",
-                     "ExportDelimiter":  ";",
-                     "ExportPath":  ""
-                 },
-    "ExternalTools":  [
-                          {
-                              "Name":  "Ping Hostname",
-                              "Command":  "ping.exe",
-                              "Arguments":  "%dNSHostName% -t"
-                          },
-                          {
-                              "Name":  "Remote Desktop (RDP)",
-                              "Command":  "mstsc.exe",
-                              "Arguments":  "/v:%dNSHostName%"
-                          },
-                          {
-                              "Name":  "PowerShell AD Inspector",
-                              "Command":  "powershell.exe",
-                              "Arguments":  "-NoExit -Command \"Get-ADObject -Identity \u0027%distinguishedName%\u0027 -Properties * | Format-List\""
-                          },
-                          {
-                              "Name":  "Test LDAP Port 389",
-                              "Command":  "powershell.exe",
-                              "Arguments":  "-NoExit -Command \"Test-NetConnection \u0027%dNSHostName%\u0027 -Port 389\""
-                          },
-                          {
-                              "Name":  "DNS Lookup (nslookup)",
-                              "Command":  "cmd.exe",
-                              "Arguments":  "/k nslookup %dNSHostName%"
-                          },
-                          {
-                              "Name":  "Computer Management",
-                              "Command":  "mmc.exe",
-                              "Arguments":  "compmgmt.msc /computer=%dNSHostName%"
-                          },
-                          {
-                              "Name":  "Event Viewer",
-                              "Command":  "mmc.exe",
-                              "Arguments":  "eventvwr.msc %dNSHostName%"
-                          }
-                      ],
-    "CustomReports":  [
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Passwords Configured to Never Expire",
-                              "Description":  "Identifies accounts with the DONT_EXPIRE_PASSWORD flag enabled, which bypasses password aging policies.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Password Not Required Permitted",
-                              "Description":  "Accounts where the PASSWD_NOTREQD flag allows blank or empty passwords.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Store Password Using Reversible Encryption",
-                              "Description":  "Accounts configured to store passwords using reversible encryption, effectively storing plaintext-equivalent credentials.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Kerberos Pre-Authentication Disabled (AS-REP Roasting)",
-                              "Description":  "Accounts vulnerable to AS-REP Roasting due to the DONT_REQ_PREAUTH flag.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Kerberoastable User Accounts with SPN",
-                              "Description":  "Standard user accounts with registered Service Principal Names (SPNs) susceptible to offline ticket cracking.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] DES Encryption Only Enabled",
-                              "Description":  "Accounts restricted to legacy 56-bit DES encryption keys.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] User Accounts with Unconstrained Kerberos Delegation",
-                              "Description":  "Users configured with TRUSTED_FOR_DELEGATION flag capable of harvesting TGTs.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Accounts Flagged by AdminSDHolder (adminCount = 1)",
-                              "Description":  "Accounts with adminCount=1 where ACL inheritance is stripped by AdminSDHolder.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Accounts with Populated sIDHistory",
-                              "Description":  "Accounts containing migrated sIDHistory attributes that can grant unexpected historical access.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Sensitive Administrative Accounts Without Delegation Protection",
-                              "Description":  "High-privilege accounts (adminCount=1) lacking the NOT_DELEGATED flag (0x100000).",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Security",
-                              "Name":  "[Account Security] Pre-Windows 2000 Compatible Access Group Hygiene",
-                              "Description":  "Memberships in the Pre-Windows 2000 Compatible Access group that may expose directory metadata to anonymous users.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Inactive Accounts (No Logon in 90+ Days)",
-                              "Description":  "Accounts with no recorded logon activity within the last 90 days.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Dormant Accounts (No Logon in 180+ Days)",
-                              "Description":  "Accounts dormant for over 6 months.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Accounts That Have Never Logged In",
-                              "Description":  "Provisioned accounts where logon count is 0 or lastLogonTimestamp is missing.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Expired User Accounts Past Expiration Date",
-                              "Description":  "Accounts whose accountExpires attribute is in the past.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Passwords Expiring Within 14 Days",
-                              "Description":  "Accounts approaching password expiration cutoff.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Passwords Not Changed in Over 365 Days",
-                              "Description":  "Accounts with static credentials unchanged for over a year.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Disabled Accounts Retaining Group Memberships",
-                              "Description":  "Disabled accounts that still belong to security groups other than Domain Users.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Orphaned Accounts Without Assigned Manager",
-                              "Description":  "Active employees with missing or unresolvable manager attribute.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Accounts Provisioned Within Last 30 Days",
-                              "Description":  "Audit log of recently created accounts for onboarding verification.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Account Lifecycle",
-                              "Name":  "[Account Lifecycle] Active Accounts Missing Email or Department",
-                              "Description":  "Active accounts lacking essential directory metadata.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Empty Security Groups (0 Members)",
-                              "Description":  "Security groups containing zero members.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Circular Group Nesting Loops",
-                              "Description":  "Groups nested in an infinite loop that degrade token size and LSASS evaluation.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Deeply Nested Groups (\u003e 3 Levels)",
-                              "Description":  "Groups nested deeper than 3 hierarchy levels causing token bloat.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Members of Built-in High-Privilege Groups",
-                              "Description":  "Accounts assigned to Domain Admins, Enterprise Admins, or Schema Admins.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Excessively Large Groups (\u003e 5,000 Members)",
-                              "Description":  "Large groups that generate extensive replication traffic and slow Kerberos ticket issuance.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Security Groups Without Owner (managedBy is null)",
-                              "Description":  "Unowned groups lacking a designated business custodian.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Accounts with Non-Default PrimaryGroupID",
-                              "Description":  "Accounts whose primaryGroupID is not 513 (Domain Users), often used for privilege concealment.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Distribution Groups Allowing Unauthenticated External Senders",
-                              "Description":  "Distribution lists vulnerable to external email spoofing.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Group Hygiene",
-                              "Name":  "[Group Hygiene] Groups Containing Foreign Security Principals (Cross-Forest SIDs)",
-                              "Description":  "Groups with members from external domains or trusts.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Inactive Computer Accounts (No Activity in 90+ Days)",
-                              "Description":  "Workstation and server accounts inactive for over 90 days.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers Running Obsolete / Unsupported Operating Systems",
-                              "Description":  "Systems running Windows XP, 7, 2003, 2008, or 2012 past end of life.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers with Unconstrained Kerberos Delegation",
-                              "Description":  "Non-domain controller computer accounts configured with unconstrained delegation.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers Missing LAPS Password (ms-Mcs-AdmPwd is null)",
-                              "Description":  "Endpoints without Windows Local Administrator Password Solution configured.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers Missing BitLocker Recovery Keys in AD",
-                              "Description":  "Client computers without BitLocker TPM recovery secrets backed up in the directory.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Stale or Unreachable Domain Controllers",
-                              "Description":  "Domain controllers failing replication or showing stale logon heartbeats.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Disabled Computer Accounts Awaiting Cleanup",
-                              "Description":  "Deprovisioned computers retained in active containers.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers Missing Default HOST Service Principal Names",
-                              "Description":  "Computers lacking default HOST/hostname SPNs breaking Kerberos authentication.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "Computer Health",
-                              "Name":  "[Computer Health] Computers with Non-Standard Pre-Windows 2000 Names",
-                              "Description":  "Computer accounts missing trailing $ in sAMAccountName.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] User Accounts with Expired Certificates in userCertificate",
-                              "Description":  "Accounts publishing expired X.509 certificates in directory attributes.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Accounts Configured with AltSecurityIdentities Mappings",
-                              "Description":  "Accounts with X.509 certificate mappings in altSecurityIdentities.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] ESC1 Vulnerable Certificate Templates (Client Auth + Enrollee Supplies SAN)",
-                              "Description":  "Templates permitting unprivileged enrollees to specify arbitrary SAN identities.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] ESC2 Certificate Templates (Any Purpose EKU or Missing EKU)",
-                              "Description":  "Templates with Any Purpose EKU or zero EKUs allowing subordinate CA impersonation.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Certificates with Weak Keys (\u003c 2048-bit RSA)",
-                              "Description":  "Certificates signed with RSA 1024-bit or weaker keys.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Missing or Incomplete NTAuthStore Enterprise CA Certificates",
-                              "Description":  "Missing CA certificates in the NTAuthCertificates container causing smart card logon failures.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Restricted Enrollment Agent Templates with Broad Permissions",
-                              "Description":  "Enrollment agent certificates allowed without restrictive enrollment agent constraints.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Certificate Autoenrollment Active for Inactive Accounts",
-                              "Description":  "Inactive accounts continuing to automatically renew certificates.",
-                              "Filter":  null
-                          },
-                          {
-                              "Attributes":  null,
-                              "Category":  "PKI/Certificates",
-                              "Name":  "[PKI/Certificates] Smart Card Required Accounts with Passwords Set to Never Expire",
-                              "Description":  "SMARTCARD_REQUIRED accounts where DONT_EXPIRE_PASSWORD flag was also set, leaving long-lived static NTLM hashes.",
-                              "Filter":  null
-                          }
-                      ],
-    "Basket":  {
-                   "KeepContents":  true,
-                   "Items":  [
-
-                             ]
-               },
-    "Bookmarks":  [
-
-                  ],
-    "Profiles":  [
-
-                 ]
+  "Domain": {
+    "AutoDetect": true,
+    "DomainName": "",
+    "DomainController": "",
+    "SearchBase": "",
+    "DisableOU": ""
+  },
+  "Ldap": {
+    "Port": 389,
+    "UseSSL": false,
+    "TimeoutSeconds": 30,
+    "PageSize": 1000
+  },
+  "UI": {
+    "Theme": "Dark",
+    "AutoRefresh": false,
+    "RefreshIntervalSeconds": 60,
+    "PageSize": 500,
+    "AccentTone": "Blue",
+    "SyncHtmlViewTheme": true,
+    "WorkspaceMode": "Single",
+    "AllowMultiWindow": true,
+    "RestoreTabsOnStartup": true,
+    "OpenTabs": [
+      "Dashboard",
+      "HtmlView",
+      "HtmlView",
+      "HtmlView"
+    ]
+  },
+  "Defaults": {
+    "PasswordLength": 16,
+    "PasswordRequireChange": true,
+    "UsernameFormat": "first.last",
+    "ExportDelimiter": ";",
+    "ExportPath": ""
+  },
+  "ExternalTools": [
+    {
+      "Name": "Ping Hostname",
+      "Command": "ping.exe",
+      "Arguments": "%dNSHostName% -t"
+    },
+    {
+      "Name": "Remote Desktop (RDP)",
+      "Command": "mstsc.exe",
+      "Arguments": "/v:%dNSHostName%"
+    },
+    {
+      "Name": "PowerShell AD Inspector",
+      "Command": "powershell.exe",
+      "Arguments": "-NoExit -Command \"Get-ADObject -Identity '%distinguishedName%' -Properties * | Format-List\""
+    },
+    {
+      "Name": "Test LDAP Port 389",
+      "Command": "powershell.exe",
+      "Arguments": "-NoExit -Command \"Test-NetConnection '%dNSHostName%' -Port 389\""
+    },
+    {
+      "Name": "DNS Lookup (nslookup)",
+      "Command": "cmd.exe",
+      "Arguments": "/k nslookup %dNSHostName%"
+    },
+    {
+      "Name": "Computer Management",
+      "Command": "mmc.exe",
+      "Arguments": "compmgmt.msc /computer=%dNSHostName%"
+    },
+    {
+      "Name": "Event Viewer",
+      "Command": "mmc.exe",
+      "Arguments": "eventvwr.msc %dNSHostName%"
+    }
+  ],
+  "CustomReports": [
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Passwords Configured to Never Expire",
+      "Description": "Identifies accounts with the DONT_EXPIRE_PASSWORD flag enabled, which bypasses password aging policies.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Password Not Required Permitted",
+      "Description": "Accounts where the PASSWD_NOTREQD flag allows blank or empty passwords.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Store Password Using Reversible Encryption",
+      "Description": "Accounts configured to store passwords using reversible encryption, effectively storing plaintext-equivalent credentials.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Kerberos Pre-Authentication Disabled (AS-REP Roasting)",
+      "Description": "Accounts vulnerable to AS-REP Roasting due to the DONT_REQ_PREAUTH flag.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Kerberoastable User Accounts with SPN",
+      "Description": "Standard user accounts with registered Service Principal Names (SPNs) susceptible to offline ticket cracking.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] DES Encryption Only Enabled",
+      "Description": "Accounts restricted to legacy 56-bit DES encryption keys.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] User Accounts with Unconstrained Kerberos Delegation",
+      "Description": "Users configured with TRUSTED_FOR_DELEGATION flag capable of harvesting TGTs.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Accounts Flagged by AdminSDHolder (adminCount = 1)",
+      "Description": "Accounts with adminCount=1 where ACL inheritance is stripped by AdminSDHolder.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Accounts with Populated sIDHistory",
+      "Description": "Accounts containing migrated sIDHistory attributes that can grant unexpected historical access.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Sensitive Administrative Accounts Without Delegation Protection",
+      "Description": "High-privilege accounts (adminCount=1) lacking the NOT_DELEGATED flag (0x100000).",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Security",
+      "Name": "[Account Security] Pre-Windows 2000 Compatible Access Group Hygiene",
+      "Description": "Memberships in the Pre-Windows 2000 Compatible Access group that may expose directory metadata to anonymous users.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Inactive Accounts (No Logon in 90+ Days)",
+      "Description": "Accounts with no recorded logon activity within the last 90 days.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Dormant Accounts (No Logon in 180+ Days)",
+      "Description": "Accounts dormant for over 6 months.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Accounts That Have Never Logged In",
+      "Description": "Provisioned accounts where logon count is 0 or lastLogonTimestamp is missing.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Expired User Accounts Past Expiration Date",
+      "Description": "Accounts whose accountExpires attribute is in the past.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Passwords Expiring Within 14 Days",
+      "Description": "Accounts approaching password expiration cutoff.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Passwords Not Changed in Over 365 Days",
+      "Description": "Accounts with static credentials unchanged for over a year.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Disabled Accounts Retaining Group Memberships",
+      "Description": "Disabled accounts that still belong to security groups other than Domain Users.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Orphaned Accounts Without Assigned Manager",
+      "Description": "Active employees with missing or unresolvable manager attribute.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Accounts Provisioned Within Last 30 Days",
+      "Description": "Audit log of recently created accounts for onboarding verification.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Account Lifecycle",
+      "Name": "[Account Lifecycle] Active Accounts Missing Email or Department",
+      "Description": "Active accounts lacking essential directory metadata.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Empty Security Groups (0 Members)",
+      "Description": "Security groups containing zero members.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Circular Group Nesting Loops",
+      "Description": "Groups nested in an infinite loop that degrade token size and LSASS evaluation.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Deeply Nested Groups (> 3 Levels)",
+      "Description": "Groups nested deeper than 3 hierarchy levels causing token bloat.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Members of Built-in High-Privilege Groups",
+      "Description": "Accounts assigned to Domain Admins, Enterprise Admins, or Schema Admins.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Excessively Large Groups (> 5,000 Members)",
+      "Description": "Large groups that generate extensive replication traffic and slow Kerberos ticket issuance.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Security Groups Without Owner (managedBy is null)",
+      "Description": "Unowned groups lacking a designated business custodian.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Accounts with Non-Default PrimaryGroupID",
+      "Description": "Accounts whose primaryGroupID is not 513 (Domain Users), often used for privilege concealment.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Distribution Groups Allowing Unauthenticated External Senders",
+      "Description": "Distribution lists vulnerable to external email spoofing.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Group Hygiene",
+      "Name": "[Group Hygiene] Groups Containing Foreign Security Principals (Cross-Forest SIDs)",
+      "Description": "Groups with members from external domains or trusts.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Inactive Computer Accounts (No Activity in 90+ Days)",
+      "Description": "Workstation and server accounts inactive for over 90 days.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers Running Obsolete / Unsupported Operating Systems",
+      "Description": "Systems running Windows XP, 7, 2003, 2008, or 2012 past end of life.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers with Unconstrained Kerberos Delegation",
+      "Description": "Non-domain controller computer accounts configured with unconstrained delegation.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers Missing LAPS Password (ms-Mcs-AdmPwd is null)",
+      "Description": "Endpoints without Windows Local Administrator Password Solution configured.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers Missing BitLocker Recovery Keys in AD",
+      "Description": "Client computers without BitLocker TPM recovery secrets backed up in the directory.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Stale or Unreachable Domain Controllers",
+      "Description": "Domain controllers failing replication or showing stale logon heartbeats.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Disabled Computer Accounts Awaiting Cleanup",
+      "Description": "Deprovisioned computers retained in active containers.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers Missing Default HOST Service Principal Names",
+      "Description": "Computers lacking default HOST/hostname SPNs breaking Kerberos authentication.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "Computer Health",
+      "Name": "[Computer Health] Computers with Non-Standard Pre-Windows 2000 Names",
+      "Description": "Computer accounts missing trailing $ in sAMAccountName.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] User Accounts with Expired Certificates in userCertificate",
+      "Description": "Accounts publishing expired X.509 certificates in directory attributes.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Accounts Configured with AltSecurityIdentities Mappings",
+      "Description": "Accounts with X.509 certificate mappings in altSecurityIdentities.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] ESC1 Vulnerable Certificate Templates (Client Auth + Enrollee Supplies SAN)",
+      "Description": "Templates permitting unprivileged enrollees to specify arbitrary SAN identities.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] ESC2 Certificate Templates (Any Purpose EKU or Missing EKU)",
+      "Description": "Templates with Any Purpose EKU or zero EKUs allowing subordinate CA impersonation.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Certificates with Weak Keys (< 2048-bit RSA)",
+      "Description": "Certificates signed with RSA 1024-bit or weaker keys.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Missing or Incomplete NTAuthStore Enterprise CA Certificates",
+      "Description": "Missing CA certificates in the NTAuthCertificates container causing smart card logon failures.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Restricted Enrollment Agent Templates with Broad Permissions",
+      "Description": "Enrollment agent certificates allowed without restrictive enrollment agent constraints.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Certificate Autoenrollment Active for Inactive Accounts",
+      "Description": "Inactive accounts continuing to automatically renew certificates.",
+      "Filter": null
+    },
+    {
+      "Attributes": null,
+      "Category": "PKI/Certificates",
+      "Name": "[PKI/Certificates] Smart Card Required Accounts with Passwords Set to Never Expire",
+      "Description": "SMARTCARD_REQUIRED accounts where DONT_EXPIRE_PASSWORD flag was also set, leaving long-lived static NTLM hashes.",
+      "Filter": null
+    }
+  ],
+  "Basket": {
+    "KeepContents": true,
+    "Items": []
+  },
+  "Bookmarks": [],
+  "Profiles": []
 }

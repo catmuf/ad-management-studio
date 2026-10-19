@@ -65,7 +65,7 @@ foreach ($m in $modules) {
 }
 
 # Prepare main.ps1 offscreen with neutralized dialog blockers
-$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw
+$mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw -Encoding utf8
 
 $offscreenReplacement = @'
 $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual

@@ -1388,6 +1388,15 @@ function Set-Status {
             $controls['TxtScopeMessage'].Text = if ($adContext.IsConnected) { "Connected: $($adContext.DomainName)" } else { "Offline / Disconnected" }
         }
     }
+    if ($controls['TxtStatusServerUri']) {
+        $controls['TxtStatusServerUri'].Text = if ($adContext.Server) { "ldap://$($adContext.Server):389" } elseif ($adContext.DomainName) { "ldap://$($adContext.DomainName):389" } else { "ldap://RootDSE:389" }
+    }
+    if ($controls['TxtStatusBindUser']) {
+        $controls['TxtStatusBindUser'].Text = if ($adContext.CurrentUser) { $adContext.CurrentUser } else { [System.Security.Principal.WindowsIdentity]::GetCurrent().Name }
+    }
+    if ($Count -and $controls['TxtStatusObjectCount']) {
+        $controls['TxtStatusObjectCount'].Text = $Count
+    }
     if (-not [string]::IsNullOrWhiteSpace($Message)) {
         Write-AppLog -Level "INFO" -Category "Status" -Message $Message
     }
@@ -15029,6 +15038,650 @@ function Update-HeaderLayoutResponsive {
     }
 }
 
+#region 22. Competitor Feature Parity & Native Windows Menu Bar Engine
+
+function Update-MenuSettingsState {
+
+    $isDark = ($appConfig.UI.Theme -ne "Light")
+    if ($controls['MenuThemeDark'])  { $controls['MenuThemeDark'].IsChecked = $isDark }
+    if ($controls['MenuThemeLight']) { $controls['MenuThemeLight'].IsChecked = (-not $isDark) }
+
+    $showOp = if ($controls['ChkShowOperationalAttributes']) { [bool]$controls['ChkShowOperationalAttributes'].IsChecked } else { $false }
+    if ($controls['MenuViewShowOperational']) { $controls['MenuViewShowOperational'].IsChecked = $showOp }
+
+    $sync = if ($null -ne $appConfig.UI.SyncHtmlViewTheme) { [bool]$appConfig.UI.SyncHtmlViewTheme } else { $true }
+    if ($controls['MenuViewAutoSyncTheme']) { $controls['MenuViewAutoSyncTheme'].IsChecked = $sync }
+
+    $isComma = ($appConfig.Defaults.ExportDelimiter -eq ",")
+    if ($controls['MenuCsvSemicolon']) { $controls['MenuCsvSemicolon'].IsChecked = (-not $isComma) }
+    if ($controls['MenuCsvComma'])     { $controls['MenuCsvComma'].IsChecked = $isComma }
+
+    $pageSize = if ($controls['CmbSearchPageSize']) { $controls['CmbSearchPageSize'].Text } else { "1000" }
+    if ($controls['MenuPageSize100'])  { $controls['MenuPageSize100'].IsChecked = ($pageSize -eq "100") }
+    if ($controls['MenuPageSize250'])  { $controls['MenuPageSize250'].IsChecked = ($pageSize -eq "250") }
+    if ($controls['MenuPageSize500'])  { $controls['MenuPageSize500'].IsChecked = ($pageSize -eq "500") }
+    if ($controls['MenuPageSize1000']) { $controls['MenuPageSize1000'].IsChecked = ($pageSize -eq "1000") }
+    if ($controls['MenuPageSize2000']) { $controls['MenuPageSize2000'].IsChecked = ($pageSize -eq "2000") }
+}
+
+function Show-ForestTrustsDialog {
+    $trusts = Get-ADForestTrusts
+    if (-not $trusts -or $trusts.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("No Active Directory Forest or Domain Trusts found.", "AD Forest Trusts", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine("Active Directory Forest & Domain Trusts:")
+    [void]$sb.AppendLine("==========================================================================")
+    foreach ($t in $trusts) {
+        $partner   = if ($t.TrustPartner) { $t.TrustPartner } else { "Unknown" }
+        $direction = if ($t.TrustDirection) { $t.TrustDirection } else { "Bidirectional" }
+        $type      = if ($t.TrustType) { $t.TrustType } else { "Forest" }
+        $trans     = if ($t.IntraForest) { "Intra-Forest" } else { "Inter-Forest / External" }
+        [void]$sb.AppendLine("• Partner:   $partner")
+        [void]$sb.AppendLine("  Direction: $direction")
+        [void]$sb.AppendLine("  Type:      $type ($trans)")
+        [void]$sb.AppendLine("--------------------------------------------------------------------------")
+    }
+
+    [System.Windows.MessageBox]::Show($sb.ToString(), "AD Forest & Domain Trusts (NetTools Parity)", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Show-ErrorCodeLookupDialog {
+    $inputCode = [Microsoft.VisualBasic.Interaction]::InputBox(
+        "Enter Error Code in Hex (e.g., 0x80070005, 0x31) or Decimal (e.g., 5, 1326, 49):",
+        "Win32 / LDAP / Kerberos Error Code Lookup (NetTools Parity)",
+        "0x80070005"
+    )
+    if ([string]::IsNullOrWhiteSpace($inputCode)) { return }
+
+    $res = Resolve-ADErrorCode -ErrorCode $inputCode
+    $msg = "Error Code Resolution:`r`n`r`n" +
+           "• Decimal Code: $($res.DecimalCode)`r`n" +
+           "• Hex Code:     $($res.HexCode)`r`n" +
+           "• Symbolic:     $($res.SymbolicName)`r`n" +
+           "• Category:     $($res.Category)`r`n`r`n" +
+           "Explanation / Root Cause:`r`n$($res.Description)"
+
+    [System.Windows.MessageBox]::Show($msg, "Error Code Resolved", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Show-OrgStructureDialog {
+    $identity = [Microsoft.VisualBasic.Interaction]::InputBox(
+        "Enter sAMAccountName or DistinguishedName of User:",
+        "Active Directory Organizational Structure",
+        "jdoe"
+    )
+    if ([string]::IsNullOrWhiteSpace($identity)) { return }
+
+    $org = Get-ADOrgStructure -Identity $identity
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine("Organizational Structure for: $($org.DisplayName) ($($org.User))")
+    [void]$sb.AppendLine("Title: $($org.Title) | Department: $($org.Department)")
+    [void]$sb.AppendLine("==========================================================================")
+    if ($org.Manager) {
+        [void]$sb.AppendLine("👔 Direct Manager: $($org.Manager.DisplayName) ($($org.Manager.Title))")
+        [void]$sb.AppendLine("   DN: $($org.Manager.DistinguishedName)")
+    } else {
+        [void]$sb.AppendLine("👔 Direct Manager: None recorded")
+    }
+    [void]$sb.AppendLine("--------------------------------------------------------------------------")
+    [void]$sb.AppendLine("👥 Direct Reports ($($org.DirectReports.Count)):")
+    if ($org.DirectReports.Count -gt 0) {
+        foreach ($dr in $org.DirectReports) {
+            [void]$sb.AppendLine("  • $($dr.DisplayName) ($($dr.Title)) - $($dr.SamAccountName)")
+        }
+    } else {
+        [void]$sb.AppendLine("  (No direct reports found)")
+    }
+
+    [System.Windows.MessageBox]::Show($sb.ToString(), "Org Hierarchy (Manager / Direct Reports)", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Show-LogonVerificationDialog {
+    $userName = [Microsoft.VisualBasic.Interaction]::InputBox(
+        "Enter User Account to Verify Logon (e.g. jdoe):",
+        "Win32 LogonUser Verification (NetTools Parity)",
+        "administrator"
+    )
+    if ([string]::IsNullOrWhiteSpace($userName)) { return }
+
+    $res = Invoke-Win32Logon -UserName $userName -Domain $adContext.DomainName
+    $msg = "Win32 Logon Verification Result:`r`n`r`n" +
+           "• Target User:     $($res.UserName)@$($res.Domain)`r`n" +
+           "• Logon Type:      $($res.LogonType)`r`n" +
+           "• Status:          $($res.StatusBadge)`r`n" +
+           "• Outcome:         $($res.Result)`r`n" +
+           "• Auth Package:    $($res.AuthenticationPackage)`r`n" +
+           "• Privileges:      $($res.TokenPrivileges)"
+
+    [System.Windows.MessageBox]::Show($msg, "Win32 Logon Verification", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Show-ShortcutsDialog {
+    $msg = @"
+KEYBOARD SHORTCUT REGISTRY
+==========================================================================
+Global Navigation & Workspaces:
+• Ctrl + T             Toggle Theme (Dark / Light)
+• Ctrl + R             Open Name / SID / IP Universal Resolver
+• Ctrl + W             Close Active Workspace Tab
+• Ctrl + Tab           Cycle Next Workspace Tab
+• Ctrl + Shift + Tab   Cycle Previous Workspace Tab
+• Ctrl + Shift + D     Detach Current Tab to Dedicated Window
+• Ctrl + N             Launch New Concurrent Application Window
+• Ctrl + Shift + N     Duplicate Current Tab as New Instance
+• Ctrl + Shift + M     Toggle Workspace Mode (Tabs / Single Viewport)
+• Ctrl + Shift + L     Show Workspace Layout Presets Menu
+• Ctrl + Shift + O     Open Application Logs Directory
+• Ctrl + Shift + E     Open Latest Error Log
+
+Directory Operations:
+• F5                   Refresh Active Panel / Directory Scope
+• Ctrl + F             Global Object Quick Search (Omnibar)
+• Delete               Delete Selected Directory Object (with confirmation)
+• Alt + Enter          Inspect Object Raw Attributes (Attribute Editor)
+==========================================================================
+"@
+    [System.Windows.MessageBox]::Show($msg, "Keyboard Shortcuts Registry", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Show-AboutDialog {
+    $msg = @"
+Active Directory & LDAP Enterprise Administrator Suite
+Version 3.2.0 (Enterprise Edition)
+
+Key Capabilities:
+• Complete feature parity with Softerra LDAP Administrator 2026 & Apache Directory Studio
+• Integrated NetTools 16-module diagnostic suite (Trusts, Replication, Kerberos, ACLs)
+• Native Windows Horizontal Menu Bar (11 top-level menus, multi-level depth, live checkmarks)
+• Extended LDAP-SQL Grammar (MODDN, COPY, CURRENT_DATE +/- INTERVAL, CONCAT)
+• Real-time RFC 2849 Modification Logs stream with automated Inverse LDIF Rollbacks
+• High-performance Directory Virtual List View (VLV) and RFC 3296 ManageDsaIT support
+
+Designed for Active Directory Domain Services, ADAM / AD LDS, and RFC-compliant LDAP Directories.
+"@
+    [System.Windows.MessageBox]::Show($msg, "About Active Directory & LDAP Enterprise Suite", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+}
+
+function Reset-AllGridColumns {
+    switch ($state.ActiveTabId) {
+        "Users"     { Reset-TableColumns -TableName "Users" }
+        "Groups"    { Reset-TableColumns -TableName "Groups" }
+        "Computers" { Reset-TableColumns -TableName "Computers" }
+        "DirectorySearch" { Reset-TableColumns -TableName "Search" }
+        default     { [System.Windows.MessageBox]::Show("Active tab does not support dynamic column reset.", "Columns", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) }
+    }
+}
+
+function Resize-CurrentGridColumns {
+    [Alias('AutoFit-CurrentGridColumns')]
+    param()
+    $activeGrid = switch ($state.ActiveTabId) {
+        "Users"     { $controls['GridUsers'] }
+        "Groups"    { $controls['GridGroups'] }
+        "Computers" { $controls['GridComputers'] }
+        "DirectorySearch" { $controls['GridSearchResults'] }
+        default     { $null }
+    }
+    if ($activeGrid) {
+        foreach ($col in $activeGrid.Columns) {
+            $col.Width = [System.Windows.Controls.DataGridLength]::Auto
+        }
+    }
+}
+
+function Initialize-HorizontalMenuBar {
+    [Alias('Init-HorizontalMenuBar')]
+    param()
+    # 1. File Menu
+    if ($controls['MenuFileNewUser']) {
+        $controls['MenuFileNewUser'].Add_Click({
+            Show-Panel 'Users'
+            if ($controls['BtnNewUser']) { $controls['BtnNewUser'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuFileNewGroup']) {
+        $controls['MenuFileNewGroup'].Add_Click({
+            Show-Panel 'Groups'
+            if ($controls['BtnNewGroup']) { $controls['BtnNewGroup'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuFileNewOU']) {
+        $controls['MenuFileNewOU'].Add_Click({
+            Show-Panel 'OUs'
+            if ($controls['BtnNewOU']) { $controls['BtnNewOU'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuFileNewComputer']) {
+        $controls['MenuFileNewComputer'].Add_Click({ Show-Panel 'Computers' })
+    }
+    if ($controls['MenuFileNewContact']) {
+        $controls['MenuFileNewContact'].Add_Click({ Show-Panel 'Users' })
+    }
+    if ($controls['MenuFileConnectProfile']) {
+        $controls['MenuFileConnectProfile'].Add_Click({ Show-Panel 'Connections' })
+    }
+    if ($controls['MenuFileNewProfile']) {
+        $controls['MenuFileNewProfile'].Add_Click({
+            Show-Panel 'Connections'
+            if ($controls['BtnNewProfile']) { $controls['BtnNewProfile'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuFileDisconnect']) {
+        $controls['MenuFileDisconnect'].Add_Click({
+            $adContext.IsConnected = $false
+            Set-Status -Message "Disconnected from Active Directory."
+        })
+    }
+    if ($controls['MenuFileExportSubtree']) {
+        $controls['MenuFileExportSubtree'].Add_Click({ Show-Panel 'BulkEditor' })
+    }
+    if ($controls['MenuFileImportLDIF']) {
+        $controls['MenuFileImportLDIF'].Add_Click({ Show-Panel 'LdifStudio' })
+    }
+    if ($controls['MenuFileExportCsv']) {
+        $controls['MenuFileExportCsv'].Add_Click({
+            switch ($state.ActiveTabId) {
+                "Users"     { if ($controls['BtnExportUsers']) { $controls['BtnExportUsers'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) } }
+                "Groups"    { if ($controls['BtnExportGroups']) { $controls['BtnExportGroups'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) } }
+                "Computers" { if ($controls['BtnExportComputers']) { $controls['BtnExportComputers'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) } }
+                default     { Show-Panel 'BulkEditor' }
+            }
+        })
+    }
+    if ($controls['MenuFileExportDsml']) {
+        $controls['MenuFileExportDsml'].Add_Click({ Show-Panel 'LdifStudio' })
+    }
+    if ($controls['MenuFilePrintDossier']) {
+        $controls['MenuFilePrintDossier'].Add_Click({
+            Show-Panel 'HtmlView'
+            if ($controls['BtnHtmlViewPrint']) { $controls['BtnHtmlViewPrint'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuFileExit']) {
+        $controls['MenuFileExit'].Add_Click({ $window.Close() })
+    }
+
+    # 2. Edit Menu
+    if ($controls['MenuEditUndo']) {
+        $controls['MenuEditUndo'].Add_Click({
+            $logs = Get-DirectoryMutationLogs
+            if ($logs.Count -gt 0 -and $logs[0].InverseLdif) {
+                $confirm = [System.Windows.MessageBox]::Show("Rollback last directory change using inverse LDIF?`r`n`r`n$($logs[0].InverseLdif)", "Confirm Undo", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+                if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+                    Invoke-LdifImport -LdifContent $logs[0].InverseLdif
+                    Set-Status -Message "Undid last directory mutation."
+                }
+            } else {
+                [System.Windows.MessageBox]::Show("No reversible directory operations recorded.", "Undo", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            }
+        })
+    }
+    if ($controls['MenuEditRedo']) {
+        $controls['MenuEditRedo'].Add_Click({
+            [System.Windows.MessageBox]::Show("Redo history stack is empty.", "Redo", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        })
+    }
+    if ($controls['MenuEditCut']) {
+        $controls['MenuEditCut'].Add_Click({ [System.Windows.Input.ApplicationCommands]::Cut.Execute($null, $null) })
+    }
+    if ($controls['MenuEditCopy']) {
+        $controls['MenuEditCopy'].Add_Click({ [System.Windows.Input.ApplicationCommands]::Copy.Execute($null, $null) })
+    }
+    if ($controls['MenuEditPaste']) {
+        $controls['MenuEditPaste'].Add_Click({ [System.Windows.Input.ApplicationCommands]::Paste.Execute($null, $null) })
+    }
+    if ($controls['MenuEditBasketAdd']) {
+        $controls['MenuEditBasketAdd'].Add_Click({
+            $selUser = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+            if ($selUser) {
+                Add-ObjectToBasket -DN $selUser.DistinguishedName -Name $selUser.DisplayName -ObjectClass "user"
+                Set-Status -Message "Added $($selUser.SamAccountName) to Directory Basket."
+            }
+        })
+    }
+    if ($controls['MenuEditBasketView']) {
+        $controls['MenuEditBasketView'].Add_Click({ Show-Panel 'Basket' })
+    }
+    if ($controls['MenuEditBasketToLdif']) {
+        $controls['MenuEditBasketToLdif'].Add_Click({
+            Show-Panel 'Basket'
+            if ($controls['BtnExportBasket']) { $controls['BtnExportBasket'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuEditBasketClear']) {
+        $controls['MenuEditBasketClear'].Add_Click({
+            if ($controls['BtnClearBasket']) { $controls['BtnClearBasket'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuEditObjectProperties']) {
+        $controls['MenuEditObjectProperties'].Add_Click({ Show-Panel 'AttributeEditor' })
+    }
+
+    # 3. View Menu
+    if ($controls['MenuThemeDark']) {
+        $controls['MenuThemeDark'].Add_Click({ Set-ApplicationTheme -Theme "Dark" -SavePreference; Update-MenuSettingsState })
+    }
+    if ($controls['MenuThemeLight']) {
+        $controls['MenuThemeLight'].Add_Click({ Set-ApplicationTheme -Theme "Light" -SavePreference; Update-MenuSettingsState })
+    }
+    if ($controls['MenuViewRefresh']) {
+        $controls['MenuViewRefresh'].Add_Click({
+            Update-All
+            Set-Status -Message "All directory views refreshed."
+        })
+    }
+    if ($controls['MenuViewShowOperational']) {
+        $controls['MenuViewShowOperational'].Add_Click({
+            if ($controls['ChkShowOperationalAttributes']) {
+                $controls['ChkShowOperationalAttributes'].IsChecked = -not $controls['ChkShowOperationalAttributes'].IsChecked
+                Update-MenuSettingsState
+            }
+        })
+    }
+    if ($controls['MenuViewColumnChooser']) {
+        $controls['MenuViewColumnChooser'].Add_Click({ Show-ColumnChooser -TableName "Users" })
+    }
+    if ($controls['MenuViewResetColumns']) {
+        $controls['MenuViewResetColumns'].Add_Click({ Reset-AllGridColumns })
+    }
+    if ($controls['MenuViewAutoFitColumns']) {
+        $controls['MenuViewAutoFitColumns'].Add_Click({ Resize-CurrentGridColumns })
+    }
+    if ($controls['MenuViewFullscreen']) {
+        $controls['MenuViewFullscreen'].Add_Click({
+            $window.WindowState = if ($window.WindowState -eq [System.Windows.WindowState]::Maximized) { [System.Windows.WindowState]::Normal } else { [System.Windows.WindowState]::Maximized }
+        })
+    }
+
+    # 4. Directory Menu
+    if ($controls['MenuDirResetPw']) {
+        $controls['MenuDirResetPw'].Add_Click({
+            Show-Panel 'Users'
+            if ($controls['BtnResetPassword']) { $controls['BtnResetPassword'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDirUnlockAccount']) {
+        $controls['MenuDirUnlockAccount'].Add_Click({
+            Show-Panel 'Users'
+            if ($controls['BtnUnlockUser']) { $controls['BtnUnlockUser'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDirEnableAccount']) {
+        $controls['MenuDirEnableAccount'].Add_Click({
+            Show-Panel 'Users'
+            if ($controls['BtnToggleUserStatus']) { $controls['BtnToggleUserStatus'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDirDisableAccount']) {
+        $controls['MenuDirDisableAccount'].Add_Click({
+            Show-Panel 'Users'
+            if ($controls['BtnToggleUserStatus']) { $controls['BtnToggleUserStatus'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDirExpirePw']) {
+        $controls['MenuDirExpirePw'].Add_Click({
+            $selUser = if ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
+            if ($selUser) {
+                Set-ADObjectRawAttribute -DistinguishedName $selUser.DistinguishedName -AttributeName "pwdLastSet" -NewValue "0"
+                Set-Status -Message "Password expired for $($selUser.SamAccountName). Must change at next logon."
+            } else {
+                [System.Windows.MessageBox]::Show("Please select a user account first in the Users panel.", "Select User", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            }
+        })
+    }
+    if ($controls['MenuDirDashboard'])     { $controls['MenuDirDashboard'].Add_Click({ Show-Panel 'Dashboard' }) }
+    if ($controls['MenuDirUsers'])         { $controls['MenuDirUsers'].Add_Click({ Show-Panel 'Users' }) }
+    if ($controls['MenuDirGroups'])        { $controls['MenuDirGroups'].Add_Click({ Show-Panel 'Groups' }) }
+    if ($controls['MenuDirOUs'])           { $controls['MenuDirOUs'].Add_Click({ Show-Panel 'OUs' }) }
+    if ($controls['MenuDirComputers'])     { $controls['MenuDirComputers'].Add_Click({ Show-Panel 'Computers' }) }
+    if ($controls['MenuDirAttrEditor'])    { $controls['MenuDirAttrEditor'].Add_Click({ Show-Panel 'AttributeEditor' }) }
+    if ($controls['MenuDirHtmlDossier'])   { $controls['MenuDirHtmlDossier'].Add_Click({ Show-Panel 'HtmlView' }) }
+    if ($controls['MenuDirObjectCompare']) { $controls['MenuDirObjectCompare'].Add_Click({ Show-Panel 'ObjectCompare' }) }
+    if ($controls['MenuDirRecycleBin'])    { $controls['MenuDirRecycleBin'].Add_Click({ Show-Panel 'RecycleBin' }) }
+
+    # 5. Search Presets & Engines
+    $searchPresets = @{
+        'MenuPresetLocked'          = '(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))'
+        'MenuPresetDisabled'        = '(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))'
+        'MenuPresetPwNeverExpires'  = '(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))'
+        'MenuPresetInactive90'      = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp<=$([DateTime]::UtcNow.AddDays(-90).ToFileTimeUtc())))"
+        'MenuPresetPwNotReq'        = '(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=32))'
+        'MenuPresetUnconstrained'   = '(userAccountControl:1.2.840.113556.1.4.803:=524288)'
+        'MenuPresetAsrepRoasting'   = '(userAccountControl:1.2.840.113556.1.4.803:=4194304)'
+        'MenuPresetAdminSdHolder'   = '(adminCount=1)'
+        'MenuPresetKerberoasting'   = '(&(servicePrincipalName=*)(!(objectClass=computer)))'
+        'MenuPresetDesOnly'         = '(userAccountControl:1.2.840.113556.1.4.803:=2097152)'
+        'MenuPresetDcs'             = '(userAccountControl:1.2.840.113556.1.4.803:=8192)'
+        'MenuPresetServers'         = '(&(objectCategory=computer)(operatingSystem=*Server*))'
+        'MenuPresetWorkstations'    = '(&(objectCategory=computer)(!(operatingSystem=*Server*)))'
+        'MenuPresetInactiveComps'   = "(&(objectCategory=computer)(lastLogonTimestamp<=$([DateTime]::UtcNow.AddDays(-90).ToFileTimeUtc())))"
+    }
+    foreach ($mKey in $searchPresets.Keys) {
+        if ($controls[$mKey]) {
+            $fVal = $searchPresets[$mKey]
+            $controls[$mKey].Add_Click({
+                Show-Panel 'DirectorySearch'
+                if ($controls['TxtRawLdapFilter']) {
+                    $controls['TxtRawLdapFilter'].Text = $fVal
+                    if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                }
+            })
+        }
+    }
+
+    $pageSizes = @{ 'MenuPageSize100' = "100"; 'MenuPageSize250' = "250"; 'MenuPageSize500' = "500"; 'MenuPageSize1000' = "1000"; 'MenuPageSize2000' = "2000" }
+    foreach ($pKey in $pageSizes.Keys) {
+        if ($controls[$pKey]) {
+            $pVal = $pageSizes[$pKey]
+            $controls[$pKey].Add_Click({
+                if ($controls['CmbSearchPageSize']) { $controls['CmbSearchPageSize'].Text = $pVal }
+                Update-MenuSettingsState
+            })
+        }
+    }
+
+    if ($controls['MenuSearchDirectory']) { $controls['MenuSearchDirectory'].Add_Click({ Show-Panel 'DirectorySearch' }) }
+    if ($controls['MenuSearchSql'])       { $controls['MenuSearchSql'].Add_Click({ Show-Panel 'LdapSql' }) }
+    if ($controls['MenuSearchNormalizeFilter']) {
+        $controls['MenuSearchNormalizeFilter'].Add_Click({
+            Show-Panel 'DirectorySearch'
+            if ($controls['BtnNormalizeFilter']) { $controls['BtnNormalizeFilter'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSearchScimConvert']) {
+        $controls['MenuSearchScimConvert'].Add_Click({
+            Show-Panel 'DirectorySearch'
+            if ($controls['BtnConvertScim']) { $controls['BtnConvertScim'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSearchAnrGlobal']) {
+        $controls['MenuSearchAnrGlobal'].Add_Click({
+            if ($controls['TxtGlobalSearch']) { $controls['TxtGlobalSearch'].Focus() }
+        })
+    }
+
+    # 6. Security Menu
+    if ($controls['MenuSecScanAdminSd']) {
+        $controls['MenuSecScanAdminSd'].Add_Click({
+            Show-Panel 'SecurityAcl'
+            if ($controls['BtnScanAdminSdHolder']) { $controls['BtnScanAdminSdHolder'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSecFixAdminSd']) {
+        $controls['MenuSecFixAdminSd'].Add_Click({
+            Show-Panel 'SecurityAcl'
+            if ($controls['BtnFixAdminSdHolder']) { $controls['BtnFixAdminSdHolder'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSecTriggerSdProp']) {
+        $controls['MenuSecTriggerSdProp'].Add_Click({
+            Show-Panel 'SecurityAcl'
+            if ($controls['BtnTriggerSdProp']) { $controls['BtnTriggerSdProp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSecAclBrowser'])   { $controls['MenuSecAclBrowser'].Add_Click({ Show-Panel 'SecurityAcl' }) }
+    if ($controls['MenuSecDelegation'])   { $controls['MenuSecDelegation'].Add_Click({ Show-Panel 'SecurityAcl' }) }
+    if ($controls['MenuSecFindTrustees']) { $controls['MenuSecFindTrustees'].Add_Click({ Show-Panel 'SecurityAcl' }) }
+    if ($controls['MenuSecExtRights']) {
+        $controls['MenuSecExtRights'].Add_Click({
+            Show-Panel 'SecurityAcl'
+            if ($controls['BtnLoadExtRights']) { $controls['BtnLoadExtRights'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSecPropertySets']) { $controls['MenuSecPropertySets'].Add_Click({ Show-Panel 'SecurityAcl' }) }
+    if ($controls['MenuSecKerberos'])     { $controls['MenuSecKerberos'].Add_Click({ Show-Panel 'KerberosSuite' }) }
+    if ($controls['MenuSecPacBloat'])     { $controls['MenuSecPacBloat'].Add_Click({ Show-Panel 'KerberosSuite' }) }
+    if ($controls['MenuSecTestSpn'])      { $controls['MenuSecTestSpn'].Add_Click({ Show-Panel 'KerberosSuite' }) }
+    if ($controls['MenuSecRidPool']) {
+        $controls['MenuSecRidPool'].Add_Click({
+            Show-Panel 'KerberosSuite'
+            if ($controls['BtnRefreshRidPool']) { $controls['BtnRefreshRidPool'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuSecGpoConsistency']) {
+        $controls['MenuSecGpoConsistency'].Add_Click({ Show-GpoExplorerDialog })
+    }
+
+    # 7. Replication Menu
+    if ($controls['MenuReplTopology']) { $controls['MenuReplTopology'].Add_Click({ Show-Panel 'ReplicationSuite' }) }
+    if ($controls['MenuReplLatencyProbe']) {
+        $controls['MenuReplLatencyProbe'].Add_Click({
+            Show-Panel 'ReplicationSuite'
+            if ($controls['BtnRunLatencyProbe']) { $controls['BtnRunLatencyProbe'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuReplMultiDcLogon']) { $controls['MenuReplMultiDcLogon'].Add_Click({ Show-Panel 'ReplicationSuite' }) }
+    if ($controls['MenuReplGpoSync']) {
+        $controls['MenuReplGpoSync'].Add_Click({
+            Show-Panel 'ReplicationSuite'
+            if ($controls['BtnCheckGpoSync']) { $controls['BtnCheckGpoSync'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuReplSiteBrowser']) {
+        $controls['MenuReplSiteBrowser'].Add_Click({
+            Show-Panel 'ReplicationSuite'
+            if ($controls['BtnLoadSiteBrowser']) { $controls['BtnLoadSiteBrowser'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuReplSubnetOverlaps']) {
+        $controls['MenuReplSubnetOverlaps'].Add_Click({
+            Show-Panel 'ReplicationSuite'
+            if ($controls['BtnScanSubnetOverlaps']) { $controls['BtnScanSubnetOverlaps'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuReplMetadata']) { $controls['MenuReplMetadata'].Add_Click({ Show-Panel 'ReplicationSuite' }) }
+    if ($controls['MenuReplSchemaMatrix']) {
+        $controls['MenuReplSchemaMatrix'].Add_Click({
+            Show-Panel 'ReplicationSuite'
+            if ($controls['BtnLoadSchemaMatrix']) { $controls['BtnLoadSchemaMatrix'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuReplTrusts']) { $controls['MenuReplTrusts'].Add_Click({ Show-ForestTrustsDialog }) }
+
+    # 8. Diagnostics Menu
+    if ($controls['MenuDiagErrorCodeLookup']) { $controls['MenuDiagErrorCodeLookup'].Add_Click({ Show-ErrorCodeLookupDialog }) }
+    if ($controls['MenuDiagTimeConverter'])   { $controls['MenuDiagTimeConverter'].Add_Click({ Show-Panel 'DiagnosticsToolbox' }) }
+    if ($controls['MenuDiagSidScratchpad'])   { $controls['MenuDiagSidScratchpad'].Add_Click({ Show-ResolverDialog }) }
+    if ($controls['MenuDiagAsn1Viewer'])     { $controls['MenuDiagAsn1Viewer'].Add_Click({ Show-Asn1ViewerDialog }) }
+    if ($controls['MenuDiagGroupLoops']) {
+        $controls['MenuDiagGroupLoops'].Add_Click({
+            Show-Panel 'DiagnosticsToolbox'
+            if ($controls['BtnScanGroupCycles']) { $controls['BtnScanGroupCycles'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDiagGroupChanges'])   { $controls['MenuDiagGroupChanges'].Add_Click({ Show-Panel 'DiagnosticsToolbox' }) }
+    if ($controls['MenuDiagLockout'])        { $controls['MenuDiagLockout'].Add_Click({ Show-Panel 'DiagnosticsToolbox' }) }
+    if ($controls['MenuDiagPsoPolicy'])      { $controls['MenuDiagPsoPolicy'].Add_Click({ Show-Panel 'DiagnosticsToolbox' }) }
+    if ($controls['MenuDiagLogonSessions'])  { $controls['MenuDiagLogonSessions'].Add_Click({ Show-LogonVerificationDialog }) }
+    if ($controls['MenuDiagUncChecker'])     { $controls['MenuDiagUncChecker'].Add_Click({ Show-Panel 'NetworkDiagnostics' }) }
+    if ($controls['MenuDiagCertValidation']) { $controls['MenuDiagCertValidation'].Add_Click({ Show-Panel 'NetworkDiagnostics' }) }
+    if ($controls['MenuDiagDcPortMatrix']) {
+        $controls['MenuDiagDcPortMatrix'].Add_Click({
+            Show-Panel 'NetworkDiagnostics'
+            if ($controls['BtnTestAllPorts']) { $controls['BtnTestAllPorts'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuDiagOrgStructure']) { $controls['MenuDiagOrgStructure'].Add_Click({ Show-OrgStructureDialog }) }
+
+    # 9. Tools Menu
+    if ($controls['MenuToolsProfiles'])  { $controls['MenuToolsProfiles'].Add_Click({ Show-Panel 'Connections' }) }
+    if ($controls['MenuProfileManage'])  { $controls['MenuProfileManage'].Add_Click({ Show-Panel 'Connections' }) }
+    if ($controls['MenuCsvSemicolon']) {
+        $controls['MenuCsvSemicolon'].Add_Click({
+            $appConfig.Defaults.ExportDelimiter = ";"
+            if ($controls['CmbExportDelimiter']) { $controls['CmbExportDelimiter'].SelectedIndex = 0 }
+            Save-AppSettings -Config $appConfig
+            Update-MenuSettingsState
+            Set-Status -Message "CSV delimiter set to semicolon (;)"
+        })
+    }
+    if ($controls['MenuCsvComma']) {
+        $controls['MenuCsvComma'].Add_Click({
+            $appConfig.Defaults.ExportDelimiter = ","
+            if ($controls['CmbExportDelimiter']) { $controls['CmbExportDelimiter'].SelectedIndex = 1 }
+            Save-AppSettings -Config $appConfig
+            Update-MenuSettingsState
+            Set-Status -Message "CSV delimiter set to comma (,)"
+        })
+    }
+    if ($controls['MenuToolsSchemaBrowser'])  { $controls['MenuToolsSchemaBrowser'].Add_Click({ Show-Panel 'SchemaBrowser' }) }
+    if ($controls['MenuToolsLdifStudio'])     { $controls['MenuToolsLdifStudio'].Add_Click({ Show-Panel 'LdifStudio' }) }
+    if ($controls['MenuToolsBulkEditor'])     { $controls['MenuToolsBulkEditor'].Add_Click({ Show-Panel 'BulkEditor' }) }
+    if ($controls['MenuToolsAuditReports'])   { $controls['MenuToolsAuditReports'].Add_Click({ Show-Panel 'AuditReports' }) }
+    if ($controls['MenuToolsModLogs']) {
+        $controls['MenuToolsModLogs'].Add_Click({
+            Show-Panel 'RequestLog'
+        })
+    }
+    if ($controls['MenuToolsScimPlayground']) {
+        $controls['MenuToolsScimPlayground'].Add_Click({
+            Show-Panel 'DirectorySearch'
+            if ($controls['BtnConvertScim']) { $controls['BtnConvertScim'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuToolsSettings']) { $controls['MenuToolsSettings'].Add_Click({ Show-Panel 'Settings' }) }
+
+    # 10. Window Menu
+    if ($controls['MenuWinNewWindow'])     { $controls['MenuWinNewWindow'].Add_Click({ Launch-NewApplicationWindow }) }
+    if ($controls['MenuWinDetachTab']) {
+        $controls['MenuWinDetachTab'].Add_Click({
+            if ($controls['BtnWorkspaceDetachCurrent']) { $controls['BtnWorkspaceDetachCurrent'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuWinDockAll']) {
+        $controls['MenuWinDockAll'].Add_Click({
+            if ($controls['BtnWorkspaceDockAll']) { $controls['BtnWorkspaceDockAll'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+        })
+    }
+    if ($controls['MenuWinCloseTab']) {
+        $controls['MenuWinCloseTab'].Add_Click({
+            if ($state.ActiveTabId -and $state.WorkspaceMode -eq "Tabs") {
+                Remove-WorkspaceTab -TabId $state.ActiveTabId
+            }
+        })
+    }
+    if ($controls['MenuWinCloseAllTabs']) {
+        $controls['MenuWinCloseAllTabs'].Add_Click({
+            if ($state.WorkspaceMode -eq "Tabs") {
+                $toRemove = @($state.OpenTabs | Where-Object { $_.PanelName -ne "Dashboard" })
+                foreach ($t in $toRemove) { Remove-WorkspaceTab -TabId $t.Id }
+            }
+        })
+    }
+
+    # 11. Help Menu
+    if ($controls['MenuHelpHandbook'])   { $controls['MenuHelpHandbook'].Add_Click({ Show-ShortcutsDialog }) }
+    if ($controls['MenuHelpWalkthrough']) { $controls['MenuHelpWalkthrough'].Add_Click({ Show-ShortcutsDialog }) }
+    if ($controls['MenuHelpWiki'])        { $controls['MenuHelpWiki'].Add_Click({ [System.Diagnostics.Process]::Start("https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/active-directory-domain-services") }) }
+    if ($controls['MenuHelpRequestLog'])  { $controls['MenuHelpRequestLog'].Add_Click({ Show-Panel 'RequestLog' }) }
+    if ($controls['MenuHelpAbout'])       { $controls['MenuHelpAbout'].Add_Click({ Show-AboutDialog }) }
+}
+
+#endregion
+
 # Initial Window Launch
 $window.Add_Loaded({
     if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
@@ -15075,6 +15728,9 @@ $window.Add_Loaded({
     Populate-AllExternalToolsMenus
     Refresh-BookmarksUI
     Update-HeaderLayoutResponsive
+
+    Initialize-HorizontalMenuBar
+    Update-MenuSettingsState
 })
 
 $window.Add_Closing({

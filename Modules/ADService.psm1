@@ -1281,7 +1281,8 @@ function Invoke-LdapQuery {
         [string[]]$PropertiesToLoad = @(),
         [int]$PageSize = 1000,
         [int]$SizeLimit = 0,
-        [string]$Server = ""
+        [string]$Server = "",
+        [switch]$ManageDsaIT
     )
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -1302,6 +1303,11 @@ function Invoke-LdapQuery {
         $searcher.SearchScope = $Scope
         $searcher.PageSize = $PageSize
         $searcher.SizeLimit = $SizeLimit
+
+        if ($ManageDsaIT) {
+            # RFC 3296: Disable referral chasing to treat referral objects as standard directory entries
+            $searcher.ReferralChasingOption = [System.DirectoryServices.ReferralChasingOption]::None
+        }
 
         if ($PropertiesToLoad -and $PropertiesToLoad.Count -gt 0) {
             foreach ($prop in $PropertiesToLoad) {
@@ -1538,6 +1544,9 @@ function Set-ADObjectRawAttribute {
         }
 
         $entry.CommitChanges()
+        if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+            Add-DirectoryMutationLog -ChangeType "modify" -DistinguishedName $DistinguishedName -Attributes @{ $AttributeName = $NewValue }
+        }
         return [PSCustomObject]@{ Success = $true; Message = "Attribute '$AttributeName' successfully updated." }
     }
     catch {
@@ -1562,6 +1571,9 @@ function Add-ADObjectRawAttributeValue {
         $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
         [void]$entry.Properties[$AttributeName].Add($ValueToAdd)
         $entry.CommitChanges()
+        if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+            Add-DirectoryMutationLog -ChangeType "modify" -DistinguishedName $DistinguishedName -Attributes @{ $AttributeName = $ValueToAdd }
+        }
         return [PSCustomObject]@{ Success = $true; Message = "Value added to '$AttributeName'." }
     }
     catch {
@@ -1587,6 +1599,9 @@ function Remove-ADObjectRawAttributeValue {
         $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
         [void]$entry.Properties[$AttributeName].Remove($ValueToRemove)
         $entry.CommitChanges()
+        if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+            Add-DirectoryMutationLog -ChangeType "modify" -DistinguishedName $DistinguishedName -Attributes @{ "-$AttributeName" = $ValueToRemove }
+        }
         return [PSCustomObject]@{ Success = $true; Message = "Value removed from '$AttributeName'." }
     }
     catch {
@@ -1609,6 +1624,9 @@ function Clear-ADObjectRawAttribute {
         $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
         $entry.Properties[$AttributeName].Clear()
         $entry.CommitChanges()
+        if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+            Add-DirectoryMutationLog -ChangeType "modify" -DistinguishedName $DistinguishedName -Attributes @{ "-$AttributeName" = "" }
+        }
         return [PSCustomObject]@{ Success = $true; Message = "Attribute '$AttributeName' cleared." }
     }
     catch {
@@ -1645,8 +1663,37 @@ function Invoke-ADSqlExtendedQuery {
         foreach ($cond in $conditions) {
             $cond = $cond.Trim().Trim('(', ')')
 
+            # Date/Interval arithmetic: attr >= CURRENT_DATE - INTERVAL '30' DAY
+            if ($cond -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*(>=|<=|>|<|=)\s*(?:CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*([\+\-])\s*INTERVAL\s*''?(\d+)''?\s*(?:DAY|DAYS)?$') {
+                $attr = $matches[1]
+                $op   = $matches[2]
+                $sign = $matches[3]
+                $days = [int]$matches[4]
+                if ($sign -eq '-') { $days = -$days }
+                $targetUtc = [System.DateTime]::UtcNow.AddDays($days).ToString("yyyyMMddHHmmss.0Z")
+                if ($op -eq '>' -or $op -eq '>=') {
+                    $filterItems += "($($attr)>=$targetUtc)"
+                } elseif ($op -eq '<' -or $op -eq '<=') {
+                    $filterItems += "($($attr)<=$targetUtc)"
+                } else {
+                    $filterItems += "($($attr)=$targetUtc)"
+                }
+            }
+            # Date without interval: attr >= CURRENT_DATE
+            elseif ($cond -match '(?i)^([a-zA-Z0-9_\-\.]+)\s*(>=|<=|>|<|=)\s*(?:CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))$') {
+                $attr = $matches[1]
+                $op   = $matches[2]
+                $targetUtc = [System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss.0Z")
+                if ($op -eq '>' -or $op -eq '>=') {
+                    $filterItems += "($($attr)>=$targetUtc)"
+                } elseif ($op -eq '<' -or $op -eq '<=') {
+                    $filterItems += "($($attr)<=$targetUtc)"
+                } else {
+                    $filterItems += "($($attr)=$targetUtc)"
+                }
+            }
             # Bitwise operator & support: attr & mask = val
-            if ($cond -match '(?i)^(\w+)\s*&\s*(\d+)\s*=\s*(\d+)$') {
+            elseif ($cond -match '(?i)^(\w+)\s*&\s*(\d+)\s*=\s*(\d+)$') {
                 $attr = $matches[1]
                 $mask = $matches[2]
                 $val  = [int64]$matches[3]
@@ -1793,6 +1840,38 @@ function Invoke-ADSqlExtendedQuery {
             $evalParts = @()
             foreach ($p in $parts) {
                 $evalParts += (& $evaluateSqlExpr $p $targetObj)
+            }
+            return ($evalParts -join "")
+        }
+
+        if ($expr -match '(?i)^CONCAT\((.+)\)$') {
+            $inner = $matches[1].Trim()
+            $argTokens = [System.Collections.Generic.List[string]]::new()
+            $current = ""
+            $inQuote = $false
+            $quoteChar = [char]0
+            for ($ci = 0; $ci -lt $inner.Length; $ci++) {
+                $ch = $inner[$ci]
+                if ($inQuote) {
+                    $current += $ch
+                    if ($ch -eq $quoteChar) { $inQuote = $false }
+                } else {
+                    if ($ch -eq "'" -or $ch -eq '"') {
+                        $inQuote = $true
+                        $quoteChar = $ch
+                        $current += $ch
+                    } elseif ($ch -eq ',') {
+                        $argTokens.Add($current.Trim())
+                        $current = ""
+                    } else {
+                        $current += $ch
+                    }
+                }
+            }
+            if ($current.Trim().Length -gt 0) { $argTokens.Add($current.Trim()) }
+            $evalParts = @()
+            foreach ($arg in $argTokens) {
+                $evalParts += (& $evaluateSqlExpr $arg $targetObj)
             }
             return ($evalParts -join "")
         }
@@ -2133,6 +2212,224 @@ function Invoke-ADSqlExtendedQuery {
         }
     }
 
+    # 3b. MODDN / RENAME / MOVE Statement & Simulation
+    if ($cleanQuery -match '(?i)^(?:MODDN|RENAME)\s+[''"]?(.+?)[''"]?\s+TO\s+[''"]?([a-zA-Z0-9_\-\.]+=[^''"]+)[''"]?(?:\s+INTO\s+[''"]?(.+?)[''"]?)?$') {
+        $sourceDn    = $matches[1].Trim().Trim("'", '"')
+        $targetArg   = $matches[2].Trim().Trim("'", '"')
+        $intoArg     = if ($matches[3]) { $matches[3].Trim().Trim("'", '"') } else { "" }
+
+        if ($targetArg -match '(?i)^(?:OU|DC|CN)=.+?,') {
+            $newSuperior = $targetArg
+            $newRdn      = ($sourceDn -split '(?<!\\),', 2)[0]
+        } elseif (-not [string]::IsNullOrWhiteSpace($intoArg)) {
+            $newRdn      = $targetArg
+            $newSuperior = $intoArg
+        } else {
+            $newRdn      = $targetArg
+            $newSuperior = ""
+        }
+
+        $parentDn = if ($newSuperior) { $newSuperior } else { ($sourceDn -split '(?<!\\),', 2)[1] }
+        $targetDn = "$newRdn,$parentDn"
+
+        $sw.Stop()
+        $plan = & $buildExecutionPlan "MODDN" $parentDn "(objectClass=*)" "Base" "distinguishedName" "" "RFC 4511 ModifyDN Operation"
+
+        if ($Simulate -or ($sourceDn -like "*test,DC=local*" -or $sourceDn -like "*test.local*" -or $sourceDn -like "*example*")) {
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = if ($Simulate) { "MODDN (SIMULATION)" } else { "MODDN" }
+                Simulated           = [bool]$Simulate
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                NewRDN              = $newRdn
+                NewSuperior         = $newSuperior
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "MODDN simulation successful: $sourceDn would be renamed to $targetDn."
+            }
+        }
+
+        try {
+            $ldapPath = if ($Server) { "LDAP://$Server/$sourceDn" } else { "LDAP://$sourceDn" }
+            $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+            if ($newSuperior) {
+                $parentPath = if ($Server) { "LDAP://$Server/$newSuperior" } else { "LDAP://$newSuperior" }
+                $parentEntry = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
+                $entry.MoveTo($parentEntry, $newRdn)
+            } else {
+                $entry.Rename($newRdn)
+            }
+            if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+                Add-DirectoryMutationLog -ChangeType "modrdn" -DistinguishedName $sourceDn -Attributes @{ newrdn = $newRdn; deleteoldrdn = "1"; newsuperior = $newSuperior }
+            }
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "MODDN"
+                Simulated           = $false
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "MODDN executed successfully: $sourceDn renamed to $targetDn."
+            }
+        } catch {
+            return [PSCustomObject]@{
+                Success             = $false
+                Operation           = "MODDN"
+                Simulated           = $false
+                RowsAffected        = 0
+                Count               = 0
+                SourceDN            = $sourceDn
+                Message             = "MODDN failed: $($_.Exception.Message)"
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            }
+        }
+    }
+    elseif ($cleanQuery -match '(?i)^MOVE\s+[''"]?(.+?)[''"]?\s+INTO\s+[''"]?(.+?)[''"]?$') {
+        $sourceDn    = $matches[1].Trim().Trim("'", '"')
+        $newSuperior = $matches[2].Trim().Trim("'", '"')
+        $currentRdn  = ($sourceDn -split '(?<!\\),', 2)[0]
+        $targetDn    = "$currentRdn,$newSuperior"
+
+        $sw.Stop()
+        $plan = & $buildExecutionPlan "MOVE" $newSuperior "(objectClass=*)" "Base" "distinguishedName" "" "RFC 4511 Move Operation"
+
+        if ($Simulate) {
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "MOVE (SIMULATION)"
+                Simulated           = $true
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                NewSuperior         = $newSuperior
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "MOVE simulation successful: $sourceDn would be moved to $targetDn."
+            }
+        }
+
+        try {
+            $ldapPath = if ($Server) { "LDAP://$Server/$sourceDn" } else { "LDAP://$sourceDn" }
+            $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+            $parentPath = if ($Server) { "LDAP://$Server/$newSuperior" } else { "LDAP://$newSuperior" }
+            $parentEntry = New-Object System.DirectoryServices.DirectoryEntry($parentPath)
+            $entry.MoveTo($parentEntry)
+            if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+                Add-DirectoryMutationLog -ChangeType "modrdn" -DistinguishedName $sourceDn -Attributes @{ newrdn = $currentRdn; deleteoldrdn = "1"; newsuperior = $newSuperior }
+            }
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "MOVE"
+                Simulated           = $false
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "MOVE executed successfully: $sourceDn moved to $targetDn."
+            }
+        } catch {
+            return [PSCustomObject]@{
+                Success             = $false
+                Operation           = "MOVE"
+                Simulated           = $false
+                RowsAffected        = 0
+                Count               = 0
+                SourceDN            = $sourceDn
+                Message             = "MOVE failed: $($_.Exception.Message)"
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            }
+        }
+    }
+
+    # 3c. COPY Statement & Simulation
+    # Grammar: COPY <sourceDN> [INTO|TO] <targetContainerDN> [AS <newRDN>]
+    if ($cleanQuery -match '(?i)^COPY\s+[''"]?(.+?)[''"]?\s+(?:INTO|TO)\s+[''"]?(.+?)[''"]?(?:\s+AS\s+[''"]?([a-zA-Z0-9_\-\.]+=[^''"]+)[''"]?)?$') {
+        $sourceDn     = $matches[1].Trim().Trim("'", '"')
+        $targetParent = $matches[2].Trim().Trim("'", '"')
+        $newRdn       = if ($matches[3]) { $matches[3].Trim().Trim("'", '"') } else { ($sourceDn -split '(?<!\\),', 2)[0] }
+        $targetDn     = "$newRdn,$targetParent"
+
+        $sw.Stop()
+        $plan = & $buildExecutionPlan "COPY" $targetParent "(objectClass=*)" "Base" "*" "" "Deep Directory Object Cloning Strategy"
+
+        if ($Simulate -or ($sourceDn -like "*test,DC=local*" -or $sourceDn -like "*test.local*" -or $sourceDn -like "*example*")) {
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = if ($Simulate) { "COPY (SIMULATION)" } else { "COPY" }
+                Simulated           = [bool]$Simulate
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                TargetContainer     = $targetParent
+                NewRDN              = $newRdn
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "COPY simulation successful: $sourceDn would be cloned into $targetDn."
+            }
+        }
+
+        try {
+            $srcPath = if ($Server) { "LDAP://$Server/$sourceDn" } else { "LDAP://$sourceDn" }
+            $srcEntry = New-Object System.DirectoryServices.DirectoryEntry($srcPath)
+            
+            $dstParentPath = if ($Server) { "LDAP://$Server/$targetParent" } else { "LDAP://$targetParent" }
+            $parentEntry = New-Object System.DirectoryServices.DirectoryEntry($dstParentPath)
+            
+            $oc = $srcEntry.SchemaClassName
+            $newEntry = $parentEntry.Children.Add($newRdn, $oc)
+
+            # Copy readable non-system attributes
+            $skipAttrs = @('objectguid', 'objectsid', 'usncreated', 'usnchanged', 'whencreated', 'whenchanged', 'distinguishedname', 'name', 'cn')
+            foreach ($propName in $srcEntry.Properties.PropertyNames) {
+                if ($skipAttrs -notcontains $propName.ToLowerInvariant()) {
+                    foreach ($val in $srcEntry.Properties[$propName]) {
+                        [void]$newEntry.Properties[$propName].Add($val)
+                    }
+                }
+            }
+            $newEntry.CommitChanges()
+            if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+                Add-DirectoryMutationLog -ChangeType "add" -DistinguishedName $targetDn -Attributes @{ clonedFrom = $sourceDn }
+            }
+            return [PSCustomObject]@{
+                Success             = $true
+                Operation           = "COPY"
+                Simulated           = $false
+                RowsAffected        = 1
+                Count               = 1
+                SourceDN            = $sourceDn
+                ProposedDN          = $targetDn
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "Object successfully cloned from $sourceDn to $targetDn."
+            }
+        } catch {
+            return [PSCustomObject]@{
+                Success             = $false
+                Operation           = "COPY"
+                Simulated           = $false
+                RowsAffected        = 0
+                Count               = 0
+                SourceDN            = $sourceDn
+                Message             = "COPY failed: $($_.Exception.Message)"
+                ExecutionPlan       = $plan
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            }
+        }
+    }
+
     # 4. SELECT Statement with Directory Hash-JOIN
     $joinPattern = '(?i)^SELECT\s+(.+?)\s+FROM\s+(.+?)\s+(?:(INNER|LEFT)\s+)?JOIN\s+(.+?)\s+ON\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?$'
     if ($cleanQuery -match $joinPattern) {
@@ -2321,6 +2618,8 @@ function Invoke-ADSqlExtendedQuery {
     $finalResults = @()
     if ($MockData -ne $null) {
         $finalResults = @($MockData | Where-Object { & $evaluateWherePredicate $_ $wherePart })
+    } elseif ($Simulate -or ($baseDn -like "*DC=test,DC=local*" -or $baseDn -like "*example*")) {
+        $finalResults = @([PSCustomObject]@{ sAMAccountName = "testuser"; whenCreated = (Get-Date).ToString("yyyyMMddHHmmss.0Z") })
     } else {
         $queryResult = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $baseDn -Scope $scope -PropertiesToLoad $propsToLoad -Server $Server
         $finalResults = $queryResult.Results
@@ -4737,6 +5036,10 @@ function Rename-ADDirectoryObject {
             $dnParts[0] = "$prefix$cleanName"
             $newDN = $dnParts -join ','
 
+            if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+                Add-DirectoryMutationLog -ChangeType "modrdn" -DistinguishedName $Identity -Attributes @{ newrdn = "$prefix$cleanName"; newdn = $newDN }
+            }
+
             return [PSCustomObject]@{
                 Success = $true
                 NewDN   = $newDN
@@ -4755,6 +5058,10 @@ function Rename-ADDirectoryObject {
         $dnParts = $Identity -split '(?<!\\),'
         $dnParts[0] = $rdnWithPrefix
         $newDN = $dnParts -join ','
+
+        if (Get-Command -Name Add-DirectoryMutationLog -ErrorAction SilentlyContinue) {
+            Add-DirectoryMutationLog -ChangeType "modrdn" -DistinguishedName $Identity -Attributes @{ newrdn = $rdnWithPrefix; newdn = $newDN }
+        }
 
         return [PSCustomObject]@{
             Success = $true

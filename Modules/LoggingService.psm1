@@ -410,6 +410,165 @@ function Clear-AppLog {
 
 Set-Alias -Name Clear-AppLogs -Value Clear-AppLog
 
+#region Directory Mutation Logs (Apache Studio & RFC 2849 LDIF Parity)
+
+$script:MutationLogsLock = [System.Object]::new()
+$script:DirectoryMutationLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+function Get-InverseLdif {
+    <#
+    .SYNOPSIS
+        Generates the RFC 2849 inverse (undo) LDIF statement for a given directory mutation.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Operation,
+        [Parameter(Mandatory=$true)]
+        [string]$DistinguishedName,
+        [hashtable]$OriginalAttributes = @{},
+        [hashtable]$NewAttributes = @{},
+        [string]$OriginalParent = "",
+        [string]$OriginalRdn = ""
+    )
+
+    $sb = [System.Text.StringBuilder]::new()
+    $null = $NewAttributes
+    [void]$sb.AppendLine("# Inverse Rollback LDIF generated automatically by Active Directory Management Studio")
+    [void]$sb.AppendLine("# Original Operation: $Operation on $DistinguishedName")
+
+    switch ($Operation.ToLowerInvariant()) {
+        "add" {
+            [void]$sb.AppendLine("dn: $DistinguishedName")
+            [void]$sb.AppendLine("changetype: delete")
+        }
+        "delete" {
+            [void]$sb.AppendLine("dn: $DistinguishedName")
+            [void]$sb.AppendLine("changetype: add")
+            if ($OriginalAttributes.Count -gt 0) {
+                foreach ($k in $OriginalAttributes.Keys) {
+                    $val = $OriginalAttributes[$k]
+                    if ($val -is [System.Collections.IEnumerable] -and -not ($val -is [string])) {
+                        foreach ($v in $val) { [void]$sb.AppendLine("$($k): $v") }
+                    } else {
+                        [void]$sb.AppendLine("$($k): $val")
+                    }
+                }
+            } else {
+                [void]$sb.AppendLine("objectClass: user")
+                [void]$sb.AppendLine("sAMAccountName: $($DistinguishedName -replace '^CN=([^,]+).*$', '$1')")
+            }
+        }
+        "modify" {
+            [void]$sb.AppendLine("dn: $DistinguishedName")
+            [void]$sb.AppendLine("changetype: modify")
+            foreach ($k in $OriginalAttributes.Keys) {
+                [void]$sb.AppendLine("replace: $k")
+                $prev = $OriginalAttributes[$k]
+                if ($null -ne $prev -and "$prev" -ne "") {
+                    if ($prev -is [System.Collections.IEnumerable] -and -not ($prev -is [string])) {
+                        foreach ($v in $prev) { [void]$sb.AppendLine("$($k): $v") }
+                    } else {
+                        [void]$sb.AppendLine("$($k): $prev")
+                    }
+                }
+                [void]$sb.AppendLine("-")
+            }
+        }
+        "modrdn" {
+            [void]$sb.AppendLine("dn: $DistinguishedName")
+            [void]$sb.AppendLine("changetype: modrdn")
+            [void]$sb.AppendLine("newrdn: $OriginalRdn")
+            [void]$sb.AppendLine("deleteoldrdn: 1")
+            if (-not [string]::IsNullOrWhiteSpace($OriginalParent)) {
+                [void]$sb.AppendLine("newsuperior: $OriginalParent")
+            }
+        }
+        default {
+            [void]$sb.AppendLine("dn: $DistinguishedName")
+            [void]$sb.AppendLine("# Manual review required for operation: $Operation")
+        }
+    }
+
+    return $sb.ToString().TrimEnd()
+}
+
+function Add-DirectoryMutationLog {
+    <#
+    .SYNOPSIS
+        Appends an operation to the real-time directory mutation stream and calculates inverse LDIF.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Operation,
+        [Parameter(Mandatory=$true)]
+        [string]$DistinguishedName,
+        [string]$AttributeChanges = "",
+        [hashtable]$OriginalAttributes = @{},
+        [hashtable]$NewAttributes = @{},
+        [string]$StatusBadge = "SUCCESS",
+        [string]$InverseLdif = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($InverseLdif)) {
+        $InverseLdif = Get-InverseLdif -Operation $Operation -DistinguishedName $DistinguishedName -OriginalAttributes $OriginalAttributes -NewAttributes $NewAttributes
+    }
+
+    $entry = [PSCustomObject]@{
+        Timestamp         = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        Operation         = $Operation.ToUpperInvariant()
+        DistinguishedName = $DistinguishedName
+        AttributeChanges  = $AttributeChanges
+        StatusBadge       = $StatusBadge
+        InverseLdif       = $inverseLdif
+        OriginalData      = $OriginalAttributes
+        NewData           = $NewAttributes
+    }
+
+    [System.Threading.Monitor]::Enter($script:MutationLogsLock)
+    try {
+        $script:DirectoryMutationLogs.Insert(0, $entry)
+        if ($script:DirectoryMutationLogs.Count -gt 500) {
+            $script:DirectoryMutationLogs.RemoveAt($script:DirectoryMutationLogs.Count - 1)
+        }
+    } finally {
+        [System.Threading.Monitor]::Exit($script:MutationLogsLock)
+    }
+
+    Write-AppLog -Level "INFO" -Category "DirectoryMutation" -Message "[$($entry.Operation)] $($entry.DistinguishedName) ($AttributeChanges)"
+
+    return $entry
+}
+
+function Get-DirectoryMutationLogs {
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    param()
+    [System.Threading.Monitor]::Enter($script:MutationLogsLock)
+    try {
+        return @($script:DirectoryMutationLogs)
+    } finally {
+        [System.Threading.Monitor]::Exit($script:MutationLogsLock)
+    }
+}
+
+function Clear-DirectoryMutationLogs {
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    param()
+    [System.Threading.Monitor]::Enter($script:MutationLogsLock)
+    try {
+        $count = $script:DirectoryMutationLogs.Count
+        $script:DirectoryMutationLogs.Clear()
+        return $count
+    } finally {
+        [System.Threading.Monitor]::Exit($script:MutationLogsLock)
+    }
+}
+
+Set-Alias -Name Register-DirectoryMutationLog -Value Add-DirectoryMutationLog
+
+#endregion
+
 Export-ModuleMember -Function @(
     "Get-AppLogsDirectory",
     "Get-AppLogSessionTimestamp",
@@ -422,7 +581,12 @@ Export-ModuleMember -Function @(
     "Get-LatestLogFile",
     "Open-LogsFolder",
     "Open-LatestLogFile",
-    "Clear-AppLog"
+    "Clear-AppLog",
+    "Get-InverseLdif",
+    "Add-DirectoryMutationLog",
+    "Get-DirectoryMutationLogs",
+    "Clear-DirectoryMutationLogs"
 ) -Alias @(
-    "Clear-AppLogs"
+    "Clear-AppLogs",
+    "Register-DirectoryMutationLog"
 )

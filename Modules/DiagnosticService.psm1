@@ -947,7 +947,7 @@ $script:ErrorCatalog = @{
     # Win32 & NTSTATUS Errors
     "0"          = "ERROR_SUCCESS: The operation completed successfully."
     "5"          = "ERROR_ACCESS_DENIED: Access is denied. The caller lacks required permissions."
-    "0x80070005" = "E_ACCESSDENIED: General access denied error."
+    "0x80070005" = "ERROR_ACCESS_DENIED: General access denied error (E_ACCESSDENIED)."
     "1326"       = "ERROR_LOGON_FAILURE: Unknown user name or bad password."
     "0x52e"      = "ERROR_LOGON_FAILURE: Unknown user name or bad password (Kerberos/NTLM)."
     "1327"       = "ERROR_ACCOUNT_RESTRICTION: Account restriction (e.g. logon hours or workstation restriction)."
