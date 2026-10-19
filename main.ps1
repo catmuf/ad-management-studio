@@ -3054,11 +3054,13 @@ function Connect-SecondaryPanelInstance {    param(
             }
         }.GetNewClosure()
 
+        $txtSearchPlaceholder = $c['TxtSearchUsersPlaceholder']
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
                 $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = if ($hasText) { "Collapsed" } else { "Visible" } }
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
@@ -3072,7 +3074,12 @@ function Connect-SecondaryPanelInstance {    param(
             $btnClear.Add_Click({
                 param($s, $e)
                 $null = $s; $null = $e
-                if ($txtSearch) { $txtSearch.Text = "" }
+                if ($txtSearch) {
+                    $txtSearch.Text = ""
+                    [void]$txtSearch.Focus()
+                }
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = "Visible" }
+                $btnClear.Visibility = "Collapsed"
             }.GetNewClosure())
         }
         if ($btnSearch) { $btnSearch.Add_Click({ & $applyFilter }.GetNewClosure()) }
@@ -3204,11 +3211,13 @@ function Connect-SecondaryPanelInstance {    param(
             }
         }.GetNewClosure()
 
+        $txtSearchPlaceholder = $c['TxtSearchGroupsPlaceholder']
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
                 $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = if ($hasText) { "Collapsed" } else { "Visible" } }
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
@@ -3222,7 +3231,12 @@ function Connect-SecondaryPanelInstance {    param(
             $btnClear.Add_Click({
                 param($s, $e)
                 $null = $s; $null = $e
-                if ($txtSearch) { $txtSearch.Text = "" }
+                if ($txtSearch) {
+                    $txtSearch.Text = ""
+                    [void]$txtSearch.Focus()
+                }
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = "Visible" }
+                $btnClear.Visibility = "Collapsed"
             }.GetNewClosure())
         }
         if ($btnSearch) { $btnSearch.Add_Click({ & $applyFilter }.GetNewClosure()) }
@@ -3320,11 +3334,13 @@ function Connect-SecondaryPanelInstance {    param(
             if ($grid) { $grid.ItemsSource = $res }
         }.GetNewClosure()
 
+        $txtSearchPlaceholder = $c['TxtSearchComputersPlaceholder']
         if ($txtSearch) {
             $txtSearch.Add_TextChanged({
                 param($s, $e)
                 $null = $s; $null = $e
                 $hasText = -not [string]::IsNullOrEmpty($txtSearch.Text)
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = if ($hasText) { "Collapsed" } else { "Visible" } }
                 if ($btnClear) { $btnClear.Visibility = if ($hasText) { "Visible" } else { "Collapsed" } }
                 & $applyFilter
             }.GetNewClosure())
@@ -3338,7 +3354,12 @@ function Connect-SecondaryPanelInstance {    param(
             $btnClear.Add_Click({
                 param($s, $e)
                 $null = $s; $null = $e
-                if ($txtSearch) { $txtSearch.Text = "" }
+                if ($txtSearch) {
+                    $txtSearch.Text = ""
+                    [void]$txtSearch.Focus()
+                }
+                if ($txtSearchPlaceholder) { $txtSearchPlaceholder.Visibility = "Visible" }
+                $btnClear.Visibility = "Collapsed"
             }.GetNewClosure())
         }
         if ($filterAll) { $filterAll.Add_Checked({ & $applyFilter }.GetNewClosure()) }
@@ -6421,6 +6442,10 @@ if ($controls['BtnClearSearchUsers']) {
             $controls['TxtSearchUsers'].Text = ""
             [void]$controls['TxtSearchUsers'].Focus()
         }
+        if ($controls['TxtSearchUsersPlaceholder']) {
+            $controls['TxtSearchUsersPlaceholder'].Visibility = 'Visible'
+        }
+        $controls['BtnClearSearchUsers'].Visibility = 'Collapsed'
     })
 }
 if ($controls['FilterUserAll'])      { $controls['FilterUserAll'].Add_Checked({ Refresh-Users }) }
@@ -12332,6 +12357,9 @@ if ($controls['TxtSearchRecycleBin']) {
         if ($controls['TxtSearchRecycleBinPlaceholder']) {
             $controls['TxtSearchRecycleBinPlaceholder'].Visibility = if ($q.Length -gt 0) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
         }
+        if ($controls['BtnClearSearchRecycleBin']) {
+            $controls['BtnClearSearchRecycleBin'].Visibility = if ($q.Length -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        }
         if ([string]::IsNullOrWhiteSpace($q)) {
             $controls['GridRecycleBin'].ItemsSource = @($state.CachedRecycleBin)
         } else {
@@ -12343,6 +12371,19 @@ if ($controls['TxtSearchRecycleBin']) {
     })
     $controls['TxtSearchRecycleBin'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) { Refresh-RecycleBin }
+    })
+}
+
+if ($controls['BtnClearSearchRecycleBin']) {
+    $controls['BtnClearSearchRecycleBin'].Add_Click({
+        if ($controls['TxtSearchRecycleBin']) {
+            $controls['TxtSearchRecycleBin'].Text = ""
+            [void]$controls['TxtSearchRecycleBin'].Focus()
+        }
+        if ($controls['TxtSearchRecycleBinPlaceholder']) {
+            $controls['TxtSearchRecycleBinPlaceholder'].Visibility = [System.Windows.Visibility]::Visible
+        }
+        $controls['BtnClearSearchRecycleBin'].Visibility = [System.Windows.Visibility]::Collapsed
     })
 }
 

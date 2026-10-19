@@ -91,6 +91,33 @@
             </Setter>
         </Style>
 
+        <Style x:Key="SearchClearBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="clearBorder" Background="{TemplateBinding Background}" CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="clearBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ModernCheckBox" TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontSize" Value="13"/>
@@ -137,10 +164,11 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0" Margin="0,0,8,0">
-                <TextBox Name="TxtFilterColumns" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search attributes by name or description"/>
-                <TextBlock Name="TxtFilterPlaceholder" Text="🔍 Quick filter attributes (e.g. mail, phone, SID, date)..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
-                <Button Name="BtnClearFilter" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear filter"/>
+            <Grid Grid.Column="0" Margin="0,0,8,0" Height="30">
+                <TextBox Name="TxtFilterColumns" Style="{StaticResource ModernTextBox}" Height="30" Padding="28,5,28,5" ToolTip="Search attributes by name or description"/>
+                <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0" IsHitTestVisible="False"/>
+                <TextBlock Name="TxtFilterPlaceholder" Text="Quick filter attributes (e.g. mail, phone, SID, date)..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,28,0" IsHitTestVisible="False"/>
+                <Button Name="BtnClearFilter" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear filter"/>
             </Grid>
 
             <Button Grid.Column="1" Name="BtnSelectAll" Style="{StaticResource ModernButton}" Content="Select All" Height="30" Padding="10,4" Margin="0,0,6,0"/>

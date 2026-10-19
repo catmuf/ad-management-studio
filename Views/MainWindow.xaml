@@ -427,6 +427,34 @@
             </Setter>
         </Style>
 
+        <!-- Search Box Inline Clear Button -->
+        <Style x:Key="SearchClearBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="clearBorder" Background="{TemplateBinding Background}" CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="clearBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Modern DataGrid Style -->
         <Style x:Key="ModernDataGrid" TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource BgCard}"/>
@@ -1591,25 +1619,26 @@
                     <!-- Filter Bar -->
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Grid Width="260" Margin="0,0,10,6">
-                                <TextBox Name="TxtSearchUsers" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search by name, username, email, department, title, office, or description. Live search or press Enter."/>
-                                <TextBlock Name="TxtSearchUsersPlaceholder" Text="🔍 Search users (name, email, dept...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
-                                <Button Name="BtnClearSearchUsers" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            <Grid Width="280" Height="30" Margin="0,0,12,6" VerticalAlignment="Center">
+                                <TextBox Name="TxtSearchUsers" Style="{StaticResource ModernTextBox}" Height="30" Padding="28,5,28,5" ToolTip="Search by name, username, email, department, title, office, or description. Live search or press Enter."/>
+                                <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock Name="TxtSearchUsersPlaceholder" Text="Search users (name, email, dept...)" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,28,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchUsers" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                             </Grid>
 
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,6">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
                                 <RadioButton Name="FilterUserAll" Style="{StaticResource FilterChip}" Content="All" IsChecked="True"/>
                                 <RadioButton Name="FilterUserActive" Style="{StaticResource FilterChip}" Content="Active"/>
                                 <RadioButton Name="FilterUserDisabled" Style="{StaticResource FilterChip}" Content="Disabled"/>
                                 <RadioButton Name="FilterUserLocked" Style="{StaticResource FilterChip}" Content="Locked"/>
                             </StackPanel>
 
-                            <ComboBox Name="CmbUserOUFilter" Style="{StaticResource ModernComboBox}" Width="180" Height="30" Margin="0,0,10,6"/>
+                            <ComboBox Name="CmbUserOUFilter" Style="{StaticResource ModernComboBox}" Width="180" Height="30" Margin="0,0,12,6" VerticalAlignment="Center"/>
 
-                            <Button Name="BtnSearchUsers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search" Margin="0,0,10,6"/>
+                            <Button Name="BtnSearchUsers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search" Margin="0,0,12,6" VerticalAlignment="Center"/>
 
-                            <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4" Margin="0,0,0,6" VerticalAlignment="Center">
-                                <TextBlock Name="TxtUsersCountBadge" Text="0 users displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                            <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,0" Height="30" Margin="0,0,0,6" VerticalAlignment="Center">
+                                <TextBlock Name="TxtUsersCountBadge" Text="0 users displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </Border>
                         </WrapPanel>
                     </Border>
@@ -1830,10 +1859,11 @@
 
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Grid Width="250" Margin="0,0,10,6">
-                                <TextBox Name="TxtSearchGroups" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search groups by Name, SamAccountName, or Description. Live search or press Enter."/>
-                                <TextBlock Name="TxtSearchGroupsPlaceholder" Text="🔍 Search groups (name, desc...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
-                                <Button Name="BtnClearSearchGroups" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                            <Grid Width="280" Height="30" Margin="0,0,12,6" VerticalAlignment="Center">
+                                <TextBox Name="TxtSearchGroups" Style="{StaticResource ModernTextBox}" Height="30" Padding="28,5,28,5" ToolTip="Search groups by Name, SamAccountName, or Description. Live search or press Enter."/>
+                                <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock Name="TxtSearchGroupsPlaceholder" Text="Search groups (name, desc...)" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,28,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchGroups" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                             </Grid>
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,6">
@@ -1943,10 +1973,11 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Text="Directory OU Hierarchy" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
-                            <Grid Grid.Row="1" Margin="0,0,0,8">
-                                <TextBox Name="TxtFilterOUs" Style="{StaticResource ModernTextBox}" Height="28" Padding="6,4,24,4" ToolTip="Quick filter OU tree nodes in real time"/>
-                                <TextBlock Name="TxtFilterOUsPlaceholder" Text="🔍 Filter OUs..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="8,0,24,0" IsHitTestVisible="False"/>
-                                <Button Name="BtnClearFilterOUs" Content="✖" Style="{StaticResource ModernButton}" Width="18" Height="18" Padding="0" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Clear OU filter"/>
+                            <Grid Grid.Row="1" Margin="0,0,0,8" Height="28">
+                                <TextBox Name="TxtFilterOUs" Style="{StaticResource ModernTextBox}" Height="28" Padding="26,3,24,3" ToolTip="Quick filter OU tree nodes in real time"/>
+                                <TextBlock Text="🔍" FontSize="10" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock Name="TxtFilterOUsPlaceholder" Text="Filter OUs..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="26,0,24,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearFilterOUs" Content="✕" Style="{StaticResource SearchClearBtn}" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Clear OU filter"/>
                             </Grid>
                             <TreeView Grid.Row="2" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimary}">
                                 <TreeView.ContextMenu>
@@ -2096,23 +2127,24 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-                        <WrapPanel Orientation="Horizontal">
-                            <Grid Width="280" Margin="0,0,10,6">
-                                <TextBox Name="TxtSearchComputers" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5" ToolTip="Search computers by Name or Operating System. Live search or press Enter."/>
-                                <TextBlock Name="TxtSearchComputersPlaceholder" Text="🔍 Search computers (name, OS...)" FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
-                                <Button Name="BtnClearSearchComputers" Content="✖" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid Width="280" Height="30" Margin="0,0,12,6" VerticalAlignment="Center">
+                                <TextBox Name="TxtSearchComputers" Style="{StaticResource ModernTextBox}" Height="30" Padding="28,5,28,5" ToolTip="Search computers by Name or Operating System. Live search or press Enter."/>
+                                <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0" IsHitTestVisible="False"/>
+                                <TextBlock Name="TxtSearchComputersPlaceholder" Text="Search computers (name, OS...)" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,28,0" IsHitTestVisible="False"/>
+                                <Button Name="BtnClearSearchComputers" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                             </Grid>
 
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,6">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
                                 <RadioButton Name="FilterCompAll" Style="{StaticResource FilterChip}" Content="All" IsChecked="True"/>
                                 <RadioButton Name="FilterCompEnabled" Style="{StaticResource FilterChip}" Content="Enabled"/>
                                 <RadioButton Name="FilterCompDisabled" Style="{StaticResource FilterChip}" Content="Disabled"/>
                             </StackPanel>
 
-                            <Button Name="BtnSearchComputers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search Computers" Margin="0,0,10,6"/>
+                            <Button Name="BtnSearchComputers" Style="{StaticResource PrimaryButton}" Height="30" Content="Search Computers" Margin="0,0,12,6" VerticalAlignment="Center"/>
 
-                            <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,4" VerticalAlignment="Center" Margin="0,0,0,6">
-                                <TextBlock Name="TxtComputersCountBadge" Text="0 computers displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold"/>
+                            <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,0" Height="30" VerticalAlignment="Center" Margin="0,0,0,6">
+                                <TextBlock Name="TxtComputersCountBadge" Text="0 computers displayed" FontSize="11" Foreground="#9CA3AF" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </Border>
                         </WrapPanel>
                     </Border>
@@ -3329,9 +3361,11 @@
 
                     <!-- Actions & Search Bar -->
                     <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Grid Width="260" Margin="0,0,8,6">
-                            <TextBox Name="TxtSearchRecycleBin" Style="{StaticResource ModernTextBox}" Height="30" Padding="8,5,26,5"/>
-                            <TextBlock Name="TxtSearchRecycleBinPlaceholder" Text="🔍 Search deleted objects..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,26,0" IsHitTestVisible="False"/>
+                        <Grid Width="280" Height="30" Margin="0,0,8,6" VerticalAlignment="Center">
+                            <TextBox Name="TxtSearchRecycleBin" Style="{StaticResource ModernTextBox}" Height="30" Padding="28,5,28,5"/>
+                            <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0" IsHitTestVisible="False"/>
+                            <TextBlock Name="TxtSearchRecycleBinPlaceholder" Text="Search deleted objects..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,28,0" IsHitTestVisible="False"/>
+                            <Button Name="BtnClearSearchRecycleBin" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                         </Grid>
                         <Button Name="BtnRefreshRecycleBin" Style="{StaticResource ModernButton}" Height="30" Content="🔄 Refresh" Margin="0,0,6,6"/>
                         <Button Name="BtnRestoreObject" Style="{StaticResource PrimaryButton}" Height="30" Content="⚡ Restore Object" Margin="0,0,6,6" ToolTip="Restore deleted object back to its last known parent OU"/>
