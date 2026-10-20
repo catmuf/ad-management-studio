@@ -13,17 +13,21 @@
 
 # Ensure ActiveDirectory and GroupPolicy modules are available if present
 if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
-    try {
-        Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-    } catch {
-        $null = $_ # ActiveDirectory module optional
+    if ([System.IO.Directory]::Exists("$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules\ActiveDirectory")) {
+        try {
+            Import-Module ActiveDirectory -ErrorAction SilentlyContinue
+        } catch {
+            $null = $_ # ActiveDirectory module optional
+        }
     }
 }
 if (-not (Get-Module -Name GroupPolicy -ErrorAction SilentlyContinue)) {
-    try {
-        Import-Module GroupPolicy -ErrorAction SilentlyContinue
-    } catch {
-        $null = $_ # GroupPolicy module optional
+    if ([System.IO.Directory]::Exists("$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules\GroupPolicy")) {
+        try {
+            Import-Module GroupPolicy -ErrorAction SilentlyContinue
+        } catch {
+            $null = $_ # GroupPolicy module optional
+        }
     }
 }
 

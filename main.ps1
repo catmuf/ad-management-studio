@@ -61,9 +61,7 @@ $viewsPath   = Join-Path $appRoot "Views"
 # Import Core Foundation Services (Fast Launch)
 Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "TemplateService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "ExportService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking
 
 # JIT Lazy Service Loader Engine
@@ -102,6 +100,22 @@ $script:ServiceAutoLoadMap = @{
     'Show-HexEditorDialog'              = 'SpecializedEditorService'
     'Show-CertificateDialog'            = 'SpecializedEditorService'
     'Show-UacDialog'                    = 'SpecializedEditorService'
+    'Export-ADDataToCsv'                = 'ExportService'
+    'Export-ADDataToLdif'               = 'ExportService'
+    'Export-ADDataToJson'               = 'ExportService'
+    'Export-ADSecurityAuditToHtml'      = 'ExportService'
+    'Export-ADObjectToHtml'             = 'ExportService'
+    'Get-ADObjectHtmlContent'           = 'ExportService'
+    'Export-ADDataToDsml'               = 'ExportService'
+    'Export-ADDataToScim'               = 'ExportService'
+    'New-LdifChangeScript'              = 'ExportService'
+    'Invoke-TemplateSubstitution'       = 'TemplateService'
+    'Resolve-AccountNameConflict'       = 'TemplateService'
+    'Get-ADProvisioningTemplates'       = 'TemplateService'
+    'Save-ADProvisioningTemplates'      = 'TemplateService'
+    'New-ADProvisioningProfile'         = 'TemplateService'
+    'Invoke-ADObjectProvisioningPlan'   = 'TemplateService'
+    'Substitute-Template'               = 'TemplateService'
 }
 
 $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
@@ -5104,8 +5118,11 @@ if ($controls['BtnGlobalRefresh']) {
 #endregion
 
 #region Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity)
-if ($controls['TxtGlobalSearch']) {
-    $controls['TxtGlobalSearch'].Add_TextChanged({
+$script:GlobalSearchDebounceTimer = [System.Windows.Threading.DispatcherTimer]::new()
+$script:GlobalSearchDebounceTimer.Interval = [System.TimeSpan]::FromMilliseconds(200)
+$script:GlobalSearchDebounceTimer.Add_Tick({
+    $script:GlobalSearchDebounceTimer.Stop()
+    if ($controls['TxtGlobalSearch']) {
         $q = $controls['TxtGlobalSearch'].Text.Trim()
         if ($q.Length -ge 2) {
             $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 500
@@ -5128,14 +5145,49 @@ if ($controls['TxtGlobalSearch']) {
                 $controls['ListGlobalSearchResults'].ItemsSource = $null
             }
         }
+    }
+})
+
+if ($controls['TxtGlobalSearch']) {
+    $controls['TxtGlobalSearch'].Add_TextChanged({
+        $script:GlobalSearchDebounceTimer.Stop()
+        $q = $controls['TxtGlobalSearch'].Text.Trim()
+        if ($q.Length -ge 2) {
+            $script:GlobalSearchDebounceTimer.Start()
+        } else {
+            if ($controls['PopupGlobalSearch']) {
+                $controls['PopupGlobalSearch'].IsOpen = $false
+            }
+            if ($controls['ListGlobalSearchResults']) {
+                $controls['ListGlobalSearchResults'].ItemsSource = $null
+            }
+        }
     })
 
     $controls['TxtGlobalSearch'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Escape) {
+            $script:GlobalSearchDebounceTimer.Stop()
             if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
         } elseif ($_.Key -eq [System.Windows.Input.Key]::Enter) {
+            $script:GlobalSearchDebounceTimer.Stop()
             if ($controls['ListGlobalSearchResults'] -and $controls['ListGlobalSearchResults'].Items.Count -gt 0) {
                 $controls['ListGlobalSearchResults'].SelectedIndex = 0
+            } else {
+                $q = $controls['TxtGlobalSearch'].Text.Trim()
+                if ($q.Length -ge 2) {
+                    $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 500
+                    $results = @($rawResults)
+                    if ($controls['ListGlobalSearchResults']) {
+                        $controls['ListGlobalSearchResults'].ItemsSource = $null
+                        $controls['ListGlobalSearchResults'].ItemsSource = $results
+                    }
+                    if ($controls['TxtGlobalSearchStatus']) {
+                        $controls['TxtGlobalSearchStatus'].Text = "Found $($results.Count) object(s)"
+                    }
+                    if ($controls['PopupGlobalSearch']) {
+                        $controls['PopupGlobalSearch'].IsOpen = ($results.Count -gt 0)
+                    }
+                }
             }
         } elseif ($_.Key -eq [System.Windows.Input.Key]::Down) {
             if ($controls['ListGlobalSearchResults'] -and $controls['ListGlobalSearchResults'].Items.Count -gt 0) {
@@ -5762,55 +5814,63 @@ function Update-UserInspectorCard {
 }
 
 Set-Alias -Name Refresh-Users -Value Update-Users -Scope Global
-function Update-Users {    Set-Status -Message "Loading users from Active Directory..."
-    $searchText = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
-    
-    $statusFilter = "All"
-    if ($controls['FilterUserActive'] -and $controls['FilterUserActive'].IsChecked)         { $statusFilter = "Active" }
-    elseif ($controls['FilterUserDisabled'] -and $controls['FilterUserDisabled'].IsChecked) { $statusFilter = "Disabled" }
-    elseif ($controls['FilterUserLocked'] -and $controls['FilterUserLocked'].IsChecked)     { $statusFilter = "Locked" }
+function Update-Users {
+    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+    Set-Status -Message "Loading users from Active Directory..."
+    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+    try {
+        $searchText = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
+        
+        $statusFilter = "All"
+        if ($controls['FilterUserActive'] -and $controls['FilterUserActive'].IsChecked)         { $statusFilter = "Active" }
+        elseif ($controls['FilterUserDisabled'] -and $controls['FilterUserDisabled'].IsChecked) { $statusFilter = "Disabled" }
+        elseif ($controls['FilterUserLocked'] -and $controls['FilterUserLocked'].IsChecked)     { $statusFilter = "Locked" }
 
-    $searchBase = ""
-    if ($controls['CmbUserOUFilter'] -and $controls['CmbUserOUFilter'].SelectedItem -and $controls['CmbUserOUFilter'].SelectedIndex -gt 0) {
-        $selectedOUItem = $controls['CmbUserOUFilter'].SelectedItem
-        if ($selectedOUItem.Tag) {
-            $searchBase = $selectedOUItem.Tag
+        $searchBase = ""
+        if ($controls['CmbUserOUFilter'] -and $controls['CmbUserOUFilter'].SelectedItem -and $controls['CmbUserOUFilter'].SelectedIndex -gt 0) {
+            $selectedOUItem = $controls['CmbUserOUFilter'].SelectedItem
+            if ($selectedOUItem.Tag) {
+                $searchBase = $selectedOUItem.Tag
+            }
         }
-    }
 
-    $rawUsers = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
-    $users = @($rawUsers | ForEach-Object { $_ })
-    $state.CachedUsers = $users
-    if ([string]::IsNullOrWhiteSpace($searchText)) {
-        $state.AllScopeUsers = $users
-    }
+        $rawUsers = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
+        $users = @($rawUsers)
+        $state.CachedUsers = $users
+        if ([string]::IsNullOrWhiteSpace($searchText)) {
+            $state.AllScopeUsers = $users
+        }
 
-    $state.UsersPage = 1
-    Render-PagedUsers -SourceItems $users
+        $state.UsersPage = 1
+        Render-PagedUsers -SourceItems $users
 
-    $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
-        "$($users.Count) users displayed"
-    } else {
-        "$($users.Count) user(s) matching '$searchText'"
-    }
-
-    if ($controls['TxtUsersCountBadge']) {
-        $controls['TxtUsersCountBadge'].Text = $countMsg
-        $controls['TxtUsersCountBadge'].Foreground = if ($users.Count -gt 0) {
-            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+        $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
+            "$($users.Count) users displayed"
         } else {
-            [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+            "$($users.Count) user(s) matching '$searchText'"
         }
-    }
 
-    Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
+        if ($controls['TxtUsersCountBadge']) {
+            $controls['TxtUsersCountBadge'].Text = $countMsg
+            $controls['TxtUsersCountBadge'].Foreground = if ($users.Count -gt 0) {
+                [System.Windows.Media.BrushConverter]::new().ConvertFromString("#38BDF8")
+            } else {
+                [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F87171")
+            }
+        }
+
+        Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
+    }
 }
 
 Set-Alias -Name Filter-UsersLive -Value Select-UsersLive -Scope Global
-function Select-UsersLive {    $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
+function Select-UsersLive {
+    $query = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
     if ([string]::IsNullOrWhiteSpace($query)) {
         if ($state.AllScopeUsers) {
-            $allUsers = @($state.AllScopeUsers | ForEach-Object { $_ })
+            $allUsers = $state.AllScopeUsers
             $state.UsersPage = 1
             Render-PagedUsers -SourceItems $allUsers
             if ($controls['TxtUsersCountBadge']) {
@@ -5822,49 +5882,74 @@ function Select-UsersLive {    $query = if ($controls['TxtSearchUsers']) { $cont
     }
 
     $sourceList = if ($state.AllScopeUsers -and $state.AllScopeUsers.Count -gt 0) {
-        @($state.AllScopeUsers | ForEach-Object { $_ })
+        $state.AllScopeUsers
     } elseif ($state.CachedUsers) {
-        @($state.CachedUsers | ForEach-Object { $_ })
+        $state.CachedUsers
     } else {
         @()
     }
 
     $cleanQuery = $query.Trim()
     $asciiQuery = Remove-DiacriticsText $cleanQuery
-    $terms = @($cleanQuery)
+    $terms = [System.Collections.Generic.List[string]]::new()
+    $terms.Add($cleanQuery)
     if ($asciiQuery -and $asciiQuery -ne $cleanQuery) {
-        $terms += $asciiQuery
+        $terms.Add($asciiQuery)
     }
-    $words = $cleanQuery -split '\s+' | Where-Object { $_ }
+    $words = @($cleanQuery -split '\s+' | Where-Object { $_ })
+    $compOpt = [System.StringComparison]::OrdinalIgnoreCase
 
-    $filtered = @($sourceList | Where-Object {
+    $filtered = @($sourceList.Where({
         $u = $_
         $matched = $false
 
-        $composite = "$($u.DisplayName) $($u.GivenName) $($u.Surname) $($u.SamAccountName) $($u.Department) $($u.Title) $($u.Office) $($u.Description) $($u.Mail) $($u.Email) $($u.EmployeeID)"
-        $asciiComp = Remove-DiacriticsText $composite
-
+        # Fast direct attribute check
         foreach ($t in $terms) {
-            if ($composite -match [regex]::Escape($t) -or $asciiComp -match [regex]::Escape($t)) {
+            if (($u.SamAccountName -and $u.SamAccountName.IndexOf($t, $compOpt) -ge 0) -or
+                ($u.DisplayName -and $u.DisplayName.IndexOf($t, $compOpt) -ge 0) -or
+                ($u.Mail -and $u.Mail.IndexOf($t, $compOpt) -ge 0) -or
+                ($u.Email -and $u.Email.IndexOf($t, $compOpt) -ge 0)) {
                 $matched = $true
                 break
             }
         }
 
-        if (-not $matched -and $words.Count -ge 2) {
-            $allWords = $true
-            foreach ($w in $words) {
-                $wAscii = Remove-DiacriticsText $w
-                if ($composite -notmatch [regex]::Escape($w) -and $asciiComp -notmatch [regex]::Escape($wAscii)) {
-                    $allWords = $false
+        # Secondary composite string check
+        if (-not $matched) {
+            $composite = "$($u.DisplayName) $($u.GivenName) $($u.Surname) $($u.SamAccountName) $($u.Department) $($u.Title) $($u.Office) $($u.Description) $($u.Mail) $($u.Email) $($u.EmployeeID)"
+            foreach ($t in $terms) {
+                if ($composite.IndexOf($t, $compOpt) -ge 0) {
+                    $matched = $true
                     break
                 }
             }
-            if ($allWords) { $matched = $true }
+
+            # Diacritics fallback check if not yet matched
+            if (-not $matched -and ($asciiQuery -ne $cleanQuery -or $composite -match '[^\x00-\x7F]')) {
+                $asciiComp = Remove-DiacriticsText $composite
+                foreach ($t in $terms) {
+                    if ($asciiComp.IndexOf($t, $compOpt) -ge 0) {
+                        $matched = $true
+                        break
+                    }
+                }
+            }
+
+            # Multi-word match
+            if (-not $matched -and $words.Count -ge 2) {
+                $allWords = $true
+                foreach ($w in $words) {
+                    if ($composite.IndexOf($w, $compOpt) -lt 0) {
+                        $allWords = $false
+                        break
+                    }
+                }
+                if ($allWords) { $matched = $true }
+            }
         }
 
         $matched
-    })
+    }))
 
     $state.UsersPage = 1
     Render-PagedUsers -SourceItems $filtered
@@ -8538,10 +8623,13 @@ function Invoke-LdapSearchUI {
         $controls['CmbSearchScope'].SelectedItem.Content.ToString()
     } else { "Subtree" }
 
-    Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP search: Filter='$filter', Base='$baseDn', Scope='$scopeItem'"
-    Set-Status -Message "Executing LDAP filter search: $filter ..."
-    $controls['TxtSearchStatus'].Text = "Executing LDAP search on $scopeItem scope..."
-    $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000
+    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+    try {
+        Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP search: Filter='$filter', Base='$baseDn', Scope='$scopeItem'"
+        Set-Status -Message "Executing LDAP filter search: $filter ..."
+        if ($controls['TxtSearchStatus']) { $controls['TxtSearchStatus'].Text = "Executing LDAP search on $scopeItem scope..." }
+        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+        $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000
 
     if ($res.Success) {
         $rawResults = $res.Results
@@ -8650,6 +8738,9 @@ function Invoke-LdapSearchUI {
         Write-AppError -Category "Search" -Message "LDAP search failed: $($res.Error)"
         $controls['TxtSearchStatus'].Text = "Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP Search Failed: `n$($res.Error)", "Search Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
     }
 }
 
@@ -9041,13 +9132,16 @@ if ($controls['BtnClearSql']) {
 function Invoke-LdapSqlUI {
     $query = if ($controls['TxtSqlQuery']) { $controls['TxtSqlQuery'].Text.Trim() } else { "" }
     if ([string]::IsNullOrWhiteSpace($query)) {
-        $controls['TxtSqlStatus'].Text = "Please enter an LDAP SQL query."
+        if ($controls['TxtSqlStatus']) { $controls['TxtSqlStatus'].Text = "Please enter an LDAP SQL query." }
         return
     }
 
-    Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP-SQL query: '$query'"
-    $controls['TxtSqlStatus'].Text = "Parsing and executing SQL query..."
-    $res = Invoke-LdapSqlQuery -Query $query
+    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+    try {
+        Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP-SQL query: '$query'"
+        if ($controls['TxtSqlStatus']) { $controls['TxtSqlStatus'].Text = "Parsing and executing SQL query..." }
+        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+        $res = Invoke-LdapSqlQuery -Query $query
     if ($res.Success) {
         # Determine column list in the order specified by the user's SELECT statement
         $cols = [System.Collections.Generic.List[string]]::new()
@@ -9132,6 +9226,9 @@ function Invoke-LdapSqlUI {
         Write-AppError -Category "Search" -Message "LDAP-SQL query failed: $($res.Error)"
         $controls['TxtSqlStatus'].Text = "SQL Error: $($res.Error)"
         [System.Windows.MessageBox]::Show("LDAP SQL Execution Error: `n$($res.Error)", "SQL Query Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+    }
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
     }
 }
 
@@ -10768,37 +10865,44 @@ if ($controls['ListLdifRecords']) {
 
 #region 11. Security & Audit Reports Logic
 Set-Alias -Name Run-AuditReportsUI -Value Invoke-AuditReportsUI -Scope Global
-function Invoke-AuditReportsUI {    $catItem = if ($controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
-    $daysItem = if ($controls['CmbAuditDays'].SelectedItem) { [int]$controls['CmbAuditDays'].SelectedItem.Content.ToString() } else { 90 }
+function Invoke-AuditReportsUI {
+    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+    try {
+        $catItem = if ($controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
+        $daysItem = if ($controls['CmbAuditDays'].SelectedItem) { [int]$controls['CmbAuditDays'].SelectedItem.Content.ToString() } else { 90 }
 
-    $auditType = switch -Wildcard ($catItem) {
-        "*Inactive Users*"          { "InactiveUsers" }
-        "*Passwords Never Expire*"  { "PasswordsNeverExpire" }
-        "*Expiring Soon*"           { "PasswordExpiringSoon" }
-        "*Not Required*"            { "PasswordNotRequired" }
-        "*Locked Out*"              { "LockedOutUsers" }
-        "*Privileged*"              { "PrivilegedAccounts" }
-        "*Empty Groups*"            { "EmptyGroups" }
-        "*Unprotected OUs*"         { "UnprotectedOUs" }
-        "*Service Accounts*"        { "ServiceAccounts" }
-        "*Inactive Computers*"      { "InactiveComputers" }
-        "*Recently Created*"        { "RecentlyCreated" }
-        "*Incomplete*"              { "IncompleteProfiles" }
-        "*AdminCount*"              { "AdminCountAccounts" }
-        "*Password Settings*"       { "PasswordSettingsObjects" }
-        "*PSO*"                     { "PasswordSettingsObjects" }
-        default                     { "InactiveUsers" }
+        $auditType = switch -Wildcard ($catItem) {
+            "*Inactive Users*"          { "InactiveUsers" }
+            "*Passwords Never Expire*"  { "PasswordsNeverExpire" }
+            "*Expiring Soon*"           { "PasswordExpiringSoon" }
+            "*Not Required*"            { "PasswordNotRequired" }
+            "*Locked Out*"              { "LockedOutUsers" }
+            "*Privileged*"              { "PrivilegedAccounts" }
+            "*Empty Groups*"            { "EmptyGroups" }
+            "*Unprotected OUs*"         { "UnprotectedOUs" }
+            "*Service Accounts*"        { "ServiceAccounts" }
+            "*Inactive Computers*"      { "InactiveComputers" }
+            "*Recently Created*"        { "RecentlyCreated" }
+            "*Incomplete*"              { "IncompleteProfiles" }
+            "*AdminCount*"              { "AdminCountAccounts" }
+            "*Password Settings*"       { "PasswordSettingsObjects" }
+            "*PSO*"                     { "PasswordSettingsObjects" }
+            default                     { "InactiveUsers" }
+        }
+
+        Set-Status -Message "Running security audit: $catItem ($daysItem days threshold)..."
+        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+        $report = Get-ADSecurityAuditReport -AuditType $auditType -InactiveDays $daysItem
+        $state.CurrentAuditReport = $report
+
+        if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($report.Title) - $($report.Description)" }
+        if ($controls['TxtAuditCount']) { $controls['TxtAuditCount'].Text = "$($report.Count) Findings" }
+        if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = @($report.Findings) }
+
+        Set-Status -Message "Security audit finished. Found $($report.Count) item(s)." -Count "$($report.Count) findings"
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
     }
-
-    Set-Status -Message "Running security audit: $catItem ($daysItem days threshold)..."
-    $report = Get-ADSecurityAuditReport -AuditType $auditType -InactiveDays $daysItem
-    $state.CurrentAuditReport = $report
-
-    if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($report.Title) - $($report.Description)" }
-    if ($controls['TxtAuditCount']) { $controls['TxtAuditCount'].Text = "$($report.Count) Findings" }
-    if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = @($report.Findings) }
-
-    Set-Status -Message "Security audit finished. Found $($report.Count) item(s)." -Count "$($report.Count) findings"
 }
 
 if ($controls['BtnRunAudit'])       { $controls['BtnRunAudit'].Add_Click({ Run-AuditReportsUI }) }
@@ -12134,7 +12238,10 @@ function Invoke-ADConnectionsAutoDetect {
         [switch]$SortDescending
     )
 
+    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     Set-Status -Message "Auto-detecting Active Directory connections and probing ping latency..."
+    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+    try {
 
     if ([string]::IsNullOrWhiteSpace($TargetDomain)) {
         if ($controls['TxtDnsDiscoveryDomain'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
@@ -12147,7 +12254,7 @@ function Invoke-ADConnectionsAutoDetect {
             $cimErrBefore = $global:Error.Count
             try {
                 $TargetDomain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch { }
+            } catch {  =  }
             finally {
                 while ($global:Error.Count -gt $cimErrBefore) {
                     $global:Error.RemoveAt(0)
@@ -12380,6 +12487,9 @@ function Invoke-ADConnectionsAutoDetect {
 
     $dirMsg = if ($SortDescending) { "descending (slowest first)" } else { "ascending (fastest first)" }
     Set-Status -Message "Auto-detected $($sorted.Count) AD connection(s). Ordered by ping connection $dirMsg." -Count "$($sorted.Count) DCs"
+    } finally {
+        [System.Windows.Input.Mouse]::OverrideCursor = $null
+    }
 }
 
 function Sort-ADConnectionsByPing {

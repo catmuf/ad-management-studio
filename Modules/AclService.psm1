@@ -10,12 +10,14 @@
     effective permissions calculation, AdminSDHolder/SDProp auditing, and delegation analysis.
 #>
 
-# Ensure ActiveDirectory module is available
+# Ensure ActiveDirectory module is available if present
 if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
-    try {
-        Import-Module ActiveDirectory -ErrorAction SilentlyContinue
-    } catch {
-        $null = $_ # AD module may not be present in offline or non-domain environments
+    if ([System.IO.Directory]::Exists("$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules\ActiveDirectory")) {
+        try {
+            Import-Module ActiveDirectory -ErrorAction SilentlyContinue
+        } catch {
+            $null = $_ # AD module may not be present in offline or non-domain environments
+        }
     }
 }
 

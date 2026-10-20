@@ -38,23 +38,32 @@ function Remove-DiacriticsText {
     return $sb.ToString().Normalize([System.Text.NormalizationForm]::FormC)
 }
 
+$script:OuPathCache = [System.Collections.Concurrent.ConcurrentDictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
 function Convert-DNToOUPath {
     param ([string]$DistinguishedName)
     if ([string]::IsNullOrEmpty($DistinguishedName)) { return "" }
-    
+
+    $cached = $null
+    if ($script:OuPathCache.TryGetValue($DistinguishedName, [ref]$cached)) {
+        return $cached
+    }
+
     # Extract the parent OU part
     $parts = $DistinguishedName -split '(?<!\\),'
-    $ouParts = @()
+    $ouParts = [System.Collections.Generic.List[string]]::new()
     foreach ($p in $parts) {
         if ($p -match '^OU=(.*)$') {
-            $ouParts += $matches[1]
+            $ouParts.Add($matches[1])
         }
     }
+    $res = "Domain Root"
     if ($ouParts.Count -gt 0) {
-        [array]::Reverse($ouParts)
-        return $ouParts -join ' / '
+        $ouParts.Reverse()
+        $res = $ouParts -join ' / '
     }
-    return "Domain Root"
+    $script:OuPathCache[$DistinguishedName] = $res
+    return $res
 }
 
 function Format-ADUserRecord {
@@ -1303,6 +1312,9 @@ function Invoke-LdapQuery {
         $searcher.SearchScope = $Scope
         $searcher.PageSize = $PageSize
         $searcher.SizeLimit = $SizeLimit
+        $searcher.CacheResults = $false
+        $searcher.ClientTimeout = [System.TimeSpan]::FromSeconds(30)
+        $searcher.ServerTimeLimit = [System.TimeSpan]::FromSeconds(30)
 
         if ($ManageDsaIT) {
             # RFC 3296: Disable referral chasing to treat referral objects as standard directory entries
@@ -2980,7 +2992,7 @@ function Get-ADSecurityAuditReport {
     switch ($normalizedCategory) {
         "InactiveUsers" {
             $cutoff = (Get-Date).AddDays(-$Days)
-            $users = Get-ADUsersList
+            $users = Get-ADUsersList -Limit 1000
             foreach ($u in $users) {
                 $lastLog = $u.LastLogon
                 $isInactive = $false
@@ -4166,7 +4178,7 @@ function Find-ADDomainControllersViaDns {
             $cimErrBefore = $global:Error.Count
             try {
                 $Domain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch { }
+            } catch {  =  }
             finally {
                 while ($global:Error.Count -gt $cimErrBefore) {
                     $global:Error.RemoveAt(0)
@@ -4489,6 +4501,9 @@ function Get-ADDeletedObjects {
         $searcher.Tombstone = $true
         $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
         $searcher.PageSize = 250
+        $searcher.CacheResults = $false
+        $searcher.ClientTimeout = [System.TimeSpan]::FromSeconds(30)
+        $searcher.ServerTimeLimit = [System.TimeSpan]::FromSeconds(30)
         $searcher.PropertiesToLoad.AddRange(@('name', 'sAMAccountName', 'objectClass', 'lastKnownParent', 'whenChanged', 'distinguishedName', 'isDeleted'))
 
         if ($SearchFilter -and $SearchFilter -ne "*") {
@@ -5563,6 +5578,9 @@ function Get-ADVlvUsersList {
             $searcher.Filter = $Filter
             $searcher.PageSize = [Math]::Max(100, $PageSize * 2)
             $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+            $searcher.CacheResults = $false
+            $searcher.ClientTimeout = [System.TimeSpan]::FromSeconds(30)
+            $searcher.ServerTimeLimit = [System.TimeSpan]::FromSeconds(30)
             $sortDirection = if ($SortDescending) { [System.DirectoryServices.SortDirection]::Descending } else { [System.DirectoryServices.SortDirection]::Ascending }
             $searcher.Sort = New-Object System.DirectoryServices.SortOption($SortAttribute, $sortDirection)
             if ($PropertiesToLoad) { $searcher.PropertiesToLoad.AddRange($PropertiesToLoad) }

@@ -479,6 +479,8 @@
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
             <Setter Property="VirtualizingPanel.IsContainerVirtualizable" Value="True"/>
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
+            <Setter Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="True"/>
             <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
             <Setter Property="RowStyle">
                 <Setter.Value>
