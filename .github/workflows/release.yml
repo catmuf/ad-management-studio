@@ -1,13 +1,16 @@
-name: Publish GitHub Release
+name: Publish GitHub Releases
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
-  release:
-    name: Create GitHub Release
+  sync-all-releases:
+    name: Publish All Historical Releases
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -17,24 +20,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine Release Notes
-        id: release_notes
+      - name: Publish All 10 Releases to GitHub
         shell: bash
-        run: |
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          NOTES_FILE="docs/releases/${TAG_NAME}.md"
-          if [ -f "$NOTES_FILE" ]; then
-            echo "notes_path=$NOTES_FILE" >> $GITHUB_OUTPUT
-          else
-            echo "notes_path=CHANGELOG.md" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create GitHub Release with Full Changelog
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Active Directory Management Studio ${{ github.ref_name }} (Enterprise Edition)
-          body_path: ${{ steps.release_notes.outputs.notes_path }}
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSIONS=("v0.1.0" "v1.0.0" "v2.0.0" "v2.1.0" "v2.2.0" "v2.3.0" "v2.4.0" "v3.0.0" "v3.1.0" "v3.2.0")
+          
+          for TAG in "${VERSIONS[@]}"; do
+            echo "----------------------------------------------------"
+            echo "Processing GitHub Release for: $TAG"
+            echo "----------------------------------------------------"
+            
+            NOTES_FILE="docs/releases/${TAG}.md"
+            TITLE="Active Directory Management Studio ${TAG} (Enterprise Edition)"
+            
+            if [ ! -f "$NOTES_FILE" ]; then
+              NOTES_FILE="CHANGELOG.md"
+            fi
+            
+            EXTRA_FLAGS=""
+            if [ "$TAG" = "v0.1.0" ]; then
+              EXTRA_FLAGS="--prerelease"
+            elif [ "$TAG" = "v3.2.0" ]; then
+              EXTRA_FLAGS="--latest"
+            fi
+            
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release $TAG already exists on GitHub. Updating..."
+              gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE" $EXTRA_FLAGS
+            else
+              echo "Creating new release $TAG on GitHub..."
+              gh release create "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE" $EXTRA_FLAGS
+            fi
+            echo "Release $TAG successfully published!"
+          done
+          
+          echo "===================================================="
+          echo "All 10 GitHub Releases synchronized successfully!"
+          echo "===================================================="
