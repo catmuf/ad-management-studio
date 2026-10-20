@@ -1,0 +1,40 @@
+name: Publish GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Notes
+        id: release_notes
+        shell: bash
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          NOTES_FILE="docs/releases/${TAG_NAME}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "notes_path=$NOTES_FILE" >> $GITHUB_OUTPUT
+          else
+            echo "notes_path=CHANGELOG.md" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release with Full Changelog
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Active Directory Management Studio ${{ github.ref_name }} (Enterprise Edition)
+          body_path: ${{ steps.release_notes.outputs.notes_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

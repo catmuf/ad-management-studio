@@ -1,12 +1,14 @@
-﻿# Active Directory Management Studio
+﻿# Active Directory Management Studio (v3.2.0)
 ### Enterprise Directory Management, Softerra LDAP & NetTools Diagnostics Suite
 
 A modern, high-performance administration workbench built with **PowerShell & WPF/XAML** for managing Microsoft Active Directory and LDAP environments. Engineered for Systems Administrators, Security Engineers, and Directory Operators who require both daily standard administration and advanced low-level directory tooling.
 
+![Version](https://img.shields.io/badge/Version-v3.2.0%20Enterprise-success?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20Server%20%7C%20Windows%2010%2F11-blue?style=flat-square)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-blue?style=flat-square)
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green?style=flat-square)
 ![LDAP](https://img.shields.io/badge/LDAP-RFC%204511%20%7C%20RFC%202849-orange?style=flat-square)
+[![Changelog](https://img.shields.io/badge/Changelog-Release%20History-informational?style=flat-square)](CHANGELOG.md)
 [![Handbook](https://img.shields.io/badge/Manual-SysAdmin%20Handbook-purple?style=flat-square)](HANDBOOK.md)
 [![Walkthrough](https://img.shields.io/badge/Guide-Visual%20Walkthrough-blue?style=flat-square)](WALKTHROUGH.md)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange?style=flat-square)](https://github.com/catmuf/ad-management-studio/wiki)
@@ -147,7 +149,7 @@ The included automation CLI enables unattended administration, scheduled securit
 
 ```powershell
 # Run all 48 security hygiene audits and export an executive HTML report
-.\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "reports/audit-2026.html"
+.\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "reports/audit-report.html"
 
 # Execute an LDAP-SQL query and export results to CSV
 .\tools\ad-studio-cli.ps1 -QuerySql "SELECT sAMAccountName, mail, department FROM SUBTREE WHERE objectClass = 'user'" -OutCsv "users.csv"

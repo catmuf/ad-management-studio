@@ -207,7 +207,7 @@ function Show-CliBanner {
     if ($Quiet) { return }
     Write-Host @"
 ==============================================================================
-   Active Directory Management Studio - Automation CLI (v2026.1)
+   Active Directory Management Studio - Automation CLI (v3.2.0)
    Headless Directory Engine | Softerra LDAP & Apache Studio Equivalence
 ==============================================================================
 "@ -ForegroundColor Cyan

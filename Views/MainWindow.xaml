@@ -1,7 +1,7 @@
 ﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Active Directory Management Studio - SysAdmin Edition"
+    Title="Active Directory Management Studio v3.2.0 - SysAdmin Edition"
     Height="840" Width="1300"
     MinHeight="550" MinWidth="850"
     WindowStartupLocation="CenterScreen"
@@ -1095,7 +1095,7 @@
                     <TextBlock Text="⚡" FontSize="18" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
                         <TextBlock Text="Active Directory Studio" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
-                        <TextBlock Text="SysAdmin LDAP Suite 2026" FontSize="9.5" Foreground="#60A5FA"/>
+                        <TextBlock Text="SysAdmin LDAP Suite v3.2.0" FontSize="9.5" Foreground="#60A5FA"/>
                     </StackPanel>
 
                     <ComboBox Name="CmbActiveProfile" Style="{StaticResource ModernComboBox}" Width="145" Height="28" FontSize="11" Margin="0,0,6,0" ToolTip="Active Directory Connection Profile / Domain Controller">
@@ -2340,7 +2340,7 @@
                                 </Border>
                             </Grid>
 
-                            <!-- Row 5: Advanced Regular Expression Filter (Softerra LDAP Administrator 2026 Parity) -->
+                            <!-- Row 5: Advanced Regular Expression Filter (Softerra LDAP Administrator Parity) -->
                             <WrapPanel Grid.Row="4" Orientation="Horizontal">
                                 <CheckBox Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#E5E7EB" FontWeight="SemiBold"/>
 

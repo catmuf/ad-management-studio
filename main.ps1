@@ -8547,7 +8547,7 @@ function Invoke-LdapSearchUI {
         $rawResults = $res.Results
         $finalResults = $rawResults
 
-        # Advanced RegEx Filtering Suite (Softerra LDAP Administrator 2026 Parity)
+        # Advanced RegEx Filtering Suite (Softerra LDAP Administrator Parity)
         $isRegexEnabled = if ($controls['ChkUseRegexFilter']) { [bool]$controls['ChkUseRegexFilter'].IsChecked } else { $false }
         $regexPattern = if ($controls['TxtRegexPattern']) { $controls['TxtRegexPattern'].Text.Trim() } else { "" }
 
@@ -15581,7 +15581,7 @@ Active Directory & LDAP Enterprise Administrator Suite
 Version 3.2.0 (Enterprise Edition)
 
 Key Capabilities:
-• Complete feature parity with Softerra LDAP Administrator 2026 & Apache Directory Studio
+• Complete feature parity with Softerra LDAP Administrator & Apache Directory Studio
 • Integrated NetTools 16-module diagnostic suite (Trusts, Replication, Kerberos, ACLs)
 • Native Windows Horizontal Menu Bar (11 top-level menus, multi-level depth, live checkmarks)
 • Extended LDAP-SQL Grammar (MODDN, COPY, CURRENT_DATE +/- INTERVAL, CONCAT)

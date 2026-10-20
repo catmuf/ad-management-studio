@@ -1,8 +1,8 @@
-# Active Directory Management Studio
+﻿# Active Directory Management Studio (v3.2.0 Enterprise)
 ## Enterprise SysAdmin Handbook & Operator Manual
 ### Complete Operational Reference Guide for Active Directory & LDAP Infrastructure
 
-[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md)
+[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md) | [📋 Changelog](CHANGELOG.md)
 
 ---
 

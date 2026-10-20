@@ -1,8 +1,8 @@
-# Active Directory Management Studio
+﻿# Active Directory Management Studio (v3.2.0 Enterprise)
 ## Step-by-Step Operator Walkthrough & Visual User Guide
 ### Real-World Scenarios, Identity Workflows & Diagnostic Demonstrations
 
-[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md)
+[📖 SysAdmin Handbook](HANDBOOK.md) | [🚀 Visual Operator Walkthrough](WALKTHROUGH.md) | [📁 Project README](README.md) | [📋 Changelog](CHANGELOG.md)
 
 ---
 
