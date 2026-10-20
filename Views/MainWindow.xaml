@@ -876,7 +876,7 @@
                 <MenuItem Name="MenuEditPaste" Header="📋 Paste Object / Attributes" InputGestureText="Ctrl+V"/>
                 <Separator/>
                 <MenuItem Header="🛒 Directory _Basket">
-                    <MenuItem Name="MenuEditBasketAdd" Header="🛒 Add Selected to Basket" InputGestureText="Ctrl+B"/>
+                    <MenuItem Name="MenuEditBasketAdd" Header="🛒 Add Selected to Basket" InputGestureText="Ctrl+Shift+B"/>
                     <MenuItem Name="MenuEditBasketView" Header="👁️ View Basket Workspace"/>
                     <MenuItem Name="MenuEditBasketToLdif" Header="📜 Generate Batch LDIF Script"/>
                     <MenuItem Name="MenuEditBasketClear" Header="🗑️ Clear Directory Basket"/>
@@ -892,6 +892,7 @@
                     <MenuItem Name="MenuThemeLight" Header="☀️ Light Mode (Clean Slate &amp; Polar White)" IsCheckable="True"/>
                 </MenuItem>
                 <Separator/>
+                <MenuItem Name="MenuViewToggleSidebar" Header="📑 Toggle Side_bar Menu" InputGestureText="Ctrl+B" IsCheckable="True" IsChecked="True"/>
                 <MenuItem Name="MenuViewRefresh" Header="🔄 _Refresh Active View" InputGestureText="F5"/>
                 <MenuItem Name="MenuViewShowOperational" Header="👁️ Show Operational Attributes" IsCheckable="True"/>
                 <Separator/>
@@ -1092,6 +1093,10 @@
 
                 <!-- Left: Branding & Profile Selector with Navigation History -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Toggle Sidebar Button (Ctrl+B) -->
+                    <Button Name="BtnToggleSidebar" Style="{StaticResource ModernButton}" Width="28" Height="28" Padding="0" Margin="0,0,6,0" ToolTip="Toggle Sidebar Menu (Ctrl+B)">
+                        <TextBlock Name="TxtToggleSidebarIcon" Text="☰" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
                     <Button Name="BtnNavBack" Style="{StaticResource ModernButton}" Width="26" Height="26" Padding="0" Content="◀" Margin="0,0,3,0" ToolTip="Navigate Back (Alt+Left)" IsEnabled="False"/>
                     <Button Name="BtnNavForward" Style="{StaticResource ModernButton}" Width="26" Height="26" Padding="0" Content="▶" Margin="0,0,8,0" ToolTip="Navigate Forward (Alt+Right)" IsEnabled="False"/>
                     <TextBlock Text="⚡" FontSize="18" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -1218,7 +1223,7 @@
         <!-- MAIN BODY -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="180"/> <!-- Sidebar -->
+                <ColumnDefinition Name="ColSidebar" Width="220" MinWidth="180"/> <!-- Sidebar -->
                 <ColumnDefinition Width="*"/>   <!-- Viewport -->
             </Grid.ColumnDefinitions>
 
@@ -1226,8 +1231,13 @@
             <Border Name="PrimarySidebar" Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,8,0,12">
-                        <!-- Group 1: DIRECTORY SERVICES -->
-                        <TextBlock Text="DIRECTORY SERVICES" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="14,10,14,4"/>
+                        <!-- Group 1: DIRECTORY SERVICES Header with Collapse Button -->
+                        <Grid Margin="14,10,10,4">
+                            <TextBlock Text="DIRECTORY SERVICES" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                            <Button Name="BtnCollapseSidebar" Style="{StaticResource ModernButton}" Width="20" Height="20" Padding="0" HorizontalAlignment="Right" ToolTip="Hide Sidebar Menu (Ctrl+B)">
+                                <TextBlock Text="◀" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
                         <RadioButton Name="NavDashboard" Style="{StaticResource NavTabButton}" IsChecked="True">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📊" Margin="0,0,8,0"/>

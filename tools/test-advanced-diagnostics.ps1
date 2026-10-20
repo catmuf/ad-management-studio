@@ -759,6 +759,25 @@ try {
         $controls['BtnWorkspaceDockAll'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     }
 
+    Assert-ControlAction "BtnToggleSidebar" "Toggle sidebar menu hide and appear" {
+        if ($controls['BtnToggleSidebar']) {
+            $controls['BtnToggleSidebar'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+            $controls['BtnToggleSidebar'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    }
+
+    Assert-ControlAction "BtnCollapseSidebar" "Collapse sidebar menu via internal button" {
+        if ($controls['BtnCollapseSidebar']) {
+            $controls['BtnCollapseSidebar'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    }
+
+    Assert-ControlAction "MenuViewToggleSidebar" "Toggle sidebar menu via View menu" {
+        if ($controls['MenuViewToggleSidebar']) {
+            $controls['MenuViewToggleSidebar'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+        }
+    }
+
     # Clean up temporary test files
     if (Test-Path $tempExportCsv) { Remove-Item $tempExportCsv -Force -ErrorAction SilentlyContinue }
     if (Test-Path $tempImportCsv) { Remove-Item $tempImportCsv -Force -ErrorAction SilentlyContinue }

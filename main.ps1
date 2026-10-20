@@ -306,6 +306,7 @@ $state = [PSCustomObject]@{
     CurrentHtmlTemplate    = "Technical"
     CurrentHtmlRaw         = ""
     CurrentTheme           = if ($appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Dark" }
+    SidebarVisible         = if ($null -ne $appConfig.UI.SidebarVisible) { [bool]$appConfig.UI.SidebarVisible } else { $true }
     WorkspaceMode          = if ($appConfig.UI.WorkspaceMode) { $appConfig.UI.WorkspaceMode } else { "Tabs" }
     AllowMultiWindow       = if ($null -ne $appConfig.UI.AllowMultiWindow) { $appConfig.UI.AllowMultiWindow } else { $true }
     RestoreTabsOnStartup   = if ($null -ne $appConfig.UI.RestoreTabsOnStartup) { $appConfig.UI.RestoreTabsOnStartup } else { $true }
@@ -4999,6 +5000,48 @@ if ($controls['NavKerberosSuite'])      { $controls['NavKerberosSuite'].Add_Chec
 if ($controls['NavReplicationSuite'])   { $controls['NavReplicationSuite'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "ReplicationSuite"; Refresh-ReplicationTopology } }) }
 if ($controls['NavDiagnosticsToolbox']) { $controls['NavDiagnosticsToolbox'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "DiagnosticsToolbox" } }) }
 if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].Add_Checked({ if (-not $state.IsSelectingTab) { Show-Panel "NetworkDiagnostics"; Init-NetworkDiagnosticsUI } }) }
+#endregion
+
+#region Sidebar Visibility & Toggle Engine
+Set-Alias -Name Toggle-SidebarMenu -Value Toggle-SidebarVisibility -Scope Global
+function Set-SidebarVisibility {
+    param ([bool]$Visible)
+    $state.SidebarVisible = $Visible
+    if ($controls['ColSidebar']) {
+        if ($Visible) {
+            $controls['ColSidebar'].MinWidth = 180
+            $controls['ColSidebar'].Width = [System.Windows.GridLength]::new(220)
+        } else {
+            $controls['ColSidebar'].MinWidth = 0
+            $controls['ColSidebar'].Width = [System.Windows.GridLength]::new(0)
+        }
+    }
+    if ($controls['PrimarySidebar']) {
+        $controls['PrimarySidebar'].Visibility = if ($Visible) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    }
+    if ($controls['MenuViewToggleSidebar']) {
+        $controls['MenuViewToggleSidebar'].IsChecked = $Visible
+    }
+    if ($controls['BtnToggleSidebar']) {
+        $controls['BtnToggleSidebar'].ToolTip = if ($Visible) { "Hide Sidebar Menu (Ctrl+B)" } else { "Show Sidebar Menu (Ctrl+B)" }
+    }
+    $statusText = if ($Visible) { "Sidebar menu displayed." } else { "Sidebar menu hidden." }
+    Set-Status -Message $statusText
+}
+
+function Toggle-SidebarVisibility {
+    $currentVisible = if ($controls['PrimarySidebar']) {
+        $controls['PrimarySidebar'].Visibility -eq [System.Windows.Visibility]::Visible
+    } else { $true }
+    Set-SidebarVisibility -Visible (-not $currentVisible)
+}
+
+if ($controls['BtnToggleSidebar']) {
+    $controls['BtnToggleSidebar'].Add_Click({ Toggle-SidebarVisibility })
+}
+if ($controls['BtnCollapseSidebar']) {
+    $controls['BtnCollapseSidebar'].Add_Click({ Set-SidebarVisibility -Visible $false })
+}
 #endregion
 
 #region 1. Dashboard Functions
@@ -15544,6 +15587,9 @@ function Update-MenuSettingsState {
     if ($controls['MenuThemeDark'])  { $controls['MenuThemeDark'].IsChecked = $isDark }
     if ($controls['MenuThemeLight']) { $controls['MenuThemeLight'].IsChecked = (-not $isDark) }
 
+    $isSidebarVisible = if ($controls['PrimarySidebar']) { $controls['PrimarySidebar'].Visibility -eq [System.Windows.Visibility]::Visible } else { $true }
+    if ($controls['MenuViewToggleSidebar']) { $controls['MenuViewToggleSidebar'].IsChecked = $isSidebarVisible }
+
     $showOp = if ($controls['ChkShowOperationalAttributes']) { [bool]$controls['ChkShowOperationalAttributes'].IsChecked } else { $false }
     if ($controls['MenuViewShowOperational']) { $controls['MenuViewShowOperational'].IsChecked = $showOp }
 
@@ -15864,6 +15910,9 @@ function Initialize-HorizontalMenuBar {
     }
     if ($controls['MenuThemeLight']) {
         $controls['MenuThemeLight'].Add_Click({ Set-ApplicationTheme -Theme "Light" -SavePreference; Update-MenuSettingsState })
+    }
+    if ($controls['MenuViewToggleSidebar']) {
+        $controls['MenuViewToggleSidebar'].Add_Click({ Toggle-SidebarVisibility })
     }
     if ($controls['MenuViewRefresh']) {
         $controls['MenuViewRefresh'].Add_Click({
@@ -16277,6 +16326,23 @@ $window.Add_SizeChanged({
 $window.Add_KeyDown({
     param($src, $e)
     $null = $src
+    # Ctrl+B: Toggle Sidebar Menu
+    if ($e.Key -eq [System.Windows.Input.Key]::B -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and -not ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        Toggle-SidebarVisibility
+        $e.Handled = $true
+    }
+    # Ctrl+Shift+B: Add to Directory Basket
+    if ($e.Key -eq [System.Windows.Input.Key]::B -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        if ($controls['MenuEditBasketAdd']) {
+            $controls['MenuEditBasketAdd'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.MenuItem]::ClickEvent))
+            $e.Handled = $true
+        }
+    }
+    # Ctrl+\: Toggle Sidebar Menu (alternative shortcut)
+    if ($e.Key -eq [System.Windows.Input.Key]::Oem5 -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
+        Toggle-SidebarVisibility
+        $e.Handled = $true
+    }
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
         Set-ApplicationTheme -Theme $newTheme -SavePreference

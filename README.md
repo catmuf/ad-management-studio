@@ -98,9 +98,9 @@ Active Directory Management Studio features a native Windows menu bar organized 
 | :--- | :--- | :--- | :--- |
 | **File** | New Object (User, Group, OU, Computer, Contact), Connect Profile, Data Interchange (Export Subtree, Import LDIF, CSV, DSML), Print Dossier, Exit | `Ctrl+N`, `Ctrl+P`, `Ctrl+E`, `Ctrl+Shift+P`, `Alt+F4` | Primary lifecycle commands, connection switching, and directory data interchange. |
 | **Edit** | Quick Search (Omnibar), Specialized Attribute Editor, Specialized Edit Value, Reset User Password, Toggle Enable/Disable, Delete Object, Clear Selection | `Ctrl+K`, `Ctrl+I`, `Ctrl+Shift+E`, `Ctrl+Shift+R`, `Delete` | Object property editing, credential resets, and omnibar search activation. |
-| **View** | Active Theme (Light / Dark mode live checkmarks), Search Page Size (100, 250, 500, 1000 entries), Show Operational Attributes, Auto-Refresh Interval, Toggle Full Screen | `Ctrl+T`, `F11` | Visual theme customizer, DataGrid page density, and display preferences. |
+| **View** | Active Theme (Light / Dark mode live checkmarks), Toggle Sidebar Menu (hide/show), Search Page Size (100, 250, 500, 1000 entries), Show Operational Attributes, Auto-Refresh Interval, Toggle Full Screen | `Ctrl+T`, `Ctrl+B`, `F11` | Visual theme customizer, sidebar navigation drawer toggle, DataGrid page density, and display preferences. |
 | **Directory** | Users, Groups, Computers, Organizational Units, Recycle Bin & Tombstones, Raw Attribute Editor, In-App HTML Technical Dossier | `Ctrl+1`, `Ctrl+2`, `Ctrl+3`, `Ctrl+4`, `Ctrl+5` | Fast direct switching between core Active Directory object management views. |
-| **Search** | Visual LDAP Search & SCIM Studio, Extended LDAP-SQL Console, Directory Staging Basket, Saved LDAP Searches & Bookmarks | `Ctrl+F`, `Ctrl+Q`, `Ctrl+B` | Query engines, visual filter building, and cross-OU staging cart. |
+| **Search** | Visual LDAP Search & SCIM Studio, Extended LDAP-SQL Console, Directory Staging Basket, Saved LDAP Searches & Bookmarks | `Ctrl+F`, `Ctrl+Q`, `Ctrl+Shift+B` | Query engines, visual filter building, and cross-OU staging cart. |
 | **Security** | Access Control & ACL Suite, Kerberos PAC & Token Bloat Evaluator, 48 Enterprise Security Reports, AdminSDHolder Orphan Auditor | `Ctrl+Shift+A`, `Ctrl+Shift+K`, `Ctrl+Shift+U` | Authorization analysis, token sizing, and automated hygiene audits. |
 | **Replication** | Multi-DC Last Logon Timeline, AD Replication Topology & USN, Subnet Overlaps & Boundaries, GPO GPT.ini Consistency Check | `Ctrl+Shift+M`, `Ctrl+Shift+T` | Multi-controller logon auditing, replication health, and boundary scanning. |
 | **Diagnostics** | Circular Group Loop Detector, NetTools 7-Tier UNC Verifier, DC Port Latency Matrix, Resolver Scratchpad, Quick Lockout Investigator | `Ctrl+R`, `Ctrl+L` | Network and infrastructure troubleshooting, loop breaking, and entity resolution. |
@@ -117,7 +117,7 @@ Active Directory Management Studio features a native Windows menu bar organized 
   │ Ctrl+K       Open Omnibar      │ Ctrl+1..5    Core Workspaces (Users..)│
   │ Ctrl+P       Connect Profile   │ Ctrl+F       Visual Directory Search  │
   │ Ctrl+N       New User Account  │ Ctrl+Q       LDAP-SQL Query Console   │
-  │ Ctrl+E       Export Subtree    │ Ctrl+B       Directory Staging Basket │
+  │ Ctrl+E       Export Subtree    │ Ctrl+B       Toggle Sidebar Menu      │
   │ Ctrl+R       Resolver Notepad  │ Ctrl+T       Toggle Light/Dark Theme  │
   │ Ctrl+L       Lockout Inspector │ F5           Refresh / Execute Query  │
   │ Ctrl+Shift+D Detach Workspace  │ F11          Toggle Full Screen       │
