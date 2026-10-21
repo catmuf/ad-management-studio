@@ -233,6 +233,8 @@ if (-not $controls['BtnExportSqlResults'] -and $controls['BtnSqlExportCsv']) { $
 if (-not $controls['BtnEditAttribute'] -and $controls['BtnEditAttrValue']) { $controls['BtnEditAttribute'] = $controls['BtnEditAttrValue'] }
 if (-not $controls['BtnDeleteAttribute'] -and $controls['BtnClearAttrValue']) { $controls['BtnDeleteAttribute'] = $controls['BtnClearAttrValue'] }
 if (-not $controls['BtnRefreshOUs'] -and $controls['BtnRefreshOUObjects']) { $controls['BtnRefreshOUs'] = $controls['BtnRefreshOUObjects'] }
+if (-not $controls['TxtDnsDiscoveryDomain'] -and $controls['TxtSearchConnections']) { $controls['TxtDnsDiscoveryDomain'] = $controls['TxtSearchConnections'] }
+if (-not $controls['TxtSearchConnections'] -and $controls['TxtDnsDiscoveryDomain']) { $controls['TxtSearchConnections'] = $controls['TxtDnsDiscoveryDomain'] }
 
 # Panels 13 - 25 Diagnostics & Navigation Aliases
 if (-not $controls['ListSchemaClasses'] -and $controls['RadioSchemaClasses']) { $controls['ListSchemaClasses'] = $controls['RadioSchemaClasses'] }
@@ -12170,8 +12172,10 @@ function Open-ConnectionDialog {
 
 Set-Alias -Name Refresh-Connections -Value Update-Connections -Scope Global
 function Update-Connections {
-    if ($controls['TxtDnsDiscoveryDomain'] -and [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
-        $controls['TxtDnsDiscoveryDomain'].Text = if ($adContext.DomainName) { $adContext.DomainName } else { "" }
+    $connSearchTxt = if ($controls['TxtSearchConnections']) { $controls['TxtSearchConnections'] } else { $controls['TxtDnsDiscoveryDomain'] }
+    if ($connSearchTxt -and [string]::IsNullOrWhiteSpace($connSearchTxt.Text)) {
+        # Keep search box clean and prompt with placeholder
+        if ($controls['TxtSearchConnectionsPlaceholder']) { $controls['TxtSearchConnectionsPlaceholder'].Visibility = [System.Windows.Visibility]::Visible }
     }
 
     if ($controls['ListProfiles']) {
@@ -12521,6 +12525,13 @@ function Invoke-ADConnectionsAutoDetect {
         if ($itemsList.Count -gt 0) {
             $controls['GridActiveConnections'].SelectedIndex = 0
         }
+        if ($controls['GridActiveConnections'].Columns.Count -gt 6) {
+            $controls['GridActiveConnections'].Columns[6].SortDirection = if ($SortDescending) {
+                [System.ComponentModel.ListSortDirection]::Descending
+            } else {
+                [System.ComponentModel.ListSortDirection]::Ascending
+            }
+        }
     }
 
     if ($controls['GridDnsDiscoveredDCs']) {
@@ -12551,6 +12562,13 @@ function Sort-ADConnectionsByPing {
             if ($itemsList.Count -gt 0) {
                 $controls['GridActiveConnections'].SelectedIndex = 0
             }
+            if ($controls['GridActiveConnections'].Columns.Count -gt 6) {
+                $controls['GridActiveConnections'].Columns[6].SortDirection = if ($Descending) {
+                    [System.ComponentModel.ListSortDirection]::Descending
+                } else {
+                    [System.ComponentModel.ListSortDirection]::Ascending
+                }
+            }
         }
         $dirStr = if ($Descending) { "descending (slowest first)" } else { "ascending (fastest first)" }
         Set-Status -Message "Connections sorted by ping latency $dirStr."
@@ -12561,12 +12579,6 @@ function Sort-ADConnectionsByPing {
 
 if ($controls['BtnAutoDetectConnections']) {
     $controls['BtnAutoDetectConnections'].Add_Click({ Invoke-ADConnectionsAutoDetect })
-}
-if ($controls['BtnSortPingAsc']) {
-    $controls['BtnSortPingAsc'].Add_Click({ Sort-ADConnectionsByPing })
-}
-if ($controls['BtnSortPingDesc']) {
-    $controls['BtnSortPingDesc'].Add_Click({ Sort-ADConnectionsByPing -Descending })
 }
 if ($controls['BtnNewProfile'])    { $controls['BtnNewProfile'].Add_Click({ Open-ConnectionDialog }) }
 if ($controls['BtnRunDiagFull'])   { $controls['BtnRunDiagFull'].Add_Click({ Run-ConnectionDiagnostics }) }
@@ -12666,10 +12678,85 @@ if ($controls['GridActiveConnections']) {
     })
 }
 
+#region Active Directory Connections Search & Filter Engine
+function Filter-ConnectionsList {
+    param([string]$Query)
+    if (-not $controls['GridActiveConnections']) { return }
+    if (-not $state.AutoDetectedConnections) { return }
+
+    if ([string]::IsNullOrWhiteSpace($Query)) {
+        $controls['GridActiveConnections'].ItemsSource = $null
+        $controls['GridActiveConnections'].ItemsSource = $state.AutoDetectedConnections
+        if ($state.AutoDetectedConnections.Count -gt 0) {
+            $controls['GridActiveConnections'].SelectedIndex = 0
+        }
+        Set-Status -Message "Showing all $($state.AutoDetectedConnections.Count) connection(s)."
+        return
+    }
+
+    $q = $Query.Trim().ToLowerInvariant()
+    $filtered = [System.Collections.ArrayList]::new()
+    foreach ($item in $state.AutoDetectedConnections) {
+        $match = ($item.HostName -and $item.HostName.ToLowerInvariant().Contains($q)) -or `
+                 ($item.Domain -and $item.Domain.ToLowerInvariant().Contains($q)) -or `
+                 ($item.Role -and $item.Role.ToLowerInvariant().Contains($q)) -or `
+                 ($item.IPAddress -and $item.IPAddress.ToLowerInvariant().Contains($q)) -or `
+                 ($item.Source -and $item.Source.ToLowerInvariant().Contains($q)) -or `
+                 ($item.Mode -and $item.Mode.ToLowerInvariant().Contains($q)) -or `
+                 ($item.Status -and $item.Status.ToLowerInvariant().Contains($q)) -or `
+                 ($item.PingDisplay -and $item.PingDisplay.ToLowerInvariant().Contains($q))
+        if ($match) { [void]$filtered.Add($item) }
+    }
+    $controls['GridActiveConnections'].ItemsSource = $null
+    $controls['GridActiveConnections'].ItemsSource = $filtered
+    if ($filtered.Count -gt 0) {
+        $controls['GridActiveConnections'].SelectedIndex = 0
+    }
+    Set-Status -Message "Filtered $($filtered.Count) of $($state.AutoDetectedConnections.Count) connection(s) matching '$Query'."
+}
+
+if ($controls['TxtSearchConnections']) {
+    $controls['TxtSearchConnections'].Add_TextChanged({
+        $txt = [string]$controls['TxtSearchConnections'].Text
+        $hasText = -not [string]::IsNullOrEmpty($txt)
+        if ($controls['TxtSearchConnectionsPlaceholder']) {
+            $controls['TxtSearchConnectionsPlaceholder'].Visibility = if ($hasText) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
+        }
+        if ($controls['BtnClearSearchConnections']) {
+            $controls['BtnClearSearchConnections'].Visibility = if ($hasText) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        }
+        Filter-ConnectionsList -Query $txt
+    })
+
+    $controls['TxtSearchConnections'].Add_KeyDown({
+        param($src, $e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
+            $e.Handled = $true
+            $q = [string]$controls['TxtSearchConnections'].Text.Trim()
+            if (-not [string]::IsNullOrEmpty($q) -and $controls['GridActiveConnections'].Items.Count -eq 0 -and $controls['BtnRunDnsDiscovery']) {
+                $controls['BtnRunDnsDiscovery'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+            }
+        }
+    })
+}
+
+if ($controls['BtnClearSearchConnections']) {
+    $controls['BtnClearSearchConnections'].Add_Click({
+        if ($controls['TxtSearchConnections']) {
+            $controls['TxtSearchConnections'].Text = ""
+            Filter-ConnectionsList -Query ""
+            $controls['TxtSearchConnections'].Focus()
+        }
+    })
+}
+#endregion
+
 # Auto-Discovery Domain Query Button
 if ($controls['BtnRunDnsDiscovery']) {
     $controls['BtnRunDnsDiscovery'].Add_Click({
-        $domain = if ($controls['TxtDnsDiscoveryDomain'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
+        $domain = if ($controls['TxtSearchConnections'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtSearchConnections'].Text)) {
+            $controls['TxtSearchConnections'].Text.Trim()
+        } elseif ($controls['TxtDnsDiscoveryDomain'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtDnsDiscoveryDomain'].Text)) {
             $controls['TxtDnsDiscoveryDomain'].Text.Trim()
         } elseif ($adContext.DomainName) {
             $adContext.DomainName

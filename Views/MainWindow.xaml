@@ -530,6 +530,19 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ColumnHeaderGripperStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="SizeWE"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="{DynamicResource DataGridHeaderBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource DataGridHeaderFg}"/>
@@ -538,7 +551,40 @@
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="Cursor" Value="Arrow"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <Grid HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="Center"/>
+                                    <Path x:Name="SortArrow" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,2,0" Fill="{DynamicResource AccentPrimary}" Visibility="Collapsed" Data="M 0 5 L 4 0 L 8 5 Z" Stretch="Uniform" Width="8" Height="6"/>
+                                </Grid>
+                            </Border>
+                            <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Style="{StaticResource ColumnHeaderGripperStyle}"/>
+                            <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Style="{StaticResource ColumnHeaderGripperStyle}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="SortDirection" Value="Ascending">
+                                <Setter TargetName="SortArrow" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="SortArrow" Property="Data" Value="M 0 5 L 4 0 L 8 5 Z"/>
+                            </Trigger>
+                            <Trigger Property="SortDirection" Value="Descending">
+                                <Setter TargetName="SortArrow" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="SortArrow" Property="Data" Value="M 0 0 L 4 5 L 8 0 Z"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource NavHoverBg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="DataGridRow">
@@ -3122,8 +3168,6 @@
 
                                     <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Button Name="BtnAutoDetectConnections" Style="{StaticResource PrimaryButton}" Content="⚡ Auto-Detect Connections" Margin="0,0,6,6" ToolTip="Query domain controllers via AD DS and DNS SRV, measure ping latency, and order by speed"/>
-                                        <Button Name="BtnSortPingAsc" Style="{StaticResource ModernButton}" Content="📶 Ping ⬆️ (Fastest)" Margin="0,0,6,6" ToolTip="Sort connections by ping latency ascending (lowest ms first)"/>
-                                        <Button Name="BtnSortPingDesc" Style="{StaticResource ModernButton}" Content="📶 Ping ⬇️ (Slowest)" Margin="0,0,6,6" ToolTip="Sort connections by ping latency descending (highest ms first)"/>
                                         <Button Name="BtnNewProfile" Style="{StaticResource ModernButton}" Content="➕ Add Profile" Margin="0,0,6,6"/>
                                         <Button Name="BtnTestConnection" Style="{StaticResource ModernButton}" Content="📡 Test Connection" Margin="0,0,6,6"/>
                                         <Button Name="BtnRunDiagFull" Style="{StaticResource ModernButton}" Content="🔍 Full Diagnostics" Margin="0,0,0,6"/>
@@ -3144,23 +3188,29 @@
                                             <TextBlock Text="Directly detected Active Directory servers, DNS SRV records, and configured profiles with real-time ping latency." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBox Name="TxtDnsDiscoveryDomain" Style="{StaticResource ModernTextBox}" Width="160" Height="28" Margin="0,0,6,0" ToolTip="Domain to query and auto-detect connections for"/>
-                                            <Button Name="BtnRunDnsDiscovery" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Detect Domain" Margin="0,0,6,0" ToolTip="Discover infrastructure for specified domain"/>
+                                            <!-- Live Search & Domain Discovery Box for Active AD Connections & DCs -->
+                                            <Grid Width="240" Height="28" Margin="0,0,6,0">
+                                                <TextBox Name="TxtSearchConnections" Style="{StaticResource ModernTextBox}" Padding="26,4,24,4" ToolTip="Search connections (filter by host, domain, role, IP, status) or enter domain to discover"/>
+                                                <TextBlock Name="TxtSearchConnectionsIcon" Text="🔍" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" IsHitTestVisible="False"/>
+                                                <TextBlock Name="TxtSearchConnectionsPlaceholder" Text="Search connections &amp; DCs..." FontSize="12" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="28,0,0,0" IsHitTestVisible="False"/>
+                                                <Button Name="BtnClearSearchConnections" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
+                                            </Grid>
+                                            <Button Name="BtnRunDnsDiscovery" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Detect Domain" Margin="0,0,6,0" ToolTip="Discover infrastructure and domain controllers for specified domain"/>
                                             <Button Name="BtnConnectDiscoveredDC" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Connect Selected" ToolTip="Switch active connection to selected Domain Controller or profile"/>
                                         </WrapPanel>
                                     </Grid>
 
                                     <DataGrid Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="170" MaxHeight="270" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" Width="95"/>
-                                            <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" Width="190"/>
-                                            <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" Width="130"/>
-                                            <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="150"/>
-                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="120"/>
-                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" Width="65"/>
+                                            <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" SortMemberPath="StatusBadge" Width="95"/>
+                                            <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" SortMemberPath="HostName" Width="190"/>
+                                            <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" SortMemberPath="Domain" Width="130"/>
+                                            <DataGridTextColumn Header="Role" Binding="{Binding Role}" SortMemberPath="Role" Width="150"/>
+                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" SortMemberPath="IPAddress" Width="120"/>
+                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" SortMemberPath="Port" Width="65"/>
                                             <DataGridTextColumn Header="Ping Connection (ms)" Binding="{Binding PingDisplay}" SortMemberPath="PingMs" Width="145"/>
-                                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="95"/>
-                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" Width="*"/>
+                                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" SortMemberPath="Mode" Width="95"/>
+                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" SortMemberPath="Source" Width="*"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
 

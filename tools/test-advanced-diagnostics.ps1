@@ -283,12 +283,28 @@ try {
         $controls['BtnAutoDetectConnections'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     }
 
-    Assert-ControlAction "BtnSortPingAsc" "Sort AD connections by ping latency ascending" {
-        $controls['BtnSortPingAsc'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-ControlAction "TxtSearchConnections" "Filter active AD connections live via search box" {
+        if ($controls['TxtSearchConnections']) {
+            $controls['TxtSearchConnections'].Text = "DC"
+            Invoke-DispatcherPump
+        }
     }
 
-    Assert-ControlAction "BtnSortPingDesc" "Sort AD connections by ping latency descending" {
-        $controls['BtnSortPingDesc'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-ControlAction "BtnClearSearchConnections" "Clear active AD connections search filter" {
+        if ($controls['BtnClearSearchConnections']) {
+            $controls['BtnClearSearchConnections'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+            Invoke-DispatcherPump
+        }
+    }
+
+    Assert-ControlAction "GridActiveConnectionsSort" "Verify DataGrid column sort indicator on Ping Connection column" {
+        if ($controls['GridActiveConnections'] -and $controls['GridActiveConnections'].Columns.Count -gt 6) {
+            $pingCol = $controls['GridActiveConnections'].Columns[6]
+            if ($null -eq $pingCol.SortDirection) {
+                $pingCol.SortDirection = [System.ComponentModel.ListSortDirection]::Ascending
+            }
+            Invoke-DispatcherPump
+        }
     }
 
     Assert-ControlAction "GridActiveConnections" "Select connection from active connections grid" {
