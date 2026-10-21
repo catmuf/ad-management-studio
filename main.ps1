@@ -12296,7 +12296,7 @@ function Invoke-ADConnectionsAutoDetect {
             $cimErrBefore = $global:Error.Count
             try {
                 $TargetDomain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch {  =  }
+            } catch { $null = $_ <# Suppress Win32_ComputerSystem error #> }
             finally {
                 while ($global:Error.Count -gt $cimErrBefore) {
                     $global:Error.RemoveAt(0)
