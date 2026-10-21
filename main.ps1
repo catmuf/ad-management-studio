@@ -10934,7 +10934,6 @@ function Invoke-AuditReportsUI {
         }
 
         Set-Status -Message "Running security audit: $catItem ($daysItem days threshold)..."
-        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
         $report = Get-ADSecurityAuditReport -AuditType $auditType -InactiveDays $daysItem
         $state.CurrentAuditReport = $report
 
@@ -12573,11 +12572,26 @@ if ($controls['BtnNewProfile'])    { $controls['BtnNewProfile'].Add_Click({ Open
 if ($controls['BtnRunDiagFull'])   { $controls['BtnRunDiagFull'].Add_Click({ Run-ConnectionDiagnostics }) }
 if ($controls['BtnDeleteProfile']) {
     $controls['BtnDeleteProfile'].Add_Click({
-        $selIdx = $controls['ListProfiles'].SelectedIndex
-        if ($selIdx -ge 0 -and $appConfig.Profiles -and $selIdx -lt $appConfig.Profiles.Count) {
-            $list = [System.Collections.Generic.List[psobject]]::new(@($appConfig.Profiles))
-            if ($selIdx -ge 0 -and $selIdx -lt $list.Count) {
+        $selItem = if ($controls['ListProfiles']) { [string]$controls['ListProfiles'].SelectedItem } else { $null }
+        $selIdx = if ($controls['ListProfiles']) { $controls['ListProfiles'].SelectedIndex } else { -1 }
+        if ($selIdx -ge 0 -and $appConfig.Profiles -and $appConfig.Profiles.Count -gt 0) {
+            $list = [System.Collections.ArrayList]@($appConfig.Profiles)
+            $removed = $false
+            if ($selItem -and -not $selItem.StartsWith('Default: Production Domain')) {
+                $profName = ($selItem -replace '\s*\[.*$', '').Trim()
+                for ($i = 0; $i -lt $list.Count; $i++) {
+                    if ($list[$i].Name -eq $profName) {
+                        $list.RemoveAt($i)
+                        $removed = $true
+                        break
+                    }
+                }
+            }
+            if (-not $removed -and $selIdx -lt $list.Count) {
                 $list.RemoveAt($selIdx)
+                $removed = $true
+            }
+            if ($removed) {
                 $appConfig.Profiles = @($list)
                 Save-AppSettings -Config $appConfig
                 Refresh-Connections
@@ -12947,7 +12961,8 @@ function Update-ServerMonitor {    Set-Status -Message "Querying RootDSE telemet
         $controls['TxtMonSupportedControls'].Text = ($telem.SupportedControls -join "`r`n")
     }
 
-    Set-Status -Message "Server Monitor updated for $server." -Count "$($telem.SupportedControls.Count) LDAP Controls | $($telem.NamingContexts.Count) Partitions"
+    $ctrlCount = if ($telem.SupportedControls) { $telem.SupportedControls.Count } else { 0 }; $ncCount = if ($telem.NamingContexts) { $telem.NamingContexts.Count } else { 0 }
+    Set-Status -Message "Server Monitor updated for $server." -Count "$ctrlCount LDAP Controls | $ncCount Partitions"
     Log-LdapRequest -Operation "SERVER_MONITOR" -TargetDN "RootDSE" -FilterOrPayload "Telemetry" -DurationMs $sw.ElapsedMilliseconds -Status "SUCCESS" -Details "Telemetry updated: DC=$($telem.DnsHostName), Skew=$($telem.TimeSkewMs)ms"
     Refresh-PartitionsUI
 }
