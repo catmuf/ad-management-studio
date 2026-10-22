@@ -301,10 +301,14 @@ function Get-ADObjectAcl {
         $sd = $adObj.nTSecurityDescriptor
         if (-not $sd) {
             # Attempt via DirectoryEntry fallback
+            $de = $null
             try {
                 $de = [System.DirectoryServices.DirectoryEntry]::new("LDAP://$($adObj.DistinguishedName)")
                 $sd = $de.ObjectSecurity
             } catch { $null = $_ }
+            finally {
+                if ($de -is [System.IDisposable]) { $de.Dispose() }
+            }
         }
 
         $sddl = if ($sd -and $sd.GetSecurityDescriptorSddlForm) {
@@ -705,19 +709,19 @@ function Get-ADEffectivePermissions6Way {
 
         # Assess explicit and inherited ACEs from target ACL if available
         $hasAcl = ($aclInfo -and $aclInfo.DaclAces -and $aclInfo.DaclAces.Count -gt 0)
-        $explicitAllowMatches = @()
-        $inheritedAllowMatches = @()
-        $explicitDenyMatches = @()
-        $inheritedDenyMatches = @()
+        $explicitAllowMatches = [System.Collections.Generic.List[psobject]]::new()
+        $inheritedAllowMatches = [System.Collections.Generic.List[psobject]]::new()
+        $explicitDenyMatches = [System.Collections.Generic.List[psobject]]::new()
+        $inheritedDenyMatches = [System.Collections.Generic.List[psobject]]::new()
 
         if ($hasAcl) {
             foreach ($ace in $aclInfo.DaclAces) {
                 $matchesTrustee = ($trusteeSids.Contains($ace.Trustee) -or $trusteeSids.Contains($ace.TrusteeSid))
                 if ($matchesTrustee) {
                     if ($ace.AccessType -match 'Denied') {
-                        if ($ace.Inherited) { $inheritedDenyMatches += $ace } else { $explicitDenyMatches += $ace }
+                        if ($ace.Inherited) { $inheritedDenyMatches.Add($ace) } else { $explicitDenyMatches.Add($ace) }
                     } else {
-                        if ($ace.Inherited) { $inheritedAllowMatches += $ace } else { $explicitAllowMatches += $ace }
+                        if ($ace.Inherited) { $inheritedAllowMatches.Add($ace) } else { $explicitAllowMatches.Add($ace) }
                     }
                 }
             }
@@ -983,33 +987,46 @@ function Reset-AdminSDHolderOrphan {
     .SYNOPSIS
         Remediates an AdminSDHolder orphan: resets adminCount to 0 and re-enables inheritance.
     #>
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]$Identity
     )
 
-    try {
-        # 1. Clear adminCount
-        Set-ADObject -Identity $Identity -Clear "adminCount" -ErrorAction Stop
+    if ($PSCmdlet.ShouldProcess($Identity, "Clear adminCount and re-enable DACL inheritance")) {
+        $de = $null
+        try {
+            # 1. Clear adminCount
+            Set-ADObject -Identity $Identity -Clear "adminCount" -ErrorAction Stop
 
-        # 2. Re-enable DACL inheritance via DirectoryEntry
-        $adObj = Get-ADObject -Identity $Identity -ErrorAction Stop
-        $de = [System.DirectoryServices.DirectoryEntry]::new("LDAP://$($adObj.DistinguishedName)")
-        $sec = $de.ObjectSecurity
-        $sec.SetAccessRuleProtection($false, $true) # isProtected = false, preserveInheritance = true
-        $de.CommitChanges()
+            # 2. Re-enable DACL inheritance via DirectoryEntry
+            $adObj = Get-ADObject -Identity $Identity -ErrorAction Stop
+            $de = [System.DirectoryServices.DirectoryEntry]::new("LDAP://$($adObj.DistinguishedName)")
+            $sec = $de.ObjectSecurity
+            $sec.SetAccessRuleProtection($false, $true) # isProtected = false, preserveInheritance = true
+            $de.CommitChanges()
 
-        return [PSCustomObject]@{
-            Success = $true
-            Identity = $Identity
-            Message  = "adminCount cleared and inheritance successfully re-enabled."
+            return [PSCustomObject]@{
+                Success  = $true
+                Identity = $Identity
+                Message  = "adminCount cleared and inheritance successfully re-enabled."
+            }
         }
-    }
-    catch {
+        catch {
+            return [PSCustomObject]@{
+                Success  = $false
+                Identity = $Identity
+                Message  = "Remediation failed: $_"
+            }
+        }
+        finally {
+            if ($de -is [System.IDisposable]) { $de.Dispose() }
+        }
+    } else {
         return [PSCustomObject]@{
-            Success = $false
+            Success  = $true
             Identity = $Identity
-            Message  = "Remediation failed: $_"
+            Message  = "WhatIf: Remediate AdminSDHolder orphan skipped by user."
         }
     }
 }
@@ -1188,19 +1205,21 @@ function Reset-AllAdminSDHolderOrphans {
     .SYNOPSIS
         Bulk remediates all detected AdminSDHolder orphaned objects in a single batch.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     param ()
 
     $orphans = Find-AdminSDHolderOrphans
     $successList = [System.Collections.Generic.List[string]]::new()
     $failureList = [System.Collections.Generic.List[string]]::new()
 
-    foreach ($orp in $orphans) {
-        $res = Reset-AdminSDHolderOrphan -Identity $orp.DistinguishedName
-        if ($res.Success) {
-            $successList.Add($orp.SamAccountName)
-        } else {
-            $failureList.Add($orp.SamAccountName)
+    if ($PSCmdlet.ShouldProcess("All $($orphans.Count) orphan(s)", "Bulk remediate AdminSDHolder orphans")) {
+        foreach ($orp in $orphans) {
+            $res = Reset-AdminSDHolderOrphan -Identity $orp.DistinguishedName
+            if ($res.Success) {
+                $successList.Add($orp.SamAccountName)
+            } else {
+                $failureList.Add($orp.SamAccountName)
+            }
         }
     }
 

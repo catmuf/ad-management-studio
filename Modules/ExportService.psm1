@@ -206,31 +206,35 @@ function Export-ADSecurityAuditToHtml {
 
         $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-        $cardsHtml = ""
-        foreach ($k in $SummaryStats.Keys) {
-            $val = $SummaryStats[$k]
-            $cardsHtml += @"
+        $sbCards = [System.Text.StringBuilder]::new(4096)
+        if ($SummaryStats) {
+            foreach ($k in $SummaryStats.Keys) {
+                $val = $SummaryStats[$k]
+                [void]$sbCards.AppendLine(@"
             <div class="card">
                 <div class="card-val">$val</div>
                 <div class="card-label">$k</div>
             </div>
-"@
+"@)
+            }
         }
+        $cardsHtml = $sbCards.ToString()
 
         # Convert data items to HTML table rows
         $first = $Data | Select-Object -First 1
         $headers = if ($first) { $first.PSObject.Properties.Name } else { @() }
         
         $thHtml = ($headers | ForEach-Object { "<th>$_</th>" }) -join ""
-        $trHtml = ""
+        $sbRows = [System.Text.StringBuilder]::new(65536)
 
         foreach ($row in $Data) {
             $tds = foreach ($h in $headers) {
                 $v = $row.$h
                 "<td>$([System.Net.WebUtility]::HtmlEncode("$v"))</td>"
             }
-            $trHtml += "<tr>$($tds -join '')</tr>`n"
+            [void]$sbRows.AppendLine("<tr>$($tds -join '')</tr>")
         }
+        $trHtml = $sbRows.ToString()
 
         $html = @"
 <!DOCTYPE html>
@@ -457,15 +461,17 @@ function Get-ADObjectHtmlContent {
 
     # Attributes Table HTML
     $attrRowsHtml = ""
+    $sbAttrs = [System.Text.StringBuilder]::new(16384)
     if ($Attributes -and $Attributes.Count -gt 0) {
         foreach ($attr in $Attributes) {
             $an = [System.Net.WebUtility]::HtmlEncode("$($attr.Name)")
             $av = [System.Net.WebUtility]::HtmlEncode("$($attr.Value)")
             $at = [System.Net.WebUtility]::HtmlEncode("$($attr.Type)")
             $opBadge = if ($attr.IsOperational) { "<span class='badge op-badge'>Op</span>" } else { "" }
-            $attrRowsHtml += "<tr><td class='attr-name'><b>$an</b> $opBadge</td><td class='attr-val'>$av</td><td class='attr-type'>$at</td></tr>`n"
+            [void]$sbAttrs.AppendLine("<tr><td class='attr-name'><b>$an</b> $opBadge</td><td class='attr-val'>$av</td><td class='attr-type'>$at</td></tr>")
         }
     }
+    $attrRowsHtml = $sbAttrs.ToString()
 
     $themeAttr = if ($Theme -ieq "Light") { "data-theme='light'" } else { "data-theme='dark'" }
 

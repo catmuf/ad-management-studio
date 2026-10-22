@@ -9,6 +9,7 @@
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
 [CmdletBinding()]
 param(
     [string]$InitialTool = "",
@@ -116,6 +117,10 @@ $script:ServiceAutoLoadMap = @{
     'New-ADProvisioningProfile'         = 'TemplateService'
     'Invoke-ADObjectProvisioningPlan'   = 'TemplateService'
     'Substitute-Template'               = 'TemplateService'
+    'Invoke-LdapSqlQuery'               = 'LdapSqlService'
+    'Invoke-ADSqlExtendedQuery'         = 'LdapSqlService'
+    'Get-ADSecurityAuditReport'         = 'AuditReportService'
+    'Get-AD40SecurityAuditReports'      = 'AuditReportService'
 }
 
 $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
@@ -5864,7 +5869,7 @@ Set-Alias -Name Refresh-Users -Value Update-Users -Scope Global
 function Update-Users {
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     Set-Status -Message "Loading users from Active Directory..."
-    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { $null = $_ <# Suppress timeout on rapid UI dispatcher pump #> }
     try {
         $searchText = if ($controls['TxtSearchUsers']) { $controls['TxtSearchUsers'].Text.Trim() } else { "" }
         
@@ -8675,7 +8680,7 @@ function Invoke-LdapSearchUI {
         Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP search: Filter='$filter', Base='$baseDn', Scope='$scopeItem'"
         Set-Status -Message "Executing LDAP filter search: $filter ..."
         if ($controls['TxtSearchStatus']) { $controls['TxtSearchStatus'].Text = "Executing LDAP search on $scopeItem scope..." }
-        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { $null = $_ <# Suppress timeout on rapid UI dispatcher pump #> }
         $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000
 
     if ($res.Success) {
@@ -9187,7 +9192,7 @@ function Invoke-LdapSqlUI {
     try {
         Write-AppLog -Level "INFO" -Category "Search" -Message "Starting LDAP-SQL query: '$query'"
         if ($controls['TxtSqlStatus']) { $controls['TxtSqlStatus'].Text = "Parsing and executing SQL query..." }
-        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+        try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { $null = $_ <# Suppress timeout on rapid UI dispatcher pump #> }
         $res = Invoke-LdapSqlQuery -Query $query
     if ($res.Success) {
         # Determine column list in the order specified by the user's SELECT statement
@@ -12288,7 +12293,7 @@ function Invoke-ADConnectionsAutoDetect {
 
     [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
     Set-Status -Message "Auto-detecting Active Directory connections and probing ping latency..."
-    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { }
+    try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { $null = $_ <# Suppress timeout on rapid UI dispatcher pump #> }
     try {
 
     if ([string]::IsNullOrWhiteSpace($TargetDomain)) {

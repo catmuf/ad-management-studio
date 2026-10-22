@@ -835,7 +835,42 @@ function Format-LdapFilter {
 Set-Alias -Name Normalize-LdapFilter -Value Format-LdapFilter
 Set-Alias -Name Optimize-LdapFilter -Value Format-LdapFilter
 
+$script:OuPathCache = [System.Collections.Concurrent.ConcurrentDictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+function Convert-DNToOUPath {
+    param ([string]$DistinguishedName)
+    if ([string]::IsNullOrEmpty($DistinguishedName)) { return "" }
+
+    $cached = $null
+    if ($script:OuPathCache.TryGetValue($DistinguishedName, [ref]$cached)) {
+        return $cached
+    }
+
+    # Extract the parent OU part
+    $parts = $DistinguishedName -split '(?<!\\),'
+    $ouParts = [System.Collections.Generic.List[string]]::new()
+    foreach ($p in $parts) {
+        if ($p -match '^OU=(.*)$') {
+            $ouParts.Add($matches[1])
+        }
+    }
+    if ($ouParts.Count -eq 0) {
+        # Check if in a Builtin/Users container
+        if ($DistinguishedName -match 'CN=(Users|Computers|Builtin),') {
+            $res = $matches[1]
+            [void]$script:OuPathCache.TryAdd($DistinguishedName, $res)
+            return $res
+        }
+        [void]$script:OuPathCache.TryAdd($DistinguishedName, "/")
+        return "/"
+    }
+    $ouParts.Reverse()
+    $res = $ouParts -join ' / '
+    [void]$script:OuPathCache.TryAdd($DistinguishedName, $res)
+    return $res
+}
 Export-ModuleMember -Function `
+    Convert-DNToOUPath, `
     Remove-Diacritics, `
     New-SecurePassword, `
     Test-PasswordComplexity, `

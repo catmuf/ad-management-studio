@@ -77,6 +77,7 @@
     .\tools\ad-studio-cli.ps1 -QuerySQL -Query "SELECT sAMAccountName, mail, department FROM 'DC=example,DC=com' WHERE objectClass = 'user'"
 #>
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
 [CmdletBinding(DefaultParameterSetName = "Default")]
 param (
     # --- Mode Switches ---
