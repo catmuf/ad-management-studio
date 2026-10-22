@@ -71,12 +71,12 @@ Assert-TestCondition "BlockConnectionsBottomPanel exists" ($null -ne $bottomPane
 Write-TestLog "`n--- [TEST 1] Horizontal Scrollbar Configuration ---" "Yellow"
 
 $scrollViewer = $panelConns.Children[0]
-Assert-TestCondition "PanelConnections outer ScrollViewer has HorizontalScrollBarVisibility=Auto" ($scrollViewer.HorizontalScrollBarVisibility -eq [System.Windows.Controls.ScrollBarVisibility]::Auto)
+Assert-TestCondition "PanelConnections outer ScrollViewer has HorizontalScrollBarVisibility=Disabled" ($scrollViewer.HorizontalScrollBarVisibility -eq [System.Windows.Controls.ScrollBarVisibility]::Disabled)
 Assert-TestCondition "GridActiveConnections has HorizontalScrollBarVisibility=Auto" ($gridConns.HorizontalScrollBarVisibility -eq [System.Windows.Controls.ScrollBarVisibility]::Auto)
 
 $lastCol = $gridConns.Columns[$gridConns.Columns.Count - 1]
 Assert-TestCondition "Last column is 'Discovery Source'" ($lastCol.Header -eq "Discovery Source")
-Assert-TestCondition "Discovery Source column has defined Width >= 140" ($lastCol.ActualWidth -ge 0 -and $lastCol.MinWidth -ge 140)
+Assert-TestCondition "Discovery Source column has defined Width >= 150" ($lastCol.ActualWidth -ge 0 -and $lastCol.MinWidth -ge 150)
 
 # -----------------------------------------------------------------------------
 # TEST 2: Bottom Panels MUST NEVER Disappear on Toggle

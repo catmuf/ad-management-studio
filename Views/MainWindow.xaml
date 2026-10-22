@@ -1505,7 +1505,7 @@
 
                 <!-- 1. DASHBOARD PANEL -->
                 <Grid Name="PanelDashboard" Visibility="Visible" Margin="18">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,0,8,16">
                             <StackPanel Margin="0,0,0,16">
                                 <TextBlock Text="Active Directory Overview &amp; Health" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
@@ -3151,7 +3151,7 @@
 
                 <!-- 16. CONNECTIONS PANEL -->
                 <Grid Name="PanelConnections" Visibility="Collapsed" Margin="18">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -3216,14 +3216,14 @@
                                               HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" SortMemberPath="StatusBadge" Width="95"/>
-                                            <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" SortMemberPath="HostName" Width="190"/>
-                                            <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" SortMemberPath="Domain" Width="130"/>
+                                            <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" SortMemberPath="HostName" Width="200"/>
+                                            <DataGridTextColumn Header="Domain" Binding="{Binding Domain}" SortMemberPath="Domain" Width="140"/>
                                             <DataGridTextColumn Header="Role" Binding="{Binding Role}" SortMemberPath="Role" Width="150"/>
-                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" SortMemberPath="IPAddress" Width="120"/>
-                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" SortMemberPath="Port" Width="65"/>
-                                            <DataGridTextColumn Header="Ping Connection (ms)" Binding="{Binding PingDisplay}" SortMemberPath="PingMs" Width="145"/>
-                                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" SortMemberPath="Mode" Width="95"/>
-                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" SortMemberPath="Source" Width="180" MinWidth="140"/>
+                                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" SortMemberPath="IPAddress" Width="130"/>
+                                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" SortMemberPath="Port" Width="70"/>
+                                            <DataGridTextColumn Header="Ping Connection (ms)" Binding="{Binding PingDisplay}" SortMemberPath="PingMs" Width="155"/>
+                                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" SortMemberPath="Mode" Width="100"/>
+                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" SortMemberPath="Source" Width="200" MinWidth="150"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
 
