@@ -12134,16 +12134,17 @@ function Open-ConnectionDialog {
         $portNum = 389
         [void][int]::TryParse($dControls['TxtPort'].Text.Trim(), [ref]$portNum)
         $dControls['TxtDiagStatus'].Text = "Testing connection to ${hostName}:$portNum..."
-        $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.Brushes]::Yellow
+        $isLight = ($state -and $state.CurrentTheme -eq "Light")
+        $dControls['TxtDiagStatus'].Foreground = if ($isLight) { [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D97706") } else { [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24") }
 
         $diag = Test-ADConnectionDiagnostic -Server $hostName -Port $portNum
         if ($diag.Success) {
             $dControls['TxtDiagStatus'].Text = "Connected Successfully ($($diag.LatencyMs) ms)"
-            $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.Brushes]::LimeGreen
+            $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#107C41")
             $dControls['TxtDiagDetails'].Text = "IP: $($diag.IPAddress) | DefaultNC: $($diag.DefaultNamingContext)"
         } else {
             $dControls['TxtDiagStatus'].Text = "Connection Failed"
-            $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.Brushes]::Red
+            $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D13438")
             $dControls['TxtDiagDetails'].Text = $diag.ErrorMessage
         }
     })
