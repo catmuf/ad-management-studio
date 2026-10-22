@@ -12789,6 +12789,35 @@ if ($controls['BtnRunDnsDiscovery']) {
     })
 }
 
+if ($controls['BtnToggleConnectionsView']) {
+    $controls['BtnToggleConnectionsView'].Add_Click({
+        $isExpanded = ($controls['BtnToggleConnectionsView'].Tag -eq "Expanded")
+        if ($isExpanded) {
+            $controls['BtnToggleConnectionsView'].Tag = "Standard"
+            $controls['BtnToggleConnectionsView'].Content = "⤢ Expand View"
+            $controls['BtnToggleConnectionsView'].ToolTip = "Expand table and maximize server list capacity"
+            if ($controls['BlockConnectionsBottomPanel']) {
+                $controls['BlockConnectionsBottomPanel'].Visibility = [System.Windows.Visibility]::Visible
+            }
+            if ($controls['GridActiveConnections']) {
+                $controls['GridActiveConnections'].MaxHeight = 580
+            }
+            Set-Status -Message "Active Directory Connections view set to Standard."
+        } else {
+            $controls['BtnToggleConnectionsView'].Tag = "Expanded"
+            $controls['BtnToggleConnectionsView'].Content = "⤡ Compact View"
+            $controls['BtnToggleConnectionsView'].ToolTip = "Restore standard view with server diagnostics and profiles"
+            if ($controls['BlockConnectionsBottomPanel']) {
+                $controls['BlockConnectionsBottomPanel'].Visibility = [System.Windows.Visibility]::Collapsed
+            }
+            if ($controls['GridActiveConnections']) {
+                $controls['GridActiveConnections'].MaxHeight = 1200
+            }
+            Set-Status -Message "Active Directory Connections view expanded to Full Table capacity."
+        }
+    })
+}
+
 if ($controls['BtnConnectDiscoveredDC']) {
     $controls['BtnConnectDiscoveredDC'].Add_Click({
         $sel = if ($controls['GridActiveConnections'] -and $controls['GridActiveConnections'].SelectedItem) {

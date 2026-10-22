@@ -3196,11 +3196,12 @@
                                                 <Button Name="BtnClearSearchConnections" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                                             </Grid>
                                             <Button Name="BtnRunDnsDiscovery" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Detect Domain" Margin="0,0,6,0" ToolTip="Discover infrastructure and domain controllers for specified domain"/>
+                                            <Button Name="BtnToggleConnectionsView" Style="{StaticResource ModernButton}" Height="28" Content="⤢ Expand View" Margin="0,0,6,0" ToolTip="Toggle between standard view and full-height table view"/>
                                             <Button Name="BtnConnectDiscoveredDC" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Connect Selected" ToolTip="Switch active connection to selected Domain Controller or profile"/>
                                         </WrapPanel>
                                     </Grid>
 
-                                    <DataGrid Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="170" MaxHeight="270" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single">
+                                    <DataGrid Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="250" MaxHeight="580" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" SortMemberPath="StatusBadge" Width="95"/>
                                             <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" SortMemberPath="HostName" Width="190"/>
@@ -3230,7 +3231,7 @@
                             </Border>
 
                             <!-- Diagnostics Card & Saved Profile Manager -->
-                            <Grid Grid.Row="2">
+                            <Grid Grid.Row="2" Name="BlockConnectionsBottomPanel">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="340"/>
                                     <ColumnDefinition Width="*"/>
