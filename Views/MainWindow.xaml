@@ -2376,7 +2376,7 @@
 
                                 <!-- Condition Builder & Visual Filter Blocks -->
                                 <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="32" Margin="0,0,8,6"
+                                    <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="32" Margin="0,0,8,6" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True"
                                               IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
                                               ToolTip="Type here to search attributes in real time, or click arrow to browse all attributes"/>
 
@@ -2403,7 +2403,7 @@
                                 <WrapPanel Orientation="Horizontal">
                                     <CheckBox Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#E5E7EB" FontWeight="SemiBold"/>
 
-                                    <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="32" Margin="0,0,8,6"
+                                    <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="32" Margin="0,0,8,6" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True"
                                               IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
                                               ToolTip="Type here to search regex target attributes in real time"/>
 

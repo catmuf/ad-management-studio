@@ -8061,14 +8061,15 @@ function global:Set-SearchAttrOutcomeBadge {
 }
 
 Set-Alias -Name Filter-ComboAttributes -Value Select-ComboAttributes -Scope Global
-function global:Select-ComboAttributes {    param(
+function global:Select-ComboAttributes {
+    param(
         [System.Windows.Controls.ComboBox]$Combo,
         [string]$Query,
         [bool]$IncludeAny = $false,
         [System.Windows.Controls.TextBlock]$OutcomeText = $null,
         [System.Windows.Controls.Border]$OutcomeBorder = $null,
         [System.Windows.Controls.TextBox]$SyncSearchBox = $null,
-        [bool]$OpenDropDown = $true
+        [bool]$OpenDropDown = $false
     )
     $null = $SyncSearchBox
     if ($state.IsFilteringAttributes -or -not $Combo) { return }
@@ -8085,25 +8086,26 @@ function global:Select-ComboAttributes {    param(
         }
 
         if ([string]::IsNullOrWhiteSpace($trimmed)) {
-            $fullList = [System.Collections.Generic.List[string]]::new()
-            if ($IncludeAny) { [void]$fullList.Add("Any Attribute") }
-            foreach ($item in $allList) { [void]$fullList.Add($item) }
+            $defaultDisplay = [System.Collections.Generic.List[string]]::new()
+            if ($IncludeAny) { [void]$defaultDisplay.Add("Any Attribute") }
+            $maxShow = [Math]::Min($allList.Count, 150)
+            for ($i = 0; $i -lt $maxShow; $i++) {
+                [void]$defaultDisplay.Add($allList[$i])
+            }
 
             if ($null -eq $Combo.ItemsSource -and $Combo.Items.Count -gt 0) {
                 $Combo.Items.Clear()
             }
-            $Combo.ItemsSource = @($fullList)
+            $Combo.ItemsSource = $defaultDisplay
             if ($OpenDropDown) {
                 $Combo.IsDropDownOpen = $true
             }
-            if ($editBox) {
+            if ($editBox -and $editBox.IsKeyboardFocused) {
                 $editBox.Text = ""
                 $editBox.CaretIndex = 0
             }
 
-            Set-SearchAttrOutcomeBadge -Status "Info" `
-                -Message "Displaying all $($fullList.Count) attributes (type directly in dropdown to search)" `
-                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
+            Set-SearchAttrOutcomeBadge -Status "Info" -Message "Displaying all $($allList.Count) attributes (type directly in dropdown or search box)" -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
             return
         }
 
@@ -8111,9 +8113,13 @@ function global:Select-ComboAttributes {    param(
         if ($IncludeAny -and "Any Attribute".IndexOf($trimmed, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
             [void]$matched.Add("Any Attribute")
         }
+        $matchCount = 0
         foreach ($attr in $allList) {
             if ($attr.IndexOf($trimmed, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                [void]$matched.Add($attr)
+                $matchCount++
+                if ($matched.Count -lt 100) {
+                    [void]$matched.Add($attr)
+                }
             }
         }
 
@@ -8121,30 +8127,23 @@ function global:Select-ComboAttributes {    param(
             if ($null -eq $Combo.ItemsSource -and $Combo.Items.Count -gt 0) {
                 $Combo.Items.Clear()
             }
-            $Combo.ItemsSource = @($matched)
+            $Combo.ItemsSource = $matched
             if ($OpenDropDown) {
                 $Combo.IsDropDownOpen = $true
             }
 
-            # Select exact match or first match so user has an active, visible selection in the popup
             $exact = $matched | Where-Object { $_ -eq $trimmed } | Select-Object -First 1
             $selected = if ($exact) { $exact } else { $matched[0] }
             $Combo.SelectedItem = $selected
 
-            if ($editBox) {
+            if ($editBox -and $editBox.IsKeyboardFocused) {
                 $editBox.Text = $Query
                 $editBox.CaretIndex = [Math]::Min($caret, $Query.Length)
             }
 
-            $plural = if ($matched.Count -eq 1) { "attribute" } else { "attributes" }
-            $preview = if ($matched.Count -le 3) {
-                " ($([string]::Join(', ', $matched)))"
-            } else {
-                " (e.g. $($matched[0]), $($matched[1]), $($matched[2])...)"
-            }
-            Set-SearchAttrOutcomeBadge -Status "Match" `
-                -Message "Found $($matched.Count) matching $plural for '$trimmed'$preview" `
-                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
+            $plural = if ($matchCount -eq 1) { "attribute" } else { "attributes" }
+            $cappedNote = if ($matchCount -gt 100) { " (showing top 100)" } else { "" }
+            Set-SearchAttrOutcomeBadge -Status "Match" -Message "Found $matchCount matching $plural for '$trimmed'$cappedNote" -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         } else {
             if ($null -eq $Combo.ItemsSource -and $Combo.Items.Count -gt 0) {
                 $Combo.Items.Clear()
@@ -8152,22 +8151,18 @@ function global:Select-ComboAttributes {    param(
             $Combo.ItemsSource = @()
             $Combo.SelectedItem = $null
             $Combo.Text = $trimmed
-            if ($editBox) {
+            if ($editBox -and $editBox.IsKeyboardFocused) {
                 $editBox.Text = $Query
                 $editBox.CaretIndex = [Math]::Min($caret, $Query.Length)
             }
 
-            Set-SearchAttrOutcomeBadge -Status "NoMatch" `
-                -Message "No attributes matched '$trimmed' (custom attribute allowed)" `
-                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
+            Set-SearchAttrOutcomeBadge -Status "NoMatch" -Message "No attributes matched '$trimmed' (custom attribute allowed)" -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         }
     }
     finally {
         $state.IsFilteringAttributes = $false
     }
 }
-
-
 Set-Alias -Name Attach-SearchableAttributeDropdown -Value Register-SearchableAttributeDropdown -Scope Global
 function Register-SearchableAttributeDropdown {    param(
         [System.Windows.Controls.ComboBox]$Combo,
@@ -8431,7 +8426,8 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
 }
 
 Set-Alias -Name Filter-SearchAttributes -Value Select-SearchAttributes -Scope Global
-function Select-SearchAttributes {    if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
+function Select-SearchAttributes {
+    if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
         Populate-SearchAttributeDropdowns
     }
 
@@ -8453,40 +8449,57 @@ function Select-SearchAttributes {    if (-not $state.SearchAttributesLoaded -or
     }
 
     if ($controls['CmbFilterAttr']) {
-        Filter-ComboAttributes -Combo $controls['CmbFilterAttr'] -Query $query -IncludeAny $false `
-            -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] `
-            -OpenDropDown $true
+        Filter-ComboAttributes -Combo $controls['CmbFilterAttr'] -Query $query -IncludeAny $false -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
     }
     if ($controls['CmbRegexTargetAttr']) {
-        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $query -IncludeAny $true `
-            -OpenDropDown $false
+        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $query -IncludeAny $true -OpenDropDown $false
     }
 }
 
 Set-Alias -Name Init-DirectorySearch -Value Initialize-DirectorySearch -Scope Global
-function Initialize-DirectorySearch {    if ($controls['TxtSearchBaseDn'] -and [string]::IsNullOrEmpty($controls['TxtSearchBaseDn'].Text)) {
+function Initialize-DirectorySearch {
+    if ($controls['TxtSearchBaseDn'] -and [string]::IsNullOrEmpty($controls['TxtSearchBaseDn'].Text)) {
         $controls['TxtSearchBaseDn'].Text = $adContext.DefaultNamingContext
     }
     Populate-SearchAttributeDropdowns
     Update-SearchHistoryUI
 }
 
-# Live Attribute Search & Outcome Event Listeners for Quick Search Bar
+# Live Attribute Search & Outcome Event Listeners with Debounce Timer
+$script:AttrFilterDebounceTimer = [System.Windows.Threading.DispatcherTimer]::new()
+$script:AttrFilterDebounceTimer.Interval = [TimeSpan]::FromMilliseconds(200)
+$script:AttrFilterDebounceTimer.Add_Tick({
+    $script:AttrFilterDebounceTimer.Stop()
+    Filter-SearchAttributes
+})
+
 if ($controls['TxtSearchAttrFilter']) {
     $controls['TxtSearchAttrFilter'].Add_TextChanged({
-        Filter-SearchAttributes
+        if ($controls['TxtSearchAttrPlaceholder']) {
+            $txt = $controls['TxtSearchAttrFilter'].Text
+            $controls['TxtSearchAttrPlaceholder'].Visibility = if ([string]::IsNullOrEmpty($txt)) {
+                [System.Windows.Visibility]::Visible
+            } else {
+                [System.Windows.Visibility]::Collapsed
+            }
+        }
+        $script:AttrFilterDebounceTimer.Stop()
+        $script:AttrFilterDebounceTimer.Start()
     })
     $controls['TxtSearchAttrFilter'].Add_KeyDown({
         param($s, $e)
         $null = $s
         if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
             $e.Handled = $true
+            $script:AttrFilterDebounceTimer.Stop()
+            Filter-SearchAttributes
             if ($controls['CmbFilterAttr']) {
                 [void]$controls['CmbFilterAttr'].Focus()
                 $controls['CmbFilterAttr'].IsDropDownOpen = $true
             }
         } elseif ($e.Key -eq [System.Windows.Input.Key]::Escape) {
             $e.Handled = $true
+            $script:AttrFilterDebounceTimer.Stop()
             if ($controls['TxtSearchAttrFilter']) {
                 $controls['TxtSearchAttrFilter'].Text = ""
             }
@@ -8497,6 +8510,7 @@ if ($controls['TxtSearchAttrFilter']) {
 
 if ($controls['BtnClearAttrFilter']) {
     $controls['BtnClearAttrFilter'].Add_Click({
+        $script:AttrFilterDebounceTimer.Stop()
         if ($controls['TxtSearchAttrFilter']) {
             $controls['TxtSearchAttrFilter'].Text = ""
             [void]$controls['TxtSearchAttrFilter'].Focus()
@@ -8504,7 +8518,6 @@ if ($controls['BtnClearAttrFilter']) {
         Filter-SearchAttributes
     })
 }
-
 if ($controls['CmbSearchPresets']) {
     $controls['CmbSearchPresets'].Add_SelectionChanged({
         if (-not $controls['CmbSearchPresets'].SelectedItem) { return }
