@@ -1505,7 +1505,7 @@
 
                 <!-- 1. DASHBOARD PANEL -->
                 <Grid Name="PanelDashboard" Visibility="Visible" Margin="18">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <StackPanel Margin="0,0,8,16">
                             <StackPanel Margin="0,0,0,16">
                                 <TextBlock Text="Active Directory Overview &amp; Health" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
@@ -3151,7 +3151,7 @@
 
                 <!-- 16. CONNECTIONS PANEL -->
                 <Grid Name="PanelConnections" Visibility="Collapsed" Margin="18">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -3182,8 +3182,13 @@
 
                             <!-- Main Active Directory Connections & Auto-Detected Servers -->
                             <Border Grid.Row="1" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,14">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0" Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -3201,12 +3206,14 @@
                                                 <Button Name="BtnClearSearchConnections" Content="✕" Style="{StaticResource SearchClearBtn}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Clear search filter"/>
                                             </Grid>
                                             <Button Name="BtnRunDnsDiscovery" Style="{StaticResource ModernButton}" Height="28" Content="🔍 Detect Domain" Margin="0,0,6,0" ToolTip="Discover infrastructure and domain controllers for specified domain"/>
-                                            <Button Name="BtnToggleConnectionsView" Style="{StaticResource ModernButton}" Height="28" Content="⤢ Expand View" Margin="0,0,6,0" ToolTip="Toggle between standard view and full-height table view"/>
+                                            <Button Name="BtnToggleConnectionsView" Style="{StaticResource ModernButton}" Height="28" Content="⤢ Expand View" Margin="0,0,6,0" ToolTip="Toggle between compact and expanded table height"/>
                                             <Button Name="BtnConnectDiscoveredDC" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Connect Selected" ToolTip="Switch active connection to selected Domain Controller or profile"/>
                                         </WrapPanel>
                                     </Grid>
 
-                                    <DataGrid Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="250" MaxHeight="580" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single">
+                                    <DataGrid Grid.Row="1" Name="GridActiveConnections" Style="{StaticResource ModernDataGrid}" MinHeight="240" MaxHeight="520" AutoGenerateColumns="False" CanUserSortColumns="True" SelectionMode="Single"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True"
+                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Status" Binding="{Binding StatusBadge}" SortMemberPath="StatusBadge" Width="95"/>
                                             <DataGridTextColumn Header="Server / Host" Binding="{Binding HostName}" SortMemberPath="HostName" Width="190"/>
@@ -3216,12 +3223,12 @@
                                             <DataGridTextColumn Header="Port" Binding="{Binding Port}" SortMemberPath="Port" Width="65"/>
                                             <DataGridTextColumn Header="Ping Connection (ms)" Binding="{Binding PingDisplay}" SortMemberPath="PingMs" Width="145"/>
                                             <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" SortMemberPath="Mode" Width="95"/>
-                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" SortMemberPath="Source" Width="*"/>
+                                            <DataGridTextColumn Header="Discovery Source" Binding="{Binding Source}" SortMemberPath="Source" Width="180" MinWidth="140"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
 
                                     <!-- Backward compatibility DataGrid for DNS SRV bindings -->
-                                    <DataGrid Name="GridDnsDiscoveredDCs" Visibility="Collapsed" AutoGenerateColumns="False">
+                                    <DataGrid Grid.Row="1" Name="GridDnsDiscoveredDCs" Visibility="Collapsed" AutoGenerateColumns="False">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Service" Binding="{Binding Service}"/>
                                             <DataGridTextColumn Header="Role" Binding="{Binding Role}"/>
@@ -3232,7 +3239,7 @@
                                             <DataGridTextColumn Header="Status" Binding="{Binding Status}"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                </StackPanel>
+                                </Grid>
                             </Border>
 
                             <!-- Diagnostics Card & Saved Profile Manager -->
