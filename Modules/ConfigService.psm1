@@ -30,8 +30,9 @@ function Get-AppSettings {
             PageSize               = 500
             WorkspaceMode          = "Tabs"
             AllowMultiWindow       = $true
-            RestoreTabsOnStartup   = $true
-            OpenTabs               = @("Dashboard")
+            RestoreTabsOnStartup   = $false
+            OpenTabs               = @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite")
+            ActiveTab              = "Dashboard"
         }
         Defaults = [PSCustomObject]@{
             PasswordLength        = 16
@@ -82,8 +83,9 @@ function Get-AppSettings {
                 if ($null -eq $jsonContent.UI.SyncHtmlViewTheme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "SyncHtmlViewTheme" -Value $true -Force }
                 if (-not $jsonContent.UI.WorkspaceMode) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "WorkspaceMode" -Value "Tabs" -Force }
                 if ($null -eq $jsonContent.UI.AllowMultiWindow) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AllowMultiWindow" -Value $true -Force }
-                if ($null -eq $jsonContent.UI.RestoreTabsOnStartup) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "RestoreTabsOnStartup" -Value $true -Force }
-                if (-not $jsonContent.UI.OpenTabs) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "OpenTabs" -Value @("Dashboard") -Force }
+                if ($null -eq $jsonContent.UI.RestoreTabsOnStartup) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "RestoreTabsOnStartup" -Value $false -Force }
+                if (-not $jsonContent.UI.OpenTabs -or $jsonContent.UI.OpenTabs.Count -eq 0) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "OpenTabs" -Value @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") -Force }
+                if (-not $jsonContent.UI.ActiveTab) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "ActiveTab" -Value "Dashboard" -Force }
             }
             if (-not $jsonContent.Basket) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "Basket" -Value $defaultConfig.Basket -Force

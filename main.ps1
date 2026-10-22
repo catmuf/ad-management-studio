@@ -318,7 +318,7 @@ $state = [PSCustomObject]@{
     SidebarVisible         = if ($null -ne $appConfig.UI.SidebarVisible) { [bool]$appConfig.UI.SidebarVisible } else { $true }
     WorkspaceMode          = if ($appConfig.UI.WorkspaceMode) { $appConfig.UI.WorkspaceMode } else { "Tabs" }
     AllowMultiWindow       = if ($null -ne $appConfig.UI.AllowMultiWindow) { $appConfig.UI.AllowMultiWindow } else { $true }
-    RestoreTabsOnStartup   = if ($null -ne $appConfig.UI.RestoreTabsOnStartup) { $appConfig.UI.RestoreTabsOnStartup } else { $true }
+    RestoreTabsOnStartup   = if ($null -ne $appConfig.UI.RestoreTabsOnStartup) { [bool]$appConfig.UI.RestoreTabsOnStartup } else { $false }
     OpenTabs               = [System.Collections.ObjectModel.ObservableCollection[psobject]]::new()
     ActiveTabId            = "Dashboard"
     DetachedWindows        = @{}
@@ -332,6 +332,7 @@ $state = [PSCustomObject]@{
     }
 }
 Set-Variable -Name state -Value $state -Scope Global
+$script:DefaultStartupTabs = @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite")
 
 if ($appConfig.Basket -and ($appConfig.Basket.KeepContents -ne $false) -and $appConfig.Basket.Items) {
     foreach ($it in $appConfig.Basket.Items) {
@@ -1984,6 +1985,8 @@ function global:Update-WorkspaceTabStrip {
                     if ($state.RestoreTabsOnStartup) {
                         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
                         $appConfig.UI.OpenTabs = $openNames
+                        $curActive = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+                        if ($curActive) { $appConfig.UI.ActiveTab = $curActive.PanelName }
                         [void](Save-AppSettings -Config $appConfig)
                     }
                     Update-WorkspaceTabStrip
@@ -4460,13 +4463,17 @@ function Show-AllDetachedWindows {
 
 function Reset-WorkspaceLayout {
     Dock-AllDetachedWindows
-    $defaultTabs = @("Dashboard", "Users", "Groups", "Computers")
+    $defaultTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
     $state.OpenTabs.Clear()
     foreach ($t in $defaultTabs) {
         Add-WorkspaceTab -PanelName $t -Activate $false
     }
-    Select-WorkspaceTab -TabId "Dashboard"
+    $dashTab = $state.OpenTabs | Where-Object { $_.PanelName -eq "Dashboard" } | Select-Object -First 1
+    $targetId = if ($dashTab) { $dashTab.Id } elseif ($state.OpenTabs.Count -gt 0) { $state.OpenTabs[0].Id } else { "Dashboard" }
+    Select-WorkspaceTab -TabId $targetId
     Set-WorkspaceMode -Mode "Tabs"
+    $appConfig.UI.OpenTabs = @($defaultTabs)
+    $appConfig.UI.ActiveTab = "Dashboard"
     Save-AppSettings -Config $appConfig
     Set-Status -Message "Workspace layout reset to default multi-tab layout."
 }
@@ -15605,8 +15612,14 @@ if ($controls['BtnSaveSettings']) {
             $state.AllowMultiWindow = $appConfig.UI.AllowMultiWindow
         }
         if ($controls['ChkRestoreTabsOnStartup']) {
-            $appConfig.UI.RestoreTabsOnStartup = [bool]$controls['ChkRestoreTabsOnStartup'].IsChecked
-            $state.RestoreTabsOnStartup = $appConfig.UI.RestoreTabsOnStartup
+            $isPersist = [bool]$controls['ChkRestoreTabsOnStartup'].IsChecked
+            $appConfig.UI.RestoreTabsOnStartup = $isPersist
+            $state.RestoreTabsOnStartup = $isPersist
+            if (-not $isPersist) {
+                $defaultTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
+                $appConfig.UI.OpenTabs = @($defaultTabs)
+                $appConfig.UI.ActiveTab = "Dashboard"
+            }
         }
 
         $appConfig.ExternalTools = @($state.ExternalTools)
@@ -15628,6 +15641,15 @@ if ($controls['BtnResetSettings']) {
         if ($controls['CmbThemeMode']) { $controls['CmbThemeMode'].SelectedIndex = 0 }
         if ($controls['CmbAccentTone']) { $controls['CmbAccentTone'].SelectedIndex = 0 }
         if ($controls['ChkThemeAutoSync']) { $controls['ChkThemeAutoSync'].IsChecked = $true }
+        if ($controls['CmbWorkspaceMode']) { $controls['CmbWorkspaceMode'].SelectedIndex = 0 }
+        if ($controls['ChkAllowMultiWindow']) { $controls['ChkAllowMultiWindow'].IsChecked = $true }
+        if ($controls['ChkRestoreTabsOnStartup']) { $controls['ChkRestoreTabsOnStartup'].IsChecked = $false }
+        $appConfig.UI.RestoreTabsOnStartup = $false
+        $state.RestoreTabsOnStartup = $false
+        $defaultTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
+        $appConfig.UI.OpenTabs = @($defaultTabs)
+        $appConfig.UI.ActiveTab = "Dashboard"
+        Save-AppSettings -Config $appConfig
         Set-Status -Message "Settings reset to defaults."
         [System.Windows.MessageBox]::Show("Settings reset to defaults.", "Settings Reset", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
     })
@@ -16371,16 +16393,28 @@ $window.Add_Loaded({
     Init-SidebarNavigationContextMenus
 
     # Initialize Workspace Tabs
+    $defaultStartupTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
     if (-not [string]::IsNullOrWhiteSpace($InitialTool)) {
         Add-WorkspaceTab -PanelName $InitialTool -Activate $true
     } elseif ($state.RestoreTabsOnStartup -and $appConfig.UI.OpenTabs -and ($appConfig.UI.OpenTabs.Count -gt 0)) {
         foreach ($tabName in $appConfig.UI.OpenTabs) {
             Add-WorkspaceTab -PanelName $tabName -Activate $false
         }
-        $firstTab = if ($state.OpenTabs.Count -gt 0) { $state.OpenTabs[0].Id } else { "Dashboard" }
-        Select-WorkspaceTab -TabId $firstTab
+        $targetActive = if ($appConfig.UI.ActiveTab -and ($state.OpenTabs | Where-Object { $_.PanelName -eq $appConfig.UI.ActiveTab })) {
+            ($state.OpenTabs | Where-Object { $_.PanelName -eq $appConfig.UI.ActiveTab } | Select-Object -First 1).Id
+        } elseif ($state.OpenTabs.Count -gt 0) {
+            $state.OpenTabs[0].Id
+        } else {
+            "Dashboard"
+        }
+        Select-WorkspaceTab -TabId $targetActive
     } else {
-        Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
+        foreach ($tabName in $defaultStartupTabs) {
+            Add-WorkspaceTab -PanelName $tabName -Activate $false
+        }
+        $dashTab = $state.OpenTabs | Where-Object { $_.PanelName -eq "Dashboard" } | Select-Object -First 1
+        $targetId = if ($dashTab) { $dashTab.Id } elseif ($state.OpenTabs.Count -gt 0) { $state.OpenTabs[0].Id } else { "Dashboard" }
+        Select-WorkspaceTab -TabId $targetId
     }
     Set-WorkspaceMode -Mode $state.WorkspaceMode
 
@@ -16412,8 +16446,15 @@ $window.Add_Closing({
         $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
         if ($openNames.Count -gt 0) {
             $appConfig.UI.OpenTabs = $openNames
+            $curActive = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            $appConfig.UI.ActiveTab = if ($curActive) { $curActive.PanelName } else { $openNames[0] }
             [void](Save-AppSettings -Config $appConfig)
         }
+    } else {
+        $defaultStartupTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
+        $appConfig.UI.OpenTabs = @($defaultStartupTabs)
+        $appConfig.UI.ActiveTab = "Dashboard"
+        [void](Save-AppSettings -Config $appConfig)
     }
     # Safely close all detached child windows
     if ($state.DetachedWindows) {

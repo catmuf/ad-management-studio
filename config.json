@@ -13,21 +13,22 @@
     "PageSize": 1000
   },
   "UI": {
-    "Theme": "Dark",
+    "Theme": "Light",
     "AutoRefresh": false,
     "RefreshIntervalSeconds": 60,
     "PageSize": 500,
     "AccentTone": "Blue",
     "SyncHtmlViewTheme": true,
-    "WorkspaceMode": "Single",
+    "WorkspaceMode": "Tabs",
     "AllowMultiWindow": true,
-    "RestoreTabsOnStartup": true,
+    "RestoreTabsOnStartup": false,
     "OpenTabs": [
       "Dashboard",
-      "HtmlView",
-      "HtmlView",
-      "HtmlView"
-    ]
+      "Users",
+      "SecurityAcl",
+      "ReplicationSuite"
+    ],
+    "ActiveTab": "Dashboard"
   },
   "Defaults": {
     "PasswordLength": 16,

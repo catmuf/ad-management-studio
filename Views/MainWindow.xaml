@@ -3371,7 +3371,7 @@
                                 </ComboBox>
 
                                 <CheckBox Name="ChkAllowMultiWindow" Content="Enable Detachable Multi-Windows (Undock panels to separate monitors)" IsChecked="True" Margin="0,0,0,10"/>
-                                <CheckBox Name="ChkRestoreTabsOnStartup" Content="Remember and restore open tabs on application restart" IsChecked="True" Margin="0,0,0,14"/>
+                                <CheckBox Name="ChkRestoreTabsOnStartup" Content="Save session active tabs when closing (restore open tabs on startup)" IsChecked="False" Margin="0,0,0,14" ToolTip="When enabled, saves the currently open tabs upon exiting and restores them on next launch. When disabled, the application always starts with the default 4 tabs: Dashboard, Users, Security &amp; ACL, and AD Replication."/>
 
                                 <Separator Margin="0,10,0,14"/>
                                 <TextBlock Text="🚀 External Tools &amp; Admin Integrations (Softerra Ch22s02)" FontSize="15" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,6"/>
