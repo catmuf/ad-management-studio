@@ -6,15 +6,22 @@
     and Organizational Units with UI-optimized data models and robust error handling.
 #>
 
-# Ensure ActiveDirectory module is loaded
-if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
-    try {
-        Import-Module ActiveDirectory -ErrorAction Stop
-    }
-    catch {
-        Write-Warning "ActiveDirectory module could not be imported: $_"
+# JIT / Background RSAT ActiveDirectory Loader
+function Initialize-ActiveDirectoryModule {
+    [CmdletBinding()]
+    param()
+    if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
+        try {
+            Import-Module ActiveDirectory -DisableNameChecking -ErrorAction Stop
+        }
+        catch {
+            # Gracefully suppressed: Native Win32 ADSI fallback engine handles operations when RSAT is unavailable
+            $null = $_
+        }
     }
 }
+Set-Alias -Name Ensure-ActiveDirectoryModuleLoaded -Value Initialize-ActiveDirectoryModule -Scope Global
+Export-ModuleMember -Function Initialize-ActiveDirectoryModule -Alias Ensure-ActiveDirectoryModuleLoaded -ErrorAction SilentlyContinue
 
 # Ensure ValidationService is loaded for LDAP/UAC/FileTime converters
 $valServicePath = Join-Path $PSScriptRoot "ValidationService.psm1"
@@ -295,19 +302,19 @@ function Get-ADUserDetail {
         $formatted = Format-ADUserRecord -User $user
 
         # Get group memberships
-        $groups = @()
+        $groups = [System.Collections.Generic.List[psobject]]::new()
         if ($user.MemberOf) {
             foreach ($gDN in $user.MemberOf) {
                 # Format friendly group name from DN
                 if ($gDN -match '^CN=([^,]+)') {
-                    $groups += [PSCustomObject]@{
+                    $groups.Add([PSCustomObject]@{
                         Name              = $matches[1]
                         DistinguishedName = $gDN
-                    }
+                    })
                 }
             }
         }
-        $sortedGroups = $groups | Sort-Object Name
+        $sortedGroups = @($groups | Sort-Object Name)
 
         return [PSCustomObject]@{
             User      = $formatted
@@ -721,10 +728,10 @@ function Get-ADGroupMembersList {
         } else {
             $members = Get-ADGroupMember -Identity $Identity -ErrorAction Stop
         }
-        $results = @()
+        $results = [System.Collections.Generic.List[psobject]]::new()
         foreach ($m in $members) {
             $mName = if ($m.name -and -not [string]::IsNullOrWhiteSpace($m.name)) { $m.name } else { $m.SamAccountName }
-            $results += [PSCustomObject]@{
+            $results.Add([PSCustomObject]@{
                 Name              = $mName
                 DisplayName       = $mName
                 SamAccountName    = $m.SamAccountName
@@ -732,7 +739,7 @@ function Get-ADGroupMembersList {
                 DistinguishedName = $m.distinguishedName
                 SID               = if ($m.SID) { $m.SID.Value } else { "" }
                 IsTransitive      = $isRecursive
-            }
+            })
         }
         return @($results | Sort-Object Name)
     }
@@ -748,9 +755,9 @@ function Get-ADGroupMembersList {
                     "(memberOf=$dn)"
                 }
                 $query = Invoke-LdapQuery -Filter $filter -PropertiesToLoad @('name', 'sAMAccountName', 'objectClass', 'distinguishedName', 'objectSid')
-                $results = @()
+                $results = [System.Collections.Generic.List[psobject]]::new()
                 foreach ($r in $query.Results) {
-                    $results += [PSCustomObject]@{
+                    $results.Add([PSCustomObject]@{
                         Name              = $r.name
                         DisplayName       = $r.name
                         SamAccountName    = $r.sAMAccountName
@@ -758,7 +765,7 @@ function Get-ADGroupMembersList {
                         DistinguishedName = $r.DistinguishedName
                         SID               = if ($r.objectSid) { $r.objectSid } else { "" }
                         IsTransitive      = $isRecursive
-                    }
+                    })
                 }
                 return @($results | Sort-Object Name)
             }

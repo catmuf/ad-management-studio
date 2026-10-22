@@ -2037,7 +2037,7 @@
                                 <TextBlock Name="TxtFilterOUsPlaceholder" Text="Filter OUs..." FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="26,0,24,0" IsHitTestVisible="False"/>
                                 <Button Name="BtnClearFilterOUs" Content="✕" Style="{StaticResource SearchClearBtn}" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Clear OU filter"/>
                             </Grid>
-                            <TreeView Grid.Row="2" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimary}">
+                            <TreeView Grid.Row="2" Name="TreeOUs" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimary}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True">
                                 <TreeView.ContextMenu>
                                     <ContextMenu Style="{StaticResource ModernContextMenu}">
                                         <MenuItem Name="CtxOUTreeNewUser" Style="{StaticResource ModernMenuItem}" Header="👤 New User in this OU..."/>
@@ -3246,7 +3246,7 @@
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Grid.Row="0" Text="Saved Connection Profiles" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
-                                        <ListBox Grid.Row="1" Name="ListProfiles" Background="{DynamicResource BgInput}" BorderThickness="1" BorderBrush="{DynamicResource BorderBrushColor}" Foreground="{DynamicResource TextPrimary}" MinHeight="170"/>
+                                        <ListBox Grid.Row="1" Name="ListProfiles" Background="{DynamicResource BgInput}" BorderThickness="1" BorderBrush="{DynamicResource BorderBrushColor}" Foreground="{DynamicResource TextPrimary}" MinHeight="170" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True"/>
 
                                         <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                                             <Button Name="BtnConnectProfile" Style="{StaticResource PrimaryButton}" Content="⚡ Connect" Margin="0,0,6,6" ToolTip="Connect to selected profile"/>

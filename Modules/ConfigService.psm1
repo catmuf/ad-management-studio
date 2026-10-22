@@ -173,46 +173,7 @@ function Get-ADEnvironmentContext {
         $targetServer = $Config.Domain.DomainController
     }
 
-    # Strategy 1: ActiveDirectory PowerShell Module
-    $hasAdModule = $false
-    if (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue) {
-        $hasAdModule = $true
-    } else {
-        try {
-            Import-Module ActiveDirectory -ErrorAction Stop
-            $hasAdModule = $true
-        } catch {
-            $hasAdModule = $false
-        }
-    }
-
-    if ($hasAdModule) {
-        try {
-            $adDomain = if ($targetServer) {
-                Get-ADDomain -Server $targetServer -ErrorAction Stop
-            } else {
-                Get-ADDomain -ErrorAction Stop
-            }
-
-            $context.IsConnected          = $true
-            $context.DomainName           = $adDomain.DNSRoot
-            $context.ForestName           = $adDomain.Forest
-            $context.NetBIOSName          = $adDomain.NetBIOSName
-            $context.PDCEmulator          = $adDomain.PDCEmulator
-            $context.DefaultNamingContext = $adDomain.DistinguishedName
-            $context.DomainControllers    = @($adDomain.ReplicaDirectoryServers)
-            if ($adDomain.PDCEmulator -and -not ($context.DomainControllers -contains $adDomain.PDCEmulator)) {
-                $context.DomainControllers = @($adDomain.PDCEmulator) + $context.DomainControllers
-            }
-            return $context
-        }
-        catch {
-            # Fall through to RootDSE ADSI fallback
-            $context.ErrorMessage = $_.Exception.Message
-        }
-    }
-
-    # Strategy 2: Native .NET ADSI RootDSE (Zero dependencies on RSAT)
+    # Strategy 1: Fast Native .NET ADSI RootDSE (~40ms, zero external dependencies)
     try {
         $dsePath = if ($targetServer) { "LDAP://$targetServer/RootDSE" } else { "LDAP://RootDSE" }
         $rootDse = [System.DirectoryServices.DirectoryEntry]$dsePath
@@ -234,8 +195,32 @@ function Get-ADEnvironmentContext {
         }
     }
     catch {
-        $context.IsConnected = $false
-        if (-not $context.ErrorMessage) {
+        $context.ErrorMessage = $_.Exception.Message
+    }
+
+    # Strategy 2: ActiveDirectory PowerShell Module (Fallback if RootDSE was uncontactable)
+    if (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue) {
+        try {
+            $adDomain = if ($targetServer) {
+                Get-ADDomain -Server $targetServer -ErrorAction Stop
+            } else {
+                Get-ADDomain -ErrorAction Stop
+            }
+
+            $context.IsConnected          = $true
+            $context.DomainName           = $adDomain.DNSRoot
+            $context.ForestName           = $adDomain.Forest
+            $context.NetBIOSName          = $adDomain.NetBIOSName
+            $context.PDCEmulator          = $adDomain.PDCEmulator
+            $context.DefaultNamingContext = $adDomain.DistinguishedName
+            $context.DomainControllers    = @($adDomain.ReplicaDirectoryServers)
+            if ($adDomain.PDCEmulator -and -not ($context.DomainControllers -contains $adDomain.PDCEmulator)) {
+                $context.DomainControllers = @($adDomain.PDCEmulator) + $context.DomainControllers
+            }
+            $context.ErrorMessage         = ""
+            return $context
+        }
+        catch {
             $context.ErrorMessage = $_.Exception.Message
         }
     }

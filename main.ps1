@@ -144,10 +144,12 @@ function Import-XamlWindow {    param ([string]$XamlPath)
     if (-not (Test-Path $XamlPath)) {
         throw "XAML file not found at: $XamlPath"
     }
-    $rawXaml = Get-Content -Path $XamlPath -Raw -Encoding UTF8
-    [xml]$xmlDoc = $rawXaml
-    $reader = New-Object System.Xml.XmlNodeReader $xmlDoc
-    $loadedWin = [System.Windows.Markup.XamlReader]::Load($reader)
+    $fileStream = [System.IO.FileStream]::new($XamlPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read, 65536)
+    try {
+        $loadedWin = [System.Windows.Markup.XamlReader]::Load($fileStream)
+    } finally {
+        $fileStream.Dispose()
+    }
 
     # Inherit window resources and ensure newly loaded modal dialog inherits active theme
     if ($window -and $loadedWin -ne $window) {
@@ -12730,6 +12732,7 @@ if ($controls['TxtSearchConnections']) {
 
     $controls['TxtSearchConnections'].Add_KeyDown({
         param($src, $e)
+        $null = $src
         if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
             $e.Handled = $true
             $q = [string]$controls['TxtSearchConnections'].Text.Trim()
@@ -16376,15 +16379,24 @@ $window.Add_Loaded({
     }
     Set-WorkspaceMode -Mode $state.WorkspaceMode
 
-    Refresh-All
-    Refresh-Connections
-    Populate-SearchAttributeDropdowns
-    Populate-AllExternalToolsMenus
-    Refresh-BookmarksUI
     Update-HeaderLayoutResponsive
-
     Initialize-HorizontalMenuBar
     Update-MenuSettingsState
+    Refresh-BookmarksUI
+    Populate-AllExternalToolsMenus
+
+    # Progressive Asynchronous Background Loading of Directory Telemetry (Sub-Second Cold Start)
+    [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
+        [System.Windows.Threading.DispatcherPriority]::Background,
+        [Action]{
+            Refresh-All
+            Refresh-Connections
+            Populate-SearchAttributeDropdowns
+            if (Get-Command Initialize-ActiveDirectoryModule -ErrorAction SilentlyContinue) {
+                Initialize-ActiveDirectoryModule
+            }
+        }
+    )
 })
 
 $window.Add_Closing({
