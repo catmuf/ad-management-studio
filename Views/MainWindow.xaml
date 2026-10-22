@@ -2264,24 +2264,17 @@
                 <!-- 6. DIRECTORY SEARCH PANEL (SOFTERRA FILTER BUILDER) -->
                 <Grid Name="PanelDirectorySearch" Visibility="Collapsed" Margin="18">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Search Builder Bar -->
+                        <RowDefinition Height="Auto"/> <!-- Search Builder Bar (Simple / Advanced) -->
                         <RowDefinition Height="Auto"/> <!-- Execution & Export Action Ribbon -->
                         <RowDefinition Height="*"/>    <!-- Results DataGrid -->
                         <RowDefinition Height="Auto"/> <!-- Results Paging Bar -->
                     </Grid.RowDefinitions>
 
+                    <!-- Search Filter Card: Simple Search by default + Collapsible Advanced Block -->
                     <Border Grid.Row="0" Background="#1A1D27" BorderBrush="#292E3E" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <!-- Row 1: Search Base & Scope & Presets & History -->
-                            <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                        <StackPanel>
+                            <!-- Simple Search Header: Search Base & Scope & Presets & History -->
+                            <WrapPanel Orientation="Horizontal" Margin="0,0,0,8">
                                 <StackPanel Margin="0,0,10,6">
                                     <TextBlock Text="Search Base (DN):" FontSize="11" Foreground="#9CA3AF" Margin="0,0,0,4"/>
                                     <TextBox Name="TxtSearchBaseDn" Style="{StaticResource ModernTextBox}" Width="260" Height="30"/>
@@ -2329,109 +2322,121 @@
                                 </StackPanel>
                             </WrapPanel>
 
-                            <!-- Row 2: Live Attribute Search & Outcome Display -->
-                            <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                                <Grid Width="220" Margin="0,0,8,6">
-                                    <TextBox Name="TxtSearchAttrFilter" Style="{StaticResource ModernTextBox}" Height="32"/>
-                                    <TextBlock Name="TxtSearchAttrPlaceholder" Text="🔍 Quick filter attributes..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
-                                </Grid>
-                                <Button Name="BtnClearAttrFilter" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="Clear" Margin="0,0,10,6"/>
-
-                                <Border Name="BorderSearchAttrOutcome" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,5" VerticalAlignment="Center" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Name="TxtSearchAttrOutcomeLabel" Text="Outcome: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold" VerticalAlignment="Center"/>
-                                        <TextBlock Name="TxtSearchAttrOutcome" Text="Displaying all attributes (type directly in dropdown to search)" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
-                            </WrapPanel>
-
-                            <!-- Row 3: Condition Builder & Visual Filter Blocks -->
-                            <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
-                                <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="32" Margin="0,0,8,6"
-                                          IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
-                                          ToolTip="Type here to search attributes in real time, or click arrow to browse all attributes"/>
-
-                                <ComboBox Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Width="120" Height="32" Margin="0,0,8,6">
-                                    <ComboBoxItem Content="=" IsSelected="True"/>
-                                    <ComboBoxItem Content="starts with"/>
-                                    <ComboBoxItem Content="ends with"/>
-                                    <ComboBoxItem Content="contains"/>
-                                    <ComboBoxItem Content="* is present"/>
-                                    <ComboBoxItem Content="!="/>
-                                    <ComboBoxItem Content="&gt;="/>
-                                    <ComboBoxItem Content="&lt;="/>
-                                </ComboBox>
-
-                                <TextBox Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Width="180" Height="32" Text="user" Margin="0,0,8,6"/>
-                                <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="➕ Add Condition" Margin="0,0,6,6"/>
-                                <Button Name="BtnFilterGroupAnd" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="&amp; Group (AND)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP AND (&amp;) block"/>
-                                <Button Name="BtnFilterGroupOr" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="| Group (OR)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP OR (|) block"/>
-                                <Button Name="BtnFilterGroupNot" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="! Group (NOT)" Margin="0,0,6,6" ToolTip="Negate current filter using LDAP NOT (!) block"/>
-                                <Button Name="BtnFilterClear" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="Clear Filter" Margin="0,0,6,6" ToolTip="Reset filter to (objectClass=*)"/>
-                            </WrapPanel>
-
-                            <!-- Row 4: Raw LDAP Filter & Execute -->
-                            <Grid Grid.Row="3" Margin="0,0,0,10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+                            <!-- Simple Search Query Bar with Execute & Arrow Toggle Button -->
+                            <Grid Margin="0,0,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Row="0" Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="34" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,8,0"/>
-                                <Button Grid.Row="0" Grid.Column="1" Name="BtnNormalizeFilter" Style="{StaticResource ModernButton}" Height="34" Content="⚡ Normalize (Ctrl+R)" Margin="0,0,8,0" ToolTip="Simplify redundant nesting and deduplicate clauses (Softerra Ctrl+R parity)"/>
-                                <Button Grid.Row="0" Grid.Column="2" Name="BtnConvertScim" Style="{StaticResource ModernButton}" Height="34" Content="☁️ SCIM ↔ LDAP" Margin="0,0,8,0" ToolTip="Translate filter between RFC 7644 SCIM 2.0 and RFC 4515 LDAP"/>
-                                <Button Grid.Row="0" Grid.Column="3" Name="BtnVerifyFilterSyntax" Style="{StaticResource ModernButton}" Height="34" Content="✓ Verify Filter" Margin="0,0,8,0" ToolTip="Validate RFC 4515 LDAP filter syntax"/>
-                                <Button Grid.Row="0" Grid.Column="4" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="34" Width="140" Padding="14,4" Content="🔍 Run Search"/>
-
-                                <Border Grid.Row="1" Grid.ColumnSpan="5" Name="BorderFilterExplanation" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,6,0,0">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="💡 Filter Meaning: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold"/>
-                                        <TextBlock Name="TxtFilterHumanExplanation" Text="All Active Directory user accounts" FontSize="11" Foreground="#38BDF8"/>
-                                    </StackPanel>
-                                </Border>
+                                <TextBox Grid.Column="0" Name="TxtRawLdapFilter" Style="{StaticResource ModernTextBox}" Height="34" FontFamily="Consolas" Text="(objectClass=user)" Margin="0,0,8,0" ToolTip="RFC 4515 LDAP search query"/>
+                                <Button Grid.Column="1" Name="BtnRunLdapSearch" Style="{StaticResource PrimaryButton}" Height="34" Width="140" Padding="14,4" Content="🔍 Run Search" Margin="0,0,8,0"/>
+                                <Button Grid.Column="2" Name="BtnToggleAdvancedSearch" Style="{StaticResource ModernButton}" Height="34" Content="▼ Advanced Search" Padding="14,4" ToolTip="Toggle advanced filter builder, regex tools, and syntax utilities"/>
                             </Grid>
 
-                            <!-- Row 5: Advanced Regular Expression Filter (Softerra LDAP Administrator Parity) -->
-                            <WrapPanel Grid.Row="4" Orientation="Horizontal">
-                                <CheckBox Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#E5E7EB" FontWeight="SemiBold"/>
+                            <!-- Collapsible Advanced Search Block (Hidden by default in Simple Mode) -->
+                            <StackPanel Name="BlockAdvancedSearchFilters" Visibility="Collapsed" Margin="0,12,0,0">
+                                <!-- Filter Meaning & Syntax Tools -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="32" Margin="0,0,8,6"
-                                          IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
-                                          ToolTip="Type here to search regex target attributes in real time"/>
+                                    <Border Grid.Column="0" Name="BorderFilterExplanation" Background="#111827" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="4" Padding="8,5" Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="💡 Filter Meaning: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold"/>
+                                            <TextBlock Name="TxtFilterHumanExplanation" Text="All Active Directory user accounts" FontSize="11" Foreground="#38BDF8"/>
+                                        </StackPanel>
+                                    </Border>
 
-                                <TextBox Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Width="220" Height="32" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,6"/>
+                                    <WrapPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Name="BtnNormalizeFilter" Style="{StaticResource ModernButton}" Height="30" Content="⚡ Normalize (Ctrl+R)" Margin="0,0,6,0" ToolTip="Simplify redundant nesting and deduplicate clauses (Softerra Ctrl+R parity)"/>
+                                        <Button Name="BtnConvertScim" Style="{StaticResource ModernButton}" Height="30" Content="☁️ SCIM ↔ LDAP" Margin="0,0,6,0" ToolTip="Translate filter between RFC 7644 SCIM 2.0 and RFC 4515 LDAP"/>
+                                        <Button Name="BtnVerifyFilterSyntax" Style="{StaticResource ModernButton}" Height="30" Content="✓ Verify Filter" ToolTip="Validate RFC 4515 LDAP filter syntax"/>
+                                    </WrapPanel>
+                                </Grid>
 
-                                <CheckBox Name="ChkRegexIgnoreCase" Content="Ignore Case" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#9CA3AF"/>
+                                <!-- Live Attribute Search & Outcome Display -->
+                                <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Grid Width="220" Margin="0,0,8,6">
+                                        <TextBox Name="TxtSearchAttrFilter" Style="{StaticResource ModernTextBox}" Height="32"/>
+                                        <TextBlock Name="TxtSearchAttrPlaceholder" Text="🔍 Quick filter attributes..." FontSize="11" Foreground="#6B7280" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
+                                    </Grid>
+                                    <Button Name="BtnClearAttrFilter" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="Clear" Margin="0,0,10,6"/>
 
-                                <CheckBox Name="ChkRegexInvert" Content="Invert Match (Not)" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#9CA3AF"/>
+                                    <Border Name="BorderSearchAttrOutcome" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="10,5" VerticalAlignment="Center" Margin="0,0,0,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Name="TxtSearchAttrOutcomeLabel" Text="Outcome: " FontSize="11" Foreground="#9CA3AF" FontWeight="Bold" VerticalAlignment="Center"/>
+                                            <TextBlock Name="TxtSearchAttrOutcome" Text="Displaying all attributes (type directly in dropdown to search)" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </WrapPanel>
 
-                                <Border Name="BorderRegexStatus" Background="#1E293B" CornerRadius="3" Padding="8,4" VerticalAlignment="Center" Margin="0,0,0,6">
-                                    <TextBlock Name="TxtRegexStatus" Text="RegEx: Ready" FontSize="11" Foreground="#38BDF8" FontFamily="Consolas"/>
-                                </Border>
-                            </WrapPanel>
-                        </Grid>
+                                <!-- Condition Builder & Visual Filter Blocks -->
+                                <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <ComboBox Name="CmbFilterAttr" Style="{StaticResource ModernComboBox}" Width="200" Height="32" Margin="0,0,8,6"
+                                              IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
+                                              ToolTip="Type here to search attributes in real time, or click arrow to browse all attributes"/>
+
+                                    <ComboBox Name="CmbFilterOp" Style="{StaticResource ModernComboBox}" Width="120" Height="32" Margin="0,0,8,6">
+                                        <ComboBoxItem Content="=" IsSelected="True"/>
+                                        <ComboBoxItem Content="starts with"/>
+                                        <ComboBoxItem Content="ends with"/>
+                                        <ComboBoxItem Content="contains"/>
+                                        <ComboBoxItem Content="* is present"/>
+                                        <ComboBoxItem Content="!="/>
+                                        <ComboBoxItem Content="&gt;="/>
+                                        <ComboBoxItem Content="&lt;="/>
+                                    </ComboBox>
+
+                                    <TextBox Name="TxtFilterVal" Style="{StaticResource ModernTextBox}" Width="180" Height="32" Text="user" Margin="0,0,8,6"/>
+                                    <Button Name="BtnInsertCondition" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="➕ Add Condition" Margin="0,0,6,6"/>
+                                    <Button Name="BtnFilterGroupAnd" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="&amp; Group (AND)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP AND (&amp;) block"/>
+                                    <Button Name="BtnFilterGroupOr" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="| Group (OR)" Margin="0,0,6,6" ToolTip="Combine with active filter using LDAP OR (|) block"/>
+                                    <Button Name="BtnFilterGroupNot" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="! Group (NOT)" Margin="0,0,6,6" ToolTip="Negate current filter using LDAP NOT (!) block"/>
+                                    <Button Name="BtnFilterClear" Style="{StaticResource ModernButton}" Height="32" Padding="12,4" Content="Clear Filter" Margin="0,0,6,6" ToolTip="Reset filter to (objectClass=*)"/>
+                                </WrapPanel>
+
+                                <!-- Advanced Regular Expression Filter -->
+                                <WrapPanel Orientation="Horizontal">
+                                    <CheckBox Name="ChkUseRegexFilter" Content="Enable RegEx Filter" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#E5E7EB" FontWeight="SemiBold"/>
+
+                                    <ComboBox Name="CmbRegexTargetAttr" Style="{StaticResource ModernComboBox}" Width="180" Height="32" Margin="0,0,8,6"
+                                              IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MaxDropDownHeight="320"
+                                              ToolTip="Type here to search regex target attributes in real time"/>
+
+                                    <TextBox Name="TxtRegexPattern" Style="{StaticResource ModernTextBox}" Width="220" Height="32" FontFamily="Consolas" Tag="Regular Expression (e.g. ^adm-.*|\d{3}$)" Margin="0,0,10,6"/>
+
+                                    <CheckBox Name="ChkRegexIgnoreCase" Content="Ignore Case" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#9CA3AF"/>
+
+                                    <CheckBox Name="ChkRegexInvert" Content="Invert Match (Not)" VerticalAlignment="Center" Margin="0,0,12,6" Foreground="#9CA3AF"/>
+
+                                    <Border Name="BorderRegexStatus" Background="#1E293B" CornerRadius="3" Padding="8,4" VerticalAlignment="Center" Margin="0,0,0,6">
+                                        <TextBlock Name="TxtRegexStatus" Text="RegEx: Ready" FontSize="11" Foreground="#38BDF8" FontFamily="Consolas"/>
+                                    </Border>
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
 
-                    <!-- Execution Stats & Export Ribbon -->
+                    <!-- Execution Stats & Export Ribbon (Core Actions in Simple Mode, Extended in Advanced Mode) -->
                     <Border Grid.Row="1" Margin="0,0,0,10">
                         <WrapPanel Orientation="Horizontal">
                             <TextBlock Name="TxtSearchStatus" Text="Ready to execute search." Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,14,6"/>
                             <Button Name="BtnSearchInspectAttr" Style="{StaticResource ModernButton}" Content="🏷️ Inspect Attributes" Margin="0,0,6,6"/>
-                            <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
                             <Button Name="BtnExportSearchResults" Style="{StaticResource ModernButton}" Content="📤 Export Results" Margin="0,0,6,6"/>
-                            <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
-                            <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
-                            <Button Name="BtnSearchExportScim" Style="{StaticResource ModernButton}" Content="☁️ Export SCIM 2.0" Margin="0,0,6,6" ToolTip="Export search results to RFC 7643 SCIM 2.0 JSON"/>
+                            <Button Name="BtnSearchExportCsv" Style="{StaticResource ModernButton}" Content="📤 Export CSV" Margin="0,0,6,6"/>
                             <Button Name="BtnSearchAddToBasket" Style="{StaticResource ModernButton}" Content="🛒 Add to Basket" Margin="0,0,6,6" ToolTip="Add selected search results to Directory Basket"/>
-                            <Button Name="BtnSearchAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to Search Results table"/>
-                            <Button Name="BtnSearchResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Search Results table columns to default"/>
+
+                            <WrapPanel Name="BlockAdvancedActionButtons" Visibility="Collapsed" Orientation="Horizontal">
+                                <Button Name="BtnSearchExportLdif" Style="{StaticResource ModernButton}" Content="📜 Export LDIF" Margin="0,0,6,6"/>
+                                <Button Name="BtnSearchExportJson" Style="{StaticResource ModernButton}" Content="📋 Export JSON" Margin="0,0,6,6"/>
+                                <Button Name="BtnSearchExportScim" Style="{StaticResource ModernButton}" Content="☁️ Export SCIM 2.0" Margin="0,0,6,6" ToolTip="Export search results to RFC 7643 SCIM 2.0 JSON"/>
+                                <Button Name="BtnSearchAddColumn" Style="{StaticResource ModernButton}" Content="➕ Add Column" Margin="0,0,6,6" ToolTip="Add attribute column to Search Results table"/>
+                                <Button Name="BtnSearchResetColumns" Style="{StaticResource ModernButton}" Content="🔄 Reset Columns" Margin="0,0,6,6" ToolTip="Reset Search Results table columns to default"/>
+                            </WrapPanel>
                         </WrapPanel>
                     </Border>
 

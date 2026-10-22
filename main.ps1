@@ -8946,10 +8946,42 @@ if ($controls['TxtRawLdapFilter']) {
 }
 
 if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ Invoke-LdapSearchUI }) }
+
+function Toggle-DirectorySearchAdvancedView {
+    $advBlock = $controls['BlockAdvancedSearchFilters']
+    $advActions = $controls['BlockAdvancedActionButtons']
+    $btn = $controls['BtnToggleAdvancedSearch']
+    $isCurrentlyVisible = ($advBlock -and $advBlock.Visibility -eq [System.Windows.Visibility]::Visible)
+    if ($isCurrentlyVisible) {
+        if ($advBlock) { $advBlock.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($advActions) { $advActions.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($btn) {
+            $btn.Content = "▼ Advanced Search"
+            $btn.ToolTip = "Show advanced filter builder, regex tools, and query syntax utilities"
+        }
+        Set-Status -Message "Directory Search set to Simple Search mode."
+    } else {
+        if ($advBlock) { $advBlock.Visibility = [System.Windows.Visibility]::Visible }
+        if ($advActions) { $advActions.Visibility = [System.Windows.Visibility]::Visible }
+        if ($btn) {
+            $btn.Content = "▲ Simple Search"
+            $btn.ToolTip = "Hide advanced filter builder and return to simple search"
+        }
+        Set-Status -Message "Directory Search set to Advanced Search mode."
+    }
+}
+
+if ($controls['BtnToggleAdvancedSearch']) {
+    $controls['BtnToggleAdvancedSearch'].Add_Click({ Toggle-DirectorySearchAdvancedView })
+}
+
 if ($controls['TxtRawLdapFilter']) {
     $controls['TxtRawLdapFilter'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
             Invoke-LdapSearchUI
+        } elseif ($_.Key -eq [System.Windows.Input.Key]::F4) {
+            Toggle-DirectorySearchAdvancedView
+            $_.Handled = $true
         } elseif ($_.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
             $filter = $controls['TxtRawLdapFilter'].Text.Trim()
             if (-not [string]::IsNullOrWhiteSpace($filter)) {
@@ -9042,6 +9074,9 @@ if ($controls['TxtRegexPattern']) {
     $controls['TxtRegexPattern'].Add_KeyDown({
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
             Invoke-LdapSearchUI
+        } elseif ($_.Key -eq [System.Windows.Input.Key]::F4) {
+            Toggle-DirectorySearchAdvancedView
+            $_.Handled = $true
         }
     })
 }
