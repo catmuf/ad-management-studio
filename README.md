@@ -32,7 +32,7 @@ Comprehensive lifecycle management for users, security groups, organizational un
 | View / Component | Visual Showcase | Technical Highlights |
 | :--- | :--- | :--- |
 | **Central Users Management & Attribute Inspector** | ![Central Users Management & Attribute Inspector](docs/images/02_users_and_inspector.png) | High-speed virtualized DataGrid with real-time status filtering (All, Active, Disabled, Locked), instant column sorting, and a 2-column inline Attribute Inspector displaying raw LDAP attributes. |
-| **In-App HTML Technical Dossier** | ![In-App HTML Technical Dossier](docs/images/12_html_dossier_technical.png) | Professional styled identity dossier featuring avatar badge, organizational hierarchy, key LDAP naming attributes (GUID, SID, UAC), pill group badges, and direct report rosters. |
+| **In-App HTML Technical Dossier** | ![In-App HTML Technical Dossier](docs/images/12_html_dossier_technical.png) | Professional styled identity dossier featuring multi-instance workspace tabs (`Dossier: <DisplayName>`), smart tab deduplication, in-tab address navigation, 4 presentation templates (Modern, Classic, Compact, Security Audit), avatar badge, organizational hierarchy, key LDAP naming attributes (GUID, SID, UAC), pill group badges, and direct report rosters. |
 | **Native Menu Bar & Omnibar Quick Search** | ![Native Menu Bar & Omnibar Quick Search](docs/images/11_native_menu_and_omnibar.png) | Standard Windows horizontal menu bar with 11 top-level menus, live configuration checkmarks, keyboard accelerators, and a universal Omnibar popup (`Ctrl+K`) for rapid multi-type search across users, groups, OUs, and domain controllers. |
 
 ---
@@ -224,6 +224,8 @@ ad-management-studio/
 │   ├── Publish-AllGitHubReleases.ps1  # Automated GitHub REST API release publisher
 │   ├── test-core-operations.ps1       # Comprehensive GUI test harness (Panels 1-12)
 │   ├── test-advanced-diagnostics.ps1  # Advanced diagnostics test harness (Panels 13-24)
+│   ├── test-html-dossier-buttons-and-tabs.ps1 # Multi-user HTML dossier tabs & button/menu test harness
+│   ├── test-directory-search-layout.ps1       # Directory search layout & attribute combobox test harness
 │   └── test-all-workspaces.ps1        # Full regression validation harness
 ├── Modules/
 │   ├── ADService.psm1                 # Core LDAP engine, RSAT/ADSI bridge, and directory operations

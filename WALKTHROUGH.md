@@ -19,6 +19,7 @@
 - [Scenario 8: Forensic Graph Analysis: Circular Group Loop Detection](#scenario-8-forensic-graph-analysis-circular-group-loop-detection)
 - [Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports](#scenario-9-enterprise-security-posture--48-hygiene-audit-reports)
 - [Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker](#scenario-10-infrastructure-diagnostics-nettools-7-tier-unc-share-checker)
+- [Scenario 11: Enterprise Directory Search, RFC 2696 Paging & Multi-Identity Dossier Tabs](#scenario-11-enterprise-directory-search-rfc-2696-paging--multi-identity-dossier-tabs)
 - [Conclusion & Best Practices](#conclusion--best-practices)
 
 ---
@@ -321,6 +322,41 @@ Diagnose network accessibility to domain controller file shares (`SYSVOL` / `NET
    - **Step 7: Path Traversal & Read**: Confirms access to policy folder and `GPT.INI` [1.9 ms] - `PASS`
 4. **DC Locator Port Matrix**:
    - Switch to **📡 DC Resolution & Port Profiles** to inspect live socket response times across ports 389, 636, 88, 445, 53, 3268, and 135.
+
+---
+
+## Scenario 11: Enterprise Directory Search, RFC 2696 Paging & Multi-Identity Dossier Tabs
+
+### Objective
+Query large Active Directory containers exceeding the default 1,000-object `MaxPageSize` limit without data truncation using RFC 2696 Simple Paged Results, inspect large group memberships via RFC 3268 incremental range retrieval, and open concurrent multi-user HTML identity dossiers across dedicated workspace tabs with automatic deduplication.
+
+### Step-by-Step Walkthrough
+1. **Navigate to Directory Search**:
+   - Press `Ctrl+F` or click **Directory Search** on the sidebar.
+   - The search view opens in **Simple Search** mode with an intuitive search bar and an expand/collapse toggle for advanced filters.
+2. **Execute Large Subtree Query (Bypassing MaxPageSize = 1000)**:
+   - In the Search Base field, specify root DN: `DC=contoso,DC=local`.
+   - In the Attribute filter combobox (`CmbFilterAttr`), filter by `sAMAccountName` (consolidated virtualized input).
+   - Enter filter criteria: `(&(objectCategory=person)(objectClass=user))`.
+   - Click **⚡ Search** (`F5`).
+   - The directory engine leverages RFC 2696 Simple Paged Results (`DirectorySearcher.PageSize = 1000`), paging sequentially across LDAP result sets.
+   - All matching records (e.g. `1,248` user objects) are retrieved without truncation at 1,000.
+3. **Inspect Large Group Memberships (RFC 3268 Range Retrieval)**:
+   - Query a global or universal security group with extensive membership (e.g., `All-Corporate-Employees` with 3,500 members).
+   - When viewing group attributes or member rosters, the engine automatically issues incremental range requests (`member;range=0-1499`, `member;range=1500-2999`, `member;range=3000-*`), successfully assembling all 3,500 member DNs without attribute omission.
+4. **Open Concurrent HTML Identity Dossier Tabs**:
+   - In the Users grid or search results, right-click `Alice Smith` and select **View HTML Dossier (In-App)**.
+   - A dedicated tab opens in the workspace titled `Dossier: Alice Smith`.
+   - Switch back to the search results or Users tab, right-click `Bob Jones`, and select **View HTML Dossier (In-App)**.
+   - A second tab opens titled `Dossier: Bob Jones`. The previous tab `Dossier: Alice Smith` remains intact.
+   - Right-click `Charlie Brown` and select **View HTML Dossier (In-App)** to open a third tab `Dossier: Charlie Brown`.
+5. **Demonstrate Smart Tab Deduplication**:
+   - Return to the user list and select **View HTML Dossier (In-App)** for `Alice Smith` again.
+   - The studio immediately refocuses the existing `Dossier: Alice Smith` tab instead of opening a redundant duplicate tab.
+6. **In-Tab Address Bar Navigation & Template Switching**:
+   - In the active dossier tab address bar (`TxtHtmlViewDN`), enter `CN=Diana Prince,OU=Staff,DC=contoso,DC=local` and click **Go**. The active tab navigates in-place to Diana Prince's dossier and updates the tab header to `Dossier: Diana Prince`.
+   - Use the template dropdown to switch between **Modern**, **Classic**, **Compact**, and **Security Audit** templates.
+   - Press `Ctrl+Shift+P` to open the Windows print/PDF dialog for compliance documentation.
 
 ---
 

@@ -11,12 +11,14 @@
 - [1. Executive Overview & Architectural Foundation](#1-executive-overview--architectural-foundation)
   - [1.1. Forest Health & Operations Dashboard (Default Light Presentation)](#11-forest-health--operations-dashboard-default-light-presentation)
   - [1.2. Key Architectural Pillars](#12-key-architectural-pillars)
+  - [1.3. Query Scalability: RFC 2696 Simple Paged Results & RFC 3268 Range Retrieval](#13-query-scalability-rfc-2696-simple-paged-results--rfc-3268-range-retrieval)
 - [2. Installation, Prerequisites & Launch Procedure](#2-installation-prerequisites--launch-procedure)
   - [Prerequisites](#prerequisites)
   - [Launching the Application](#launching-the-application)
 - [3. Workspace Catalog (24 Enterprise Workspaces)](#3-workspace-catalog-24-enterprise-workspaces)
 - [4. User Lifecycle & Attribute Management (Users Workspace)](#4-user-lifecycle--attribute-management-users-workspace)
   - [Key Operational Capabilities](#key-operational-capabilities)
+  - [4.1. In-App HTML Technical Dossier (Multi-Instance Tabs & Deduplication)](#41-in-app-html-technical-dossier-multi-instance-tabs--deduplication)
   - [Light Theme Visual Presentation](#light-theme-visual-presentation)
 - [5. Apache Directory Studio Parity: Object Studio & Specialized Editors](#5-apache-directory-studio-parity-object-studio--specialized-editors)
   - [5.1. Binary & Hex Dump Editor](#51-binary--hex-dump-editor)
@@ -86,6 +88,22 @@ The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config
    - Direct XAML streaming and lazy RSAT loading minimize application cold-start to sub-second speeds.
    - Core LDAP engine decomposed into specialized Just-In-Time (JIT) modules (`AuditReportService`, `LdapSqlService`), isolating memory footprint and eliminating initial script parsing overhead.
 
+### 1.3. Query Scalability: RFC 2696 Simple Paged Results & RFC 3268 Range Retrieval
+
+In enterprise Active Directory environments, directory queries often span thousands of accounts or evaluate groups containing tens of thousands of members. Microsoft Active Directory domain controllers enforce strict query safeguards by default:
+
+1. **RFC 2696 LDAP Simple Paged Results (Bypassing `MaxPageSize = 1000`)**:
+   - By default, Active Directory domain controllers enforce an administrative query limit of 1,000 objects per LDAP search request (`MaxPageSize = 1000` via LDAP Admin Limits / `Query-Policies`).
+   - Standard unpaged LDAP queries silently truncate or throw `SizeLimitExceededException` when results exceed 1,000 records.
+   - Active Directory Management Studio transparently integrates RFC 2696 LDAP Simple Paged Results Control across all search operations. The engine sets a managed page size (`DirectorySearcher.PageSize = 1000` / `PageResultRequestControl`), and continuously iterates through sequential result pages using the opaque server-returned paging cookie until the entire result set is assembled.
+   - For massive result sets, the directory engine provides streamed export pipelines (`Export-StreamedSearchResults`), serializing records directly to disk (CSV, JSON, LDIF) line-by-line to prevent high memory allocation and Out-Of-Memory (OOM) conditions.
+
+2. **RFC 3268 Incremental Range Retrieval for Large Groups**:
+   - Active Directory limits multi-valued attribute responses (such as `member` on security and distribution groups) to 1,500 entries per request (or 1,000 on Windows 2000 native domain functional level).
+   - If a group contains more than 1,500 members, querying the standard `member` attribute returns an empty array or throws an attribute error.
+   - The studio automatically detects large group enumerations and initiates RFC 3268 Range Retrieval by querying attribute ranged specifiers (`member;range=0-1499`).
+   - The engine progressively queries subsequent blocks (`member;range=1500-2999`, `member;range=3000-4499`, etc.) until the terminal range descriptor (`member;range=X-*`) is received, merging the slices into a complete member roster without missing any users.
+
 ---
 
 ## 2. Installation, Prerequisites & Launch Procedure
@@ -133,10 +151,10 @@ The sidebar organizes 24 specialized workspaces into 4 functional domains:
 | | **Org. Units (OUs)** | Interactive hierarchical treeview, OU protection safeguards, container browsing. | `Ctrl+4` / Sidebar |
 | | **Computers** | Workstation and server inventory, operating systems, and stale computer identification. | `Ctrl+5` / Sidebar |
 | | **AD Recycle Bin** | Deleted object recovery, tombstone reanimation, and lifetime management. | Sidebar |
-| **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), Simple Search mode with collapsible advanced filters, presets, and VLV paged queries. | `Ctrl+F` / Sidebar |
+| **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), Simple Search mode with collapsible advanced filters, consolidated attribute filter, RFC 2696 paged queries, and presets. | `Ctrl+F` / Sidebar |
 | | **LDAP-SQL Console** | ANSI-SQL query interface over Active Directory (`SELECT ... FROM SUBTREE WHERE ...`). | Sidebar |
 | | **Raw Attribute Editor**| Multi-valued array manipulation, operational attributes, bitmask decoders. | Sidebar |
-| | **HTML Dossier View** | Executive identity dossier rendering, responsive styling, print-ready reports. | Sidebar |
+| | **HTML Dossier View** | Multi-instance identity dossiers, dedicated tabs with deduplication, in-tab address navigation, 4 templates, print-ready reports. | Context Menu / Omnibar / Sidebar |
 | | **Object Compare** | Side-by-side object attribute diffing, delta tracking, and sync scripting. | Sidebar |
 | | **LDIF Studio** | RFC 2849 batch script generation, validation, and dry-run execution. | Sidebar |
 | | **Security Audits** | 48 pre-packaged enterprise hygiene audit reports with HTML export. | Sidebar |
@@ -173,6 +191,28 @@ The **Users** workspace serves as the primary cockpit for identity lifecycle wor
    - Create new accounts from structured templates (`New from Template...`).
    - Supports macro expansion: `%first.last%`, `%initials%`, `%company%`, `%department%`.
    - Automated conflict resolution appends numeric identifiers or middle initials if a username collision occurs.
+
+### 4.1. In-App HTML Technical Dossier (Multi-Instance Tabs & Deduplication)
+
+Active Directory Management Studio features an interactive, styled in-app HTML technical identity dossier accessible from context menus, user grids, directory search results, and the global Omnibar launcher (`Ctrl+K`).
+
+1. **Multi-Instance Workspace Tabs**:
+   - Selecting **View HTML Dossier (In-App)** for any user, group, or computer opens an independent, dedicated workspace tab labeled `Dossier: <DisplayName>`.
+   - Operators can keep multiple dossiers open concurrently across tabs to cross-reference attributes, inspect organizational reporting structures, and compare user permissions simultaneously.
+2. **Smart Tab Deduplication & Focus**:
+   - If a dossier tab for that distinguished name is already open, the studio automatically switches focus to the existing tab instead of creating clutter with duplicate tabs.
+3. **Empty Tab Adoption**:
+   - When launched from an unpopulated initial `HtmlView` tab, the engine adopts the existing tab and renames it to match the target identity.
+4. **In-Tab Address Bar Navigation**:
+   - Each dossier tab provides an address bar (`TxtHtmlViewDN`). Operators can type or paste any username or Distinguished Name and click **Go** to navigate the active tab in-place.
+5. **Presentation Templates & Print Engine**:
+   - Four specialized presentation templates are available via the template selector:
+     * **Modern**: Responsive identity card layout with pill status badges, hierarchy tree, and direct report rosters.
+     * **Classic**: Traditional high-contrast two-column LDAP attribute-value inspection table.
+     * **Compact**: High-density executive summary sheet optimized for fast scrolling.
+     * **Security Audit**: Forensic security inspection highlighting `userAccountControl` flags, Kerberos SPNs, password aging metrics, and AdminSDHolder flags.
+   - Synchronizes automatically with the active Light or Dark studio theme.
+   - Full print and PDF export integration via `Ctrl+Shift+P` (`MenuFilePrintDossier`).
 
 ### Light Theme Visual Presentation
 

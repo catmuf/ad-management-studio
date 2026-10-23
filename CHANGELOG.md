@@ -4,10 +4,11 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 📊 Complete Commit-to-Version Reference Table (All 110 Commits)
+## 📊 Complete Commit-to-Version Reference Table (All 111 Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
+| 111 | **v3.4.0** | [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) | 2026-10-23 | docs(release): sync v3.4.0 release notes and full changelog |
 | 110 | **v3.4.0** | [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) | 2026-10-23 | feat(release): cut v3.4.0 release, update documentation and release pipelines |
 | 109 | **v3.4.0** | [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) | 2026-10-23 | feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers |
 | 108 | **v3.4.0** | [`7af88b4`](https://github.com/catmuf/ad-management-studio/commit/7af88b40e9ff97dcaf6cb44f65c601d24c644f88) | 2026-10-23 | fix(runtime): resolve Show-ObjectHtmlView closure scope, COM maxPwdAge cast, and DateTime parsing in audit service |
@@ -128,8 +129,8 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits.
 
-- **Release Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c)
-- **Commits in Release**: 5
+- **Release Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2)
+- **Commits in Release**: 6
 - **Dedicated Release Notes**: [docs/releases/v3.4.0.md](docs/releases/v3.4.0.md)
 
 ##### ✨ Features & Capabilities (3)
@@ -139,6 +140,9 @@ Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPage
 
 ##### 🐛 Bug Fixes & UX Hardening (1)
 - [`7af88b4`](https://github.com/catmuf/ad-management-studio/commit/7af88b40e9ff97dcaf6cb44f65c601d24c644f88) - fix(runtime): resolve Show-ObjectHtmlView closure scope, COM maxPwdAge cast, and DateTime parsing in audit service *(2026-10-23)*
+
+##### 📚 Documentation & Visual Guides (1)
+- [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) - docs(release): sync v3.4.0 release notes and full changelog *(2026-10-23)*
 
 ##### 🛡️ Stability & Code Quality (1)
 - [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e84623d6a96e6980e98a84ac36645b0641d) - refactor(search): consolidate attribute search into CmbFilterAttr and remove redundant TxtSearchAttrFilter *(2026-10-23)*
