@@ -17,7 +17,7 @@ A modern, high-performance administration workbench built with **PowerShell & WP
 
 ## 🖥️ Overview & Hero Presentation
 
-Active Directory Management Studio combines the speed and responsiveness of native Windows desktop applications with the forensic depth of tools like **Softerra LDAP Administrator**, **Apache Directory Studio**, and **NetTools**. Featuring a native 11-category Windows horizontal menu bar, an omnibar quick-search launcher (`Ctrl+K`), tabbed workspace navigation, and 24 specialized administrative workspaces.
+Active Directory Management Studio combines the speed and responsiveness of native Windows desktop applications with the forensic depth of tools like **Softerra LDAP Administrator**, **Apache Directory Studio**, and **NetTools**. Featuring sub-second startup via direct XAML streaming, a native 11-category Windows horizontal menu bar, an omnibar quick-search launcher (`Ctrl+K`), simple and advanced directory search modes, expandable connection diagnostics, tabbed workspace navigation with session saving, and 24 specialized administrative workspaces.
 
 ![Active Directory Management Studio - Main Dashboard Overview](docs/images/01_dashboard_overview.png)
 
@@ -118,9 +118,10 @@ Active Directory Management Studio features a native Windows menu bar organized 
   │ Ctrl+P       Connect Profile   │ Ctrl+F       Visual Directory Search  │
   │ Ctrl+N       New User Account  │ Ctrl+Q       LDAP-SQL Query Console   │
   │ Ctrl+E       Export Subtree    │ Ctrl+B       Toggle Sidebar Menu      │
-  │ Ctrl+R       Resolver Notepad  │ Ctrl+T       Toggle Light/Dark Theme  │
+  │ Ctrl+R       Resolver Notepad  │ Ctrl+Shift+B Directory Basket         │
   │ Ctrl+L       Lockout Inspector │ F5           Refresh / Execute Query  │
-  │ Ctrl+Shift+D Detach Workspace  │ F11          Toggle Full Screen       │
+  │ Ctrl+Shift+D Detach Workspace  │ Ctrl+T       Toggle Light/Dark Theme  │
+  │ F11          Toggle Full Screen│ Ctrl+,       Settings & Startup Tabs  │
   └────────────────────────────────┴───────────────────────────────────────┘
 ```
 
@@ -173,6 +174,7 @@ ad-management-studio/
 ├── WALKTHROUGH.md                     # Visual Operator Walkthrough (10 Scenarios)
 ├── README.md                          # Repository showcase & documentation
 ├── docs/
+│   ├── releases/                      # Versioned release notes (v0.1.0 through v3.3.0)
 │   └── images/                        # 19 High-resolution Light theme application screenshots
 │       ├── 01_dashboard_overview.png
 │       ├── 02_users_and_inspector.png
@@ -195,12 +197,17 @@ ad-management-studio/
 │       └── 19_connection_profiles_manager.png
 ├── tools/
 │   ├── ad-studio-cli.ps1              # Unattended automation CLI engine
+│   ├── benchmark-launch-speed.ps1     # Sub-second launch speed & XAML streaming benchmark
 │   ├── Capture-AppScreenshots.ps1     # Automated WPF Light theme screen capture engine
+│   ├── Generate-Changelog.ps1         # Full git history changelog & release note generator
+│   ├── Publish-AllGitHubReleases.ps1  # Automated GitHub REST API release publisher
 │   ├── test-core-operations.ps1       # Comprehensive GUI test harness (Panels 1-12)
 │   ├── test-advanced-diagnostics.ps1  # Advanced diagnostics test harness (Panels 13-24)
 │   └── test-all-workspaces.ps1        # Full regression validation harness
 ├── Modules/
-│   ├── ADService.psm1                 # LDAP engine, RSAT/ADSI bridge, SQL, LDIF, 48 Audits
+│   ├── ADService.psm1                 # Core LDAP engine, RSAT/ADSI bridge, and directory operations
+│   ├── AuditReportService.psm1        # 48 Automated enterprise security hygiene audits (JIT module)
+│   ├── LdapSqlService.psm1            # ANSI-SQL parser, compiler & LDAP query console (JIT module)
 │   ├── AclService.psm1                # 6-Way Effective Rights, DACL/SACL, AdminSDHolder
 │   ├── KerberosService.psm1           # PAC Bloat formula, MaxTokenSize, ticket cache
 │   ├── DiagnosticService.psm1         # DFS circular group loop detector, lockout tracer

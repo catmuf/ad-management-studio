@@ -4,10 +4,14 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 📊 Complete Commit-to-Version Reference Table (All 99 Commits)
+## 📊 Complete Commit-to-Version Reference Table (All 103 Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
+| 103 | **v3.3.0** | [`69561ba`](https://github.com/catmuf/ad-management-studio/commit/69561babc534670916a6c27ccf1542e46a464959) | 2026-10-23 | fix(adservice): prevent DirectoryEntry referral hangs via reflection dispose and filter benign referral probes |
+| 102 | **v3.3.0** | [`f5188aa`](https://github.com/catmuf/ad-management-studio/commit/f5188aa8e5603a90a0d889d1fb1336fa5aec0921) | 2026-10-23 | fix(htmlview): export Set-SafeBrowserHtml and panel actions to global scope for secondary tab closures |
+| 101 | **v3.3.0** | [`c55bd4a`](https://github.com/catmuf/ad-management-studio/commit/c55bd4ab0c2b47642d2bb34e4288abf92fdab0f3) | 2026-10-23 | fix(resilience): resolve backtick parameter breakages, add DWM composition quota fallback and throttle dispatcher errors |
+| 100 | **v3.3.0** | [`8dc606d`](https://github.com/catmuf/ad-management-studio/commit/8dc606de51dbc8901c9db2ad706a0b16dfc70e19) | 2026-10-23 | docs(release): sync v3.3.0 release notes and historical changelog |
 | 99 | **v3.3.0** | [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72ccd3133194c4e2743ed447262f707d64c) | 2026-10-23 | feat(release): standardize SemVer v3.3.0, update documentation, and prepare release |
 | 98 | **v3.3.0** | [`c9113ec`](https://github.com/catmuf/ad-management-studio/commit/c9113ec961428a4ef2ae4e29b50dcaebf762551d) | 2026-10-22 | fix(connections): lock page scroll and enable internal horizontal scrollbar on active connections table |
 | 97 | **v3.3.0** | [`4b45df4`](https://github.com/catmuf/ad-management-studio/commit/4b45df4367d251c1ae36aa92787351bab4a69522) | 2026-10-22 | fix(connections): add horizontal scrollbar to table and preserve bottom panels during expand view |
@@ -115,10 +119,10 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ### [v3.3.0] - 2026-10-23
 #### Simple Search Mode, Sub-Second Startup, Active Connection Controls & Architecture Hardening
 
-Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, and architectural JIT decomposition of ADService.
+Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, architectural JIT decomposition of ADService, DirectoryEntry referral hang prevention, and DWM composition quota fallback resilience.
 
-- **Release Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72)
-- **Commits in Release**: 17
+- **Release Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`69561ba`](https://github.com/catmuf/ad-management-studio/commit/69561ba)
+- **Commits in Release**: 21
 - **Dedicated Release Notes**: [docs/releases/v3.3.0.md](docs/releases/v3.3.0.md)
 
 ##### ✨ Features & Capabilities (6)
@@ -129,7 +133,10 @@ Delivers sub-second application startup via direct XAML streaming and lazy RSAT 
 - [`c2598cc`](https://github.com/catmuf/ad-management-studio/commit/c2598cceb934367283f0241809d952fe8c38c68d) - feat(connections,datagrid): remove redundant ping sort buttons, add sort arrow indicators, and convert domain input to live connection search box *(2026-10-21)*
 - [`039fac1`](https://github.com/catmuf/ad-management-studio/commit/039fac1e48452eb306e29c6d8bf1a43a0b29fe73) - feat(ui): add button and keyboard shortcut (Ctrl+B) to toggle sidebar menu *(2026-10-20)*
 
-##### 🐛 Bug Fixes & UX Hardening (5)
+##### 🐛 Bug Fixes & UX Hardening (8)
+- [`69561ba`](https://github.com/catmuf/ad-management-studio/commit/69561babc534670916a6c27ccf1542e46a464959) - fix(adservice): prevent DirectoryEntry referral hangs via reflection dispose and filter benign referral probes *(2026-10-23)*
+- [`f5188aa`](https://github.com/catmuf/ad-management-studio/commit/f5188aa8e5603a90a0d889d1fb1336fa5aec0921) - fix(htmlview): export Set-SafeBrowserHtml and panel actions to global scope for secondary tab closures *(2026-10-23)*
+- [`c55bd4a`](https://github.com/catmuf/ad-management-studio/commit/c55bd4ab0c2b47642d2bb34e4288abf92fdab0f3) - fix(resilience): resolve backtick parameter breakages, add DWM composition quota fallback and throttle dispatcher errors *(2026-10-23)*
 - [`c9113ec`](https://github.com/catmuf/ad-management-studio/commit/c9113ec961428a4ef2ae4e29b50dcaebf762551d) - fix(connections): lock page scroll and enable internal horizontal scrollbar on active connections table *(2026-10-22)*
 - [`4b45df4`](https://github.com/catmuf/ad-management-studio/commit/4b45df4367d251c1ae36aa92787351bab4a69522) - fix(connections): add horizontal scrollbar to table and preserve bottom panels during expand view *(2026-10-22)*
 - [`fd856c6`](https://github.com/catmuf/ad-management-studio/commit/fd856c67a70ef4b22e2b20ddfff480a78d31bd45) - fix(theme,dialog): resolve light mode unreadable text and input styling in connection dialog *(2026-10-22)*
@@ -141,7 +148,8 @@ Delivers sub-second application startup via direct XAML streaming and lazy RSAT 
 - [`e2ed4db`](https://github.com/catmuf/ad-management-studio/commit/e2ed4dba6d25efec239611fc53887315090425cb) - perf(launch,xaml): optimize startup loading to sub-second via direct XAML streaming and lazy RSAT *(2026-10-22)*
 - [`8dc5387`](https://github.com/catmuf/ad-management-studio/commit/8dc53874f0b3c63504b2bd978d58ee39fe0bba1c) - perf(core,ui): optimize DataGrid pixel scrolling, omnibar debouncing, live filtering, and module loading *(2026-10-20)*
 
-##### 📚 Documentation & Visual Guides (1)
+##### 📚 Documentation & Visual Guides (2)
+- [`8dc606d`](https://github.com/catmuf/ad-management-studio/commit/8dc606de51dbc8901c9db2ad706a0b16dfc70e19) - docs(release): sync v3.3.0 release notes and historical changelog *(2026-10-23)*
 - [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed387332013c4b7ff10e5fe059b86a439fb73807) - docs(releases): map all 82 historical commits across 10 Semantic Version releases *(2026-10-20)*
 
 ##### 🛡️ Stability & Code Quality (1)

@@ -54,7 +54,7 @@ $milestones = @(
         Date        = "2026-10-23"
         StartCommit = "ed38733"
         TipCommit   = "HEAD"
-        Summary     = "Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, and architectural JIT decomposition of ADService."
+        Summary     = "Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, architectural JIT decomposition of ADService, DirectoryEntry referral hang prevention, and DWM composition quota fallback resilience."
     },
     [PSCustomObject]@{
         Version     = "v3.2.0"

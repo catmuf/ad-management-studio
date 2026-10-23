@@ -45,7 +45,7 @@ Assess forest-wide Active Directory health, monitor key identity metrics, verify
    ```powershell
    pwsh -NoProfile -STA -File .\main.ps1
    ```
-   The application initializes and loads directly into the default **Light Theme** presentation.
+   The application initializes with sub-second streaming launch and loads directly into the default **Light Theme** presentation.
 2. **Inspect the Active Directory Overview & Health View**:
    - The top KPI ribbon surfaces key directory metrics at a glance:
      * **Total Users**: Forest user account count (`1,248`).
@@ -61,9 +61,10 @@ Assess forest-wide Active Directory health, monitor key identity metrics, verify
    - Verifies LDAP protocol capabilities (LDAP v3 RFC 4511 & LDAPS Port 636).
 4. **Use Quick Launchpad**:
    - Click any quick-action card to jump directly to **Directory Search**, **LDAP-SQL Console**, **Raw Attribute Editor**, or **Security Audits**.
-5. **Theme & Layout Controls**:
+5. **Theme, Sidebar & Layout Controls**:
    - The top toolbar displays current session credentials and elevation status (`ELEVATED (ADMIN)`).
    - Operators can toggle between Light and Dark mode using `Ctrl+T` or the theme selector icon.
+   - Press `Ctrl+B` or click the sidebar toggle button to collapse or expand the navigation menu for an expansive workspace view.
 
 ---
 
@@ -326,7 +327,7 @@ Diagnose network accessibility to domain controller file shares (`SYSVOL` / `NET
 ## Conclusion & Best Practices
 
 1. **Light Theme for Precision**: The default high-contrast Light Theme guarantees optimal readability when analyzing fine-grained ACL matrices, cryptographic keys, and dense hex streams.
-2. **Leverage Staged Basket Moves**: When moving users or groups between OUs, stage them in the **Directory Basket** (`Ctrl+B`) first to preview changes before committing.
+2. **Leverage Staged Basket Moves**: When moving users or groups between OUs, stage them in the **Directory Basket** (`Ctrl+Shift+B`) first to preview changes before committing.
 3. **Verify LDIF Diffs**: Always review dry-run diffs in **LDIF Studio** before committing batch schema or attribute updates.
 4. **Automate with CLI**: Repetitive diagnostic sweeps (circular group scans, Kerberos token calculations, health audits) can be scheduled using `tools/ad-studio-cli.ps1`.
 5. **Technical Architecture Reference**: For deep protocol specifications, RFC compliance mappings, and schema definitions, consult the [**Enterprise SysAdmin Handbook (HANDBOOK.md)**](HANDBOOK.md).

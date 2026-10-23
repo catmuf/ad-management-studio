@@ -80,6 +80,9 @@ The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config
    - **RFC 2849**: LDAP Data Interchange Format (LDIF).
    - **RFC 2891**: Server Side Sorting & Virtual List View (VLV).
    - **RFC 7643 / RFC 7644**: SCIM 2.0 Core/Enterprise Schemas & Protocol.
+5. **Sub-Second Streaming & JIT Modular Architecture**:
+   - Direct XAML streaming and lazy RSAT loading minimize application cold-start to sub-second speeds.
+   - Core LDAP engine decomposed into specialized Just-In-Time (JIT) modules (`AuditReportService`, `LdapSqlService`), isolating memory footprint and eliminating initial script parsing overhead.
 
 ---
 
@@ -112,6 +115,7 @@ On startup, the studio performs automated environment discovery:
 - Detects the current AD forest and domain hierarchy.
 - Identifies the Primary Domain Controller Emulator (PDCe) and Global Catalog servers.
 - Initializes the enterprise logging engine under `logs/YYYY-MM-DD.log`.
+- Restores configured default startup tabs and active session state (if session saving is enabled in Settings).
 
 ---
 
@@ -127,7 +131,7 @@ The sidebar organizes 24 specialized workspaces into 4 functional domains:
 | | **Org. Units (OUs)** | Interactive hierarchical treeview, OU protection safeguards, container browsing. | `Ctrl+4` / Sidebar |
 | | **Computers** | Workstation and server inventory, operating systems, and stale computer identification. | `Ctrl+5` / Sidebar |
 | | **AD Recycle Bin** | Deleted object recovery, tombstone reanimation, and lifetime management. | Sidebar |
-| **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), presets, and VLV paged queries. | `Ctrl+F` / Sidebar |
+| **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), Simple Search mode with collapsible advanced filters, presets, and VLV paged queries. | `Ctrl+F` / Sidebar |
 | | **LDAP-SQL Console** | ANSI-SQL query interface over Active Directory (`SELECT ... FROM SUBTREE WHERE ...`). | Sidebar |
 | | **Raw Attribute Editor**| Multi-valued array manipulation, operational attributes, bitmask decoders. | Sidebar |
 | | **HTML Dossier View** | Executive identity dossier rendering, responsive styling, print-ready reports. | Sidebar |
@@ -136,7 +140,7 @@ The sidebar organizes 24 specialized workspaces into 4 functional domains:
 | | **Security Audits** | 48 pre-packaged enterprise hygiene audit reports with HTML export. | Sidebar |
 | | **Schema Browser** | Object class inheritance, attribute syntax definitions, and schema export. | Sidebar |
 | | **Bulk Operations** | Mass batch updates, CSV import, attribute overriding across multiple objects. | Sidebar |
-| | **Directory Basket** | Cross-OU object staging cart for batch moving, updating, and export. | `Ctrl+B` / Sidebar |
+| | **Directory Basket** | Cross-OU object staging cart for batch moving, updating, and export. | `Ctrl+Shift+B` / Sidebar |
 | **Identity & Standards** | **SCIM 2.0 Studio** | RFC 7644 SCIM query translation to native LDAP filters, RFC 7643 schema mapping. | Sidebar |
 | | **Object Studio** | Specialized editors: Hex/Binary dump, X.509 certs, photo cropping, date conversion. | Context Menu / Toolbar |
 | **Diagnostics & NetTools** | **Security & ACL Suite** | 6-Way Effective Rights matrix, DACL/SACL browser, 1-Click AdminSDHolder fix. | Sidebar |
@@ -144,7 +148,7 @@ The sidebar organizes 24 specialized workspaces into 4 functional domains:
 | | **Replication Suite** | Multi-DC replication metadata, USN vector sync, metadata forensics. | Sidebar |
 | | **Diagnostics Toolbox**| Circular group loop DFS scanner, side-by-side group diff, lockout tracer. | Sidebar |
 | | **Network Diagnostics**| 7-Tier UNC share diagnostic checker, 8-port DC latency matrix. | Sidebar |
-| | **Connections** | Multi-profile directory manager, custom SSL ports, rootDSE discovery. | Top Toolbar / Sidebar |
+| | **Connections** | Multi-profile directory manager, custom SSL ports, rootDSE discovery, expandable DC table with compact toggle, sortable ping latency, and live connection search. | Top Toolbar / Sidebar |
 
 ---
 
