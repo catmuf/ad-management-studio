@@ -1232,40 +1232,63 @@ function global:Show-ObjectHtmlView {
         # Generate HTML
         $html = Get-ADObjectHtmlContent -ObjectDetail $targetObj -Attributes $attrs -Theme $themeToUse -Template $activeTemplate
 
-        # Cache in state
-        $state.CurrentHtmlObject   = $targetObj
-        $state.CurrentHtmlDN       = $targetDN
-        $state.CurrentHtmlTemplate = $activeTemplate
-        $state.CurrentHtmlRaw      = $html
-
         $nameDisp = if ($targetObj.DisplayName) { $targetObj.DisplayName } elseif ($targetObj.Name) { $targetObj.Name } else { ($targetDN -split ',')[0] }
 
-        # Update UI controls
-        if ($controls['TxtHtmlViewDN']) {
-            $controls['TxtHtmlViewDN'].Text = $targetDN
-        }
-        if ($controls['TxtHtmlViewDNPlaceholder']) {
-            $controls['TxtHtmlViewDNPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed
-        }
-        if ($controls['TxtHtmlViewStatusBadge']) {
-            $controls['TxtHtmlViewStatusBadge'].Text = "$nameDisp"
-        }
-
-        # Update tab title and secondary panel controls if active tab is HtmlView
+        # Resolve tab to use
         $currTab = if ($TargetTab) {
             $TargetTab
-        } else {
-            $foundTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-            if (-not $foundTab -or $foundTab.PanelName -ne "HtmlView") {
-                $foundTab = $state.OpenTabs | Where-Object { $_.PanelName -eq "HtmlView" } | Select-Object -Last 1
+        } elseif ($state.WorkspaceMode -eq "Tabs") {
+            # 1. Check if a tab is already open for this exact identity
+            $existingTab = $state.OpenTabs | Where-Object {
+                $_.PanelName -eq "HtmlView" -and $_.State -and $_.State.ContainsKey('CurrentHtmlDN') -and ($_.State['CurrentHtmlDN'] -ieq $targetDN)
+            } | Select-Object -First 1
+
+            if ($existingTab) {
+                if ($state.ActiveTabId -ne $existingTab.Id) {
+                    Select-WorkspaceTab -TabId $existingTab.Id
+                }
+                $existingTab
+            } else {
+                # 2. Check if there is an unpopulated/blank HtmlView tab
+                $emptyTab = $state.OpenTabs | Where-Object {
+                    $_.PanelName -eq "HtmlView" -and (-not $_.State -or -not $_.State.ContainsKey('CurrentHtmlDN') -or [string]::IsNullOrWhiteSpace($_.State['CurrentHtmlDN']))
+                } | Select-Object -First 1
+
+                if ($emptyTab) {
+                    $emptyTab.Title = "Dossier: $nameDisp"
+                    Select-WorkspaceTab -TabId $emptyTab.Id
+                    $emptyTab
+                } else {
+                    # 3. Create a dedicated new tab instance
+                    Add-WorkspaceTab -PanelName "HtmlView" -CustomTitle "Dossier: $nameDisp" -NewInstance -Activate $true
+                    $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+                }
             }
-            $foundTab
+        } else {
+            # Non-tabbed / Single panel mode
+            $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            if (-not $activeTab -or $activeTab.PanelName -ne "HtmlView") {
+                Show-Panel "HtmlView"
+            }
+            $state.OpenTabs | Where-Object { $_.PanelName -eq "HtmlView" } | Select-Object -First 1
         }
 
-        # Navigate primary Browser only if target is primary tab
-        if ((-not $currTab -or $currTab.InstanceNumber -le 1) -and $controls['BrowserHtmlView']) {
-            Set-SafeBrowserHtml -Browser $controls['BrowserHtmlView'] -Html $html
+        # Update primary controls if targeting primary tab or single-panel mode
+        if (-not $currTab -or $currTab.InstanceNumber -le 1) {
+            if ($controls['TxtHtmlViewDN']) {
+                $controls['TxtHtmlViewDN'].Text = $targetDN
+            }
+            if ($controls['TxtHtmlViewDNPlaceholder']) {
+                $controls['TxtHtmlViewDNPlaceholder'].Visibility = [System.Windows.Visibility]::Collapsed
+            }
+            if ($controls['TxtHtmlViewStatusBadge']) {
+                $controls['TxtHtmlViewStatusBadge'].Text = "$nameDisp"
+            }
+            if ($controls['BrowserHtmlView']) {
+                Set-SafeBrowserHtml -Browser $controls['BrowserHtmlView'] -Html $html
+            }
         }
+
         if ($currTab) {
             $currTab.Title = "Dossier: $nameDisp"
             if ($currTab.State) {
@@ -1299,15 +1322,18 @@ function global:Show-ObjectHtmlView {
                     }
                 }
             }
+            if ($state.ActiveTabId -ne $currTab.Id) {
+                Select-WorkspaceTab -TabId $currTab.Id
+            }
             Update-WorkspaceTabStrip
         }
 
+        # Cache in global state for active item
+        $state.CurrentHtmlObject   = $targetObj
+        $state.CurrentHtmlDN       = $targetDN
+        $state.CurrentHtmlTemplate = $activeTemplate
+        $state.CurrentHtmlRaw      = $html
 
-        # Navigate to panel if not already on an HtmlView tab
-        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        if (-not $activeTab -or $activeTab.PanelName -ne "HtmlView") {
-            Show-Panel "HtmlView"
-        }
         if ($controls['NavHtmlView']) {
             $state.IsSelectingTab = $true
             try { $controls['NavHtmlView'].IsChecked = $true } finally { $state.IsSelectingTab = $false }
@@ -1334,7 +1360,8 @@ if ($controls['BtnHtmlViewGo']) {
     $controls['BtnHtmlViewGo'].Add_Click({
         $inputDn = if ($controls['TxtHtmlViewDN']) { $controls['TxtHtmlViewDN'].Text.Trim() } else { "" }
         if ($inputDn) {
-            Show-ObjectHtmlView -Identity $inputDn
+            $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
+            Show-ObjectHtmlView -Identity $inputDn -TargetTab $activeTab
         } else {
             [System.Windows.MessageBox]::Show("Please enter a username or Distinguished Name.", "Input Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
         }
@@ -1681,10 +1708,14 @@ function global:Save-TabSessionState {
             if ($controls['TxtSearchAttr']) { $Tab.State['SearchAttr'] = $controls['TxtSearchAttr'].Text }
         }
         "HtmlView" {
-            if ($state.CurrentHtmlDN) { $Tab.State['CurrentHtmlDN'] = $state.CurrentHtmlDN }
-            if ($state.CurrentHtmlTemplate) { $Tab.State['CurrentHtmlTemplate'] = $state.CurrentHtmlTemplate }
-            if ($state.CurrentHtmlRaw) { $Tab.State['CurrentHtmlRaw'] = $state.CurrentHtmlRaw }
-            if ($state.CurrentHtmlObject) { $Tab.State['CurrentHtmlObject'] = $state.CurrentHtmlObject }
+            if ($Tab.InstanceNumber -le 1 -and $Tab.Id -eq $state.ActiveTabId) {
+                if ($controls['TxtHtmlViewDN'] -and $controls['TxtHtmlViewDN'].Text) {
+                    $Tab.State['CurrentHtmlDN'] = $controls['TxtHtmlViewDN'].Text
+                }
+                if ($state.CurrentHtmlTemplate) { $Tab.State['CurrentHtmlTemplate'] = $state.CurrentHtmlTemplate }
+                if ($state.CurrentHtmlRaw) { $Tab.State['CurrentHtmlRaw'] = $state.CurrentHtmlRaw }
+                if ($state.CurrentHtmlObject) { $Tab.State['CurrentHtmlObject'] = $state.CurrentHtmlObject }
+            }
         }
     }
 }
@@ -5268,27 +5299,9 @@ if ($controls['ListGlobalSearchResults']) {
         if ($sel) {
             if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
             $controls['ListGlobalSearchResults'].SelectedItem = $null
-
-            $dispName = if ($sel.Name) { $sel.Name } elseif ($sel.SamAccountName) { $sel.SamAccountName } else { ($sel.DistinguishedName -split ',')[0] }
-
-            # Check if there is an unpopulated initial HtmlView tab we can reuse
-            $emptyTab = $state.OpenTabs | Where-Object {
-                $_.PanelName -eq "HtmlView" -and (-not $_.State -or -not $_.State.ContainsKey('CurrentHtmlDN') -or [string]::IsNullOrWhiteSpace($_.State['CurrentHtmlDN']))
-            } | Select-Object -First 1
-
-            $targetTab = if ($emptyTab) {
-                $emptyTab.Title = "Dossier: $dispName"
-                Select-WorkspaceTab -TabId $emptyTab.Id
-                $emptyTab
-            } else {
-                Add-WorkspaceTab -PanelName "HtmlView" -CustomTitle "Dossier: $dispName" -NewInstance -Activate $true
-                $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-            }
-
-            Show-ObjectHtmlView -Identity $sel -TargetTab $targetTab
+            Show-ObjectHtmlView -Identity $sel
         }
     })
-
 }
 #endregion
 
