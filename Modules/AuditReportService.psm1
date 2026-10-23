@@ -80,11 +80,12 @@ function Get-ADSecurityAuditReport {
                     $rawTime = if ($r.lastLogonTimestamp) { $r.lastLogonTimestamp } else { $r.lastLogon }
                     if ($rawTime) {
                         $parsedDateStr = ConvertFrom-ADLargeInteger -Value $rawTime
-                        if ($parsedDateStr -and $parsedDateStr -ne "Never") {
-                            try {
-                                $dt = [DateTime]$parsedDateStr
+                        if ($parsedDateStr -and $parsedDateStr -notin @("Never", "Not Set", "<not set>")) {
+                            $parsedDt = [DateTime]::MinValue
+                            if ([DateTime]::TryParse($parsedDateStr, [ref]$parsedDt)) {
+                                $dt = $parsedDt
                                 $lastLogStr = $dt.ToString("yyyy-MM-dd HH:mm")
-                            } catch { $dt = $null }
+                            }
                         }
                     }
 
@@ -152,7 +153,7 @@ function Get-ADSecurityAuditReport {
             
             foreach ($grp in $privGroups) {
                 try {
-                    $members = Get-ADGroupMembersList -GroupName $grp -ErrorAction Stop
+                    $members = Get-ADGroupMembersList -GroupName $grp -ErrorAction SilentlyContinue
                     foreach ($m in $members) {
                         if ($m.ObjectClass -ne "group" -and -not $seenUsers.Contains($m.SamAccountName)) {
                             [void]$seenUsers.Add($m.SamAccountName)
@@ -253,13 +254,15 @@ function Get-ADSecurityAuditReport {
             foreach ($r in $query.Results) {
                 $lastLogonStr = ConvertFrom-ADLargeInteger -Value $r.lastLogonTimestamp
                 $isInactive = $false
-                if ($lastLogonStr -eq "Never") {
+                if (-not $lastLogonStr -or $lastLogonStr -in @("Never", "Not Set", "<not set>")) {
                     $isInactive = $true
                 } else {
-                    try {
-                        $dt = [DateTime]$lastLogonStr
+                    $dt = [DateTime]::MinValue
+                    if ([DateTime]::TryParse($lastLogonStr, [ref]$dt)) {
                         if ($dt -lt $cutoff) { $isInactive = $true }
-                    } catch { $null = $_ <# Suppress unhandled exception #> }
+                    } else {
+                        $isInactive = $true
+                    }
                 }
 
                 if ($isInactive) {
@@ -296,7 +299,20 @@ function Get-ADSecurityAuditReport {
             try {
                 $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
                 $domainEntry = [System.DirectoryServices.DirectoryEntry]"LDAP://$($rootDse.defaultNamingContext)"
-                $maxPwdAgeTicks = [int64]$domainEntry.Properties['maxPwdAge'].Value
+                $val = $domainEntry.Properties['maxPwdAge'].Value
+                $maxPwdAgeTicks = 0
+                if ($val -is [int64]) {
+                    $maxPwdAgeTicks = $val
+                } elseif ($val -ne $null) {
+                    try {
+                        $high = [int64]$val.HighPart
+                        $low = [int64]$val.LowPart
+                        if ($low -lt 0) { $low += [int64]4294967296 }
+                        $maxPwdAgeTicks = ($high -shl 32) + $low
+                    } catch {
+                        [void][int64]::TryParse("$val", [ref]$maxPwdAgeTicks)
+                    }
+                }
                 if ($maxPwdAgeTicks -lt 0) {
                     $ts = [TimeSpan]::FromTicks(-$maxPwdAgeTicks)
                     if ($ts.TotalDays -gt 0) { $defaultMaxAgeDays = [int]$ts.TotalDays }
@@ -307,8 +323,8 @@ function Get-ADSecurityAuditReport {
             $query = Invoke-LdapQuery -Filter "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(pwdLastSet>=1))" -PropertiesToLoad @('sAMAccountName', 'displayName', 'mail', 'pwdLastSet', 'distinguishedName') -Server $Server
             foreach ($r in $query.Results) {
                 $lastSetStr = ConvertFrom-ADLargeInteger -Value $r.pwdLastSet
-                try {
-                    $lastSetDate = [DateTime]$lastSetStr
+                $lastSetDate = [DateTime]::MinValue
+                if ($lastSetStr -and $lastSetStr -notin @("Never", "Not Set") -and [DateTime]::TryParse($lastSetStr, [ref]$lastSetDate)) {
                     $expiryDate = $lastSetDate.AddDays($defaultMaxAgeDays)
                     $remaining = [int]($expiryDate - (Get-Date)).TotalDays
                     if ($expiryDate -le $cutoffExpiry) {
@@ -322,7 +338,7 @@ function Get-ADSecurityAuditReport {
                             DistinguishedName = $r.DistinguishedName
                         })
                     }
-                } catch { $null = $_ <# Suppress unhandled exception #> }
+                }
             }
             $summary["Policy Max Age"] = "$defaultMaxAgeDays Days"
             $summary["Accounts Expiring Soon"] = $results.Count
@@ -846,7 +862,7 @@ function Get-AD40SecurityAuditReports {
             Description = "Accounts whose accountExpires attribute is in the past."
             LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(accountExpires=0))(!(accountExpires=9223372036854775807)))"
             Remediation = "Disable expired accounts and deprovision assigned access rights."
-            Evaluate    = { param($u) if ($u.AccountExpires -and $u.AccountExpires -ne "Never" -and [DateTime]$u.AccountExpires -lt (Get-Date)) { $true } else { $false } }
+            Evaluate    = { param($u) $dt = [DateTime]::MinValue; if ($u.AccountExpires -and $u.AccountExpires -notin @("Never", "Not Set") -and [DateTime]::TryParse($u.AccountExpires, [ref]$dt) -and $dt -lt (Get-Date)) { $true } else { $false } }
         },
         [PSCustomObject]@{
             Id          = "LIFE-PASSWORD-EXPIRING-SOON"
@@ -856,7 +872,7 @@ function Get-AD40SecurityAuditReports {
             Description = "Accounts approaching password expiration cutoff."
             LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=65536)))"
             Remediation = "Send automated self-service password reset reminder notification."
-            Evaluate    = { param($u) if ($u.PasswordExpires -and [DateTime]$u.PasswordExpires -lt (Get-Date).AddDays(14)) { $true } else { $false } }
+            Evaluate    = { param($u) $dt = [DateTime]::MinValue; if ($u.PasswordExpires -and $u.PasswordExpires -notin @("Never", "Not Set") -and [DateTime]::TryParse($u.PasswordExpires, [ref]$dt) -and $dt -lt (Get-Date).AddDays(14)) { $true } else { $false } }
         },
         [PSCustomObject]@{
             Id          = "LIFE-PASSWORD-STALE-365"
@@ -896,7 +912,7 @@ function Get-AD40SecurityAuditReports {
             Description = "Audit log of recently created accounts for onboarding verification."
             LdapFilter  = "(&(objectCategory=person)(objectClass=user)(whenCreated>=`$thirtyDaysAgo))"
             Remediation = "Verify onboarding compliance and mandatory security awareness training."
-            Evaluate    = { param($u) if ($u.WhenCreated -and [DateTime]$u.WhenCreated -ge (Get-Date).AddDays(-30)) { $true } else { $false } }
+            Evaluate    = { param($u) $dt = [DateTime]::MinValue; if ($u.WhenCreated -and $u.WhenCreated -notin @("Never", "Not Set") -and [DateTime]::TryParse($u.WhenCreated, [ref]$dt) -and $dt -ge (Get-Date).AddDays(-30)) { $true } else { $false } }
         },
         [PSCustomObject]@{
             Id          = "LIFE-INCOMPLETE-PROFILE"

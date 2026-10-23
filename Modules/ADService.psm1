@@ -793,7 +793,12 @@ function Get-ADGroupMembersList {
             return @()
         }
         catch {
-            Write-Error "Failed to get members of group '$Identity': $_"
+            $errMsg = "$_"
+            if ($errMsg -match "ADIdentityNotFoundException|Cannot find an object with identity|No se puede encontrar un objeto") {
+                Write-Verbose "Group '$Identity' was not found in directory."
+            } else {
+                Write-Warning "Failed to get members of group '$Identity': $_"
+            }
             return @()
         }
     }

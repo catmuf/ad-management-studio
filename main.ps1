@@ -459,7 +459,7 @@ function Invoke-ExternalTool {
     }
 }
 
-function Show-ObjectHtmlDossier {
+function global:Show-ObjectHtmlDossier {
     param (
         $TargetObject,
         [string]$TargetDN = ""
@@ -1080,7 +1080,7 @@ function global:Initialize-HtmlViewUI {    if (-not $state.CurrentHtmlDN) {
     }
 }
 
-function Show-ObjectHtmlView {
+function global:Show-ObjectHtmlView {
     [CmdletBinding()]
     param (
         $Identity,
