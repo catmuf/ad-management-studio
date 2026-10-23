@@ -975,7 +975,7 @@ if ($controls['CmbAccentTone']) {
 #endregion
 
 #region 18. In-App HTML Dossier View Logic
-function Set-SafeBrowserHtml {
+function global:Set-SafeBrowserHtml {
     [CmdletBinding()]
     param(
         [System.Windows.Controls.WebBrowser]$Browser,
@@ -1032,7 +1032,7 @@ function Set-SafeBrowserHtml {
 }
 
 Set-Alias -Name Init-HtmlViewUI -Value Initialize-HtmlViewUI -Scope Global
-function Initialize-HtmlViewUI {    if (-not $state.CurrentHtmlDN) {
+function global:Initialize-HtmlViewUI {    if (-not $state.CurrentHtmlDN) {
         # Show elegant welcome landing page
         $isLight = ($state.CurrentTheme -eq "Light")
         $bg = if ($isLight) { "#F8FAFC" } else { "#0E1017" }
@@ -1440,8 +1440,7 @@ if ($adContext.IsConnected) {
     if ($controls['TxtLatencyBadge']) { $controls['TxtLatencyBadge'].Text = "--" }
     if ($controls['StatusDot'])       { $controls['StatusDot'].Fill      = [System.Windows.Media.Brushes]::Red }
 }
-
-function Set-Status {
+function global:Set-Status {
     param ([string]$Message, [string]$Count = "")
     if ($controls['TxtStatusMessage']) {
         $controls['TxtStatusMessage'].Text = $Message
@@ -2322,7 +2321,7 @@ Set-Alias -Name Open-GroupMembersDialog -Value Open-MemberDialog -Scope Global
 Set-Alias -Name Delete-SelectedGroup -Value Remove-GroupAction -Scope Global
 
 Set-Alias -Name Wire-UserContextMenu -Value Connect-UserContextMenu -Scope Global
-function Connect-UserContextMenu {
+function global:Connect-UserContextMenu {
     param(
         [System.Collections.IDictionary]$Ctrls,
         [System.Windows.Controls.DataGrid]$TargetGrid,
@@ -2585,7 +2584,7 @@ function Connect-UserContextMenu {
 }
 
 Set-Alias -Name Wire-GroupContextMenu -Value Connect-GroupContextMenu -Scope Global
-function Connect-GroupContextMenu {
+function global:Connect-GroupContextMenu {
     param(
         [System.Collections.IDictionary]$Ctrls,
         [System.Windows.Controls.DataGrid]$TargetGrid,
@@ -2765,7 +2764,7 @@ function Connect-GroupContextMenu {
 }
 
 Set-Alias -Name Wire-ComputerContextMenu -Value Connect-ComputerContextMenu -Scope Global
-function Connect-ComputerContextMenu {
+function global:Connect-ComputerContextMenu {
     param(
         [System.Collections.IDictionary]$Ctrls,
         [System.Windows.Controls.DataGrid]$TargetGrid,
@@ -3444,6 +3443,11 @@ function Connect-SecondaryPanelInstance {    param(
         $cmbTemplate = $c['CmbHtmlViewTemplate']
         $badge = $c['TxtHtmlViewStatusBadge']
         $browser = $c['BrowserHtmlView']
+        if ($btnGo) { $btnGo.Tag = 'Handled' }
+        if ($btnRefresh) { $btnRefresh.Tag = 'Handled' }
+        if ($btnPrint) { $btnPrint.Tag = 'Handled' }
+        if ($btnCopy) { $btnCopy.Tag = 'Handled' }
+        if ($btnOpenBrowser) { $btnOpenBrowser.Tag = 'Handled' }
 
         $localScope = [PSCustomObject]@{
             CurrentDN       = if ($tab -and $tab.State -and $tab.State.ContainsKey('CurrentHtmlDN')) { $tab.State['CurrentHtmlDN'] } elseif ($tab -and $tab.InstanceNumber -le 1 -and $state.CurrentHtmlDN) { $state.CurrentHtmlDN } else { "" }
@@ -5484,8 +5488,7 @@ function Sync-DataGridColumnsProperties {
         }
     }
 }
-
-function Show-ColumnChooser {
+function global:Show-ColumnChooser {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
@@ -5720,8 +5723,7 @@ function Show-ColumnChooser {
 
     [void]$dlg.ShowDialog()
 }
-
-function Reset-TableColumns {
+function global:Reset-TableColumns {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateSet("Users", "Groups", "Computers", "OUObjects", "Search")]
@@ -6045,8 +6047,7 @@ function ConvertTo-SecureStringFromText {
     $ss.MakeReadOnly()
     return $ss
 }
-
-function Open-UserDialog {
+function global:Open-UserDialog {
     param (
         [string]$Mode = "Create",
         $UserToEdit = $null,
@@ -6272,8 +6273,7 @@ function Open-UserDialog {
 
     [void]$dlg.ShowDialog()
 }
-
-function Open-PasswordDialog {
+function global:Open-PasswordDialog {
     param ($User)
     if (-not $User) { return }
 
@@ -6344,8 +6344,7 @@ function Open-PasswordDialog {
 
     [void]$dlg.ShowDialog()
 }
-
-function Open-UserDetailDialog {
+function global:Open-UserDetailDialog {
     param ($User)
     if (-not $User) { return }
 
@@ -6401,8 +6400,7 @@ function Open-UserDetailDialog {
     $dControls['BtnClose'].Add_Click({ $dlg.Close() })
     [void]$dlg.ShowDialog()
 }
-
-function Open-MoveDialog {
+function global:Open-MoveDialog {
     param ($Principal, [string]$Type = "User")
     if (-not $Principal) { return }
 
@@ -6461,7 +6459,7 @@ function Open-MoveDialog {
 }
 
 Set-Alias -Name Delete-UserAction -Value Remove-UserAction -Scope Global
-function Remove-UserAction {    param($TargetUser = $null)
+function global:Remove-UserAction {    param($TargetUser = $null)
     $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) {
         [System.Windows.MessageBox]::Show("Please select a user from the list first.", "No Selection", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
@@ -6490,7 +6488,7 @@ function Remove-UserAction {    param($TargetUser = $null)
 }
 
 Set-Alias -Name Toggle-UserStatusAction -Value Switch-UserStatusAction -Scope Global
-function Switch-UserStatusAction {    param($TargetUser = $null)
+function global:Switch-UserStatusAction {    param($TargetUser = $null)
     $selUser = if ($TargetUser) { $TargetUser } elseif ($controls['GridUsers']) { $controls['GridUsers'].SelectedItem } else { $null }
     if (-not $selUser) { return }
 
@@ -6516,8 +6514,7 @@ function Switch-UserStatusAction {    param($TargetUser = $null)
         }
     }
 }
-
-function Export-UsersAction {
+function global:Export-UsersAction {
     param($SourceItems = $null)
     $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
     $dateStr = (Get-Date).ToString("yyyyMMdd_HHmm")
@@ -6914,8 +6911,7 @@ function Select-GroupsLive {    $query = if ($controls['TxtSearchGroups']) { $co
         $controls['TxtGroupsCountBadge'].Text = "$($finalArr.Count) groups displayed"
     }
 }
-
-function Open-GroupDialog {
+function global:Open-GroupDialog {
     param (
         [string]$TargetOU = "",
         [string]$Template = "",
@@ -7274,8 +7270,7 @@ function Remove-GroupAction {
         }
     }
 }
-
-function Export-GroupsAction {
+function global:Export-GroupsAction {
     $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
     $dateStr = (Get-Date).ToString("yyyyMMdd_HHmm")
     $saveDlg.FileName = "AD_Groups_$dateStr.csv"
@@ -11770,8 +11765,7 @@ if ($controls['ChkKeepBasketContents']) {
     $controls['ChkKeepBasketContents'].Add_Checked({ Save-BasketPersistence })
     $controls['ChkKeepBasketContents'].Add_Unchecked({ Save-BasketPersistence })
 }
-
-function Add-ToBasket {
+function global:Add-ToBasket {
     param (
         $Items,
         [string]$DefaultClass = "Object"
