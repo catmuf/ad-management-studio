@@ -196,7 +196,8 @@ $script:ErrorMonitorTimer.Add_Tick({
                 $errItem = $global:Error[$errIdx]
                 $isBenignProbe = ($errItem.TargetObject -in @("GroupPolicy", "ActiveDirectory")) -or
                                  ($errItem.CategoryInfo -and $errItem.CategoryInfo.Activity -match "SilentlyContinue") -or
-                                 ($errItem.InvocationInfo -and $errItem.InvocationInfo.Line -match "-ErrorAction\s+SilentlyContinue")
+                                 ($errItem.InvocationInfo -and $errItem.InvocationInfo.Line -match "-ErrorAction\s+SilentlyContinue") -or
+                                 ($errItem.Exception -and ($errItem.Exception.Message -match "referencia|referral" -or $errItem.Exception.HResult -eq -2147016651))
                 if ($errItem -and $errItem.Exception -and -not $isBenignProbe) {
                     Write-AppError -Category "PowerShellRuntime" -Message "PowerShell Runtime Error: $($errItem.Exception.Message)" -ErrorRecord $errItem -Exception $errItem.Exception
                 }

@@ -1428,8 +1428,12 @@ function Get-ADObjectRawAttributes {
 
         if ($IncludeOperational) {
             try {
-                $entry.RefreshCache($operationalAttrs)
-            } catch { $null = $_ <# Suppress unhandled exception #> }
+                [System.DirectoryServices.DirectoryEntry].GetMethod('RefreshCache', [Type[]]@([string[]])).Invoke($entry, @(,[string[]]$operationalAttrs))
+            } catch {
+                if ($global:Error -and $global:Error.Count -gt 0) {
+                    $global:Error.RemoveAt(0)
+                }
+            }
         }
 
         $purelyOperational = @(
@@ -1526,7 +1530,11 @@ function Get-ADObjectRawAttributes {
         }
     }
     finally {
-        if ($entry -is [System.IDisposable]) { $entry.Dispose() }
+        if ($null -ne $entry) {
+            try {
+                [System.IDisposable].GetMethod('Dispose').Invoke($entry, $null)
+            } catch { $null = $_ }
+        }
     }
 
     if ($attrList.Count -eq 0) {
@@ -1589,7 +1597,11 @@ function Set-ADObjectRawAttribute {
         return [PSCustomObject]@{ Success = $false; Message = "Failed to update attribute '$AttributeName': $_" }
     }
     finally {
-        if ($entry -is [System.IDisposable]) { $entry.Dispose() }
+        if ($null -ne $entry) {
+            try {
+                [System.IDisposable].GetMethod('Dispose').Invoke($entry, $null)
+            } catch { $null = $_ }
+        }
     }
 }
 
@@ -1620,7 +1632,11 @@ function Add-ADObjectRawAttributeValue {
         return [PSCustomObject]@{ Success = $false; Message = "Failed to add value to '$AttributeName': $_" }
     }
     finally {
-        if ($entry -is [System.IDisposable]) { $entry.Dispose() }
+        if ($null -ne $entry) {
+            try {
+                [System.IDisposable].GetMethod('Dispose').Invoke($entry, $null)
+            } catch { $null = $_ }
+        }
     }
 }
 
@@ -1652,7 +1668,11 @@ function Remove-ADObjectRawAttributeValue {
         return [PSCustomObject]@{ Success = $false; Message = "Failed to remove value from '$AttributeName': $_" }
     }
     finally {
-        if ($entry -is [System.IDisposable]) { $entry.Dispose() }
+        if ($null -ne $entry) {
+            try {
+                [System.IDisposable].GetMethod('Dispose').Invoke($entry, $null)
+            } catch { $null = $_ }
+        }
     }
 }
 
@@ -1681,7 +1701,11 @@ function Clear-ADObjectRawAttribute {
         return [PSCustomObject]@{ Success = $false; Message = "Failed to clear attribute '$AttributeName': $_" }
     }
     finally {
-        if ($entry -is [System.IDisposable]) { $entry.Dispose() }
+        if ($null -ne $entry) {
+            try {
+                [System.IDisposable].GetMethod('Dispose').Invoke($entry, $null)
+            } catch { $null = $_ }
+        }
     }
 }
 
