@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active Directory Management Studio - Modern Windows Server Administration Suite
 .DESCRIPTION
@@ -8230,11 +8230,9 @@ function Register-SearchableAttributeDropdown {    param(
             }
         } else {
             if ($filterFunc) {
-                & $filterFunc -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
-                    -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+                & $filterFunc -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
             } else {
-                Select-ComboAttributes -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption `
-                    -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+                Select-ComboAttributes -Combo $Combo -Query $currentText -IncludeAny $IncludeAnyOption -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
             }
         }
     }.GetNewClosure())
@@ -8285,11 +8283,9 @@ function Register-SearchableAttributeDropdown {    param(
         if ($selectedText -and $editBox.Text -eq $selectedText) { return }
 
         if ($filterFunc) {
-            & $filterFunc -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
-                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+            & $filterFunc -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
         } else {
-            Select-ComboAttributes -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption `
-                -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
+            Select-ComboAttributes -Combo $Combo -Query $editBox.Text -IncludeAny $IncludeAnyOption -OutcomeText $OutcomeText -OutcomeBorder $OutcomeBorder -OpenDropDown $true
         }
     }.GetNewClosure())
 
@@ -8306,9 +8302,7 @@ function Register-SearchableAttributeDropdown {    param(
 
         if (-not [string]::IsNullOrWhiteSpace($sel)) {
             $Combo.IsDropDownOpen = $false
-            Set-SearchAttrOutcomeBadge -Status "Info" `
-                -Message "Selected attribute: $sel (Ready to insert condition)" `
-                -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
+            Set-SearchAttrOutcomeBadge -Status "Info" -Message "Selected attribute: $sel (Ready to insert condition)" -OutcomeBorder $OutcomeBorder -OutcomeText $OutcomeText
         }
     }.GetNewClosure())
 }
@@ -8378,11 +8372,7 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
             $controls['CmbFilterAttr'].ItemsSource = @($allAttrNames)
             $controls['CmbFilterAttr'].SelectedItem = if ($allAttrNames.Contains($cur)) { $cur } else { "sAMAccountName" }
 
-            Attach-SearchableAttributeDropdown -Combo $controls['CmbFilterAttr'] `
-                -MasterList $state.MasterAttributeList `
-                -OutcomeText $controls['TxtSearchAttrOutcome'] `
-                -OutcomeBorder $controls['BorderSearchAttrOutcome'] `
-                -IncludeAnyOption $false
+            Attach-SearchableAttributeDropdown -Combo $controls['CmbFilterAttr'] -MasterList $state.MasterAttributeList -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] -IncludeAnyOption $false
         }
 
         if ($controls['CmbRegexTargetAttr']) {
@@ -8410,15 +8400,10 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
             $controls['CmbRegexTargetAttr'].ItemsSource = @($regexAttrs)
             $controls['CmbRegexTargetAttr'].SelectedItem = if ($regexAttrs.Contains($curRegex)) { $curRegex } else { "Any Attribute" }
 
-            Attach-SearchableAttributeDropdown -Combo $controls['CmbRegexTargetAttr'] `
-                -MasterList $state.MasterAttributeList `
-                -OutcomeText $null `
-                -OutcomeBorder $null `
-                -IncludeAnyOption $true
+            Attach-SearchableAttributeDropdown -Combo $controls['CmbRegexTargetAttr'] -MasterList $state.MasterAttributeList -OutcomeText $null -OutcomeBorder $null -IncludeAnyOption $true
         }
 
-        Set-SearchAttrOutcomeBadge -Status "Info" `
-            -Message "Displaying all $($allAttrNames.Count) attributes (type directly in dropdown to search)"
+        Set-SearchAttrOutcomeBadge -Status "Info" -Message "Displaying all $($allAttrNames.Count) attributes (type directly in dropdown to search)"
     }
     finally {
         $state.IsFilteringAttributes = $false

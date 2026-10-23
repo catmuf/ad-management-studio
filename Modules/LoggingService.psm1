@@ -301,14 +301,52 @@ function Register-WpfExceptionHandler {
     if (-not $Dispatcher) { return }
     $null = $Window
 
+    $script:LastWpfExceptionMsg = $null
+    $script:LastWpfExceptionTime = [datetime]::MinValue
+    $script:SuppressedWpfExceptionCount = 0
+
     try {
         $Dispatcher.add_UnhandledException([System.Windows.Threading.DispatcherUnhandledExceptionEventHandler]{
             param($eventSender, $e)
             $null = $eventSender
             $ex = $e.Exception
             $winTitle = if ($Window -and $Window.Title) { $Window.Title } else { "Main UI" }
-            $msg = "UNHANDLED WPF DISPATCHER EXCEPTION in [$winTitle]"
+            $now = [datetime]::UtcNow
 
+            # Resilience against Win32 DWM / composition channel exhaustion (ERROR_NOT_ENOUGH_QUOTA 1816 / 0x80004005)
+            $isQuotaExhaustion = ($ex -is [System.ComponentModel.Win32Exception] -and
+                ($ex.NativeErrorCode -eq 1816 -or $ex.HResult -eq -2147467259 -or
+                 $ex.Message -match "Cuota insuficiente|insufficient quota" -or
+                 ($ex.StackTrace -and $ex.StackTrace -match "HwndTarget")))
+
+            if ($isQuotaExhaustion) {
+                try {
+                    if ([System.Windows.Media.RenderOptions]::ProcessRenderMode -ne [System.Windows.Interop.RenderMode]::SoftwareOnly) {
+                        [System.Windows.Media.RenderOptions]::ProcessRenderMode = [System.Windows.Interop.RenderMode]::SoftwareOnly
+                        Write-AppLog -Level "WARN" -Category "WpfDispatcher" -Message "WPF DWM composition channel quota reached; switched ProcessRenderMode to SoftwareOnly for rendering stability."
+                    }
+                } catch {
+                    $null = $_
+                }
+            }
+
+            # Throttling / flood prevention for rapid identical exceptions
+            $exKey = "$($ex.GetType().FullName): $($ex.Message)"
+            if ($script:LastWpfExceptionMsg -eq $exKey -and ($now - $script:LastWpfExceptionTime).TotalSeconds -lt 2.0) {
+                $script:SuppressedWpfExceptionCount++
+                $e.Handled = $true
+                return
+            }
+
+            if ($script:SuppressedWpfExceptionCount -gt 0) {
+                Write-AppLog -Level "WARN" -Category "WpfDispatcher" -Message "Suppressed $($script:SuppressedWpfExceptionCount) repetitive identical dispatcher exception(s)."
+                $script:SuppressedWpfExceptionCount = 0
+            }
+
+            $script:LastWpfExceptionMsg = $exKey
+            $script:LastWpfExceptionTime = $now
+
+            $msg = "UNHANDLED WPF DISPATCHER EXCEPTION in [$winTitle]"
             Write-AppLog -Level "FATAL" -Category "WpfDispatcher" -Message $msg -Exception $ex
 
             # If window is available and has status message control, notify user gracefully
