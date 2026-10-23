@@ -8621,7 +8621,14 @@ function Invoke-LdapSearchUI {
         Set-Status -Message "Executing LDAP filter search: $filter ..."
         if ($controls['TxtSearchStatus']) { $controls['TxtSearchStatus'].Text = "Executing LDAP search on $scopeItem scope..." }
         try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Normal, [System.TimeSpan]::FromMilliseconds(50), [Action]{}) } catch { $null = $_ <# Suppress timeout on rapid UI dispatcher pump #> }
-        $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000
+        $onBatch = {
+            param($batch, $countSoFar)
+            if ($controls['TxtSearchStatus']) {
+                $controls['TxtSearchStatus'].Text = "Retrieving directory objects via LDAP paging (RFC 2696)... ($countSoFar loaded)"
+            }
+            try { [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Background, [System.TimeSpan]::FromMilliseconds(10), [Action]{}) } catch { $null = $_ }
+        }
+        $res = Invoke-LdapQuery -Filter $filter -SearchBase $baseDn -SearchScope $scopeItem -PageSize 1000 -OnBatchReceived $onBatch
 
     if ($res.Success) {
         $rawResults = $res.Results
@@ -9038,9 +9045,31 @@ if ($controls['BtnSearchInspectAttr']) {
 
 if ($controls['BtnSearchExportCsv']) {
     $controls['BtnSearchExportCsv'].Add_Click({
+        $filter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "" }
         if (-not $state.CurrentSearchResults -or $state.CurrentSearchResults.Count -eq 0) {
-            [System.Windows.MessageBox]::Show("No search results to export.", "Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
-            return
+            if (-not [string]::IsNullOrWhiteSpace($filter)) {
+                $confirm = [System.Windows.MessageBox]::Show("No cached search results in memory.`n`nWould you like to stream-export directly from Active Directory to disk using filter:`n'$filter'?", "Direct Stream Export", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+                if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
+                    $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
+                    $saveDlg.FileName = "LDAP_Stream_Export_$(Get-Date -Format 'yyyyMMdd_HHmm').csv"
+                    $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+                    if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                        $baseDn = if ($controls['TxtSearchBaseDn'] -and -not [string]::IsNullOrWhiteSpace($controls['TxtSearchBaseDn'].Text)) { $controls['TxtSearchBaseDn'].Text.Trim() } else { $adContext.DefaultNamingContext }
+                        Set-Status -Message "Streaming LDAP export to disk..."
+                        $res = Export-LdapQueryToCsvStream -Filter $filter -SearchBase $baseDn -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter)
+                        if ($res.Success) {
+                            [System.Windows.MessageBox]::Show($res.Message, "Stream Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                            Set-Status -Message $res.Message
+                        } else {
+                            [System.Windows.MessageBox]::Show("Export failed: $($res.Message)", "Export Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+                        }
+                    }
+                }
+                return
+            } else {
+                [System.Windows.MessageBox]::Show("No search results to export.", "Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+                return
+            }
         }
         $saveDlg = New-Object System.Windows.Forms.SaveFileDialog
         $saveDlg.FileName = "LDAP_Search_$(Get-Date -Format 'yyyyMMdd_HHmm').csv"

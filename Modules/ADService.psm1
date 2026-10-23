@@ -767,7 +767,28 @@ function Get-ADGroupMembersList {
                         IsTransitive      = $isRecursive
                     })
                 }
-                return @($results | Sort-Object Name)
+                if ($results.Count -gt 0) {
+                    return @($results | Sort-Object Name)
+                }
+
+                # RFC 3268 / MS-ADTS: Fallback to Range Retrieval on member attribute (MaxValRange > 1500)
+                $ranged = Get-ADObjectRangedAttribute -DistinguishedName $dn -AttributeName "member"
+                if ($ranged.Success -and $ranged.Count -gt 0) {
+                    foreach ($mDn in $ranged.Values) {
+                        $mName = if ($mDn -match '^CN=([^,]+)') { $matches[1] } else { $mDn }
+                        $results.Add([PSCustomObject]@{
+                            Name              = $mName
+                            DisplayName       = $mName
+                            SamAccountName    = $mName
+                            ObjectClass       = "user"
+                            DistinguishedName = $mDn
+                            SID               = ""
+                            IsTransitive      = $isRecursive
+                        })
+                    }
+                    return @($results | Sort-Object Name)
+                }
+                return @()
             }
             return @()
         }
@@ -1260,7 +1281,7 @@ function Get-ADDashboardStats {
         $stats.DomainName = $dom.DNSRoot
         $stats.PDC        = $dom.PDCEmulator
 
-        $users = Get-ADUser -Filter * -Properties Enabled, LockedOut -ResultSetSize 5000 -ErrorAction Stop
+        $users = Get-ADUser -Filter * -Properties Enabled, LockedOut -ResultPageSize 1000 -ErrorAction Stop
         $stats.TotalUsers = $users.Count
 
         $disabledCount = 0
@@ -1278,7 +1299,7 @@ function Get-ADDashboardStats {
         $stats.LockedUsers   = $lockedCount
         $stats.ActiveUsers   = $users.Count - $disabledCount
 
-        $stats.TotalGroups = (Get-ADGroup -Filter * -ResultSetSize 5000).Count
+        $stats.TotalGroups = (Get-ADGroup -Filter * -ResultPageSize 1000).Count
         $stats.TotalOUs    = (Get-ADOrganizationalUnit -Filter *).Count
     }
     catch {
@@ -1302,7 +1323,11 @@ function Invoke-LdapQuery {
         [int]$PageSize = 1000,
         [int]$SizeLimit = 0,
         [string]$Server = "",
-        [switch]$ManageDsaIT
+        [switch]$ManageDsaIT,
+        [scriptblock]$OnBatchReceived = $null,
+        [int]$BatchSize = 250,
+        [System.Threading.CancellationToken]$CancellationToken = [System.Threading.CancellationToken]::None,
+        [System.Collections.IEnumerable]$MockData = $null
     )
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -1313,6 +1338,42 @@ function Invoke-LdapQuery {
     $entry = $null
     $searcher = $null
     $searchResult = $null
+    $wasCancelled = $false
+
+    # Strategy 1: Mock Data Support (Offline / Unit Tests)
+    if ($MockData -ne $null) {
+        $mockList = @($MockData)
+        $batch = New-Object System.Collections.Generic.List[PSCustomObject]
+        foreach ($item in $mockList) {
+            if ($CancellationToken -ne $null -and $CancellationToken.IsCancellationRequested) {
+                $wasCancelled = $true
+                break
+            }
+            $results.Add($item)
+            if ($OnBatchReceived -ne $null) {
+                $batch.Add($item)
+                if ($batch.Count -ge $BatchSize) {
+                    $OnBatchReceived.Invoke(@($batch), $results.Count)
+                    $batch.Clear()
+                }
+            }
+        }
+        if ($OnBatchReceived -ne $null -and $batch.Count -gt 0) {
+            $OnBatchReceived.Invoke(@($batch), $results.Count)
+            $batch.Clear()
+        }
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success             = $true
+            Error               = ""
+            Results             = $results
+            Count               = $results.Count
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Filter              = $Filter
+            SearchBase          = $baseDn
+            WasCancelled        = $wasCancelled
+        }
+    }
 
     try {
         if ([string]::IsNullOrWhiteSpace($baseDn)) {
@@ -1343,7 +1404,14 @@ function Invoke-LdapQuery {
         }
 
         $searchResult = $searcher.FindAll()
+        $batch = New-Object System.Collections.Generic.List[PSCustomObject]
+
         foreach ($res in $searchResult) {
+            if ($CancellationToken -ne $null -and $CancellationToken.IsCancellationRequested) {
+                $wasCancelled = $true
+                break
+            }
+
             $propHash = [ordered]@{}
             $propHash['DistinguishedName'] = $res.Path -replace '^LDAP://[^/]+/', '' -replace '^LDAP://', ''
             
@@ -1373,7 +1441,21 @@ function Invoke-LdapQuery {
                 $propHash['ObjectClass'] = if ($classes -is [array]) { $classes[-1] } else { $classes }
             }
 
-            $results.Add([PSCustomObject]$propHash)
+            $itemObj = [PSCustomObject]$propHash
+            $results.Add($itemObj)
+
+            if ($OnBatchReceived -ne $null) {
+                $batch.Add($itemObj)
+                if ($batch.Count -ge $BatchSize) {
+                    $OnBatchReceived.Invoke(@($batch), $results.Count)
+                    $batch.Clear()
+                }
+            }
+        }
+
+        if ($OnBatchReceived -ne $null -and $batch.Count -gt 0) {
+            $OnBatchReceived.Invoke(@($batch), $results.Count)
+            $batch.Clear()
         }
     }
     catch {
@@ -1396,6 +1478,148 @@ function Invoke-LdapQuery {
         ElapsedMilliseconds = $sw.ElapsedMilliseconds
         Filter              = $Filter
         SearchBase          = $baseDn
+        WasCancelled        = $wasCancelled
+    }
+}
+
+function Get-ADObjectRangedAttribute {
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$DistinguishedName,
+        [string]$AttributeName = "member",
+        [string]$Server = "",
+        [int]$Step = 1500,
+        [System.Collections.IEnumerable]$MockData = $null
+    )
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $allValues = [System.Collections.Generic.List[object]]::new()
+    $rangeLow = 0
+    $isComplete = $false
+    $iterations = 0
+    $wasRanged = $false
+    $errorMessage = ""
+
+    # Strategy 1: Mock Data Support (Offline / Unit Tests)
+    if ($MockData -ne $null) {
+        $mockList = @($MockData)
+        $total = $mockList.Count
+        if ($total -le $Step) {
+            return [PSCustomObject]@{
+                Success             = $true
+                DistinguishedName   = $DistinguishedName
+                AttributeName       = $AttributeName
+                Values              = $mockList
+                Count               = $mockList.Count
+                IsRanged            = $false
+                RangeSteps          = 1
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            }
+        }
+
+        while ($rangeLow -lt $total) {
+            $iterations++
+            $take = [Math]::Min($Step, $total - $rangeLow)
+            $slice = $mockList[$rangeLow..($rangeLow + $take - 1)]
+            foreach ($item in $slice) { $allValues.Add($item) }
+            $rangeLow += $take
+            $wasRanged = $true
+        }
+
+        return [PSCustomObject]@{
+            Success             = $true
+            DistinguishedName   = $DistinguishedName
+            AttributeName       = $AttributeName
+            Values              = @($allValues)
+            Count               = $allValues.Count
+            IsRanged            = $wasRanged
+            RangeSteps          = $iterations
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+        }
+    }
+
+    # Strategy 2: ADSI DirectorySearcher RFC 3268 Range Retrieval Loop
+    try {
+        $ldapPath = if ($Server) { "LDAP://$Server/$DistinguishedName" } else { "LDAP://$DistinguishedName" }
+
+        while (-not $isComplete -and $iterations -lt 200) { # 200 * 1500 = up to 300,000 multi-valued items
+            $iterations++
+            $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
+            $searcher.Filter = "(objectClass=*)"
+            $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Base
+            $searcher.CacheResults = $false
+
+            $rangeQuery = "$AttributeName;range=$rangeLow-*"
+            [void]$searcher.PropertiesToLoad.Add($rangeQuery)
+
+            $res = $searcher.FindOne()
+            if (-not $res) { break }
+
+            $matchedKey = $null
+            foreach ($propName in $res.Properties.PropertyNames) {
+                if ($propName -like "$AttributeName;range=*") {
+                    $matchedKey = $propName
+                    break
+                }
+            }
+
+            if ($matchedKey) {
+                $wasRanged = $true
+                $vals = $res.Properties[$matchedKey]
+                foreach ($v in $vals) { $allValues.Add($v) }
+
+                # Terminal check: "attribute;range=X-*"
+                if ($matchedKey -match ";range=\d+-\*" -or $matchedKey.EndsWith("-*")) {
+                    $isComplete = $true
+                } else {
+                    if ($vals.Count -gt 0) {
+                        $rangeLow += $vals.Count
+                    } else {
+                        $isComplete = $true
+                    }
+                }
+            } else {
+                # Normal non-ranged attribute or terminal fallback
+                if ($res.Properties.Contains($AttributeName)) {
+                    foreach ($v in $res.Properties[$AttributeName]) { $allValues.Add($v) }
+                }
+                $isComplete = $true
+            }
+
+            if ($searcher -is [System.IDisposable]) { $searcher.Dispose() }
+            if ($entry -is [System.IDisposable])    { $entry.Dispose() }
+        }
+
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success             = $true
+            DistinguishedName   = $DistinguishedName
+            AttributeName       = $AttributeName
+            Values              = @($allValues)
+            Count               = $allValues.Count
+            IsRanged            = $wasRanged
+            RangeSteps          = $iterations
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+        }
+    }
+    catch {
+        $sw.Stop()
+        $errorMessage = $_.Exception.Message
+        Write-Warning "Get-ADObjectRangedAttribute failed for '$DistinguishedName' ($AttributeName): $_"
+        return [PSCustomObject]@{
+            Success             = $false
+            DistinguishedName   = $DistinguishedName
+            AttributeName       = $AttributeName
+            Values              = @($allValues)
+            Count               = $allValues.Count
+            IsRanged            = $wasRanged
+            RangeSteps          = $iterations
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Error               = $errorMessage
+        }
     }
 }
 
@@ -1452,6 +1676,20 @@ function Get-ADObjectRawAttributes {
             if (-not $IncludeOperational -and $isOp) { continue }
             $propValues = $entry.Properties[$propName]
             $valCount = if ($propValues) { $propValues.Count } else { 0 }
+            $isRanged = $false
+
+            # RFC 3268 / MS-ADTS: Range Retrieval Detection (e.g. member;range=0-1499)
+            if ($propName -match '^([a-zA-Z0-9_-]+);range=(\d+)-(\d+|\*)$') {
+                $baseName = $matches[1]
+                $rangeEnd = $matches[3]
+                $isRanged = $true
+                $rangedResult = Get-ADObjectRangedAttribute -DistinguishedName $DistinguishedName -AttributeName $baseName -Server $Server
+                if ($rangedResult.Success -and $rangedResult.Values.Count -gt 0) {
+                    $propName = $baseName
+                    $propValues = $rangedResult.Values
+                    $valCount = $rangedResult.Count
+                }
+            }
 
             $displayVal = ""
             $typeStr = "String"
@@ -1508,7 +1746,11 @@ function Get-ADObjectRawAttributes {
             else {
                 $vals = @($propValues)
                 $rawValue = $vals
-                $typeStr = "Multi-Valued ($valCount values)"
+                $typeStr = if ($isRanged) {
+                    "Multi-Valued ($valCount values - Range Retrieval RFC 3268)"
+                } else {
+                    "Multi-Valued ($valCount values)"
+                }
                 $displayVal = ($vals | Select-Object -First 5 | ForEach-Object { "$_" }) -join "; "
                 if ($valCount -gt 5) { $displayVal += "; ... (+$($valCount - 5) more)" }
             }
@@ -1519,7 +1761,7 @@ function Get-ADObjectRawAttributes {
                 RawValue      = $rawValue
                 Type          = $typeStr
                 Count         = $valCount
-                IsMultiValued = $isMulti
+                IsMultiValued = ($valCount -gt 1 -or $isRanged)
                 IsOperational = $isOp
             })
         }
@@ -4177,7 +4419,7 @@ Export-ModuleMember -Function `
     Add-ADPrincipalToGroup, Remove-ADPrincipalFromGroup, `
     Get-ADOUTree, Get-ADOUFlatList, New-ADOrganizationalUnitItem, Remove-ADOrganizationalUnitItem, Get-ADObjectsInOU, `
     Get-ADDashboardStats, `
-    Invoke-LdapQuery, Get-ADObjectRawAttributes, Set-ADObjectRawAttribute, Add-ADObjectRawAttributeValue, `
+    Invoke-LdapQuery, Get-ADObjectRangedAttribute, Get-ADObjectRawAttributes, Set-ADObjectRawAttribute, Add-ADObjectRawAttributeValue, `
     Remove-ADObjectRawAttributeValue, Clear-ADObjectRawAttribute, Invoke-LdapSqlQuery, Invoke-LdifImport, `
     Compare-ADObjects, Get-ADSecurityAuditReport, Get-ADSchemaClasses, Get-ADSchemaAttributes, `
     Get-ADComputersList, Test-ADConnectionDiagnostic, Invoke-ADBulkUpdate, `
@@ -4187,7 +4429,6 @@ Export-ModuleMember -Function `
     Get-ADTransitiveGroupMembers, Find-ADDomainControllersViaDns, `
     Rename-ADDirectoryObject, Find-ADObjectsQuickSearch, Get-ADSchemaClassDetail, `
     Get-ADSchemaClassHierarchy, Get-ADSchemaAttributeUsage, Test-ADSchemaIntegrity, `
-    Get-ADVlvUsersList, Invoke-ADSqlExtendedQuery, Get-AD40SecurityAuditReports `
-    -Alias `
-    Get-ADVirtualListViewUsers, Invoke-DirectorySql, Query-ADSql, `
-    Get-ADSecurityAudits40, Get-SecurityAuditCatalog
+    Get-ADVlvUsersList, Invoke-ADSqlExtendedQuery, Get-AD40SecurityAuditReports
+
+Export-ModuleMember -Alias Get-ADVirtualListViewUsers, Invoke-DirectorySql, Query-ADSql, Get-ADSecurityAudits40, Get-SecurityAuditCatalog

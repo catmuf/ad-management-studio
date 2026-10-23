@@ -347,7 +347,7 @@ foreach ($fn in $requiredTemplateExports) {
 Assert-Test "TemplateService cleanly exports all required provisioning functions" ($allTemplateExported -eq $true) "Exported: $($templateExports -join ', ')"
 
 # Test 34: Verify exports from ADService.psm1
-$adExports = (Get-Command -Module ADService).Name
+$adExports = @((Get-Command -Module ADService).Name) + @((Get-Module -Name ADService).ExportedCommands.Keys) | Select-Object -Unique
 $requiredAdExports = @(
     "Get-ADVlvUsersList",
     "Restore-ADDeletedObject",

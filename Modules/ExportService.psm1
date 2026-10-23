@@ -52,6 +52,172 @@ function Export-ADDataToCsv {
     }
 }
 
+function Export-LdapQueryToCsvStream {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Filter,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [string]$SearchBase = "",
+        [System.DirectoryServices.SearchScope]$Scope = [System.DirectoryServices.SearchScope]::Subtree,
+        [string[]]$PropertiesToExport = @('distinguishedName', 'sAMAccountName', 'displayName', 'mail', 'objectClass'),
+        [string]$Delimiter = ";",
+        [int]$PageSize = 1000,
+        [string]$Server = "",
+        [System.Threading.CancellationToken]$CancellationToken = [System.Threading.CancellationToken]::None,
+        [System.Collections.IEnumerable]$MockData = $null
+    )
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $count = 0
+    $targetDir = [System.IO.Path]::GetDirectoryName($FilePath)
+    if ($targetDir -and -not (Test-Path $targetDir)) {
+        [void](New-Item -ItemType Directory -Path $targetDir -Force)
+    }
+
+    $streamWriter = $null
+    $entry = $null
+    $searcher = $null
+    $searchResult = $null
+
+    try {
+        $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+        $streamWriter = New-Object System.IO.StreamWriter($FilePath, $false, $utf8WithBom)
+
+        # Write CSV header with properly escaped quotes
+        $headerLine = ($PropertiesToExport | ForEach-Object { '"' + ($_ -replace '"', '""') + '"' }) -join $Delimiter
+        $streamWriter.WriteLine($headerLine)
+
+        # Offline Mock Support (Unit Tests)
+        if ($MockData -ne $null) {
+            foreach ($item in $MockData) {
+                if ($CancellationToken -ne $null -and $CancellationToken.IsCancellationRequested) { break }
+                $rowVals = [System.Collections.Generic.List[string]]::new()
+                foreach ($prop in $PropertiesToExport) {
+                    $valStr = ""
+                    $pObj = $item.PSObject.Properties[$prop]
+                    if (-not $pObj) { $pObj = $item.PSObject.Properties[$prop.ToLower()] }
+                    if ($pObj -and $pObj.Value) {
+                        $v = $pObj.Value
+                        $valStr = if ($v -is [array]) { $v -join "; " } else { "$v" }
+                    }
+                    $rowVals.Add('"' + ($valStr -replace '"', '""') + '"')
+                }
+                $streamWriter.WriteLine(($rowVals -join $Delimiter))
+                $count++
+            }
+            $streamWriter.Flush()
+            $sw.Stop()
+            return [PSCustomObject]@{
+                Success             = $true
+                FilePath            = $FilePath
+                Count               = $count
+                ElapsedMilliseconds = $sw.ElapsedMilliseconds
+                Message             = "Streamed $count records to CSV in $($sw.ElapsedMilliseconds) ms."
+            }
+        }
+
+        # Live Active Directory Query with RFC 2696 LDAP Paged Results Control
+        $baseDn = $SearchBase
+        if ([string]::IsNullOrWhiteSpace($baseDn)) {
+            $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
+            $baseDn = $rootDse.defaultNamingContext
+            $rootDse.Dispose()
+        }
+
+        $ldapPath = if ($Server) { "LDAP://$Server/$baseDn" } else { "LDAP://$baseDn" }
+        $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+        $searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
+        $searcher.Filter = $Filter
+        $searcher.SearchScope = $Scope
+        $searcher.PageSize = $PageSize
+        $searcher.SizeLimit = 0
+        $searcher.CacheResults = $false
+
+        foreach ($p in $PropertiesToExport) {
+            if ($p -ne "*" -and $p -notmatch '^distinguishedName$') {
+                [void]$searcher.PropertiesToLoad.Add($p)
+            }
+        }
+
+        $searchResult = $searcher.FindAll()
+        foreach ($res in $searchResult) {
+            if ($CancellationToken -ne $null -and $CancellationToken.IsCancellationRequested) { break }
+
+            $rowVals = [System.Collections.Generic.List[string]]::new()
+            foreach ($prop in $PropertiesToExport) {
+                $valStr = ""
+                if ($prop -ieq 'distinguishedName') {
+                    $valStr = $res.Path -replace '^LDAP://[^/]+/', '' -replace '^LDAP://', ''
+                } else {
+                    $matchedProp = $null
+                    foreach ($pName in $res.Properties.PropertyNames) {
+                        if ($pName -ieq $prop) { $matchedProp = $pName; break }
+                    }
+                    if ($matchedProp) {
+                        $pVals = $res.Properties[$matchedProp]
+                        if ($pVals.Count -eq 1) {
+                            $v = $pVals[0]
+                            if ($v -is [byte[]]) {
+                                if ($prop -ieq 'objectsid') {
+                                    $valStr = (New-Object System.Security.Principal.SecurityIdentifier($v, 0)).Value
+                                } elseif ($prop -ieq 'objectguid') {
+                                    $valStr = (New-Object System.Guid(,$v)).ToString()
+                                } else {
+                                    $valStr = [System.BitConverter]::ToString($v)
+                                }
+                            } else {
+                                $valStr = "$v"
+                            }
+                        } elseif ($pVals.Count -gt 1) {
+                            $valStr = ($pVals | ForEach-Object { "$_" }) -join "; "
+                        }
+                    }
+                }
+                $escaped = '"' + ($valStr -replace '"', '""') + '"'
+                $rowVals.Add($escaped)
+            }
+
+            $line = $rowVals -join $Delimiter
+            $streamWriter.WriteLine($line)
+            $count++
+            if ($count % 500 -eq 0) {
+                $streamWriter.Flush()
+            }
+        }
+
+        $streamWriter.Flush()
+        $sw.Stop()
+
+        return [PSCustomObject]@{
+            Success             = $true
+            FilePath            = $FilePath
+            Count               = $count
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Message             = "Streamed $count records to CSV in $($sw.ElapsedMilliseconds) ms."
+        }
+    }
+    catch {
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success             = $false
+            FilePath            = $FilePath
+            Count               = $count
+            ElapsedMilliseconds = $sw.ElapsedMilliseconds
+            Message             = "Streaming export failed: $_"
+        }
+    }
+    finally {
+        if ($streamWriter) { $streamWriter.Dispose() }
+        if ($searchResult -is [System.IDisposable]) { $searchResult.Dispose() }
+        if ($searcher -is [System.IDisposable])     { $searcher.Dispose() }
+        if ($entry -is [System.IDisposable])        { $entry.Dispose() }
+    }
+}
+
 function Export-ADDataToLdif {
     [CmdletBinding()]
     param (
@@ -1733,6 +1899,7 @@ function Convert-ScimBulkRequestToOperations {
 
 Export-ModuleMember -Function `
     Export-ADDataToCsv, `
+    Export-LdapQueryToCsvStream, `
     Export-ADDataToLdif, `
     Export-ADDataToJson, `
     Export-ADSecurityAuditToHtml, `
