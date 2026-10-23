@@ -1,8 +1,8 @@
-﻿<#
+<#
 .SYNOPSIS
     Publishes or synchronizes all release markdown documents to GitHub Releases.
 .DESCRIPTION
-    Iterates through all 10 release markdown files in docs/releases/ (v0.1.0 to v3.2.0)
+    Iterates through all 11 release markdown files in docs/releases/ (v0.1.0 to v3.3.0)
     and publishes them to the GitHub Releases API (https://api.github.com/repos/catmuf/ad-management-studio/releases).
     If a GitHub Token ($env:GITHUB_TOKEN or -Token) is provided, it calls the REST API directly.
     Otherwise, it outputs one-click release links and instructions for web publishing.
@@ -25,7 +25,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 $releaseDir = Join-Path $projectRoot "docs\releases"
 
-$versions = @("v0.1.0", "v1.0.0", "v2.0.0", "v2.1.0", "v2.2.0", "v2.3.0", "v2.4.0", "v3.0.0", "v3.1.0", "v3.2.0")
+$versions = @("v0.1.0", "v1.0.0", "v2.0.0", "v2.1.0", "v2.2.0", "v2.3.0", "v2.4.0", "v3.0.0", "v3.1.0", "v3.2.0", "v3.3.0")
 
 Write-Host "==================================================================" -ForegroundColor Cyan
 Write-Host "   Active Directory Management Studio - GitHub Releases Sync      " -ForegroundColor Cyan
@@ -34,7 +34,7 @@ Write-Host "==================================================================" 
 
 if ([string]::IsNullOrWhiteSpace($Token)) {
     Write-Host "`n[NOTE] No GITHUB_TOKEN detected in environment." -ForegroundColor Yellow
-    Write-Host "All 10 Git tags are already pushed to GitHub!" -ForegroundColor Green
+    Write-Host "All $($versions.Count) releases prepared!" -ForegroundColor Green
     Write-Host "You can publish or edit any release directly in your browser using these links:`\n"
 
     foreach ($v in $versions) {

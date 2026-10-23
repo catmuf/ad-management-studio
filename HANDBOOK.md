@@ -1,4 +1,4 @@
-﻿# Active Directory Management Studio (v3.2.0 Enterprise)
+# Active Directory Management Studio (v3.3.0 Enterprise)
 ## Enterprise SysAdmin Handbook & Operator Manual
 ### Complete Operational Reference Guide for Active Directory & LDAP Infrastructure
 

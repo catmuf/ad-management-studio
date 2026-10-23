@@ -1,4 +1,4 @@
-﻿# Active Directory Management Studio (v3.2.0 Enterprise)
+# Active Directory Management Studio (v3.3.0 Enterprise)
 ## Step-by-Step Operator Walkthrough & Visual User Guide
 ### Real-World Scenarios, Identity Workflows & Diagnostic Demonstrations
 

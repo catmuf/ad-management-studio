@@ -1,11 +1,11 @@
-﻿<#
+<#
 .SYNOPSIS
     Generates full historical changelog from all git commits since project inception.
 .DESCRIPTION
     Extracts every commit from initial commit (cc155ca) to HEAD, maps each commit to
-    its specific Semantic Version release milestone (v0.1.0 through v3.2.0), and exports:
+    its specific Semantic Version release milestone (v0.1.0 through v3.3.0), and exports:
     1. Root CHANGELOG.md (comprehensive version-by-version release history + commit matrix)
-    2. docs/releases/v*.md (individual GitHub Release markdown bodies for all 10 releases)
+    2. docs/releases/v*.md (individual GitHub Release markdown bodies for all 11 releases)
 .EXAMPLE
     pwsh -NoProfile -File tools/Generate-Changelog.ps1
 #>
@@ -48,6 +48,14 @@ Write-Host "[INFO] Loaded $($allCommits.Count) commits from git history." -Foreg
 
 # 2. Define historical release milestones
 $milestones = @(
+    [PSCustomObject]@{
+        Version     = "v3.3.0"
+        Title       = "Simple Search Mode, Sub-Second Startup, Active Connection Controls & Architecture Hardening"
+        Date        = "2026-10-23"
+        StartCommit = "ed38733"
+        TipCommit   = "HEAD"
+        Summary     = "Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, and architectural JIT decomposition of ADService."
+    },
     [PSCustomObject]@{
         Version     = "v3.2.0"
         Title       = "Native Menu Bar, AD Auto-Detect, Ping Latency & SemVer Standardization"
@@ -140,7 +148,12 @@ for ($i = 0; $i -lt $allCommits.Count; $i++) {
 
 foreach ($m in $milestones) {
     $startIndex = $commitIndexMap[$m.StartCommit]
-    $endIndex   = $commitIndexMap[$m.TipCommit]
+    if ($m.TipCommit -eq "HEAD") {
+        $endIndex = $allCommits.Count - 1
+        $m.TipCommit = $allCommits[$endIndex].ShortHash
+    } else {
+        $endIndex = $commitIndexMap[$m.TipCommit]
+    }
     if ($null -eq $startIndex -or $null -eq $endIndex) {
         Write-Error "Could not find commit range for $($m.Version) ($($m.StartCommit) .. $($m.TipCommit))"
         exit 1

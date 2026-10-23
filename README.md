@@ -1,9 +1,9 @@
-﻿# Active Directory Management Studio (v3.2.0)
+# Active Directory Management Studio (v3.3.0)
 ### Enterprise Directory Management, Softerra LDAP & NetTools Diagnostics Suite
 
 A modern, high-performance administration workbench built with **PowerShell & WPF/XAML** for managing Microsoft Active Directory and LDAP environments. Engineered for Systems Administrators, Security Engineers, and Directory Operators who require both daily standard administration and advanced low-level directory tooling.
 
-![Version](https://img.shields.io/badge/Version-v3.2.0%20Enterprise-success?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.3.0%20Enterprise-success?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20Server%20%7C%20Windows%2010%2F11-blue?style=flat-square)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-blue?style=flat-square)
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green?style=flat-square)
