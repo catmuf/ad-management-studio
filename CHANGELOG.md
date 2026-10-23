@@ -4,10 +4,11 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 📊 Complete Commit-to-Version Reference Table (All 109 Commits)
+## 📊 Complete Commit-to-Version Reference Table (All 110 Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
+| 110 | **v3.4.0** | [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) | 2026-10-23 | feat(release): cut v3.4.0 release, update documentation and release pipelines |
 | 109 | **v3.4.0** | [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) | 2026-10-23 | feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers |
 | 108 | **v3.4.0** | [`7af88b4`](https://github.com/catmuf/ad-management-studio/commit/7af88b40e9ff97dcaf6cb44f65c601d24c644f88) | 2026-10-23 | fix(runtime): resolve Show-ObjectHtmlView closure scope, COM maxPwdAge cast, and DateTime parsing in audit service |
 | 107 | **v3.4.0** | [`dcb0ae9`](https://github.com/catmuf/ad-management-studio/commit/dcb0ae9382a847be78410eaa386787459555b600) | 2026-10-23 | feat(ad-query): implement RFC 2696 LDAP paging, RFC 3268 range retrieval, and streamed exports |
@@ -127,11 +128,12 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits.
 
-- **Release Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4)
-- **Commits in Release**: 4
+- **Release Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c)
+- **Commits in Release**: 5
 - **Dedicated Release Notes**: [docs/releases/v3.4.0.md](docs/releases/v3.4.0.md)
 
-##### ✨ Features & Capabilities (2)
+##### ✨ Features & Capabilities (3)
+- [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) - feat(release): cut v3.4.0 release, update documentation and release pipelines *(2026-10-23)*
 - [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) - feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers *(2026-10-23)*
 - [`dcb0ae9`](https://github.com/catmuf/ad-management-studio/commit/dcb0ae9382a847be78410eaa386787459555b600) - feat(ad-query): implement RFC 2696 LDAP paging, RFC 3268 range retrieval, and streamed exports *(2026-10-23)*
 
