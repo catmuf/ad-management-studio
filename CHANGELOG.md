@@ -8,7 +8,7 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
-| 99 | **v3.3.0** | [`8bf09e9`](https://github.com/catmuf/ad-management-studio/commit/8bf09e900da58385dec964896156ef74ab19b607) | 2026-10-23 | feat(release): standardize SemVer v3.3.0, update documentation, and prepare release |
+| 99 | **v3.3.0** | [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72ccd3133194c4e2743ed447262f707d64c) | 2026-10-23 | feat(release): standardize SemVer v3.3.0, update documentation, and prepare release |
 | 98 | **v3.3.0** | [`c9113ec`](https://github.com/catmuf/ad-management-studio/commit/c9113ec961428a4ef2ae4e29b50dcaebf762551d) | 2026-10-22 | fix(connections): lock page scroll and enable internal horizontal scrollbar on active connections table |
 | 97 | **v3.3.0** | [`4b45df4`](https://github.com/catmuf/ad-management-studio/commit/4b45df4367d251c1ae36aa92787351bab4a69522) | 2026-10-22 | fix(connections): add horizontal scrollbar to table and preserve bottom panels during expand view |
 | 96 | **v3.3.0** | [`46ab639`](https://github.com/catmuf/ad-management-studio/commit/46ab6392858b23d3ec6a1eddea4dbf67d07b91c6) | 2026-10-22 | perf(search): debounce attribute quick filter, virtualize combobox and prevent UI freeze on backspace |
@@ -117,12 +117,12 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, and architectural JIT decomposition of ADService.
 
-- **Release Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`8bf09e9`](https://github.com/catmuf/ad-management-studio/commit/8bf09e9)
+- **Release Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72)
 - **Commits in Release**: 17
 - **Dedicated Release Notes**: [docs/releases/v3.3.0.md](docs/releases/v3.3.0.md)
 
 ##### ✨ Features & Capabilities (6)
-- [`8bf09e9`](https://github.com/catmuf/ad-management-studio/commit/8bf09e900da58385dec964896156ef74ab19b607) - feat(release): standardize SemVer v3.3.0, update documentation, and prepare release *(2026-10-23)*
+- [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72ccd3133194c4e2743ed447262f707d64c) - feat(release): standardize SemVer v3.3.0, update documentation, and prepare release *(2026-10-23)*
 - [`4355905`](https://github.com/catmuf/ad-management-studio/commit/43559054451e43075a787e0ed8233eb9c41ddefc) - feat(search): add simple search mode with collapsible advanced filters and arrow toggle *(2026-10-22)*
 - [`a0b75bb`](https://github.com/catmuf/ad-management-studio/commit/a0b75bb4bfe13a2d0000afee2f544e7472ef7b44) - feat(connections): expand DC table height and add expand/compact view toggle *(2026-10-22)*
 - [`a6648d9`](https://github.com/catmuf/ad-management-studio/commit/a6648d915e8b987eb204dca40fe703676d5ad4a4) - feat(workspace,tabs): set default startup tabs and add optional session saving in settings *(2026-10-22)*
