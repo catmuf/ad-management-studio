@@ -164,6 +164,26 @@ The included automation CLI enables unattended administration, scheduled securit
 
 ---
 
+## 📦 Release History & Version Milestones
+
+Active Directory Management Studio adheres to [Semantic Versioning](https://semver.org/). Comprehensive release notes and full commit mappings are maintained in [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/).
+
+| Version | Release Date | Status | Key Highlights | Notes & Artifacts |
+| :--- | :---: | :---: | :--- | :---: |
+| [**v3.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.3.0) | 2026-10-23 | **Latest** | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Release Notes](docs/releases/v3.3.0.md) |
+| [**v3.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.2.0) | 2026-10-20 | Stable | Native Windows horizontal menu bar (11 menus), DNS SRV DC auto-detect with ping latency, Quick Tools dropdown, 19 gallery screenshots. | [Release Notes](docs/releases/v3.2.0.md) |
+| [**v3.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.1.0) | 2026-10-15 | Stable | Deep stability hardening across 24 panels, PSScriptAnalyzer compliance, ISO 8601 logging, multi-dossier tab preservation. | [Release Notes](docs/releases/v3.1.0.md) |
+| [**v3.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.0.0) | 2026-10-13 | Stable | In-process multi-instance detached floating windows with zero-latency dock-back, headless automation CLI (`ad-studio-cli.ps1`). | [Release Notes](docs/releases/v3.0.0.md) |
+| [**v2.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.4.0) | 2026-10-08 | Stable | High-contrast Light Theme, in-app HTML technical identity dossier, 16-module NetTools diagnostics suite, tab drag-and-drop. | [Release Notes](docs/releases/v2.4.0.md) |
+| [**v2.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.3.0) | 2026-10-07 | Stable | Softerra & Apache Studio parity, SCIM 2.0 cloud export, AD Recycle Bin, 48 security hygiene audits, LDIF Document Outline. | [Release Notes](docs/releases/v2.3.0.md) |
+| [**v2.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.2.0) | 2026-10-06 | Stable | Dynamic column chooser, group membership manager dialog, responsive toolbars with WrapPanels. | [Release Notes](docs/releases/v2.2.0.md) |
+| [**v2.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.1.0) | 2026-10-05 | Stable | Real-time attribute search, live schema population, dynamic LDAP-SQL DataGrid columns. | [Release Notes](docs/releases/v2.1.0.md) |
+| [**v2.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.0.0) | 2026-10-02 | Stable | Professional SysAdmin edition overhaul, Softerra LDAP engines, SysAdmin Handbook. | [Release Notes](docs/releases/v2.0.0.md) |
+| [**v1.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v1.0.0) | 2026-09-23 | Stable | Foundation release refactoring legacy project into PowerShell & WPF/XAML architecture. | [Release Notes](docs/releases/v1.0.0.md) |
+| [**v0.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v0.1.0) | 2024-08-27 | Pre-release | Initial repository genesis and baseline user management scripts. | [Release Notes](docs/releases/v0.1.0.md) |
+
+---
+
 ## 📁 Repository Architecture
 
 ```
