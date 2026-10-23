@@ -1,4 +1,4 @@
-# Active Directory Management Studio (v3.3.0 Enterprise)
+# Active Directory Management Studio (v3.4.0 Enterprise)
 ## Enterprise SysAdmin Handbook & Operator Manual
 ### Complete Operational Reference Guide for Active Directory & LDAP Infrastructure
 
@@ -79,6 +79,8 @@ The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config
    - **RFC 4515**: LDAP Search Filter String Representation.
    - **RFC 2849**: LDAP Data Interchange Format (LDIF).
    - **RFC 2891**: Server Side Sorting & Virtual List View (VLV).
+   - **RFC 2696**: LDAP Simple Paged Results Control (bypassing the 1,000-object `MaxPageSize` limit).
+   - **RFC 3268**: Incremental Range Retrieval (`member;range=0-1499`) for large group enumeration.
    - **RFC 7643 / RFC 7644**: SCIM 2.0 Core/Enterprise Schemas & Protocol.
 5. **Sub-Second Streaming & JIT Modular Architecture**:
    - Direct XAML streaming and lazy RSAT loading minimize application cold-start to sub-second speeds.

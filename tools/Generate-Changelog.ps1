@@ -3,9 +3,9 @@
     Generates full historical changelog from all git commits since project inception.
 .DESCRIPTION
     Extracts every commit from initial commit (cc155ca) to HEAD, maps each commit to
-    its specific Semantic Version release milestone (v0.1.0 through v3.3.0), and exports:
+    its specific Semantic Version release milestone (v0.1.0 through v3.4.0), and exports:
     1. Root CHANGELOG.md (comprehensive version-by-version release history + commit matrix)
-    2. docs/releases/v*.md (individual GitHub Release markdown bodies for all 11 releases)
+    2. docs/releases/v*.md (individual GitHub Release markdown bodies for all 12 releases)
 .EXAMPLE
     pwsh -NoProfile -File tools/Generate-Changelog.ps1
 #>
@@ -49,11 +49,19 @@ Write-Host "[INFO] Loaded $($allCommits.Count) commits from git history." -Foreg
 # 2. Define historical release milestones
 $milestones = @(
     [PSCustomObject]@{
+        Version     = "v3.4.0"
+        Title       = "RFC 2696 Paging, RFC 3268 Range Retrieval & Multi-Instance Dossier Tabs"
+        Date        = "2026-10-23"
+        StartCommit = "da403e8"
+        TipCommit   = "HEAD"
+        Summary     = "Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits."
+    },
+    [PSCustomObject]@{
         Version     = "v3.3.0"
         Title       = "Simple Search Mode, Sub-Second Startup, Active Connection Controls & Architecture Hardening"
         Date        = "2026-10-23"
         StartCommit = "ed38733"
-        TipCommit   = "HEAD"
+        TipCommit   = "fbe83e9"
         Summary     = "Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, architectural JIT decomposition of ADService, DirectoryEntry referral hang prevention, and DWM composition quota fallback resilience."
     },
     [PSCustomObject]@{

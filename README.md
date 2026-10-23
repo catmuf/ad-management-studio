@@ -1,9 +1,9 @@
-# Active Directory Management Studio (v3.3.0)
+# Active Directory Management Studio (v3.4.0)
 ### Enterprise Directory Management, Softerra LDAP & NetTools Diagnostics Suite
 
 A modern, high-performance administration workbench built with **PowerShell & WPF/XAML** for managing Microsoft Active Directory and LDAP environments. Engineered for Systems Administrators, Security Engineers, and Directory Operators who require both daily standard administration and advanced low-level directory tooling.
 
-![Version](https://img.shields.io/badge/Version-v3.3.0%20Enterprise-success?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.4.0%20Enterprise-success?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20Server%20%7C%20Windows%2010%2F11-blue?style=flat-square)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-blue?style=flat-square)
 ![Architecture](https://img.shields.io/badge/UI-WPF%20%2F%20XAML-green?style=flat-square)
@@ -170,7 +170,8 @@ Active Directory Management Studio adheres to [Semantic Versioning](https://semv
 
 | Version | Release Date | Status | Key Highlights | Notes & Artifacts |
 | :--- | :---: | :---: | :--- | :---: |
-| [**v3.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.3.0) | 2026-10-23 | **Latest** | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Release Notes](docs/releases/v3.3.0.md) |
+| [**v3.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.4.0) | 2026-10-23 | **Latest** | RFC 2696 LDAP paging (>1k objects), RFC 3268 incremental range retrieval (member;range=0-1499), streamed exports, multi-instance HTML dossier tabs with deduplication & address bar, consolidated search. | [Release Notes](docs/releases/v3.4.0.md) |
+| [**v3.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.3.0) | 2026-10-23 | Stable | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Release Notes](docs/releases/v3.3.0.md) |
 | [**v3.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.2.0) | 2026-10-20 | Stable | Native Windows horizontal menu bar (11 menus), DNS SRV DC auto-detect with ping latency, Quick Tools dropdown, 19 gallery screenshots. | [Release Notes](docs/releases/v3.2.0.md) |
 | [**v3.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.1.0) | 2026-10-15 | Stable | Deep stability hardening across 24 panels, PSScriptAnalyzer compliance, ISO 8601 logging, multi-dossier tab preservation. | [Release Notes](docs/releases/v3.1.0.md) |
 | [**v3.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.0.0) | 2026-10-13 | Stable | In-process multi-instance detached floating windows with zero-latency dock-back, headless automation CLI (`ad-studio-cli.ps1`). | [Release Notes](docs/releases/v3.0.0.md) |
@@ -194,7 +195,7 @@ ad-management-studio/
 ├── WALKTHROUGH.md                     # Visual Operator Walkthrough (10 Scenarios)
 ├── README.md                          # Repository showcase & documentation
 ├── docs/
-│   ├── releases/                      # Versioned release notes (v0.1.0 through v3.3.0)
+│   ├── releases/                      # Versioned release notes (v0.1.0 through v3.4.0)
 │   └── images/                        # 19 High-resolution Light theme application screenshots
 │       ├── 01_dashboard_overview.png
 │       ├── 02_users_and_inspector.png

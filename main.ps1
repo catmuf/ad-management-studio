@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Active Directory Management Studio - Modern Windows Server Administration Suite
 .DESCRIPTION
@@ -15906,7 +15906,7 @@ Directory Operations:
 function Show-AboutDialog {
     $msg = @"
 Active Directory & LDAP Enterprise Administrator Suite
-Version 3.3.0 (Enterprise Edition)
+Version 3.4.0 (Enterprise Edition)
 
 Key Capabilities:
 • Complete feature parity with Softerra LDAP Administrator & Apache Directory Studio
