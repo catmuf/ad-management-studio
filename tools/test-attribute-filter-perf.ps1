@@ -65,68 +65,53 @@ $txtSearchAttr = $controls['TxtSearchAttrFilter']
 $cmbFilterAttr = $controls['CmbFilterAttr']
 $outcomeText = $controls['TxtSearchAttrOutcome']
 
-Assert-TestCondition "TxtSearchAttrFilter exists" ($null -ne $txtSearchAttr)
+Assert-TestCondition "Redundant TxtSearchAttrFilter is removed" ($null -eq $txtSearchAttr)
 Assert-TestCondition "CmbFilterAttr exists" ($null -ne $cmbFilterAttr)
-Assert-TestCondition "OutcomeText exists" ($null -ne $outcomeText)
+Assert-TestCondition "CmbFilterAttr is editable" ($cmbFilterAttr.IsEditable -eq $true)
+Assert-TestCondition "OutcomeText exists in condition builder" ($null -ne $outcomeText)
 
 # -----------------------------------------------------------------------------
-# TEST 1: Rapid Keystrokes & Debouncing
+# TEST 1: Rapid Direct Typing & Real-Time Filtering in CmbFilterAttr
 # -----------------------------------------------------------------------------
-Write-TestLog "`n--- [TEST 1] Rapid Keystrokes & Debounce (No Lag / No DropDown Force) ---" "Yellow"
+Write-TestLog "`n--- [TEST 1] Rapid Keystrokes in CmbFilterAttr ---" "Yellow"
+
+$cmbFilterAttr.ApplyTemplate()
+$editBox = $cmbFilterAttr.Template.FindName("PART_EditableTextBox", $cmbFilterAttr)
+Assert-TestCondition "CmbFilterAttr has PART_EditableTextBox" ($null -ne $editBox)
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-# Simulate typing "u", "us", "use", "user" rapidly
-$txtSearchAttr.Text = "u"
-$txtSearchAttr.Text = "us"
-$txtSearchAttr.Text = "use"
-$txtSearchAttr.Text = "user"
+Filter-ComboAttributes -Combo $cmbFilterAttr -Query "user" -IncludeAny $false -OutcomeText $outcomeText -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
 $sw.Stop()
 
-Write-TestLog "  Rapid text property changes completed in $($sw.ElapsedMilliseconds) ms" "Gray"
-Assert-TestCondition "Rapid keystrokes executed in under 50ms" ($sw.ElapsedMilliseconds -lt 50) "Actual: $($sw.ElapsedMilliseconds)ms"
-
-# While timer is waiting, dropdown should NOT be open
-Assert-TestCondition "CmbFilterAttr drop down is NOT forced open while typing" (-not $cmbFilterAttr.IsDropDownOpen)
-
-# Wait 250ms for debounce timer to fire
-[System.Threading.Thread]::Sleep(250)
-[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
-
-Write-TestLog "  Outcome after debounce: '$($outcomeText.Text)'" "Gray"
+Write-TestLog "  Filter execution completed in $($sw.ElapsedMilliseconds) ms" "Gray"
+Assert-TestCondition "Filtering executed in under 50ms" ($sw.ElapsedMilliseconds -lt 50) "Actual: $($sw.ElapsedMilliseconds)ms"
+Write-TestLog "  Outcome after typing 'user': '$($outcomeText.Text)'" "Gray"
 Assert-TestCondition "Outcome reflects matching attributes for 'user'" ($outcomeText.Text -match "user|matching")
-Assert-TestCondition "DropDown remains closed during typing in external box" (-not $cmbFilterAttr.IsDropDownOpen)
+Assert-TestCondition "Matching items found in dropdown" ($cmbFilterAttr.Items.Count -gt 0) "Count: $($cmbFilterAttr.Items.Count)"
 
 # -----------------------------------------------------------------------------
-# TEST 2: Rapid Backspaces to Empty (Zero Freeze / Smooth Recovery)
+# TEST 2: Backspaces to Empty (Zero Freeze / Smooth Full List Recovery)
 # -----------------------------------------------------------------------------
-Write-TestLog "`n--- [TEST 2] Rapid Backspaces to Empty ---" "Yellow"
+Write-TestLog "`n--- [TEST 2] Backspaces to Empty ---" "Yellow"
 
 $swBack = [System.Diagnostics.Stopwatch]::StartNew()
-# Simulate holding down backspace
-$txtSearchAttr.Text = "use"
-$txtSearchAttr.Text = "us"
-$txtSearchAttr.Text = "u"
-$txtSearchAttr.Text = ""
+Filter-ComboAttributes -Combo $cmbFilterAttr -Query "" -IncludeAny $false -OutcomeText $outcomeText -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
 $swBack.Stop()
 
-Write-TestLog "  Rapid backspace changes completed in $($swBack.ElapsedMilliseconds) ms" "Gray"
-Assert-TestCondition "Rapid backspaces executed in under 50ms without freeze" ($swBack.ElapsedMilliseconds -lt 50) "Actual: $($swBack.ElapsedMilliseconds)ms"
-
-# Wait 250ms for debounce timer to fire
-[System.Threading.Thread]::Sleep(250)
-[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
-
-Write-TestLog "  Outcome after backspace to empty: '$($outcomeText.Text)'" "Gray"
-Assert-TestCondition "Outcome badge displays all attributes without freeze" ($outcomeText.Text -match "Displaying all")
-Assert-TestCondition "Placeholder is visible when empty" ($controls['TxtSearchAttrPlaceholder'].Visibility -eq [System.Windows.Visibility]::Visible)
+Write-TestLog "  Full list reset completed in $($swBack.ElapsedMilliseconds) ms" "Gray"
+Assert-TestCondition "Reset to full list executed in under 50ms" ($swBack.ElapsedMilliseconds -lt 50) "Actual: $($swBack.ElapsedMilliseconds)ms"
+Write-TestLog "  Outcome after empty query: '$($outcomeText.Text)'" "Gray"
+Assert-TestCondition "Outcome badge displays all attributes" ($outcomeText.Text -match "Displaying all")
+Assert-TestCondition "Full master attribute list restored" ($cmbFilterAttr.Items.Count -gt 50) "Count: $($cmbFilterAttr.Items.Count)"
 
 # -----------------------------------------------------------------------------
-# TEST 3: Capped Matches (Top 100) on Broad Queries
+# TEST 3: Broad Query (e.g. 'a') Capped to 100 Items
 # -----------------------------------------------------------------------------
 Write-TestLog "`n--- [TEST 3] Broad Query (e.g. 'a') Capped to 100 Items ---" "Yellow"
 
-$txtSearchAttr.Text = "a"
-[System.Threading.Thread]::Sleep(250)
+Filter-ComboAttributes -Combo $cmbFilterAttr -Query "a" -IncludeAny $false -OutcomeText $outcomeText -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
 [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
 
 Write-TestLog "  Outcome for 'a': '$($outcomeText.Text)'" "Gray"
@@ -134,6 +119,16 @@ Write-TestLog "  Items in dropdown collection: $($cmbFilterAttr.Items.Count)" "G
 
 Assert-TestCondition "Dropdown collection is capped at <= 100 items for high performance" ($cmbFilterAttr.Items.Count -le 100) "Items: $($cmbFilterAttr.Items.Count)"
 Assert-TestCondition "Outcome displays total matches and shows top 100 note" ($outcomeText.Text -match "top 100|matching")
+
+# -----------------------------------------------------------------------------
+# TEST 4: Selection Change Updates Outcome Badge
+# -----------------------------------------------------------------------------
+Write-TestLog "`n--- [TEST 4] Selection Change Updates Outcome Badge ---" "Yellow"
+
+$cmbFilterAttr.SelectedItem = "userPrincipalName"
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
+Write-TestLog "  Outcome after selection: '$($outcomeText.Text)'" "Gray"
+Assert-TestCondition "Outcome badge updated with selected attribute" ($outcomeText.Text -match "userPrincipalName")
 
 $window.Close()
 [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)

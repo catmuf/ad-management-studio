@@ -8408,32 +8408,24 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
 
 Set-Alias -Name Filter-SearchAttributes -Value Select-SearchAttributes -Scope Global
 function Select-SearchAttributes {
+    param([string]$Query = "")
     if (-not $state.SearchAttributesLoaded -or -not $state.MasterAttributeList -or $state.MasterAttributeList.Count -eq 0) {
         Populate-SearchAttributeDropdowns
     }
 
     if ($state.IsFilteringAttributes) { return }
 
-    $query = ""
-    if ($controls['TxtSearchAttrFilter']) {
-        $query = $controls['TxtSearchAttrFilter'].Text
-        if ($null -eq $query) { $query = "" }
-        $query = $query.Trim()
+    if ([string]::IsNullOrWhiteSpace($Query) -and $controls['CmbFilterAttr']) {
+        $Query = $controls['CmbFilterAttr'].Text
     }
-
-    if ($controls['TxtSearchAttrPlaceholder']) {
-        $controls['TxtSearchAttrPlaceholder'].Visibility = if ([string]::IsNullOrEmpty($query)) {
-            [System.Windows.Visibility]::Visible
-        } else {
-            [System.Windows.Visibility]::Collapsed
-        }
-    }
+    if ($null -eq $Query) { $Query = "" }
+    $Query = $Query.Trim()
 
     if ($controls['CmbFilterAttr']) {
-        Filter-ComboAttributes -Combo $controls['CmbFilterAttr'] -Query $query -IncludeAny $false -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
+        Filter-ComboAttributes -Combo $controls['CmbFilterAttr'] -Query $Query -IncludeAny $false -OutcomeText $controls['TxtSearchAttrOutcome'] -OutcomeBorder $controls['BorderSearchAttrOutcome'] -OpenDropDown $false
     }
     if ($controls['CmbRegexTargetAttr']) {
-        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $query -IncludeAny $true -OpenDropDown $false
+        Filter-ComboAttributes -Combo $controls['CmbRegexTargetAttr'] -Query $Query -IncludeAny $true -OpenDropDown $false
     }
 }
 
@@ -8446,59 +8438,6 @@ function Initialize-DirectorySearch {
     Update-SearchHistoryUI
 }
 
-# Live Attribute Search & Outcome Event Listeners with Debounce Timer
-$script:AttrFilterDebounceTimer = [System.Windows.Threading.DispatcherTimer]::new()
-$script:AttrFilterDebounceTimer.Interval = [TimeSpan]::FromMilliseconds(200)
-$script:AttrFilterDebounceTimer.Add_Tick({
-    $script:AttrFilterDebounceTimer.Stop()
-    Filter-SearchAttributes
-})
-
-if ($controls['TxtSearchAttrFilter']) {
-    $controls['TxtSearchAttrFilter'].Add_TextChanged({
-        if ($controls['TxtSearchAttrPlaceholder']) {
-            $txt = $controls['TxtSearchAttrFilter'].Text
-            $controls['TxtSearchAttrPlaceholder'].Visibility = if ([string]::IsNullOrEmpty($txt)) {
-                [System.Windows.Visibility]::Visible
-            } else {
-                [System.Windows.Visibility]::Collapsed
-            }
-        }
-        $script:AttrFilterDebounceTimer.Stop()
-        $script:AttrFilterDebounceTimer.Start()
-    })
-    $controls['TxtSearchAttrFilter'].Add_KeyDown({
-        param($s, $e)
-        $null = $s
-        if ($e.Key -eq [System.Windows.Input.Key]::Enter) {
-            $e.Handled = $true
-            $script:AttrFilterDebounceTimer.Stop()
-            Filter-SearchAttributes
-            if ($controls['CmbFilterAttr']) {
-                [void]$controls['CmbFilterAttr'].Focus()
-                $controls['CmbFilterAttr'].IsDropDownOpen = $true
-            }
-        } elseif ($e.Key -eq [System.Windows.Input.Key]::Escape) {
-            $e.Handled = $true
-            $script:AttrFilterDebounceTimer.Stop()
-            if ($controls['TxtSearchAttrFilter']) {
-                $controls['TxtSearchAttrFilter'].Text = ""
-            }
-            Filter-SearchAttributes
-        }
-    })
-}
-
-if ($controls['BtnClearAttrFilter']) {
-    $controls['BtnClearAttrFilter'].Add_Click({
-        $script:AttrFilterDebounceTimer.Stop()
-        if ($controls['TxtSearchAttrFilter']) {
-            $controls['TxtSearchAttrFilter'].Text = ""
-            [void]$controls['TxtSearchAttrFilter'].Focus()
-        }
-        Filter-SearchAttributes
-    })
-}
 if ($controls['CmbSearchPresets']) {
     $controls['CmbSearchPresets'].Add_SelectionChanged({
         if (-not $controls['CmbSearchPresets'].SelectedItem) { return }
