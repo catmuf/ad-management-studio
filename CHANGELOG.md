@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 All notable changes to **Active Directory Management Studio** are documented in this file.
 The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
@@ -8,7 +8,7 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
-| 112 | **v3.4.0** | pending | 2026-10-26 | feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner |
+| 112 | **v3.4.0** | [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2e3e571c56a81bb5e7a9b09be8c2ddca7a) | 2026-10-26 | feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner |
 | 111 | **v3.4.0** | [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) | 2026-10-23 | docs(release): sync v3.4.0 release notes and full changelog |
 | 110 | **v3.4.0** | [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) | 2026-10-23 | feat(release): cut v3.4.0 release, update documentation and release pipelines |
 | 109 | **v3.4.0** | [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) | 2026-10-23 | feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers |
@@ -143,7 +143,7 @@ Delivers extensive feature parity and ergonomic modernization inspired by Softer
 - **Dedicated Release Notes**: [docs/releases/v3.4.0.md](docs/releases/v3.4.0.md)
 
 ##### ✨ Features & Capabilities (4)
-- `pending` - feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner *(2026-10-26)*
+- [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2e3e571c56a81bb5e7a9b09be8c2ddca7a) - feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner *(2026-10-26)*
 - [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) - feat(release): cut v3.4.0 release, update documentation and release pipelines *(2026-10-23)*
 - [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) - feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers *(2026-10-23)*
 - [`dcb0ae9`](https://github.com/catmuf/ad-management-studio/commit/dcb0ae9382a847be78410eaa386787459555b600) - feat(ad-query): implement RFC 2696 LDAP paging, RFC 3268 range retrieval, and streamed exports *(2026-10-23)*
