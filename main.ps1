@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active Directory Management Studio - Modern Windows Server Administration Suite
 .DESCRIPTION
@@ -1339,11 +1339,161 @@ function global:Show-ObjectHtmlView {
             try { $controls['NavHtmlView'].IsChecked = $true } finally { $state.IsSelectingTab = $false }
         }
 
+        Update-DirectoryBreadcrumb -Identity $targetObj -DistinguishedName $targetDN
+        Update-StatusBarTelemetry
         Set-Status -Message "HTML Dossier loaded successfully ($activeTemplate template)."
     }
     catch {
         [System.Windows.MessageBox]::Show("Failed to render HTML Dossier: $_", "Render Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
         Set-Status -Message "Error rendering HTML dossier: $_"
+    }
+}
+
+function global:Update-StatusBarTelemetry {
+    param ([int]$LatencyMs = -1)
+    try {
+        if ($controls['TxtStatusMemory']) {
+            $memMb = [Math]::Round(([System.GC]::GetTotalMemory($false) / 1MB), 1)
+            $controls['TxtStatusMemory'].Text = "📊 $memMb MB"
+        }
+        if ($LatencyMs -ge 0 -and $controls['TxtStatusLatency']) {
+            $controls['TxtStatusLatency'].Text = "⚡ $LatencyMs ms"
+        }
+    } catch {
+        $null = $_ # Suppress non-critical UI telemetry update errors
+    }
+}
+
+function global:Update-DirectoryBreadcrumb {
+    param (
+        [object]$Identity,
+        [string]$DistinguishedName
+    )
+    if (-not $controls['BreadcrumbHost']) { return }
+
+    try {
+        $dn = if ($DistinguishedName) { $DistinguishedName }
+              elseif ($Identity -is [string]) { $Identity }
+              elseif ($Identity -and $Identity.DistinguishedName) { $Identity.DistinguishedName }
+              elseif ($Identity -and $Identity.DN) { $Identity.DN }
+              else { "" }
+
+        $controls['BreadcrumbHost'].Children.Clear()
+
+        # Home / Directory Root Crumb
+        $btnHome = [System.Windows.Controls.Button]::new()
+        $btnHome.Style = $window.TryFindResource("ModernButton")
+        $btnHome.Height = 22
+        $btnHome.Padding = [System.Windows.Thickness]::new(6,1,6,1)
+        $btnHome.Margin = [System.Windows.Thickness]::new(0,0,4,0)
+        $btnHome.ToolTip = "Active Directory Root Dashboard"
+        $tbHome = [System.Windows.Controls.TextBlock]::new()
+        $tbHome.Text = "🏢 Directory Root"
+        $tbHome.FontSize = 10.5
+        $tbHome.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $btnHome.Content = $tbHome
+        $btnHome.Add_Click({ Show-Panel "Dashboard" })
+        [void]$controls['BreadcrumbHost'].Children.Add($btnHome)
+
+        if ([string]::IsNullOrWhiteSpace($dn)) {
+            if ($controls['TxtBreadcrumbContext']) {
+                $controls['TxtBreadcrumbContext'].Text = "Root Context"
+            }
+            return
+        }
+
+        # Parse DN components
+        $parts = $dn -split '(?<!\\),'
+        $domainParts = @($parts | Where-Object { $_ -match '^DC=' })
+        $ouParts = @($parts | Where-Object { $_ -match '^OU=' })
+        $leafParts = @($parts | Where-Object { $_ -notmatch '^(DC|OU)=' })
+
+        # Domain Crumb
+        if ($domainParts.Count -gt 0) {
+            $domainName = ($domainParts | ForEach-Object { $_.Substring(3) }) -join '.'
+            $sep = [System.Windows.Controls.TextBlock]::new()
+            $sep.Text = "›"
+            $sep.FontSize = 11
+            $sep.Foreground = $window.TryFindResource("TextMuted")
+            $sep.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+            $sep.Margin = [System.Windows.Thickness]::new(2,0,4,0)
+            [void]$controls['BreadcrumbHost'].Children.Add($sep)
+
+            $btnDom = [System.Windows.Controls.Button]::new()
+            $btnDom.Style = $window.TryFindResource("ModernButton")
+            $btnDom.Height = 22
+            $btnDom.Padding = [System.Windows.Thickness]::new(6,1,6,1)
+            $btnDom.Margin = [System.Windows.Thickness]::new(0,0,4,0)
+            $btnDom.ToolTip = "Domain: $domainName"
+            $tbDom = [System.Windows.Controls.TextBlock]::new()
+            $tbDom.Text = "🌐 $domainName"
+            $tbDom.FontSize = 10.5
+            $btnDom.Content = $tbDom
+            $btnDom.Add_Click({ Show-Panel "OUs" })
+            [void]$controls['BreadcrumbHost'].Children.Add($btnDom)
+        }
+
+        # OU Hierarchy Crumbs (top-down order)
+        [array]::Reverse($ouParts)
+        foreach ($ou in $ouParts) {
+            $ouName = if ($ou.Length -gt 3) { $ou.Substring(3) } else { $ou }
+            $sep = [System.Windows.Controls.TextBlock]::new()
+            $sep.Text = "›"
+            $sep.FontSize = 11
+            $sep.Foreground = $window.TryFindResource("TextMuted")
+            $sep.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+            $sep.Margin = [System.Windows.Thickness]::new(2,0,4,0)
+            [void]$controls['BreadcrumbHost'].Children.Add($sep)
+
+            $btnOu = [System.Windows.Controls.Button]::new()
+            $btnOu.Style = $window.TryFindResource("ModernButton")
+            $btnOu.Height = 22
+            $btnOu.Padding = [System.Windows.Thickness]::new(6,1,6,1)
+            $btnOu.Margin = [System.Windows.Thickness]::new(0,0,4,0)
+            $btnOu.ToolTip = "Organizational Unit: $ouName"
+            $tbOu = [System.Windows.Controls.TextBlock]::new()
+            $tbOu.Text = "📁 $ouName"
+            $tbOu.FontSize = 10.5
+            $btnOu.Content = $tbOu
+            $btnOu.Add_Click({ Show-Panel "OUs" })
+            [void]$controls['BreadcrumbHost'].Children.Add($btnOu)
+        }
+
+        # Leaf Object Crumb
+        if ($leafParts.Count -gt 0) {
+            $leafRaw = $leafParts[0]
+            $icon = if ($leafRaw -match '^CN=') { "👤 " } else { "📄 " }
+            $leafDisp = if ($leafRaw.Length -gt 3) { $leafRaw.Substring(3) } else { $leafRaw }
+            $sep = [System.Windows.Controls.TextBlock]::new()
+            $sep.Text = "›"
+            $sep.FontSize = 11
+            $sep.Foreground = $window.TryFindResource("TextMuted")
+            $sep.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+            $sep.Margin = [System.Windows.Thickness]::new(2,0,4,0)
+            [void]$controls['BreadcrumbHost'].Children.Add($sep)
+
+            $btnLeaf = [System.Windows.Controls.Button]::new()
+            $btnLeaf.Style = $window.TryFindResource("ModernButton")
+            $btnLeaf.Height = 22
+            $btnLeaf.Padding = [System.Windows.Thickness]::new(6,1,6,1)
+            $btnLeaf.Margin = [System.Windows.Thickness]::new(0,0,4,0)
+            $btnLeaf.ToolTip = "Target Object: $leafDisp"
+            $tbLeaf = [System.Windows.Controls.TextBlock]::new()
+            $tbLeaf.Text = "$icon$leafDisp"
+            $tbLeaf.FontSize = 10.5
+            $tbLeaf.FontWeight = [System.Windows.FontWeights]::SemiBold
+            $btnLeaf.Content = $tbLeaf
+            $targetDn = $dn
+            $btnLeaf.Add_Click({ Show-ObjectHtmlView -Identity $targetDn })
+            [void]$controls['BreadcrumbHost'].Children.Add($btnLeaf)
+        }
+
+        if ($controls['TxtBreadcrumbContext']) {
+            $leafTitle = if ($leafParts.Count -gt 0) { $leafParts[0] } else { $dn }
+            $controls['TxtBreadcrumbContext'].Text = "Context: $leafTitle"
+        }
+    } catch {
+        $null = $_ # Suppress non-critical breadcrumb rendering errors
     }
 }
 
@@ -5212,33 +5362,94 @@ if ($controls['BtnGlobalRefresh']) {
 }
 #endregion
 
-#region Global Quick Search Omnibar (Softerra Ch09 / Screenshot 08 Parity)
+#region Global Quick Search & Command Palette Omnibar (Softerra / Apache Studio / NetTools Parity)
+$script:OmnibarCommands = @(
+    [PSCustomObject]@{ Name = "> Users"; Description = "Navigate to Users Management viewport"; Type = "COMMAND"; Action = { Show-Panel "Users"; Refresh-Users } }
+    [PSCustomObject]@{ Name = "> Groups"; Description = "Navigate to Groups Management viewport"; Type = "COMMAND"; Action = { Show-Panel "Groups"; Refresh-Groups } }
+    [PSCustomObject]@{ Name = "> Computers"; Description = "Navigate to Computers Management viewport"; Type = "COMMAND"; Action = { Show-Panel "Computers"; Refresh-Computers } }
+    [PSCustomObject]@{ Name = "> OUs"; Description = "Navigate to Organizational Units tree view"; Type = "COMMAND"; Action = { Show-Panel "OUs"; Refresh-OUs } }
+    [PSCustomObject]@{ Name = "> Directory Search"; Description = "Advanced SCIM & LDAP query directory search"; Type = "COMMAND"; Action = { Show-Panel "DirectorySearch"; Init-DirectorySearch } }
+    [PSCustomObject]@{ Name = "> LDAP SQL"; Description = "Execute SQL-like queries against LDAP directory"; Type = "COMMAND"; Action = { Show-Panel "LdapSql" } }
+    [PSCustomObject]@{ Name = "> Attribute Editor"; Description = "View and edit AD object raw attributes"; Type = "COMMAND"; Action = { Show-Panel "AttributeEditor" } }
+    [PSCustomObject]@{ Name = "> Object Compare"; Description = "Side-by-side attribute comparison for two AD objects"; Type = "COMMAND"; Action = { Show-Panel "ObjectCompare" } }
+    [PSCustomObject]@{ Name = "> Security ACL"; Description = "AD Permissions Browser, Effective Permissions & SDDL Inspector"; Type = "COMMAND"; Action = { Show-Panel "SecurityAcl" } }
+    [PSCustomObject]@{ Name = "> Kerberos Suite"; Description = "Kerberos ticket analyzer, SPN validator & PAC token sizing"; Type = "COMMAND"; Action = { Show-Panel "KerberosSuite" } }
+    [PSCustomObject]@{ Name = "> Replication Suite"; Description = "AD replication topology, DC metadata, subnets & site resolution"; Type = "COMMAND"; Action = { Show-Panel "ReplicationSuite" } }
+    [PSCustomObject]@{ Name = "> Diagnostics Toolbox"; Description = "AD Diagnostics: time converter, lockout analyzer, PSO calculator, group diff"; Type = "COMMAND"; Action = { Show-Panel "DiagnosticsToolbox" } }
+    [PSCustomObject]@{ Name = "> Network Diagnostics"; Description = "7-Tier UNC checker, DC port latency & certificate validator"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> Schema Browser"; Description = "Explore AD schema classes, attributes and syntax definitions"; Type = "COMMAND"; Action = { Show-Panel "SchemaBrowser"; Refresh-Schema } }
+    [PSCustomObject]@{ Name = "> LDIF Studio"; Description = "LDIF Editor, script execution and import/export studio"; Type = "COMMAND"; Action = { Show-Panel "LdifStudio"; Init-LdifStudio } }
+    [PSCustomObject]@{ Name = "> Audit Reports"; Description = "Security audit suite, compliance rules and custom reports"; Type = "COMMAND"; Action = { Show-Panel "AuditReports"; Refresh-CustomReportsDropdown } }
+    [PSCustomObject]@{ Name = "> Bulk Editor"; Description = "Batch modification and attribute update tool"; Type = "COMMAND"; Action = { Show-Panel "BulkEditor" } }
+    [PSCustomObject]@{ Name = "> Directory Basket"; Description = "Staged multi-object collection for batch operations"; Type = "COMMAND"; Action = { Show-Panel "Basket"; Refresh-BasketUI } }
+    [PSCustomObject]@{ Name = "> Recycle Bin"; Description = "Active Directory Recycle Bin deleted object recovery"; Type = "COMMAND"; Action = { Show-Panel "RecycleBin"; Refresh-RecycleBin } }
+    [PSCustomObject]@{ Name = "> Server Monitor"; Description = "Real-time DC domain controller health and replication telemetry"; Type = "COMMAND"; Action = { Show-Panel "ServerMonitor"; Refresh-ServerMonitor } }
+    [PSCustomObject]@{ Name = "> Connections"; Description = "Directory connection profiles and domain credentials"; Type = "COMMAND"; Action = { Show-Panel "Connections"; Refresh-Connections } }
+    [PSCustomObject]@{ Name = "> Settings"; Description = "Application preferences, theme and workspace layout"; Type = "COMMAND"; Action = { Show-Panel "Settings"; Load-SettingsPanel } }
+    [PSCustomObject]@{ Name = "> Refresh All"; Description = "Reload active directory cached data across views"; Type = "COMMAND"; Action = { Refresh-All } }
+    [PSCustomObject]@{ Name = "> Toggle Dark Mode"; Description = "Switch between Dark and Light application themes"; Type = "COMMAND"; Action = {
+        $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }
+        Set-ApplicationTheme -Theme $newTheme -SavePreference
+    }}
+    [PSCustomObject]@{ Name = "> Clear AD Cache"; Description = "Purge local in-memory directory cache and force fresh LDAP pull"; Type = "COMMAND"; Action = {
+        if (Get-Command -Name Clear-ADCache -ErrorAction SilentlyContinue) { Clear-ADCache }
+        Refresh-All
+    }}
+)
+
 $script:GlobalSearchDebounceTimer = [System.Windows.Threading.DispatcherTimer]::new()
-$script:GlobalSearchDebounceTimer.Interval = [System.TimeSpan]::FromMilliseconds(200)
+$script:GlobalSearchDebounceTimer.Interval = [System.TimeSpan]::FromMilliseconds(150)
 $script:GlobalSearchDebounceTimer.Add_Tick({
     $script:GlobalSearchDebounceTimer.Stop()
-    if ($controls['TxtGlobalSearch']) {
-        $q = $controls['TxtGlobalSearch'].Text.Trim()
-        if ($q.Length -ge 2) {
-            $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 500
-            $results = @($rawResults)
-            if ($controls['ListGlobalSearchResults']) {
-                $controls['ListGlobalSearchResults'].ItemsSource = $null
-                $controls['ListGlobalSearchResults'].ItemsSource = $results
-            }
-            if ($controls['TxtGlobalSearchStatus']) {
-                $controls['TxtGlobalSearchStatus'].Text = "Found $($results.Count) object(s)"
-            }
-            if ($controls['PopupGlobalSearch']) {
-                $controls['PopupGlobalSearch'].IsOpen = ($results.Count -gt 0)
-            }
+    if (-not $controls['TxtGlobalSearch']) { return }
+    $q = $controls['TxtGlobalSearch'].Text.Trim()
+    if ($q.StartsWith('>')) {
+        $cmdFilter = $q.Substring(1).Trim()
+        $matchedList = if ([string]::IsNullOrWhiteSpace($cmdFilter)) {
+            $script:OmnibarCommands
         } else {
-            if ($controls['PopupGlobalSearch']) {
-                $controls['PopupGlobalSearch'].IsOpen = $false
+            $script:OmnibarCommands | Where-Object { $_.Name -like "*$cmdFilter*" -or $_.Description -like "*$cmdFilter*" }
+        }
+        $cmdResults = @($matchedList | ForEach-Object {
+            [PSCustomObject]@{
+                Type              = "COMMAND"
+                Name              = $_.Name
+                DistinguishedName = $_.Description
+                Action            = $_.Action
             }
-            if ($controls['ListGlobalSearchResults']) {
-                $controls['ListGlobalSearchResults'].ItemsSource = $null
-            }
+        })
+        if ($controls['ListGlobalSearchResults']) {
+            $controls['ListGlobalSearchResults'].ItemsSource = $null
+            $controls['ListGlobalSearchResults'].ItemsSource = $cmdResults
+        }
+        if ($controls['TxtGlobalSearchStatus']) {
+            $controls['TxtGlobalSearchStatus'].Text = "Commands & Quick Actions ($($cmdResults.Count))"
+        }
+        if ($controls['PopupGlobalSearch']) {
+            $controls['PopupGlobalSearch'].IsOpen = ($cmdResults.Count -gt 0)
+        }
+    } elseif ($q.Length -ge 2) {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 500
+        $sw.Stop()
+        Update-StatusBarTelemetry -LatencyMs $sw.ElapsedMilliseconds
+        $results = @($rawResults)
+        if ($controls['ListGlobalSearchResults']) {
+            $controls['ListGlobalSearchResults'].ItemsSource = $null
+            $controls['ListGlobalSearchResults'].ItemsSource = $results
+        }
+        if ($controls['TxtGlobalSearchStatus']) {
+            $controls['TxtGlobalSearchStatus'].Text = "Found $($results.Count) object(s)"
+        }
+        if ($controls['PopupGlobalSearch']) {
+            $controls['PopupGlobalSearch'].IsOpen = ($results.Count -gt 0)
+        }
+    } else {
+        if ($controls['PopupGlobalSearch']) {
+            $controls['PopupGlobalSearch'].IsOpen = $false
+        }
+        if ($controls['ListGlobalSearchResults']) {
+            $controls['ListGlobalSearchResults'].ItemsSource = $null
         }
     }
 })
@@ -5247,7 +5458,7 @@ if ($controls['TxtGlobalSearch']) {
     $controls['TxtGlobalSearch'].Add_TextChanged({
         $script:GlobalSearchDebounceTimer.Stop()
         $q = $controls['TxtGlobalSearch'].Text.Trim()
-        if ($q.Length -ge 2) {
+        if ($q.StartsWith('>') -or $q.Length -ge 2) {
             $script:GlobalSearchDebounceTimer.Start()
         } else {
             if ($controls['PopupGlobalSearch']) {
@@ -5266,10 +5477,24 @@ if ($controls['TxtGlobalSearch']) {
         } elseif ($_.Key -eq [System.Windows.Input.Key]::Enter) {
             $script:GlobalSearchDebounceTimer.Stop()
             if ($controls['ListGlobalSearchResults'] -and $controls['ListGlobalSearchResults'].Items.Count -gt 0) {
-                $controls['ListGlobalSearchResults'].SelectedIndex = 0
+                $firstItem = $controls['ListGlobalSearchResults'].Items[0]
+                if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
+                $controls['ListGlobalSearchResults'].SelectedItem = $null
+                if ($firstItem.Action) {
+                    & $firstItem.Action
+                } else {
+                    Show-ObjectHtmlView -Identity $firstItem
+                }
             } else {
                 $q = $controls['TxtGlobalSearch'].Text.Trim()
-                if ($q.Length -ge 2) {
+                if ($q.StartsWith('>')) {
+                    $cmdFilter = $q.Substring(1).Trim()
+                    $matched = $script:OmnibarCommands | Where-Object { $_.Name -like "*$cmdFilter*" -or $_.Description -like "*$cmdFilter*" } | Select-Object -First 1
+                    if ($matched -and $matched.Action) {
+                        if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
+                        & $matched.Action
+                    }
+                } elseif ($q.Length -ge 2) {
                     $rawResults = Find-ADObjectsQuickSearch -Query $q -MaxResults 500
                     $results = @($rawResults)
                     if ($controls['ListGlobalSearchResults']) {
@@ -5299,10 +5524,21 @@ if ($controls['ListGlobalSearchResults']) {
         if ($sel) {
             if ($controls['PopupGlobalSearch']) { $controls['PopupGlobalSearch'].IsOpen = $false }
             $controls['ListGlobalSearchResults'].SelectedItem = $null
-            Show-ObjectHtmlView -Identity $sel
+            if ($sel.Action) {
+                & $sel.Action
+            } else {
+                Show-ObjectHtmlView -Identity $sel
+            }
         }
     })
 }
+
+$script:StatusBarTelemetryTimer = [System.Windows.Threading.DispatcherTimer]::new()
+$script:StatusBarTelemetryTimer.Interval = [System.TimeSpan]::FromSeconds(5)
+$script:StatusBarTelemetryTimer.Add_Tick({
+    Update-StatusBarTelemetry
+})
+$script:StatusBarTelemetryTimer.Start()
 #endregion
 
 #region Dynamic Table Column Customization Engine
@@ -6742,12 +6978,34 @@ if ($controls['BtnCloseUserInspector']) {
 
 if ($controls['GridUsers']) {
     $controls['GridUsers'].Add_SelectionChanged({
+        $sel = $controls['GridUsers'].SelectedItem
         if ($controls['BorderUserInspector'] -and $controls['BorderUserInspector'].Visibility -eq [System.Windows.Visibility]::Visible) {
-            $sel = $controls['GridUsers'].SelectedItem
             Update-UserInspectorCard -User $sel
+        }
+        if ($sel -and $sel.DistinguishedName) {
+            Update-DirectoryBreadcrumb -Identity $sel -DistinguishedName $sel.DistinguishedName
         }
     })
 }
+
+if ($controls['GridGroups']) {
+    $controls['GridGroups'].Add_SelectionChanged({
+        $sel = $controls['GridGroups'].SelectedItem
+        if ($sel -and $sel.DistinguishedName) {
+            Update-DirectoryBreadcrumb -Identity $sel -DistinguishedName $sel.DistinguishedName
+        }
+    })
+}
+
+if ($controls['GridComputers']) {
+    $controls['GridComputers'].Add_SelectionChanged({
+        $sel = $controls['GridComputers'].SelectedItem
+        if ($sel -and $sel.DistinguishedName) {
+            Update-DirectoryBreadcrumb -Identity $sel -DistinguishedName $sel.DistinguishedName
+        }
+    })
+}
+
 
 if ($controls['BtnInspResetPwd']) {
     $controls['BtnInspResetPwd'].Add_Click({
@@ -7612,6 +7870,7 @@ if ($controls['BtnNewOU']) { $controls['BtnNewOU'].Add_Click({ Open-OUDialog }) 
 Set-Alias -Name Load-OUObjectsUI -Value Import-OUObjectsUI -Scope Global
 function Import-OUObjectsUI {    $selectedNode = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
     if (-not $selectedNode) { return }
+    Update-DirectoryBreadcrumb -DistinguishedName $selectedNode.DistinguishedName
 
     if ($controls['TxtSelectedOUName']) { $controls['TxtSelectedOUName'].Text = $selectedNode.Name }
     if ($controls['TxtSelectedOUDN'])   { $controls['TxtSelectedOUDN'].Text   = $selectedNode.DistinguishedName }
@@ -14889,6 +15148,25 @@ if ($controls['BtnRefreshRidPool']) {
         Set-Status -Message "RID pool allocation refreshed."
     })
 }
+if ($controls['BtnScanDuplicateSpn']) {
+    $controls['BtnScanDuplicateSpn'].Add_Click({
+        Write-AppLog -Level "INFO" -Category "Kerberos" -Message "Scanning directory for duplicate Service Principal Names (SPNs)"
+        Set-Status -Message "Scanning directory for duplicate SPNs..."
+        $conflicts = Find-DuplicateSPNs
+        if ($controls['GridDuplicateSpnResults']) {
+            $controls['GridDuplicateSpnResults'].ItemsSource = $conflicts
+        }
+        $count = if ($conflicts) { $conflicts.Count } else { 0 }
+        if ($controls['TxtDuplicateSpnSummary']) {
+            $controls['TxtDuplicateSpnSummary'].Text = if ($count -gt 0) {
+                "⚠️ Found $count conflicting SPN cluster(s) across directory accounts."
+            } else {
+                "✅ Clean: Zero duplicate SPN registrations detected."
+            }
+        }
+        Set-Status -Message "SPN scan completed ($count conflict(s) found)."
+    })
+}
 
 # --- 21. Replication & Topology Suite Handlers ---
 Set-Alias -Name Refresh-ReplicationTopology -Value Update-ReplicationTopology -Scope Global
@@ -15075,6 +15353,45 @@ if ($controls['BtnExportCanaryResults']) {
     })
 }
 
+if ($controls['BtnResolveClientIp']) {
+    $controls['BtnResolveClientIp'].Add_Click({
+        $ip = if ($controls['TxtResolveClientIp']) { $controls['TxtResolveClientIp'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($ip)) {
+            [System.Windows.MessageBox]::Show("Please enter a client IPv4 address to resolve.", "IPv4 Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        Write-AppLog -Level "INFO" -Category "Replication" -Message "Resolving Client IP '$ip' to AD Site & Subnet"
+        Set-Status -Message "Resolving Client IP '$ip' using Longest Prefix Match (LPM)..."
+        $res = Resolve-ClientIPToSiteSubnet -ClientIP $ip
+        if ($res) {
+            if ($controls['TxtResolvedSubnet']) { $controls['TxtResolvedSubnet'].Text = "Matched Subnet: $($res.MatchedSubnet)" }
+            if ($controls['TxtResolvedSite'])   { $controls['TxtResolvedSite'].Text   = "Assigned Site: $($res.SiteName)" }
+            if ($controls['TxtResolvedPrefix']) { $controls['TxtResolvedPrefix'].Text = "Prefix: /$($res.PrefixLength) (LPM)" }
+            if ($controls['TxtResolvedDCs'])    { $controls['TxtResolvedDCs'].Text    = "Target DCs: $($res.AssignedDCsText)" }
+            if ($controls['TxtResolvedRecommendation']) { $controls['TxtResolvedRecommendation'].Text = $res.Recommendation }
+            if ($controls['GridCandidateSubnets']) { $controls['GridCandidateSubnets'].ItemsSource = $res.CandidateSubnets }
+            Set-Status -Message "Resolved '$ip' to site '$($res.SiteName)' ($($res.MatchStatus))."
+        }
+    })
+}
+
+$sampleIps = @('10.10.15.42', '10.10.99.5', '192.168.1.50', '172.16.5.5')
+for ($sIdx = 1; $sIdx -le 4; $sIdx++) {
+    $btnName = "BtnSampleIp$sIdx"
+    $targetSample = $sampleIps[$sIdx - 1]
+    if ($controls[$btnName]) {
+        $ipToSet = $targetSample
+        $controls[$btnName].Add_Click([System.Action[object, System.EventArgs]]{
+            if ($controls['TxtResolveClientIp']) {
+                $controls['TxtResolveClientIp'].Text = $ipToSet
+            }
+            if ($controls['BtnResolveClientIp']) {
+                $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+            }
+        })
+    }
+}
+
 # --- 22. Diagnostics & Advanced Utilities Handlers ---
 if ($controls['BtnDiagOpenResolver']) {
     $controls['BtnDiagOpenResolver'].Add_Click({ Show-ResolverDialog })
@@ -15120,6 +15437,46 @@ if ($controls['BtnCompareUserGroups']) {
             }
             if ($controls['GridDiffResults']) { $controls['GridDiffResults'].ItemsSource = $diff.ComparisonRows }
             Set-Status -Message "Group diff complete: $($diff.ComparisonRows.Count) groups evaluated."
+        }
+    })
+}
+if ($controls['BtnRunGroupDiff']) {
+    $controls['BtnRunGroupDiff'].Add_Click({
+        $gA = if ($controls['TxtGroupDiffA']) { $controls['TxtGroupDiffA'].Text.Trim() } else { "" }
+        $gB = if ($controls['TxtGroupDiffB']) { $controls['TxtGroupDiffB'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($gA) -or [string]::IsNullOrWhiteSpace($gB)) {
+            [System.Windows.MessageBox]::Show("Please specify both Group A and Group B to compare.", "Groups Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $isRec = if ($controls['ChkGroupDiffRecursive']) { [bool]$controls['ChkGroupDiffRecursive'].IsChecked } else { $false }
+        Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Comparing group members between '$gA' and '$gB' (Recursive: $isRec)"
+        Set-Status -Message "Comparing group memberships between '$gA' and '$gB'..."
+        $diff = Compare-ADGroupMemberships -GroupA $gA -GroupB $gB -Recursive:$isRec
+        if ($diff) {
+            if ($controls['TxtGroupDiffBothBadge']) { $controls['TxtGroupDiffBothBadge'].Text = "Both: $($diff.MatchingCount)" }
+            if ($controls['TxtGroupDiffABadge'])   { $controls['TxtGroupDiffABadge'].Text   = "Only in A: $($diff.UniqueToACount)" }
+            if ($controls['TxtGroupDiffBBadge'])   { $controls['TxtGroupDiffBBadge'].Text   = "Only in B: $($diff.UniqueToBCount)" }
+            if ($controls['TxtGroupDiffSummary']) {
+                $controls['TxtGroupDiffSummary'].Text = "Compared '$gA' ($($diff.TotalMembersA) members) and '$gB' ($($diff.TotalMembersB) members) — $($diff.TotalDistinctMembers) distinct principals total."
+            }
+            if ($controls['GridGroupDiffResults']) {
+                $controls['GridGroupDiffResults'].ItemsSource = $diff.ComparisonMatrix
+            }
+            Set-Status -Message "Group member comparison complete: $($diff.ComparisonMatrix.Count) principals evaluated."
+        }
+    })
+}
+
+if ($controls['BtnExportGroupDiff']) {
+    $controls['BtnExportGroupDiff'].Add_Click({
+        $items = if ($controls['GridGroupDiffResults']) { $controls['GridGroupDiffResults'].ItemsSource } else { $null }
+        if (-not $items -or @($items).Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No group comparison data available to export.", "No Data", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
+        $res = Export-DataGridData -Grid $controls['GridGroupDiffResults'] -DefaultFileName "GroupMemberDiff_Export.csv" -Format "CSV"
+        if ($res.Success) {
+            [System.Windows.MessageBox]::Show($res.Message, "Export Successful", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
         }
     })
 }
@@ -16542,6 +16899,14 @@ $window.Add_KeyDown({
     if ($e.Key -eq [System.Windows.Input.Key]::Oem5 -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         Toggle-SidebarVisibility
         $e.Handled = $true
+    }
+    # Ctrl+K: Omnibar Quick Search & Command Palette (Ctrl+K Parity)
+    if ($e.Key -eq [System.Windows.Input.Key]::K -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and -not ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
+        if ($controls['TxtGlobalSearch']) {
+            [void]$controls['TxtGlobalSearch'].Focus()
+            $controls['TxtGlobalSearch'].SelectAll()
+            $e.Handled = $true
+        }
     }
     if ($e.Key -eq [System.Windows.Input.Key]::T -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
         $newTheme = if ($state.CurrentTheme -eq "Light") { "Dark" } else { "Light" }

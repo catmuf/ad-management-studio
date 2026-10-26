@@ -1,4 +1,4 @@
-# Active Directory Management Studio (v3.4.0 Enterprise)
+﻿# Active Directory Management Studio (v3.4.0 Enterprise)
 ## Enterprise SysAdmin Handbook & Operator Manual
 ### Complete Operational Reference Guide for Active Directory & LDAP Infrastructure
 
@@ -12,6 +12,7 @@
   - [1.1. Forest Health & Operations Dashboard (Default Light Presentation)](#11-forest-health--operations-dashboard-default-light-presentation)
   - [1.2. Key Architectural Pillars](#12-key-architectural-pillars)
   - [1.3. Query Scalability: RFC 2696 Simple Paged Results & RFC 3268 Range Retrieval](#13-query-scalability-rfc-2696-simple-paged-results--rfc-3268-range-retrieval)
+  - [1.4. Competitor Parity & Forensic Architecture (NetTools, Softerra & Apache Studio)](#14-competitor-parity--forensic-architecture-nettools-softerra--apache-studio)
 - [2. Installation, Prerequisites & Launch Procedure](#2-installation-prerequisites--launch-procedure)
   - [Prerequisites](#prerequisites)
   - [Launching the Application](#launching-the-application)
@@ -35,6 +36,7 @@
   - [7.3. Circular Group Loop Diagnostics](#73-circular-group-loop-diagnostics)
   - [7.4. 48 Enterprise Security Audit Reports](#74-48-enterprise-security-audit-reports)
   - [7.5. NetTools 7-Tier UNC Share & Port Matrix Diagnostics](#75-nettools-7-tier-unc-share--port-matrix-diagnostics)
+  - [7.6. Client IP Site Resolver (LPM), Group Member Diff & Duplicate SPN Scanner](#76-client-ip-site-resolver-lpm-group-member-diff--duplicate-spn-scanner)
 - [8. Headless Automation CLI (`tools/ad-studio-cli.ps1`)](#8-headless-automation-cli-toolsad-studio-clips1)
   - [8.1. Primary Automation Modes (-Export, -ImportLDIF, -Audit, -QuerySQL)](#81-primary-automation-modes--export--importldif--audit--querysql)
   - [8.2. Identity Diagnostic Subcommands (-Command)](#82-identity-diagnostic-subcommands--command)
@@ -103,6 +105,24 @@ In enterprise Active Directory environments, directory queries often span thousa
    - If a group contains more than 1,500 members, querying the standard `member` attribute returns an empty array or throws an attribute error.
    - The studio automatically detects large group enumerations and initiates RFC 3268 Range Retrieval by querying attribute ranged specifiers (`member;range=0-1499`).
    - The engine progressively queries subsequent blocks (`member;range=1500-2999`, `member;range=3000-4499`, etc.) until the terminal range descriptor (`member;range=X-*`) is received, merging the slices into a complete member roster without missing any users.
+
+### 1.4. Competitor Parity & Forensic Architecture (NetTools, Softerra & Apache Studio)
+
+To match and surpass leading commercial and open-source directory utilities (**Softerra LDAP Administrator 2026**, **Apache Directory Studio 2.0**, and **NetTools**), the application integrates a unified suite of ergonomic enhancements and forensic diagnostics:
+
+1. **Omnibar 2.0 Command Palette (`Ctrl+K`)**:
+   - Modernized global input field that acts as both an instant directory search and an action command palette.
+   - Prefixing queries with `>` triggers the Command Palette, surfacing 25+ fast operational actions (e.g. `> Users`, `> Replication`, `> Toggle Dark Mode`, `> Clear AD Cache`) executable via Enter or mouse selection.
+
+2. **Interactive Directory Breadcrumbs**:
+   - Located directly above the main viewport, the breadcrumb ribbon dynamically decomposes Distinguished Names into clickable path segments (`Directory Root` ➔ `Domain` ➔ `OU hierarchy` ➔ `Leaf Principal`).
+   - Clicking any parent OU instantly opens and focuses that container in the Organizational Units tree view.
+
+3. **Real-Time Status Bar Telemetry**:
+   - Bottom status bar incorporates dual live telemetry badges: **Query Latency** (`⚡ X ms`) and **Memory Allocation** (`📊 X MB`), refreshed on every directory operation and via background timer.
+
+4. **Entra Connect & Cloud Sync Readiness**:
+   - Automated audit rules incorporated into `Get-AD40SecurityAuditReports` inspecting user accounts for unsupported characters (`%`, `&`, `\`, `|`), non-routable UPN suffixes (`.local`, `.lan`), duplicate UPNs, and `proxyAddresses` collisions that cause Microsoft 365 provisioning quarantines.
 
 ---
 

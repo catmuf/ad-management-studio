@@ -4,10 +4,11 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 📊 Complete Commit-to-Version Reference Table (All 111 Commits)
+## 📊 Complete Commit-to-Version Reference Table (All 112 Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
+| 112 | **v3.4.0** | pending | 2026-10-26 | feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner |
 | 111 | **v3.4.0** | [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) | 2026-10-23 | docs(release): sync v3.4.0 release notes and full changelog |
 | 110 | **v3.4.0** | [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) | 2026-10-23 | feat(release): cut v3.4.0 release, update documentation and release pipelines |
 | 109 | **v3.4.0** | [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) | 2026-10-23 | feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers |
@@ -124,16 +125,25 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## 🚀 Detailed Release History by Version
 
-### [v3.4.0] - 2026-10-23
-#### RFC 2696 Paging, RFC 3268 Range Retrieval & Multi-Instance Dossier Tabs
+### [v3.4.0] - 2026-10-26
+#### Competitor Feature Parity, Omnibar 2.0, Directory Breadcrumbs & Advanced Forensic Suites
 
-Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits.
+Delivers extensive feature parity and ergonomic modernization inspired by Softerra LDAP Administrator 2026, Apache Directory Studio, and NetTools across all 16 Active Directory infrastructure domains:
+- **Omnibar 2.0 Command Palette (`Ctrl+K`)**: Unified input field supporting fast AD object search and `>` action command palette with instant navigation, workspace switching, dark/light toggle, and cache purge.
+- **Interactive Directory Breadcrumb Bar**: Dynamically parses Distinguished Names into clickable visual hierarchy badges (Root ➔ Domain ➔ OU levels ➔ Leaf Principal) across Users, Groups, Computers, and OUs.
+- **Live Status Bar Telemetry**: Real-time memory consumption tracking (MB) and query latency telemetry badge (ms) refreshed automatically on every directory query and background timer.
+- **Client IP Site & Subnet Resolver (LPM)**: Resolves client IPv4 addresses against AD Sites and Subnets using Longest Prefix Match (LPM) logic, detecting shadowed CIDRs and identifying mapped domain controllers.
+- **Group Member Diff Engine**: Side-by-side comparative analysis of two Active Directory groups with 3-way Venn classification (`In Both Groups`, `Only in Group A`, `Only in Group B`), recursive principal expansion, and CSV export.
+- **Duplicate SPN Scanner**: Detects colliding Kerberos Service Principal Names across user and computer accounts that cause `KRB_AP_ERR_MODIFIED` authentication failures, generating automated `setspn -D` remediation syntax.
+- **Entra Connect & Cloud Sync Readiness**: 5 automated security audit rules in `Get-AD40SecurityAuditReports` identifying sync-breaking characters, non-routable UPN suffixes, duplicate UPNs, proxyAddress collisions, and missing identities.
+- **RFC 2696 Paging & RFC 3268 Range Retrieval**: Simple Paged Results bypassing the 1,000-object `MaxPageSize` limit and incremental `member;range` chunking for multi-thousand member groups.
+- **Multi-Instance Technical Dossier Tabs**: Independent per-user HTML dossier tabs with deduplication and in-tab address navigation.
 
-- **Release Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2)
-- **Commits in Release**: 6
+- **Commits in Release**: 7
 - **Dedicated Release Notes**: [docs/releases/v3.4.0.md](docs/releases/v3.4.0.md)
 
-##### ✨ Features & Capabilities (3)
+##### ✨ Features & Capabilities (4)
+- `pending` - feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner *(2026-10-26)*
 - [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) - feat(release): cut v3.4.0 release, update documentation and release pipelines *(2026-10-23)*
 - [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) - feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers *(2026-10-23)*
 - [`dcb0ae9`](https://github.com/catmuf/ad-management-studio/commit/dcb0ae9382a847be78410eaa386787459555b600) - feat(ad-query): implement RFC 2696 LDAP paging, RFC 3268 range retrieval, and streamed exports *(2026-10-23)*

@@ -711,6 +711,73 @@ function Get-AD40SecurityAuditReports {
     $null = $Days
 
     $definitions = @(
+        # --- 6. Entra Connect & Cloud Sync Readiness (5) ---
+        [PSCustomObject]@{
+            Id          = "ENTRA-INVALID-CHARS-UPN"
+            Category    = "Entra Connect & Cloud Sync Readiness"
+            Severity    = "High"
+            Name        = "Entra ID Incompatible Characters in UPN"
+            Description = 'User accounts with UserPrincipalNames containing characters not supported by Microsoft Entra ID sync.'
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userPrincipalName=*))"
+            Remediation = "Update the userPrincipalName attribute to remove invalid special characters to permit hybrid identity synchronization."
+            Evaluate    = {
+                param($u)
+                $upn = if ($u.userPrincipalName) { "$($u.userPrincipalName)" } elseif ($u.UserPrincipalName) { "$($u.UserPrincipalName)" } else { "" }
+                if ([string]::IsNullOrWhiteSpace($upn)) { return $false }
+                return ($upn -match '[%\\/\[\]|*?<>";,:=]')
+            }
+        },
+        [PSCustomObject]@{
+            Id          = "ENTRA-NON-ROUTABLE-UPN"
+            Category    = "Entra Connect & Cloud Sync Readiness"
+            Severity    = "Medium"
+            Name        = "Non-Routable UPN Suffix (.local / .lan / .internal)"
+            Description = "User accounts with non-routable top-level domains that cannot be verified in Microsoft 365 or Microsoft Entra ID."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userPrincipalName=*))"
+            Remediation = "Assign an alternate UPN suffix matching a verified custom domain registered in Microsoft Entra ID."
+            Evaluate    = {
+                param($u)
+                $upn = if ($u.userPrincipalName) { "$($u.userPrincipalName)" } elseif ($u.UserPrincipalName) { "$($u.UserPrincipalName)" } else { "" }
+                if ([string]::IsNullOrWhiteSpace($upn)) { return $false }
+                return ($upn -match '\.(local|lan|internal|corp|test|priv)$' -or $upn -notmatch '@.+\..+')
+            }
+        },
+        [PSCustomObject]@{
+            Id          = "ENTRA-DUPLICATE-UPN"
+            Category    = "Entra Connect & Cloud Sync Readiness"
+            Severity    = "Critical"
+            Name        = "Duplicate UserPrincipalName (Cloud Sync Quarantine)"
+            Description = "Multiple directory objects sharing an identical UserPrincipalName, triggering AttributeValueMustBeUnique sync quarantine in Microsoft Entra Connect."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(userPrincipalName=*))"
+            Remediation = "Ensure every userPrincipalName is globally unique across the on-premises directory forest."
+            Evaluate    = { param($u) if ($u.IsDuplicateUPN -or $u.SyncConflict) { return $true } else { return $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "ENTRA-DUPLICATE-PROXY"
+            Category    = "Entra Connect & Cloud Sync Readiness"
+            Severity    = "Critical"
+            Name        = "Duplicate ProxyAddresses (SMTP Collision)"
+            Description = "Accounts with overlapping primary (SMTP:) or secondary (smtp:) email proxy addresses, blocking Exchange Online / Entra mailbox provisioning."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(proxyAddresses=*))"
+            Remediation = "Resolve duplicate proxyAddresses in Active Directory to prevent provisioning failure."
+            Evaluate    = { param($u) if ($u.IsDuplicateProxy -or $u.ProxyConflict) { return $true } else { return $false } }
+        },
+        [PSCustomObject]@{
+            Id          = "ENTRA-MISSING-MAIL-OR-UPN"
+            Category    = "Entra Connect & Cloud Sync Readiness"
+            Severity    = "High"
+            Name        = "Active Users Missing Both Mail and UPN"
+            Description = "Enabled user accounts lacking both a valid email address and userPrincipalName for hybrid identity mapping."
+            LdapFilter  = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            Remediation = "Populate userPrincipalName and primary email address for all active enterprise employees."
+            Evaluate    = {
+                param($u)
+                $mail = if ($u.mail) { "$($u.mail)" } elseif ($u.EmailAddress) { "$($u.EmailAddress)" } else { "" }
+                $upn = if ($u.userPrincipalName) { "$($u.userPrincipalName)" } elseif ($u.UserPrincipalName) { "$($u.UserPrincipalName)" } else { "" }
+                $enabled = if ($null -ne $u.Enabled) { [bool]$u.Enabled } else { $true }
+                return ($enabled -and [string]::IsNullOrWhiteSpace($mail) -and [string]::IsNullOrWhiteSpace($upn))
+            }
+        },
         # --- 1. Account Security (11) ---
         [PSCustomObject]@{
             Id          = "SEC-PASS-NEVER-EXPIRE"

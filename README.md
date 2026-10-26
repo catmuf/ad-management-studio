@@ -1,4 +1,4 @@
-# Active Directory Management Studio (v3.4.0)
+﻿# Active Directory Management Studio (v3.4.0)
 ### Enterprise Directory Management, Softerra LDAP & NetTools Diagnostics Suite
 
 A modern, high-performance administration workbench built with **PowerShell & WPF/XAML** for managing Microsoft Active Directory and LDAP environments. Engineered for Systems Administrators, Security Engineers, and Directory Operators who require both daily standard administration and advanced low-level directory tooling.
@@ -45,7 +45,8 @@ Forensic Active Directory security analysis including 6-way effective permission
 | :--- | :--- | :--- |
 | **6-Way Effective Rights & ACL Security Suite** | ![6-Way Effective Rights & ACL Security Suite](docs/images/06_security_acl_6way.png) | Visual DACL/SACL explorer with raw SDDL syntax viewer, trustee assignment scanner, inheritance trace, and automated AdminSDHolder / `adminCount=1` orphan detection. |
 | **Kerberos PAC Token Bloat Calculator** | ![Kerberos PAC Token Bloat Calculator](docs/images/07_kerberos_token_bloat.png) | Evaluates user token size against the RFC formula `1200 + 40d + 8s` to diagnose HTTP 400 Bad Request logon failures and recommend registry `MaxTokenSize` thresholds. |
-| **48 Enterprise Security Audit Reports** | ![48 Enterprise Security Audit Reports](docs/images/09_audit_reports_48.png) | Automated forensic audits categorized into User Accounts, Passwords, Security Groups, Computer Hygiene, and AdminSDHolder, with instant export to styled HTML executive reports. |
+| **48 Enterprise Security Audit Reports** | ![48 Enterprise Security Audit Reports](docs/images/09_audit_reports_48.png) | Automated forensic audits categorized into User Accounts, Passwords, Security Groups, Computer Hygiene, AdminSDHolder, and Entra Connect & Cloud Sync Readiness, with instant export to styled HTML executive reports. |
+| **Kerberos Duplicate SPN Conflict Scanner** | *(Specialized Kerberos Suite)* | NetTools parity tool detecting colliding Service Principal Names across user and computer accounts that cause `KRB_AP_ERR_MODIFIED` authentication failures, with automated `setspn -D` remediation generation. |
 
 ---
 
@@ -84,6 +85,8 @@ Comprehensive network and replication diagnostics matching NetTools capabilities
 | **Group Nesting Cycle Detector** | ![Group Nesting Cycle Detector](docs/images/08_circular_groups_loop.png) | Forensic Depth-First Search (DFS) graph analyzer identifying circular nested security group loops across the directory tree, with one-click automated loop breaking. |
 | **NetTools 7-Tier Sequential UNC Verifier** | ![NetTools 7-Tier Sequential UNC Verifier](docs/images/10_network_7tier_unc.png) | Automated 7-step sequential network diagnostics: DNS Resolution ➔ ICMP Ping ➔ RPC EPM (TCP 135) ➔ SMB (TCP 445) ➔ NetShareGetInfo ➔ Share ACL Permissions ➔ Path Traversal & GPT.ini Read. |
 | **Multi-DC Replication Suite & LastLogon Matrix** | ![Multi-DC Replication Suite & LastLogon Matrix](docs/images/15_replication_and_dc_matrix.png) | Concurrent multi-DC interrogator querying non-replicated `lastLogon` timestamps, highest USN counters, subnet overlap boundaries, and replication partner convergence. |
+| **Client IP Site & Subnet Resolver (LPM)** | *(Replication Suite)* | Resolves client IPv4 addresses against Active Directory Sites and Subnets using Longest Prefix Match (LPM) logic, detecting shadowed CIDR boundaries and identifying mapped domain controllers. |
+| **Group Member Diff Engine (3-Way Venn)** | *(Diagnostics Suite)* | Side-by-side comparative analysis of two Active Directory groups with 3-way Venn classification (`In Both Groups`, `Only in Group A`, `Only in Group B`), recursive principal expansion, and CSV export. |
 | **Connection Profiles & Server Monitor** | ![Connection Profiles & Server Monitor](docs/images/19_connection_profiles_manager.png) | Multi-forest profile manager supporting LDAPS SSL (port 636) and Global Catalog (port 3268), live TCP socket latency testing, RootDSE inspection, and DNS SRV auto-discovery. |
 
 ---

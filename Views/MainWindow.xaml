@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Active Directory Management Studio v3.4.0 - SysAdmin Edition"
@@ -1193,14 +1193,14 @@
                         <TextBlock Name="LblGlobalSearch" Text="Global Search:" FontWeight="SemiBold" FontSize="11" 
                                    Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <Grid VerticalAlignment="Center">
-                            <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="210" Height="28" Tag="Users, groups, computers, DNs..." FontSize="11" Padding="6,4,44,4"/>
+                            <TextBox Name="TxtGlobalSearch" Style="{StaticResource ModernTextBox}" Width="260" Height="28" Tag="Search objects or '>' for commands..." FontSize="11" Padding="6,4,44,4"/>
                             <!-- Keyboard shortcut indicator pill inside textbox -->
                             <Border HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"
                                     Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}"
                                     BorderThickness="1" CornerRadius="3" Padding="4,1" IsHitTestVisible="False">
                                 <TextBlock Text="Ctrl+K" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}"/>
                             </Border>
-                            <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="450" MaxHeight="450">
+                            <Popup Name="PopupGlobalSearch" PlacementTarget="{Binding ElementName=TxtGlobalSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="520" MaxHeight="480">
                                 <Border Background="{DynamicResource DropDownBg}" BorderBrush="{DynamicResource DropDownBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,4,0,0">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -1216,8 +1216,8 @@
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <Border Grid.Column="0" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Type}" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}"/>
+                                                        <Border Grid.Column="0" Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center" MinWidth="68">
+                                                            <TextBlock Text="{Binding Type}" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AccentPrimary}" HorizontalAlignment="Center"/>
                                                         </Border>
                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimary}"/>
@@ -1457,6 +1457,7 @@
             <Grid Grid.Column="1" Background="{DynamicResource BgDark}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/> <!-- Workspace Tab Strip Bar -->
+                    <RowDefinition Height="Auto"/> <!-- Directory Breadcrumb Bar -->
                     <RowDefinition Height="*"/>    <!-- Viewport Container for Panels -->
                 </Grid.RowDefinitions>
 
@@ -1501,7 +1502,26 @@
                     </Grid>
                 </Border>
                 <!-- VIEWPORT CONTAINER (Row 1) -->
-                <Grid Grid.Row="1" Name="ViewportContainer">
+                <!-- DIRECTORY BREADCRUMB BAR (Interactive Navigation Trail) -->
+                <Border Grid.Row="1" Name="DirectoryBreadcrumbBar" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" MinHeight="26" Padding="8,2">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" PanningMode="HorizontalOnly" Focusable="False">
+                            <StackPanel Name="BreadcrumbHost" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Name="BtnBreadcrumbHome" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Margin="0,0,4,0" ToolTip="Active Directory Root">
+                                    <TextBlock Text="🏢 Directory Root" FontSize="10.5" FontWeight="SemiBold"/>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <TextBlock Grid.Column="1" Name="TxtBreadcrumbContext" Text="Active Container Context" FontSize="10" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- VIEWPORT CONTAINER (Row 2) -->
+                <Grid Grid.Row="2" Name="ViewportContainer">
 
                 <!-- 1. DASHBOARD PANEL -->
                 <Grid Name="PanelDashboard" Visibility="Visible" Margin="18">
@@ -4170,6 +4190,45 @@
                                 </DataGrid>
                             </Grid>
                         </TabItem>
+
+                        <!-- TAB: DUPLICATE SPN SCANNER (NETTOOLS SPN / SETSPN -X PARITY) -->
+                        <TabItem Header="🔑 Duplicate SPN Scanner" Name="TabDuplicateSpn">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Kerberos Duplicate Service Principal Name (SPN) Scanner" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimary}"/>
+                                            <TextBlock Text="Detect colliding SPNs assigned to multiple accounts that cause Kerberos KRB_AP_ERR_MODIFIED authentication failures." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Name="BtnScanDuplicateSpn" Style="{StaticResource PrimaryButton}" Height="30" Content="🔍 Scan Duplicate SPNs" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,0,8">
+                                    <TextBlock Name="TxtDuplicateSpnSummary" Text="Click 'Scan Duplicate SPNs' to scan all domain user and computer servicePrincipalNames." FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                                </Border>
+
+                                <DataGrid Grid.Row="2" Name="GridDuplicateSpnResults" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="150"/>
+                                        <DataGridTextColumn Header="Service Principal Name (SPN)" Binding="{Binding SPN}" Width="250"/>
+                                        <DataGridTextColumn Header="Conflict Count" Binding="{Binding ConflictCount}" Width="100"/>
+                                        <DataGridTextColumn Header="Conflicting Accounts" Binding="{Binding ConflictingAccounts}" Width="240"/>
+                                        <DataGridTextColumn Header="Remediation Advice" Binding="{Binding Remediation}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
                     </TabControl>
                 </Grid>
 
@@ -4476,6 +4535,73 @@
                                 </DataGrid>
                             </Grid>
                         </TabItem>
+
+                        <!-- TAB 9: CLIENT IP SITE RESOLVER (NETTOOLS / SOFTERRA PARITY) -->
+                        <TabItem Header="🌐 Client IP Site Resolver" Name="TabClientIpResolver">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Client IPv4 Address:" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBox Grid.Column="1" Name="TxtResolveClientIp" Style="{StaticResource ModernTextBox}" Height="28" Text="10.10.15.42" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <Button Grid.Column="2" Name="BtnResolveClientIp" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Resolve Site &amp; DCs" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <WrapPanel Grid.Column="3" VerticalAlignment="Center">
+                                            <TextBlock Text="Quick Samples: " FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <Button Name="BtnSampleIp1" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Content="10.10.15.42" Margin="0,0,4,0"/>
+                                            <Button Name="BtnSampleIp2" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Content="10.10.99.5" Margin="0,0,4,0"/>
+                                            <Button Name="BtnSampleIp3" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Content="192.168.1.50" Margin="0,0,4,0"/>
+                                            <Button Name="BtnSampleIp4" Style="{StaticResource ModernButton}" Height="22" Padding="6,1" Content="172.16.5.5" Margin="0,0,4,0"/>
+                                        </WrapPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Resolution Outcome Cards -->
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,10,0">
+                                                <TextBlock Name="TxtResolvedSubnet" Text="Matched Subnet: None" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimary}"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,10,0">
+                                                <TextBlock Name="TxtResolvedSite" Text="Assigned Site: Unresolved" FontSize="11.5" FontWeight="SemiBold" Foreground="#10B981"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,10,0">
+                                                <TextBlock Name="TxtResolvedPrefix" Text="Prefix: /0 (LPM)" FontSize="11.5" Foreground="{DynamicResource TextSecondary}"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,10,0">
+                                                <TextBlock Name="TxtResolvedDCs" Text="Target DCs: None" FontSize="11.5" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                                            </Border>
+                                        </WrapPanel>
+                                        <TextBlock Grid.Row="1" Name="TxtResolvedRecommendation" Text="Enter a client IP and click 'Resolve Site &amp; DCs' to evaluate Longest Prefix Match against AD Subnets." FontSize="11" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Candidate Subnets Hierarchy DataGrid -->
+                                <DataGrid Grid.Row="2" Name="GridCandidateSubnets" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="LPM Status" Binding="{Binding IsSelected}" Width="140"/>
+                                        <DataGridTextColumn Header="Subnet CIDR" Binding="{Binding SubnetName}" Width="160"/>
+                                        <DataGridTextColumn Header="Prefix Length" Binding="{Binding PrefixLength}" Width="110"/>
+                                        <DataGridTextColumn Header="Mapped AD Site" Binding="{Binding SiteName}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
                     </TabControl>
                 </Grid>
 
@@ -4566,6 +4692,62 @@
                                         <DataGridTextColumn Header="User A Member" Binding="{Binding UserAHas}" Width="110"/>
                                         <DataGridTextColumn Header="User B Member" Binding="{Binding UserBHas}" Width="110"/>
                                         <DataGridTextColumn Header="Scope" Binding="{Binding GroupScope}" Width="100"/>
+                                        <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </TabItem>
+
+                        <!-- TAB: GROUP MEMBER DIFF (COMPARE TWO GROUPS) -->
+                        <TabItem Header="👥 Group Member Diff" Name="TabGroupMemberDiff">
+                            <Grid Margin="0,8,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Group A:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtGroupDiffA" Style="{StaticResource ModernTextBox}" Width="160" Height="28" Text="Domain Admins" Margin="0,0,14,0"/>
+                                        <TextBlock Text="Group B:" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBox Name="TxtGroupDiffB" Style="{StaticResource ModernTextBox}" Width="160" Height="28" Text="Enterprise Admins" Margin="0,0,14,0"/>
+                                        <CheckBox Name="ChkGroupDiffRecursive" Content="Recursive Principals" IsChecked="False" VerticalAlignment="Center" Margin="0,0,14,0" Foreground="{DynamicResource TextPrimary}"/>
+                                        <Button Name="BtnRunGroupDiff" Style="{StaticResource PrimaryButton}" Height="28" Content="⚖️ Compare Group Members" Margin="0,0,8,0"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <WrapPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                <TextBlock Name="TxtGroupDiffBothBadge" Text="Both: 0" FontSize="11" FontWeight="Bold" Foreground="#10B981"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                <TextBlock Name="TxtGroupDiffABadge" Text="Only in A: 0" FontSize="11" FontWeight="Bold" Foreground="#0284C7"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource ButtonBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                <TextBlock Name="TxtGroupDiffBBadge" Text="Only in B: 0" FontSize="11" FontWeight="Bold" Foreground="#EF4444"/>
+                                            </Border>
+                                            <TextBlock Name="TxtGroupDiffSummary" Text="Enter two group identities and click 'Compare Group Members'" FontSize="11" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </WrapPanel>
+                                        <Button Grid.Column="1" Name="BtnExportGroupDiff" Style="{StaticResource ModernButton}" Height="24" Content="📤 Export CSV" Padding="8,1"/>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Grid.Row="2" Name="GridGroupDiffResults" Style="{StaticResource ModernDataGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Venn Category" Binding="{Binding StatusBadge}" Width="160"/>
+                                        <DataGridTextColumn Header="Principal Name" Binding="{Binding Name}" Width="180"/>
+                                        <DataGridTextColumn Header="sAMAccountName" Binding="{Binding SamAccountName}" Width="140"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding ObjectClass}" Width="90"/>
+                                        <DataGridCheckBoxColumn Header="In Group A" Binding="{Binding InGroupA}" Width="85"/>
+                                        <DataGridCheckBoxColumn Header="In Group B" Binding="{Binding InGroupB}" Width="85"/>
                                         <DataGridTextColumn Header="Distinguished Name" Binding="{Binding DistinguishedName}" Width="*"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
@@ -4954,8 +5136,10 @@
                     <ColumnDefinition Width="Auto"/> <!-- Seg 3: Bind Identity -->
                     <ColumnDefinition Width="Auto"/> <!-- Seg 4: SSL/TLS Lock Badge -->
                     <ColumnDefinition Width="Auto"/> <!-- Seg 5: Object Counter -->
-                    <ColumnDefinition Width="Auto"/> <!-- Seg 6: Read-Only Safety Badge -->
-                    <ColumnDefinition Width="Auto"/> <!-- Seg 7: Scope Message & Cancel -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 6: Latency Badge -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 7: Memory Telemetry Badge -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 8: Read-Only Safety Badge -->
+                    <ColumnDefinition Width="Auto"/> <!-- Seg 9: Scope Message & Cancel -->
                 </Grid.ColumnDefinitions>
 
                 <!-- Seg 1: Status Feedback Message -->
@@ -4985,13 +5169,23 @@
                     <TextBlock Name="TxtStatusObjectCount" Text="0 objects" FontSize="10.5" Foreground="{DynamicResource TextMuted}" ToolTip="Loaded and selected object counter"/>
                 </Border>
 
-                <!-- Seg 6: Read-Only Safety Badge -->
-                <Border Name="BorderStatusReadOnly" Grid.Column="5" Background="#78350F" BorderBrush="#D97706" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Read-Only Mode: All directory write and modification operations are disabled">
+                <!-- Seg 6: Latency Badge -->
+                <Border Name="BorderStatusLatency" Grid.Column="5" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusLatency" Text="⚡ 0 ms" FontSize="10.5" Foreground="#38BDF8" ToolTip="Last query execution latency"/>
+                </Border>
+
+                <!-- Seg 7: Memory Telemetry Badge -->
+                <Border Name="BorderStatusMemory" Grid.Column="6" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center">
+                    <TextBlock Name="TxtStatusMemory" Text="📊 0 MB" FontSize="10.5" Foreground="{DynamicResource TextSecondary}" ToolTip="Current managed memory footprint"/>
+                </Border>
+
+                <!-- Seg 8: Read-Only Safety Badge -->
+                <Border Name="BorderStatusReadOnly" Grid.Column="7" Background="#78350F" BorderBrush="#D97706" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="4,0" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Read-Only Mode: All directory write and modification operations are disabled">
                     <TextBlock Text="🛡️ READ-ONLY MODE" FontSize="10" FontWeight="Bold" Foreground="#FDE68A"/>
                 </Border>
 
                 <!-- Seg 7: Operational Scope Context -->
-                <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                     <TextBlock Name="TxtScopeMessage" Text="Connected to Active Directory" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>

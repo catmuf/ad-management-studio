@@ -1,4 +1,4 @@
-# Active Directory Management Studio (v3.4.0 Enterprise)
+﻿# Active Directory Management Studio (v3.4.0 Enterprise)
 ## Step-by-Step Operator Walkthrough & Visual User Guide
 ### Real-World Scenarios, Identity Workflows & Diagnostic Demonstrations
 
@@ -20,6 +20,7 @@
 - [Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports](#scenario-9-enterprise-security-posture--48-hygiene-audit-reports)
 - [Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker](#scenario-10-infrastructure-diagnostics-nettools-7-tier-unc-share-checker)
 - [Scenario 11: Enterprise Directory Search, RFC 2696 Paging & Multi-Identity Dossier Tabs](#scenario-11-enterprise-directory-search-rfc-2696-paging--multi-identity-dossier-tabs)
+- [Scenario 12: Competitor Parity Forensics: Omnibar 2.0, Client IP LPM Resolver, Group Member Diff & Duplicate SPNs](#scenario-12-competitor-parity-forensics-omnibar-20-client-ip-lpm-resolver-group-member-diff--duplicate-spns)
 - [Conclusion & Best Practices](#conclusion--best-practices)
 
 ---
@@ -357,6 +358,53 @@ Query large Active Directory containers exceeding the default 1,000-object `MaxP
    - In the active dossier tab address bar (`TxtHtmlViewDN`), enter `CN=Diana Prince,OU=Staff,DC=contoso,DC=local` and click **Go**. The active tab navigates in-place to Diana Prince's dossier and updates the tab header to `Dossier: Diana Prince`.
    - Use the template dropdown to switch between **Modern**, **Classic**, **Compact**, and **Security Audit** templates.
    - Press `Ctrl+Shift+P` to open the Windows print/PDF dialog for compliance documentation.
+
+---
+
+## Scenario 12: Competitor Parity Forensics: Omnibar 2.0, Client IP LPM Resolver, Group Member Diff & Duplicate SPNs
+
+### Objective
+Leverage advanced forensic tools inspired by Softerra LDAP Administrator 2026, Apache Directory Studio, and NetTools to execute command palette actions via Omnibar 2.0 (`Ctrl+K`), resolve client IP site affinity using Longest Prefix Match (LPM), perform 3-way Venn group membership diffing, scan for Kerberos duplicate SPNs, and inspect interactive directory breadcrumbs.
+
+### Step-by-Step Walkthrough
+1. **Omnibar 2.0 Command Palette (`Ctrl+K`)**:
+   - Press `Ctrl+K` from anywhere in the application. The global search bar gains focus and selects all text.
+   - Type `>` to switch to Command Mode. The popup immediately lists all registered command palette actions with descriptions and badges.
+   - Type `> Repl` and press **Enter**. The application instantly transitions to the **Replication Suite** viewport.
+   - Press `Ctrl+K`, type `> Toggle Dark Mode`, and press **Enter** to switch application theme on the fly.
+2. **Interactive Directory Breadcrumbs**:
+   - Navigate to the **Users** management grid and click any user (e.g. `CN=Alice Smith,OU=Engineering,OU=HQ,DC=corp,DC=local`).
+   - Look directly above the viewport: the **Directory Breadcrumb Bar** renders clickable badges:
+     `🏢 Directory Root` › `🌐 corp.local` › `📁 HQ` › `📁 Engineering` › `👤 Alice Smith`
+   - Clicking `📁 HQ` navigates directly to the OUs tree view focused on the HQ container.
+3. **Live Status Bar Telemetry**:
+   - Look at the bottom status bar right corner.
+   - The **Latency Badge** (`⚡ 14 ms`) displays real-time execution duration of the last Active Directory query.
+   - The **Memory Badge** (`📊 42.8 MB`) tracks live managed process memory allocation.
+4. **Client IP Site & Subnet Resolver (LPM)**:
+   - In the **Replication Suite**, switch to the **🌐 Client IP Site Resolver** tab.
+   - In the IPv4 address input, enter `10.10.15.42` (or click the quick sample button `10.10.15.42`).
+   - Click **🔍 Resolve Site & DCs**.
+   - The resolution engine evaluates all candidate AD Subnets (`10.0.0.0/8`, `10.10.0.0/16`, `10.10.15.0/24`) and applies **Longest Prefix Match (LPM)**:
+     - Winning Subnet: `10.10.15.0/24` (Prefix `/24` wins over `/16` and `/8`).
+     - Winning Site: `HQ-Floor2`.
+     - Target DCs: `DC01-HQ-FLOOR2, DC02-HQ-FLOOR2`.
+     - The candidate table highlights `10.10.15.0/24` as `★ Best LPM Match` and flags broader subnets as `Shadowed`.
+5. **Group Member Diff Engine (3-Way Venn)**:
+   - Navigate to the **Diagnostics Toolbox** and select the **👥 Group Member Diff** tab.
+   - In Group A, enter `Domain Admins`; in Group B, enter `Enterprise Admins`.
+   - Optionally check `Recursive Principals` to expand nested group members.
+   - Click **⚖️ Compare Group Members**.
+   - The summary ribbon displays the 3-way Venn tally:
+     - `Both: 2` (Green badge)
+     - `Only in A: 2` (Blue badge)
+     - `Only in B: 2` (Red badge)
+   - The DataGrid lists all distinct principals with explicit checkboxes `In Group A` and `In Group B`, Venn category badges, and export to CSV via **📤 Export CSV**.
+6. **Kerberos Duplicate SPN Scanner**:
+   - Navigate to the **Kerberos Suite** and select the **🔑 Duplicate SPN Scanner** tab.
+   - Click **🔍 Scan Duplicate SPNs**.
+   - The scanner sweeps all directory user and computer accounts with `servicePrincipalName=*`, grouping colliding SPN registrations.
+   - For any conflicting SPN (e.g. `MSSQLSvc/sqlprod01.corp.local:1433`), the row details conflicting accounts (`svc_sqlprod (User), SQLPROD01$ (Computer)`) and provides exact `setspn -D` remediation syntax.
 
 ---
 
