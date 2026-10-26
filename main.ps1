@@ -15375,21 +15375,37 @@ if ($controls['BtnResolveClientIp']) {
     })
 }
 
-$sampleIps = @('10.10.15.42', '10.10.99.5', '192.168.1.50', '172.16.5.5')
-for ($sIdx = 1; $sIdx -le 4; $sIdx++) {
-    $btnName = "BtnSampleIp$sIdx"
-    $targetSample = $sampleIps[$sIdx - 1]
-    if ($controls[$btnName]) {
-        $ipToSet = $targetSample
-        $controls[$btnName].Add_Click([System.Action[object, System.EventArgs]]{
-            if ($controls['TxtResolveClientIp']) {
-                $controls['TxtResolveClientIp'].Text = $ipToSet
-            }
-            if ($controls['BtnResolveClientIp']) {
-                $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
-            }
-        })
-    }
+if ($controls['BtnSampleIp1']) {
+    $controls['BtnSampleIp1'].Add_Click({
+        if ($controls['TxtResolveClientIp']) { $controls['TxtResolveClientIp'].Text = '10.10.15.42' }
+        if ($controls['BtnResolveClientIp']) {
+            $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    })
+}
+if ($controls['BtnSampleIp2']) {
+    $controls['BtnSampleIp2'].Add_Click({
+        if ($controls['TxtResolveClientIp']) { $controls['TxtResolveClientIp'].Text = '10.10.99.5' }
+        if ($controls['BtnResolveClientIp']) {
+            $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    })
+}
+if ($controls['BtnSampleIp3']) {
+    $controls['BtnSampleIp3'].Add_Click({
+        if ($controls['TxtResolveClientIp']) { $controls['TxtResolveClientIp'].Text = '192.168.1.50' }
+        if ($controls['BtnResolveClientIp']) {
+            $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    })
+}
+if ($controls['BtnSampleIp4']) {
+    $controls['BtnSampleIp4'].Add_Click({
+        if ($controls['TxtResolveClientIp']) { $controls['TxtResolveClientIp'].Text = '172.16.5.5' }
+        if ($controls['BtnResolveClientIp']) {
+            $controls['BtnResolveClientIp'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+    })
 }
 
 # --- 22. Diagnostics & Advanced Utilities Handlers ---
