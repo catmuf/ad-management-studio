@@ -21,6 +21,7 @@
 - [Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker](#scenario-10-infrastructure-diagnostics-nettools-7-tier-unc-share-checker)
 - [Scenario 11: Enterprise Directory Search, RFC 2696 Paging & Multi-Identity Dossier Tabs](#scenario-11-enterprise-directory-search-rfc-2696-paging--multi-identity-dossier-tabs)
 - [Scenario 12: Competitor Parity Forensics: Omnibar 2.0, Client IP LPM Resolver, Group Member Diff & Duplicate SPNs](#scenario-12-competitor-parity-forensics-omnibar-20-client-ip-lpm-resolver-group-member-diff--duplicate-spns)
+- [Scenario 13: Non-Blocking Async Sweeps, Suite-Rail Navigation & Extended NetTools Utilities](#scenario-13-non-blocking-async-sweeps-suite-rail-navigation--extended-nettools-utilities)
 - [Conclusion & Best Practices](#conclusion--best-practices)
 
 ---
@@ -405,6 +406,29 @@ Leverage advanced forensic tools inspired by Softerra LDAP Administrator 2026, A
    - Click **🔍 Scan Duplicate SPNs**.
    - The scanner sweeps all directory user and computer accounts with `servicePrincipalName=*`, grouping colliding SPN registrations.
    - For any conflicting SPN (e.g. `MSSQLSvc/sqlprod01.corp.local:1433`), the row details conflicting accounts (`svc_sqlprod (User), SQLPROD01$ (Computer)`) and provides exact `setspn -D` remediation syntax.
+
+---
+
+## Scenario 13: Non-Blocking Async Sweeps, Suite-Rail Navigation & Extended NetTools Utilities
+
+### Objective
+Execute long-running AD diagnostic sweeps asynchronously with cancellation, navigate dense diagnostic suites via the collapsible vertical **Suite-Rail**, and run extended network/quota checks (`HTTP/TLS`, `TraceRoute/WhoIs`, `LDAP Perf`, `Mail/Proxy Conflicts`, `Top Quota Usage`).
+
+### Step-by-Step Walkthrough
+1. **Suite-Rail Left Navigation (`SuiteRailTabControl`)**:
+   - Open **Security ACL**, **Replication Suite**, **Diagnostics Toolbox**, or **Network Diagnostics**.
+   - Switch between specialized sub-tools cleanly using the left-hand vertical navigation rail with active accent indicators instead of wrapped top tabs.
+2. **Non-Blocking Async Scans & Cancellation**:
+   - Launch a full **Security Audit (`53` reports)**, **Duplicate SPN Scan**, **Circular Group Loop Scan**, or **DC Latency Probe**.
+   - Observe the bottom status bar determinate/indeterminate progress bar (`ProgStatusTask`) while the main UI stays fluidly responsive; click **Cancel** (`BtnCancelStatusTask`) at any moment to abort the `RunspacePool` job cleanly.
+3. **Extended NetTools & Directory Quota Utilities**:
+   - **HTTP Headers & TLS (`Test-HttpUrlHeaders`)**: Enter an internal portal or ADFS URL to inspect HTTP status code, latency (`ms`), server headers, and live TLS certificate subject details.
+   - **TraceRoute & WhoIs (`Get-NetworkTraceAndWhoIs`)**: Probe multi-hop network paths, classify RFC 1918 vs external hops, and inspect GeoIP/WhoIs ownership metadata.
+   - **LDAP Bind Performance (`Measure-LdapPerformanceBenchmark`)**: Run repeated RootDSE LDAP queries to measure `Min`, `Avg`, `P95`, `Max` latency and queries per second (`q/s`).
+   - **Mail & Proxy Conflicts / Top Quota Usage**: Switch to the **Mail / Proxy Conflicts & Quota** tab in Diagnostics Toolbox to identify colliding `proxyAddresses` SMTP addresses and top AD object tombstone/quota consumers.
+4. **Compact Overflow Toolbar & Unified Theme Modal Prompts**:
+   - In **Users**, access secondary actions (Clone, Add to Basket, Column Chooser) cleanly via the **More Actions (`▾`)** toolbar overflow popup without crowding the top ribbon.
+   - Any prompt action (such as bulk basket attribute entry, column addition, or error code lookup) opens the theme-synchronized `InputPromptDialog.xaml` matching Light or Dark mode.
 
 ---
 

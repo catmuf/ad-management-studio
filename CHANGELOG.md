@@ -4,7 +4,17 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 📊 Complete Commit-to-Version Reference Table (All 113 Commits)
+## 🚀 v3.4.0 Enterprise Hardening, Async & UI Modernization Highlights
+
+- **Non-Blocking Async Architecture (`Modules/AsyncService.psm1`)**: Isolated `RunspacePool` background execution with Dispatcher marshaling and interactive status bar progress & cancellation (`ProgStatusTask`, `BtnCancelStatusTask`) across Audit Reports, Duplicate SPN scanning, DC Latency probes, Multi-DC LastLogon, Circular Group Loops, and 7-Tier UNC verification.
+- **Unified Light & Dark Theme Engine (`Themes/*.xaml`, `Modules/ThemeService.psm1`)**: Semantic DynamicResource color tokens with O(1) dictionary caching across MainWindow, all modal dialogs, and the new themed `Views/InputPromptDialog.xaml` (replacing blocking VisualBasic input dialogs).
+- **25/25 Workspace Fragment Cache & UI Virtualization (`Modules/WorkspaceService.psm1`)**: Extracted modular workspace engine with cached XAML fragments across all 25 workspaces, virtualized `ModernComboBox` popups (`VirtualizingStackPanel`), zero outer `ScrollViewer` wrappers around `DataGrid`s, collapsible `SuiteRailTabControl` sidebars across advanced suites, and a compact overflow action menu in Users.
+- **Extended NetTools & Diagnostics Parity**: Added `Test-HttpUrlHeaders` (HTTP & TLS inspector), `Get-NetworkTraceAndWhoIs`, `Measure-LdapPerformanceBenchmark`, `Find-ADMailProxyConflicts`, and `Get-ADTopQuotaUsage` with full GUI tabs and Omnibar command entries.
+- **Verification & Hygiene**: `100%` of lazy module exports mapped in `$script:ServiceAutoLoadMap` with approved PowerShell verbs (`0` unapproved), `75/75` UTF-8 BOM + CRLF compliance, `22/22` XAML load verification, `296` passing unit assertions (`6` suites under `tests/`), and `22/22` architectural parity checks.
+
+---
+
+## 📊 Complete Commit-to-Version Reference Table (All 113+ Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |

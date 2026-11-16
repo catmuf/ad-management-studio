@@ -87,13 +87,15 @@ Comprehensive network and replication diagnostics matching NetTools capabilities
 | **Multi-DC Replication Suite & LastLogon Matrix** | ![Multi-DC Replication Suite & LastLogon Matrix](docs/images/15_replication_and_dc_matrix.png) | Concurrent multi-DC interrogator querying non-replicated `lastLogon` timestamps, highest USN counters, subnet overlap boundaries, and replication partner convergence. |
 | **Client IP Site & Subnet Resolver (LPM)** | *(Replication Suite)* | Resolves client IPv4 addresses against Active Directory Sites and Subnets using Longest Prefix Match (LPM) logic, detecting shadowed CIDR boundaries and identifying mapped domain controllers. |
 | **Group Member Diff Engine (3-Way Venn)** | *(Diagnostics Suite)* | Side-by-side comparative analysis of two Active Directory groups with 3-way Venn classification (`In Both Groups`, `Only in Group A`, `Only in Group B`), recursive principal expansion, and CSV export. |
+| **HTTP/TLS, TraceRoute/WhoIs & LDAP Perf** | *(Network Diagnostics)* | Inspects HTTP status/response headers and TLS certificates (`Test-HttpUrlHeaders`), traces multi-hop routes with RFC1918/Geo/WhoIs (`Get-NetworkTraceAndWhoIs`), and benchmarks RootDSE LDAP bind latency (`Min/Avg/P95/Max` & `q/s`). |
+| **Mail/Proxy Conflicts & Top Quota Usage** | *(Diagnostics Toolbox)* | Scans the directory for conflicting `mail`/`proxyAddresses` SMTP collisions (`Find-ADMailProxyConflicts`) and identifies top Active Directory tombstones/object quota consumers (`Get-ADTopQuotaUsage`). |
 | **Connection Profiles & Server Monitor** | ![Connection Profiles & Server Monitor](docs/images/19_connection_profiles_manager.png) | Multi-forest profile manager supporting LDAPS SSL (port 636) and Global Catalog (port 3268), live TCP socket latency testing, RootDSE inspection, and DNS SRV auto-discovery. |
 
 ---
 
 ## 🎹 Native Horizontal Menu Bar & Ergonomics Reference
 
-Active Directory Management Studio features a native Windows menu bar organized across 11 top-level categories. All settings, active themes, page sizes, and CSV delimiters maintain live checkmarks synchronized with the application state.
+Active Directory Management Studio features a native Windows menu bar organized across 11 top-level categories alongside a collapsible **Suite-Rail Left Navigation** for multi-tab diagnostic suites and a non-blocking **Async RunspacePool** status progress/cancel bar. All settings, active themes, page sizes, and CSV delimiters maintain live checkmarks synchronized with the application state.
 
 ### Top-Level Menu Structure
 
@@ -104,9 +106,9 @@ Active Directory Management Studio features a native Windows menu bar organized 
 | **View** | Active Theme (Light / Dark mode live checkmarks), Toggle Sidebar Menu (hide/show), Search Page Size (100, 250, 500, 1000 entries), Show Operational Attributes, Auto-Refresh Interval, Toggle Full Screen | `Ctrl+T`, `Ctrl+B`, `F11` | Visual theme customizer, sidebar navigation drawer toggle, DataGrid page density, and display preferences. |
 | **Directory** | Users, Groups, Computers, Organizational Units, Recycle Bin & Tombstones, Raw Attribute Editor, In-App HTML Technical Dossier | `Ctrl+1`, `Ctrl+2`, `Ctrl+3`, `Ctrl+4`, `Ctrl+5` | Fast direct switching between core Active Directory object management views. |
 | **Search** | Visual LDAP Search & SCIM Studio, Extended LDAP-SQL Console, Directory Staging Basket, Saved LDAP Searches & Bookmarks | `Ctrl+F`, `Ctrl+Q`, `Ctrl+Shift+B` | Query engines, visual filter building, and cross-OU staging cart. |
-| **Security** | Access Control & ACL Suite, Kerberos PAC & Token Bloat Evaluator, 48 Enterprise Security Reports, AdminSDHolder Orphan Auditor | `Ctrl+Shift+A`, `Ctrl+Shift+K`, `Ctrl+Shift+U` | Authorization analysis, token sizing, and automated hygiene audits. |
+| **Security** | Access Control & ACL Suite, Kerberos PAC & Token Bloat Evaluator, 53 Enterprise Security Reports, AdminSDHolder Orphan Auditor | `Ctrl+Shift+A`, `Ctrl+Shift+K`, `Ctrl+Shift+U` | Authorization analysis, token sizing, and automated hygiene audits. |
 | **Replication** | Multi-DC Last Logon Timeline, AD Replication Topology & USN, Subnet Overlaps & Boundaries, GPO GPT.ini Consistency Check | `Ctrl+Shift+M`, `Ctrl+Shift+T` | Multi-controller logon auditing, replication health, and boundary scanning. |
-| **Diagnostics** | Circular Group Loop Detector, NetTools 7-Tier UNC Verifier, DC Port Latency Matrix, Resolver Scratchpad, Quick Lockout Investigator | `Ctrl+R`, `Ctrl+L` | Network and infrastructure troubleshooting, loop breaking, and entity resolution. |
+| **Diagnostics** | Circular Group Loop Detector, NetTools 7-Tier UNC Verifier, HTTP/TLS, TraceRoute/WhoIs, LDAP Perf Benchmark, Mail/Proxy Conflicts & Quota Usage, Resolver Scratchpad, Lockout Investigator | `Ctrl+R`, `Ctrl+L` | Network and infrastructure troubleshooting, loop breaking, quota/mail audits, and entity resolution. |
 | **Tools** | Active Directory Schema Browser, Bulk CSV Provisioning Wizard, Live Wire Protocol Request Log, LDIF Studio & Safety Simulator, Application Settings | `Ctrl+Shift+S`, `Ctrl+Shift+L`, `Ctrl+,` | System administration tools, schema inspection, and configuration. |
 | **Window** | New Workspace Tab, Detach Current Workspace (Floating Window), Re-dock All Floating Windows, Close Active Tab, Cycle Forward/Backward | `Ctrl+Shift+T`, `Ctrl+Shift+D`, `Ctrl+Shift+W`, `Ctrl+Tab` | Multi-monitor management, floating windows, and in-process tabbed navigation. |
 | **Help** | Keyboard Shortcuts Reference Guide, Open SysAdmin Handbook, Open Visual Walkthrough, Open GitHub Wiki, Online Documentation, About Studio | `F1` | Integrated documentation, keyboard shortcut cheat-sheet, and version info. |
@@ -173,7 +175,7 @@ Active Directory Management Studio adheres to [Semantic Versioning](https://semv
 
 | Version | Release Date | Status | Key Highlights | Notes & Artifacts |
 | :--- | :---: | :---: | :--- | :---: |
-| [**v3.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.4.0) | 2026-10-23 | **Latest** | RFC 2696 LDAP paging (>1k objects), RFC 3268 incremental range retrieval (member;range=0-1499), streamed exports, multi-instance HTML dossier tabs with deduplication & address bar, consolidated search. | [Release Notes](docs/releases/v3.4.0.md) |
+| [**v3.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.4.0) | 2026-11-16 | **Latest** | RFC 2696 LDAP paging (>1k objects), RFC 3268 incremental range retrieval, streamed exports, multi-instance HTML dossier tabs, non-blocking `RunspacePool` async engine with status cancel, unified `ThemeService` (`Themes/*.xaml` + `InputPromptDialog.xaml`), `WorkspaceService` fragment caching (`25/25` workspaces), `SuiteRailTabControl` navigation, HTTP/TLS, TraceRoute/WhoIs, LDAP Perf Benchmark, and Mail/Proxy/Quota diagnostics. | [Release Notes](docs/releases/v3.4.0.md) |
 | [**v3.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.3.0) | 2026-10-23 | Stable | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Release Notes](docs/releases/v3.3.0.md) |
 | [**v3.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.2.0) | 2026-10-20 | Stable | Native Windows horizontal menu bar (11 menus), DNS SRV DC auto-detect with ping latency, Quick Tools dropdown, 19 gallery screenshots. | [Release Notes](docs/releases/v3.2.0.md) |
 | [**v3.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.1.0) | 2026-10-15 | Stable | Deep stability hardening across 24 panels, PSScriptAnalyzer compliance, ISO 8601 logging, multi-dossier tab preservation. | [Release Notes](docs/releases/v3.1.0.md) |
@@ -230,14 +232,20 @@ ad-management-studio/
 │   ├── test-html-dossier-buttons-and-tabs.ps1 # Multi-user HTML dossier tabs & button/menu test harness
 │   ├── test-directory-search-layout.ps1       # Directory search layout & attribute combobox test harness
 │   └── test-all-workspaces.ps1        # Full regression validation harness
+├── Themes/
+│   ├── DarkTheme.xaml                 # Default dark semantic resource tokens & contrast palette
+│   └── LightTheme.xaml                # High-contrast daylight semantic resource tokens
 ├── Modules/
+│   ├── AsyncService.psm1              # Isolated RunspacePool async engine with cancellation tokens
+│   ├── ThemeService.psm1              # O(1) dictionary-cached Light/Dark theme & accent engine
+│   ├── WorkspaceService.psm1          # Modular multi-tab/detach engine + 25-panel XAML fragment cache
 │   ├── ADService.psm1                 # Core LDAP engine, RSAT/ADSI bridge, and directory operations
-│   ├── AuditReportService.psm1        # 48 Automated enterprise security hygiene audits (JIT module)
+│   ├── AuditReportService.psm1        # 53 Automated enterprise security hygiene audits (JIT module)
 │   ├── LdapSqlService.psm1            # ANSI-SQL parser, compiler & LDAP query console (JIT module)
 │   ├── AclService.psm1                # 6-Way Effective Rights, DACL/SACL, AdminSDHolder
 │   ├── KerberosService.psm1           # PAC Bloat formula, MaxTokenSize, ticket cache
-│   ├── DiagnosticService.psm1         # DFS circular group loop detector, lockout tracer
-│   ├── NetworkService.psm1            # 7-Tier UNC share verifier, 8-port DC latency matrix
+│   ├── DiagnosticService.psm1         # DFS circular group loop detector, lockout tracer, Mail/Quota audits
+│   ├── NetworkService.psm1            # 7-Tier UNC verifier, 8-port DC latency, HTTP/TLS, TraceRoute, LDAP Perf
 │   ├── ReplicationService.psm1        # Multi-DC non-replicated lastLogon & USN counters
 │   ├── ScimFilterService.psm1         # Bidirectional RFC 7644 SCIM <-> RFC 4515 LDAP compiler
 │   ├── ScimService.psm1               # SCIM 2.0 Core/Enterprise schema models and bulk processing
@@ -249,7 +257,8 @@ ad-management-studio/
 │   ├── GpoService.psm1                # GPO SYSVOL consistency and versioning checker
 │   └── LoggingService.psm1            # ISO 8601 millisecond logger (logs/YYYY-MM-DD.log)
 ├── Views/
-│   ├── MainWindow.xaml                # Central workspace (24 views, native menu, Omnibar)
+│   ├── MainWindow.xaml                # Central workspace (25 panel containers, native menu, Omnibar)
+│   ├── InputPromptDialog.xaml         # Theme-aware input prompt modal (Light & Dark synchronized)
 │   ├── SpecializedEditorDialog.xaml   # Hex dump, X.509 CRL/OCSP cert, photo, timestamp, hasher
 │   ├── AclBrowserDialog.xaml          # Advanced ACL browser and 6-Way Effective Rights modal
 │   ├── GpoExplorerDialog.xaml         # GPO consistency and policy explorer modal
@@ -263,7 +272,7 @@ ad-management-studio/
 │   ├── MemberDialog.xaml              # Group membership manager modal
 │   ├── OUDialog.xaml                  # Organizational Unit creation modal
 │   └── MoveDialog.xaml                # Object OU mover modal
-└── tests/                             # Automated Pester/PowerShell test suites (265+ assertions)
+└── tests/                             # Automated unit & parity suites (296 unit assertions across 6 suites + 22 parity checks)
 ```
 
 ---
