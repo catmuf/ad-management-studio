@@ -138,12 +138,26 @@ Set-ADConnectionContext -ClearCredential
 }
 Import-Module (Join-Path $repoRoot 'Modules\ADService.psm1') -DisableNameChecking -Force
 
-# 4. Verify Connect-ADProfileContext refreshes live MainWindow badges, TreeOUs, Users, Groups & Dashboard
+# 4. Verify stale in-memory module reload, Connect-ADProfileContext live UI refresh, and child-scope terminal launch
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+$cfgFilePath = Join-Path $repoRoot 'config.json'
+$cfgOrigBytes = if (Test-Path $cfgFilePath) { [System.IO.File]::ReadAllBytes($cfgFilePath) } else { $null }
+try {
+Push-Location $repoRoot
+# Simulate stale module from an earlier terminal session before launching main.ps1
+New-Module -Name ADService -ScriptBlock { function Get-ADUsersList { @() } } | Import-Module -Force -Global
+
 $mainRaw = Get-Content (Join-Path $repoRoot 'main.ps1') -Raw -Encoding utf8
 $mainOffscreen = $mainRaw -replace '\[void\]\$window\.ShowDialog\(\)', '$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual; $window.Left = -32000; $window.Top = -32000; $window.Show()'
+$global:Error.Clear()
 . ([scriptblock]::Create($mainOffscreen))
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Loaded)
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
+$startupErrs = @($global:Error | ForEach-Object { $_.Exception.Message })
+
+Assert-Check "Force-reloading ADService replaces stale session module (Set-ADConnectionContext available)" ($null -ne (Get-Command Set-ADConnectionContext -ErrorAction SilentlyContinue))
+Assert-Check "Zero startup errors in `$global:Error without RSAT module" ($startupErrs.Count -eq 0) "Found=$($startupErrs.Count) $(if ($startupErrs.Count -gt 0) { $startupErrs[0] })"
 
 # Re-inject offline mock context resolver + ADService mock after main.ps1 loaded
 function global:Get-ADEnvironmentContext {
@@ -206,6 +220,35 @@ Assert-Check "ConnectionDialog XAML exposes Save & Connect, Save Only, SSL & Cre
 $dlg.Close()
 
 $window.Close()
+
+# 5. Verify direct child-scope launch (matching .\main.ps1 terminal invocation) & lazy module resolution
+$childTestTail = @'
+$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual
+$window.Left = -32000
+$window.Top = -32000
+$window.Show()
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Loaded)
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
+foreach ($pName in @('SecurityAcl', 'ReplicationSuite', 'DirectorySearch', 'KerberosSuite', 'DiagnosticsToolbox', 'NetworkDiagnostics')) {
+    Show-Panel $pName
+    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::ContextIdle)
+}
+$window.Close()
+'@
+$mainChildLaunch = $mainRaw -replace '\[void\]\$window\.ShowDialog\(\)', $childTestTail
+$global:Error.Clear()
+& ([scriptblock]::Create($mainChildLaunch))
+$childErrs = @($global:Error | ForEach-Object { $_.Exception.Message })
+Assert-Check "Child-scope .\main.ps1 launch & all 6 lazy-loaded Show-Panel transitions emit 0 errors" ($childErrs.Count -eq 0) "Found=$($childErrs.Count) $(if ($childErrs.Count -gt 0) { $childErrs[0] })"
+Assert-Check "Lazy modules AclService, ReplicationService, ScimService loaded into session via Show-Panel" ((Get-Module -Name AclService) -and (Get-Module -Name ReplicationService) -and (Get-Module -Name ScimService))
+
+} finally {
+    Pop-Location -ErrorAction SilentlyContinue
+    if ($null -ne $cfgOrigBytes) {
+        [System.IO.File]::WriteAllBytes($cfgFilePath, $cfgOrigBytes)
+    }
+}
 
 Write-Host "`nSummary: $($script:pass) Passed, $($script:fail) Failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }

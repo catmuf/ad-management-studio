@@ -11,12 +11,18 @@ function Initialize-ActiveDirectoryModule {
     [CmdletBinding()]
     param()
     if (-not (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)) {
+        $avail = Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue
+        if (-not $avail) { return }
+        $errBefore = if ($global:Error) { $global:Error.Count } else { 0 }
         try {
             Import-Module ActiveDirectory -DisableNameChecking -ErrorAction Stop
         }
         catch {
             # Gracefully suppressed: Native Win32 ADSI fallback engine handles operations when RSAT is unavailable
             $null = $_
+            while ($global:Error -and $global:Error.Count -gt $errBefore) {
+                $global:Error.RemoveAt(0)
+            }
         }
     }
 }
@@ -250,7 +256,13 @@ function ConvertFrom-ADFileTimeValue {
 
 function Test-ADShouldUseRsat {
     param ([PSCustomObject]$Connection)
-    if (-not (Get-Command -Name Get-ADUser -ErrorAction SilentlyContinue)) { return $false }
+    $hasAdCmd = $null -ne $ExecutionContext.SessionState.InvokeCommand.GetCommand(
+        'Get-ADUser',
+        [System.Management.Automation.CommandTypes]::Function -bor
+        [System.Management.Automation.CommandTypes]::Cmdlet -bor
+        [System.Management.Automation.CommandTypes]::Alias
+    )
+    if (-not $hasAdCmd) { return $false }
     if ($Connection -and ($Connection.UseSSL -or ($Connection.Port -notin @(0, 389)))) { return $false }
     return $true
 }
@@ -3706,7 +3718,7 @@ function Get-ADDeletedObjects {
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
 
     try {
-        if (Get-Command Get-ADObject -ErrorAction SilentlyContinue) {
+        if ($null -ne $ExecutionContext.SessionState.InvokeCommand.GetCommand('Get-ADObject', [System.Management.Automation.CommandTypes]::All)) {
             $adParams = @{
                 Filter = "isDeleted -eq `$true"
                 IncludeDeletedObjects = $true

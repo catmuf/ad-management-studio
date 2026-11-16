@@ -1837,13 +1837,21 @@ function Show-Panel {
     if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
 
     # JIT Lazy Service Loading for Target Panel
-    switch ($PanelName) {
-        'SecurityAcl'        { Import-ServiceLazy 'AclService' }
-        'KerberosSuite'      { Import-ServiceLazy 'KerberosService' }
-        'ReplicationSuite'   { Import-ServiceLazy 'ReplicationService'; Import-ServiceLazy 'GpoService' }
-        'DiagnosticsToolbox' { Import-ServiceLazy 'DiagnosticService' }
-        'NetworkDiagnostics' { Import-ServiceLazy 'NetworkService' }
-        'DirectorySearch'    { Import-ServiceLazy 'ScimFilterService'; Import-ServiceLazy 'ScimService' }
+    $lazyServices = switch ($PanelName) {
+        'SecurityAcl'        { @('AclService') }
+        'KerberosSuite'      { @('KerberosService') }
+        'ReplicationSuite'   { @('ReplicationService', 'GpoService') }
+        'DiagnosticsToolbox' { @('DiagnosticService') }
+        'NetworkDiagnostics' { @('NetworkService') }
+        'DirectorySearch'    { @('ScimFilterService', 'ScimService') }
+        default              { @() }
+    }
+    foreach ($svc in $lazyServices) {
+        if ($ExecutionContext.SessionState.InvokeCommand.GetCommand('Import-ServiceLazy', [System.Management.Automation.CommandTypes]::All)) {
+            Import-ServiceLazy $svc
+        } else {
+            Invoke-WorkspaceHost -Name "Import-ServiceLazy" -NamedArgs @{ ServiceName = $svc }
+        }
     }
 
     if ($state.WorkspaceMode -eq "Tabs") {

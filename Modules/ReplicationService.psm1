@@ -1010,7 +1010,7 @@ function Get-ADForestTrusts {
     $trustList = [System.Collections.Generic.List[PSCustomObject]]::new()
 
     try {
-        if (Get-Command Get-ADTrust -ErrorAction SilentlyContinue) {
+        if ($null -ne $ExecutionContext.SessionState.InvokeCommand.GetCommand('Get-ADTrust', [System.Management.Automation.CommandTypes]::All)) {
             $trusts = if ($Server) { Get-ADTrust -Filter * -Server $Server -ErrorAction Stop } else { Get-ADTrust -Filter * -ErrorAction Stop }
             foreach ($t in $trusts) {
                 $dirText = switch ($t.Direction) {
@@ -1046,7 +1046,8 @@ function Get-ADForestTrusts {
     if ($trustList.Count -eq 0) {
         # Fallback query via LDAP DirectorySearcher on CN=System
         try {
-            $rootDse = if (Get-Command Get-ADRootDSE -ErrorAction SilentlyContinue) { Get-ADRootDSE -ErrorAction SilentlyContinue } else { $null }
+            $hasRootDseCmd = $null -ne $ExecutionContext.SessionState.InvokeCommand.GetCommand('Get-ADRootDSE', [System.Management.Automation.CommandTypes]::All)
+            $rootDse = if ($hasRootDseCmd) { Get-ADRootDSE -ErrorAction SilentlyContinue } else { $null }
             $defaultNC = if ($rootDse) { $rootDse.defaultNamingContext } else { "DC=corp,DC=local" }
             $searcher = [System.DirectoryServices.DirectorySearcher]::new()
             $searcher.Filter = "(objectClass=trustedDomain)"

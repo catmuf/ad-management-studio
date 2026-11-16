@@ -60,21 +60,29 @@ $modulesPath = Join-Path $appRoot "Modules"
 $viewsPath   = Join-Path $appRoot "Views"
 
 # Import Core Foundation Services (Fast Launch)
-Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking
-Import-Module (Join-Path $modulesPath "ThemeService.psm1") -DisableNameChecking -Global
-Import-Module (Join-Path $modulesPath "AsyncService.psm1") -DisableNameChecking -Global
-Import-Module (Join-Path $modulesPath "WorkspaceService.psm1") -DisableNameChecking -Global
+$global:modulesPath = $modulesPath
+$global:LoadedLazyServices = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "ThemeService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "AsyncService.psm1") -DisableNameChecking -Global -Force
+Import-Module (Join-Path $modulesPath "WorkspaceService.psm1") -DisableNameChecking -Global -Force
 
 # JIT Lazy Service Loader Engine
-function Import-ServiceLazy {
+function global:Import-ServiceLazy {
     param([string]$ServiceName)
-    if (-not (Get-Module -Name $ServiceName)) {
-        $modFile = Join-Path $script:modulesPath "$ServiceName.psm1"
+    if ([string]::IsNullOrWhiteSpace($ServiceName)) { return }
+    $isFresh = ($null -ne $global:LoadedLazyServices) -and $global:LoadedLazyServices.Contains($ServiceName)
+    if (-not $isFresh -or -not (Get-Module -Name $ServiceName)) {
+        $mRoot = if ($global:modulesPath) { $global:modulesPath } else { $script:modulesPath }
+        $modFile = Join-Path $mRoot "$ServiceName.psm1"
         if (Test-Path $modFile) {
-            Import-Module $modFile -DisableNameChecking -Global
+            Import-Module $modFile -DisableNameChecking -Global -Force
+            if ($null -ne $global:LoadedLazyServices) {
+                [void]$global:LoadedLazyServices.Add($ServiceName)
+            }
         }
     }
 }
@@ -218,12 +226,14 @@ $script:ServiceAutoLoadMap = @{
     'Convert-ScimBulkRequestToOperations'    = 'ExportService'
 }
 
+$global:ServiceAutoLoadMap = $script:ServiceAutoLoadMap
 $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
     param($cmdName, $lookupArgs)
-    if ($script:ServiceAutoLoadMap -and $script:ServiceAutoLoadMap.ContainsKey($cmdName)) {
-        $mod = $script:ServiceAutoLoadMap[$cmdName]
+    $map = if ($global:ServiceAutoLoadMap) { $global:ServiceAutoLoadMap } else { $script:ServiceAutoLoadMap }
+    if ($map -and $map.ContainsKey($cmdName)) {
+        $mod = $map[$cmdName]
         Import-ServiceLazy $mod
-        $cmd = Get-Command $cmdName -ErrorAction SilentlyContinue
+        $cmd = $ExecutionContext.SessionState.InvokeCommand.GetCommand($cmdName, [System.Management.Automation.CommandTypes]::All)
         if ($cmd) {
             $lookupArgs.Command = $cmd
             $lookupArgs.StopSearch = $true
@@ -232,7 +242,7 @@ $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
 }
 
 # Initialize Logging and Global Exception Tracing
-[void](Initialize-AppLogging)
+[void](Initialize-AppLogging -SessionTimestamp (Get-Date).ToString("yyyy-MM-dd_HH-mm"))
 
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
@@ -343,9 +353,13 @@ $window = Load-XamlWindow -XamlPath $mainWindowXamlPath
 Register-WpfExceptionHandler -Dispatcher $window.Dispatcher -Window $window
 
 # Continuous PowerShell runtime error listener
-$script:LastErrorLoggedIndex = 0
+if ($global:ActiveErrorMonitorTimer) {
+    try { $global:ActiveErrorMonitorTimer.Stop() } catch { $null = $_ }
+}
+$script:LastErrorLoggedIndex = if ($global:Error) { $global:Error.Count } else { 0 }
 $script:ErrorMonitorTimer = [System.Windows.Threading.DispatcherTimer]::new()
 $script:ErrorMonitorTimer.Interval = [System.TimeSpan]::FromMilliseconds(2000)
+$global:ActiveErrorMonitorTimer = $script:ErrorMonitorTimer
 $script:ErrorMonitorTimer.Add_Tick({
     try {
         if ($global:Error -and ($global:Error.Count -gt $script:LastErrorLoggedIndex)) {
@@ -10918,11 +10932,11 @@ function global:Connect-ADProfileContext {
     if (-not $newCtx -or -not $newCtx.IsConnected) {
         $errDetail = if ($newCtx -and $newCtx.ErrorMessage) { $newCtx.ErrorMessage } else { "Unable to bind or reach RootDSE on '${Server}:${effPort}'." }
         if ($adContext) {
-            $adContext.Server       = $Server
-            $adContext.Port         = $effPort
-            $adContext.UseSSL       = $effSsl
-            $adContext.IsConnected  = $false
-            $adContext.ErrorMessage = $errDetail
+            Add-Member -InputObject $adContext -NotePropertyName Server       -NotePropertyValue $Server       -Force
+            Add-Member -InputObject $adContext -NotePropertyName Port         -NotePropertyValue $effPort      -Force
+            Add-Member -InputObject $adContext -NotePropertyName UseSSL       -NotePropertyValue $effSsl       -Force
+            Add-Member -InputObject $adContext -NotePropertyName IsConnected  -NotePropertyValue $false        -Force
+            Add-Member -InputObject $adContext -NotePropertyName ErrorMessage -NotePropertyValue $errDetail    -Force
         }
         Update-ConnectionHeader
         Invoke-ConnectionDiagnostics
@@ -15696,6 +15710,9 @@ $window.Add_Closing({
         $appConfig.UI.OpenTabs = @($defaultStartupTabs)
         $appConfig.UI.ActiveTab = "Dashboard"
         [void](Save-AppSettings -Config $appConfig)
+    }
+    if ($script:ErrorMonitorTimer) {
+        try { $script:ErrorMonitorTimer.Stop() } catch { $null = $_ }
     }
     if (Get-Command Close-ADAsyncPool -ErrorAction SilentlyContinue) { Close-ADAsyncPool }
     # Safely close all detached child windows

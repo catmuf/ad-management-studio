@@ -175,7 +175,7 @@ function Resolve-AccountNameConflict {
         }
 
         try {
-            if (Get-Command Get-ADUser -ErrorAction SilentlyContinue) {
+            if ($null -ne $ExecutionContext.SessionState.InvokeCommand.GetCommand('Get-ADUser', [System.Management.Automation.CommandTypes]::All)) {
                 $filter = if ($AttributeName -ieq "userPrincipalName") {
                     "UserPrincipalName -eq '$name'"
                 } elseif ($AttributeName -ieq "mail") {
