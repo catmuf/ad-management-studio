@@ -73,6 +73,189 @@ function Convert-DNToOUPath {
     return $res
 }
 
+#region Active Directory Connection Session & ADSI Helpers
+$script:ADConnectionSession = [ordered]@{
+    Server               = ""
+    Port                 = 389
+    UseSSL               = $false
+    DefaultNamingContext = ""
+    SearchBase           = ""
+    DomainName           = ""
+    Credential           = $null
+    LastError            = ""
+}
+
+function Set-ADConnectionContext {
+    <#
+    .SYNOPSIS
+        Sets the module-scoped Active Directory target DC, port, SSL mode, SearchBase, and session credentials.
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$Server = "",
+        [int]$Port = 389,
+        [bool]$UseSSL = $false,
+        [string]$DefaultNamingContext = "",
+        [string]$SearchBase = "",
+        [string]$DomainName = "",
+        [System.Management.Automation.PSCredential]$Credential = $null,
+        [switch]$ClearCredential
+    )
+
+    $script:ADConnectionSession['Server']               = if ($Server) { $Server.Trim() } else { "" }
+    $script:ADConnectionSession['Port']                 = if ($Port -gt 0) { $Port } elseif ($UseSSL) { 636 } else { 389 }
+    $script:ADConnectionSession['UseSSL']               = [bool]($UseSSL -or ($script:ADConnectionSession['Port'] -eq 636))
+    $script:ADConnectionSession['DefaultNamingContext'] = if ($DefaultNamingContext) { $DefaultNamingContext.Trim() } else { "" }
+    $script:ADConnectionSession['SearchBase']           = if ($SearchBase) { $SearchBase.Trim() } else { $script:ADConnectionSession['DefaultNamingContext'] }
+    $script:ADConnectionSession['DomainName']           = if ($DomainName) { $DomainName.Trim() } else { "" }
+    $script:ADConnectionSession['LastError']            = ""
+    if ($ClearCredential) {
+        $script:ADConnectionSession['Credential'] = $null
+    } elseif ($PSBoundParameters.ContainsKey('Credential')) {
+        $script:ADConnectionSession['Credential'] = $Credential
+    }
+    $script:OuPathCache.Clear()
+}
+
+function Get-ADConnectionContext {
+    <#
+    .SYNOPSIS
+        Returns the active module-scoped Active Directory connection session state.
+    #>
+    [CmdletBinding()]
+    param ()
+    return [PSCustomObject]@{
+        Server               = $script:ADConnectionSession['Server']
+        Port                 = $script:ADConnectionSession['Port']
+        UseSSL               = $script:ADConnectionSession['UseSSL']
+        DefaultNamingContext = $script:ADConnectionSession['DefaultNamingContext']
+        SearchBase           = $script:ADConnectionSession['SearchBase']
+        DomainName           = $script:ADConnectionSession['DomainName']
+        HasCredential        = ($null -ne $script:ADConnectionSession['Credential'])
+        LastError            = $script:ADConnectionSession['LastError']
+    }
+}
+
+function Resolve-ADEffectiveConnection {
+    param (
+        [string]$Server = "",
+        [int]$Port = 0,
+        [Nullable[bool]]$UseSSL = $null,
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
+    )
+
+    $effServer = if (-not [string]::IsNullOrWhiteSpace($Server)) { $Server.Trim() } else { [string]$script:ADConnectionSession['Server'] }
+    $effUseSsl = if ($null -ne $UseSSL) { [bool]$UseSSL } else { [bool]$script:ADConnectionSession['UseSSL'] }
+    $effPort   = if ($Port -gt 0) { $Port } elseif ($script:ADConnectionSession['Port'] -gt 0) { [int]$script:ADConnectionSession['Port'] } elseif ($effUseSsl) { 636 } else { 389 }
+    if ($effPort -eq 636) { $effUseSsl = $true }
+    $effBase   = if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
+        $SearchBase.Trim()
+    } elseif (-not [string]::IsNullOrWhiteSpace($script:ADConnectionSession['SearchBase'])) {
+        [string]$script:ADConnectionSession['SearchBase']
+    } else {
+        [string]$script:ADConnectionSession['DefaultNamingContext']
+    }
+    $effCred   = if ($null -ne $Credential) { $Credential } else { $script:ADConnectionSession['Credential'] }
+
+    $hostPort = ""
+    if (-not [string]::IsNullOrWhiteSpace($effServer)) {
+        $hostPort = if ($effServer -match ':\d+$') { $effServer } else { "${effServer}:${effPort}" }
+    }
+
+    return [PSCustomObject]@{
+        Server     = $effServer
+        Port       = $effPort
+        UseSSL     = $effUseSsl
+        HostPort   = $hostPort
+        SearchBase = $effBase
+        Credential = $effCred
+    }
+}
+
+function New-ADDirectoryEntry {
+    param (
+        [string]$DistinguishedName = "RootDSE",
+        [PSCustomObject]$Connection = $null
+    )
+
+    if (-not $Connection) {
+        $Connection = Resolve-ADEffectiveConnection
+    }
+    $cleanDn = if ([string]::IsNullOrWhiteSpace($DistinguishedName)) { "RootDSE" } else { $DistinguishedName.Trim().TrimStart('/') }
+    $ldapUrl = if (-not [string]::IsNullOrWhiteSpace($Connection.HostPort)) {
+        "LDAP://$($Connection.HostPort)/$cleanDn"
+    } else {
+        "LDAP://$cleanDn"
+    }
+
+    if ($Connection.Credential) {
+        $authTypes = [System.DirectoryServices.AuthenticationTypes]::Secure
+        if ($Connection.UseSSL) {
+            $authTypes = $authTypes -bor [System.DirectoryServices.AuthenticationTypes]::SecureSocketsLayer
+        }
+        $netCred = $Connection.Credential.GetNetworkCredential()
+        return [System.DirectoryServices.DirectoryEntry]::new($ldapUrl, $Connection.Credential.UserName, $netCred.Password, $authTypes)
+    }
+    if ($Connection.UseSSL) {
+        $authTypes = [System.DirectoryServices.AuthenticationTypes]::Secure -bor [System.DirectoryServices.AuthenticationTypes]::SecureSocketsLayer
+        return [System.DirectoryServices.DirectoryEntry]::new($ldapUrl, $null, $null, $authTypes)
+    }
+    return [System.DirectoryServices.DirectoryEntry]::new($ldapUrl)
+}
+
+function Invoke-ADSafeDispose {
+    param ([object[]]$Objects)
+    $disposeMethod = [System.IDisposable].GetMethod('Dispose')
+    foreach ($obj in $Objects) {
+        if ($null -ne $obj -and ($obj -is [System.IDisposable])) {
+            try { [void]$disposeMethod.Invoke($obj, $null) } catch { $null = $_ }
+        }
+    }
+}
+
+function ConvertTo-LdapFilterEscaped {
+    param ([string]$Value)
+    if ([string]::IsNullOrEmpty($Value)) { return "" }
+    $sb = [System.Text.StringBuilder]::new($Value.Length + 8)
+    foreach ($ch in $Value.ToCharArray()) {
+        switch ($ch) {
+            '\' { [void]$sb.Append('\5c') }
+            '*' { [void]$sb.Append('\2a') }
+            '(' { [void]$sb.Append('\28') }
+            ')' { [void]$sb.Append('\29') }
+            ([char]0) { [void]$sb.Append('\00') }
+            default { [void]$sb.Append($ch) }
+        }
+    }
+    return $sb.ToString()
+}
+
+function ConvertFrom-ADFileTimeValue {
+    param ($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [DateTime]) { return $Value }
+    $int64Val = [int64]0
+    if ($Value -is [int64] -or $Value -is [int] -or $Value -is [double] -or $Value -is [string]) {
+        if (-not [int64]::TryParse($Value.ToString(), [ref]$int64Val)) { return $null }
+    } elseif ($Value.GetType().Name -match 'LargeInteger|IADsLargeInteger') {
+        $high = [int64]$Value.HighPart
+        $low  = [int64]$Value.LowPart
+        if ($low -lt 0) { $low += [int64]4294967296 }
+        $int64Val = ($high -shl 32) + $low
+    }
+    if ($int64Val -le 0 -or $int64Val -eq 9223372036854775807) { return $null }
+    try { return [DateTime]::FromFileTime($int64Val) } catch { return $null }
+}
+
+function Test-ADShouldUseRsat {
+    param ([PSCustomObject]$Connection)
+    if (-not (Get-Command -Name Get-ADUser -ErrorAction SilentlyContinue)) { return $false }
+    if ($Connection -and ($Connection.UseSSL -or ($Connection.Port -notin @(0, 389)))) { return $false }
+    return $true
+}
+#endregion
+
 function Format-ADUserRecord {
     param ($User)
     
@@ -140,18 +323,69 @@ function Format-ADUserRecord {
         StatusColor        = $statusColor
         DistinguishedName  = $User.DistinguishedName
         OUPath             = $ouPath
-        ObjectGUID         = $User.ObjectGUID.ToString()
-        SID                = $User.SID.Value
-        LastLogonDate      = if ($User.LastLogonDate) { $User.LastLogonDate.ToString("yyyy-MM-dd HH:mm") } else { "Never" }
-        PasswordLastSet    = if ($User.PasswordLastSet) { $User.PasswordLastSet.ToString("yyyy-MM-dd HH:mm") } else { "Never" }
-        WhenCreated        = if ($User.WhenCreated) { $User.WhenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
-        WhenChanged        = if ($User.WhenChanged) { $User.WhenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
+        ObjectGUID         = if ($User.ObjectGUID) { $User.ObjectGUID.ToString() } else { "" }
+        SID                = if ($User.SID -and $User.SID.PSObject.Properties['Value']) { $User.SID.Value } elseif ($User.SID) { "$($User.SID)" } else { "" }
+        LastLogonDate      = if ($User.LastLogonDate -is [DateTime]) { $User.LastLogonDate.ToString("yyyy-MM-dd HH:mm") } elseif ($User.LastLogonDate) { "$($User.LastLogonDate)" } else { "Never" }
+        PasswordLastSet    = if ($User.PasswordLastSet -is [DateTime]) { $User.PasswordLastSet.ToString("yyyy-MM-dd HH:mm") } elseif ($User.PasswordLastSet) { "$($User.PasswordLastSet)" } else { "Never" }
+        WhenCreated        = if ($User.WhenCreated -is [DateTime]) { $User.WhenCreated.ToString("yyyy-MM-dd HH:mm") } elseif ($User.WhenCreated) { "$($User.WhenCreated)" } else { "" }
+        WhenChanged        = if ($User.WhenChanged -is [DateTime]) { $User.WhenChanged.ToString("yyyy-MM-dd HH:mm") } elseif ($User.WhenChanged) { "$($User.WhenChanged)" } else { "" }
         RawUser            = $User
     }
 }
 #endregion
 
 #region User Operations
+function ConvertFrom-ADLdapUserResult {
+    param ($Row)
+
+    $uac = if ($Row.useraccountcontrol) { [int64]$Row.useraccountcontrol } else { 0 }
+    $computedUac = if ($Row.'msds-user-account-control-computed') { [int64]$Row.'msds-user-account-control-computed' } else { 0 }
+    $lockVal = if ($Row.lockouttime) { [int64]$Row.lockouttime } else { 0 }
+
+    $isEnabled = (($uac -band 2) -eq 0)
+    $isLocked  = (($computedUac -band 16) -ne 0) -or (($uac -band 16) -ne 0) -or ($lockVal -gt 0)
+
+    $lastLogon = ConvertFrom-ADFileTimeValue $Row.lastlogontimestamp
+    if (-not $lastLogon) { $lastLogon = ConvertFrom-ADFileTimeValue $Row.lastlogon }
+    $pwdSet = ConvertFrom-ADFileTimeValue $Row.pwdlastset
+
+    $sidStr = if ($Row.objectsid) { "$($Row.objectsid)" } else { "" }
+    $rawUser = [PSCustomObject]@{
+        Name              = $Row.name
+        DisplayName       = $Row.displayname
+        GivenName         = $Row.givenname
+        Surname           = $Row.sn
+        SamAccountName    = $Row.samaccountname
+        UserPrincipalName = $Row.userprincipalname
+        Mail              = $Row.mail
+        Title             = $Row.title
+        Department        = $Row.department
+        Office            = $Row.physicaldeliveryofficename
+        Company           = $Row.company
+        EmployeeID        = $Row.employeeid
+        Description       = $Row.description
+        telephoneNumber   = $Row.telephonenumber
+        mobile            = $Row.mobile
+        manager           = $Row.manager
+        streetAddress     = $Row.streetaddress
+        l                 = $Row.l
+        st                = $Row.st
+        postalCode        = $Row.postalcode
+        co                = $Row.co
+        Enabled           = $isEnabled
+        LockedOut         = $isLocked
+        DistinguishedName = $Row.DistinguishedName
+        ObjectGUID        = $Row.objectguid
+        SID               = [PSCustomObject]@{ Value = $sidStr }
+        LastLogonDate     = $lastLogon
+        PasswordLastSet   = $pwdSet
+        WhenCreated       = $Row.whencreated
+        WhenChanged       = $Row.whenchanged
+        MemberOf          = $Row.memberof
+    }
+    return (Format-ADUserRecord -User $rawUser)
+}
+
 function Get-ADUsersList {
     [CmdletBinding()]
     param (
@@ -159,8 +393,13 @@ function Get-ADUsersList {
         [Alias("FilterStatus")]
         [string]$StatusFilter = "All", # "All", "Active", "Disabled", "Locked"
         [string]$SearchBase = "",
-        [int]$Limit = 1000
+        [int]$Limit = 1000,
+        [string]$Server = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
+
+    $eff = Resolve-ADEffectiveConnection -Server $Server -SearchBase $SearchBase -Credential $Credential
+    $script:ADConnectionSession['LastError'] = ""
 
     $props = @(
         'DisplayName', 'GivenName', 'Surname', 'SamAccountName', 'UserPrincipalName',
@@ -203,64 +442,20 @@ function Get-ADUsersList {
         $filter = ($orClauses -join " -or ")
     }
 
-    $params = @{
-        Properties = $props
-        Filter     = $filter
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
-        $params['SearchBase'] = $SearchBase
-    }
-
-    if ($Limit -gt 0) {
-        $params['ResultSetSize'] = $Limit
-    }
-
-    try {
-        $rawUsers = Get-ADUser @params -ErrorAction Stop
-        
-        $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-        foreach ($u in $rawUsers) {
-            $formatted = Format-ADUserRecord -User $u
-            
-            # Apply status filter
-            $include = $true
-            switch ($StatusFilter) {
-                "Active"   { if (-not $formatted.Enabled -or $formatted.LockedOut) { $include = $false } }
-                "Disabled" { if ($formatted.Enabled) { $include = $false } }
-                "Locked"   { if (-not $formatted.LockedOut) { $include = $false } }
-            }
-
-            if ($include) {
-                $results.Add($formatted)
-            }
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        $params = @{
+            Properties = $props
+            Filter     = $filter
         }
+        if ($eff.SearchBase) { $params['SearchBase'] = $eff.SearchBase }
+        if ($eff.Server)     { $params['Server']     = $eff.Server }
+        if ($eff.Credential) { $params['Credential'] = $eff.Credential }
+        if ($Limit -gt 0)    { $params['ResultSetSize'] = $Limit }
 
-        return @($results)
-    }
-    catch {
-        $errText = "$_"
-        if ($errText -match "Servicios web|Active Directory Web Services|Unable to contact|unreachable|server is not operational|Cannot find a default server") {
-            return @()
-        }
-        Write-Warning "Direct AD filter failed, attempting fallback search: $_"
         try {
-            $fallbackParams = @{
-                Properties = $props
-                Filter     = "*"
-            }
-            if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
-                $fallbackParams['SearchBase'] = $SearchBase
-            }
-            if ($Limit -gt 0) {
-                $fallbackParams['ResultSetSize'] = [Math]::Max($Limit, 500)
-            }
-            $allRaw = Get-ADUser @fallbackParams -ErrorAction Stop
+            $rawUsers = Get-ADUser @params -ErrorAction Stop
             $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-            $cleanQuery = if ($SearchText) { $SearchText.Trim() } else { "" }
-            $cleanAscii = Remove-DiacriticsText $cleanQuery
-
-            foreach ($u in $allRaw) {
+            foreach ($u in $rawUsers) {
                 $formatted = Format-ADUserRecord -User $u
                 $include = $true
                 switch ($StatusFilter) {
@@ -268,64 +463,140 @@ function Get-ADUsersList {
                     "Disabled" { if ($formatted.Enabled) { $include = $false } }
                     "Locked"   { if (-not $formatted.LockedOut) { $include = $false } }
                 }
-
-                if ($include -and $cleanQuery) {
-                    $composite = "$($formatted.DisplayName) $($formatted.GivenName) $($formatted.Surname) $($formatted.SamAccountName) $($formatted.Department) $($formatted.Title) $($formatted.Office) $($formatted.Description) $($formatted.Mail) $($formatted.Email) $($formatted.EmployeeID)"
-                    $asciiComp = Remove-DiacriticsText $composite
-                    if ($composite -notmatch [regex]::Escape($cleanQuery) -and $asciiComp -notmatch [regex]::Escape($cleanAscii)) {
-                        $include = $false
-                    }
-                }
-
-                if ($include) {
-                    $results.Add($formatted)
-                }
+                if ($include) { $results.Add($formatted) }
             }
             return @($results)
         }
         catch {
-            Write-Warning "Error querying AD users: $_"
-            return @()
+            Write-Warning "Direct AD filter failed, falling back to native LDAP query: $_"
         }
     }
+
+    # Native ADSI / LDAP Fallback Engine (works without RSAT or against remote DC/IP/Port/SSL/Credentials)
+    $ldapTerms = [System.Collections.Generic.List[string]]::new()
+    $ldapTerms.Add("(objectCategory=person)")
+    $ldapTerms.Add("(objectClass=user)")
+    if ($StatusFilter -eq "Active") {
+        $ldapTerms.Add("(!(userAccountControl:1.2.840.113556.1.4.803:=2))")
+    } elseif ($StatusFilter -eq "Disabled") {
+        $ldapTerms.Add("(userAccountControl:1.2.840.113556.1.4.803:=2)")
+    }
+
+    $cleanQuery = if ($SearchText) { $SearchText.Trim() } else { "" }
+    if ($cleanQuery) {
+        $esc = ConvertTo-LdapFilterEscaped $cleanQuery
+        $ldapOr = "(|(displayName=*$esc*)(cn=*$esc*)(givenName=*$esc*)(sn=*$esc*)(sAMAccountName=*$esc*)(userPrincipalName=*$esc*)(mail=*$esc*)(title=*$esc*)(department=*$esc*)(physicalDeliveryOfficeName=*$esc*)(description=*$esc*)(employeeID=*$esc*))"
+        $ldapTerms.Add($ldapOr)
+    }
+
+    $ldapFilter = "(&$($ldapTerms -join ''))"
+    $ldapProps = @(
+        'name', 'displayName', 'givenName', 'sn', 'sAMAccountName', 'userPrincipalName',
+        'mail', 'title', 'department', 'physicalDeliveryOfficeName', 'company', 'employeeID',
+        'description', 'telephoneNumber', 'mobile', 'manager', 'streetAddress', 'l', 'st',
+        'postalCode', 'co', 'userAccountControl', 'msDS-User-Account-Control-Computed', 'lockoutTime',
+        'distinguishedName', 'objectGUID', 'objectSid', 'lastLogonTimestamp', 'lastLogon',
+        'pwdLastSet', 'whenCreated', 'whenChanged'
+    )
+
+    $qRes = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $eff.SearchBase -PropertiesToLoad $ldapProps -SizeLimit $Limit -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+    if (-not $qRes.Success -and $qRes.Error) {
+        $script:ADConnectionSession['LastError'] = $qRes.Error
+        return @()
+    }
+
+    $fallbackResults = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $cleanAscii = Remove-DiacriticsText $cleanQuery
+    foreach ($row in $qRes.Results) {
+        $formatted = ConvertFrom-ADLdapUserResult -Row $row
+        $include = $true
+        switch ($StatusFilter) {
+            "Active"   { if (-not $formatted.Enabled -or $formatted.LockedOut) { $include = $false } }
+            "Disabled" { if ($formatted.Enabled) { $include = $false } }
+            "Locked"   { if (-not $formatted.LockedOut) { $include = $false } }
+        }
+        if ($include -and $cleanQuery) {
+            $composite = "$($formatted.DisplayName) $($formatted.GivenName) $($formatted.Surname) $($formatted.SamAccountName) $($formatted.Department) $($formatted.Title) $($formatted.Office) $($formatted.Description) $($formatted.Mail) $($formatted.Email) $($formatted.EmployeeID)"
+            $asciiComp = Remove-DiacriticsText $composite
+            if ($composite -notmatch [regex]::Escape($cleanQuery) -and $asciiComp -notmatch [regex]::Escape($cleanAscii)) {
+                $include = $false
+            }
+        }
+        if ($include) { $fallbackResults.Add($formatted) }
+    }
+    return @($fallbackResults)
 }
 
 function Get-ADUserDetail {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$Identity
+        [string]$Identity,
+        [string]$Server = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
-    try {
-        $user = Get-ADUser -Identity $Identity -Properties * -ErrorAction Stop
-        $formatted = Format-ADUserRecord -User $user
+    $eff = Resolve-ADEffectiveConnection -Server $Server -Credential $Credential
 
-        # Get group memberships
-        $groups = [System.Collections.Generic.List[psobject]]::new()
-        if ($user.MemberOf) {
-            foreach ($gDN in $user.MemberOf) {
-                # Format friendly group name from DN
-                if ($gDN -match '^CN=([^,]+)') {
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        try {
+            $uParams = @{ Identity = $Identity; Properties = '*'; ErrorAction = 'Stop' }
+            if ($eff.Server)     { $uParams['Server']     = $eff.Server }
+            if ($eff.Credential) { $uParams['Credential'] = $eff.Credential }
+            $user = Get-ADUser @uParams
+            $formatted = Format-ADUserRecord -User $user
+
+            $groups = [System.Collections.Generic.List[psobject]]::new()
+            if ($user.MemberOf) {
+                foreach ($gDN in $user.MemberOf) {
+                    if ($gDN -match '^CN=([^,]+)') {
+                        $groups.Add([PSCustomObject]@{
+                            Name              = $matches[1]
+                            DistinguishedName = $gDN
+                        })
+                    }
+                }
+            }
+            return [PSCustomObject]@{
+                User      = $formatted
+                Groups    = @($groups | Sort-Object Name)
+                RawObject = $user
+            }
+        }
+        catch {
+            Write-Warning "RSAT Get-ADUser failed for '$Identity', trying LDAP fallback: $_"
+        }
+    }
+
+    try {
+        $escId = ConvertTo-LdapFilterEscaped $Identity
+        $qFilter = "(&(objectCategory=person)(objectClass=user)(|(distinguishedName=$escId)(sAMAccountName=$escId)(userPrincipalName=$escId)))"
+        $qRes = Invoke-LdapQuery -Filter $qFilter -SearchBase $eff.SearchBase -SizeLimit 1 -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if ($qRes.Success -and $qRes.Results.Count -gt 0) {
+            $row = $qRes.Results[0]
+            $formatted = ConvertFrom-ADLdapUserResult -Row $row
+            $groups = [System.Collections.Generic.List[psobject]]::new()
+            $memberOfVals = @($row.memberof)
+            foreach ($gDN in $memberOfVals) {
+                if ($gDN -and $gDN -match '^CN=([^,]+)') {
                     $groups.Add([PSCustomObject]@{
                         Name              = $matches[1]
                         DistinguishedName = $gDN
                     })
                 }
             }
-        }
-        $sortedGroups = @($groups | Sort-Object Name)
-
-        return [PSCustomObject]@{
-            User      = $formatted
-            Groups    = $sortedGroups
-            RawObject = $user
+            return [PSCustomObject]@{
+                User      = $formatted
+                Groups    = @($groups | Sort-Object Name)
+                RawObject = $row
+            }
         }
     }
     catch {
-        Write-Error "Failed to get user detail for '$Identity': $_"
-        return $null
+        Write-Warning "LDAP fallback Get-ADUserDetail failed for '$Identity': $_"
     }
+
+    return $null
 }
 
 function Test-ADUsernameExists {
@@ -638,75 +909,115 @@ function Get-ADGroupsList {
         [string]$CategoryFilter = "All", # "All", "Security", "Distribution"
         [string]$ScopeFilter = "All",    # "All", "Global", "Universal", "DomainLocal"
         [string]$SearchBase = "",
-        [int]$Limit = 1000
+        [int]$Limit = 1000,
+        [string]$Server = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
+    $eff = Resolve-ADEffectiveConnection -Server $Server -SearchBase $SearchBase -Credential $Credential
     $props = @('Name', 'SamAccountName', 'GroupCategory', 'GroupScope', 'Description', 'DistinguishedName', 'ObjectGUID', 'Members', 'mail', 'whenCreated', 'whenChanged', 'SID', 'managedBy', 'info')
 
     $filter = "*"
     if (-not [string]::IsNullOrWhiteSpace($SearchText)) {
-        $st = $SearchText.Trim()
+        $st = $SearchText.Trim().Replace("'", "''")
         $filter = "(Name -like `"*$st*`") -or (SamAccountName -like `"*$st*`") -or (Description -like `"*$st*`")"
     }
 
-    $params = @{
-        Properties = $props
-        Filter     = $filter
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($SearchBase)) {
-        $params['SearchBase'] = $SearchBase
-    }
-
-    if ($Limit -gt 0) {
-        $params['ResultSetSize'] = $Limit
-    }
-
-    try {
-        $rawGroups = Get-ADGroup @params -ErrorAction Stop
-        $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-
-        foreach ($g in $rawGroups) {
-            $include = $true
-
-            if ($CategoryFilter -ne "All" -and $g.GroupCategory.ToString() -ne $CategoryFilter) {
-                $include = $false
-            }
-            if ($ScopeFilter -ne "All" -and $g.GroupScope.ToString() -ne $ScopeFilter) {
-                $include = $false
-            }
-
-            if ($include) {
-                $memberCount = if ($g.Members) { $g.Members.Count } else { 0 }
-                $ouPath = Convert-DNToOUPath -DistinguishedName $g.DistinguishedName
-
-                $results.Add([PSCustomObject]@{
-                    Name              = $g.Name
-                    SamAccountName    = $g.SamAccountName
-                    GroupCategory     = $g.GroupCategory.ToString()
-                    GroupScope        = $g.GroupScope.ToString()
-                    Description       = if ($g.Description) { $g.Description } else { "" }
-                    MemberCount       = $memberCount
-                    Mail              = if ($g.mail) { $g.mail } else { "" }
-                    WhenCreated       = if ($g.whenCreated) { $g.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
-                    WhenChanged       = if ($g.whenChanged) { $g.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
-                    SID               = if ($g.SID) { $g.SID.Value } else { "" }
-                    ManagedBy         = if ($g.managedBy) { ($g.managedBy -replace '^CN=([^,]+).*', '$1') } else { "" }
-                    Info              = if ($g.info) { $g.info } else { "" }
-                    OUPath            = $ouPath
-                    DistinguishedName = $g.DistinguishedName
-                    ObjectGUID        = $g.ObjectGUID.ToString()
-                    RawGroup          = $g
-                })
-            }
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        $params = @{
+            Properties = $props
+            Filter     = $filter
         }
+        if ($eff.SearchBase) { $params['SearchBase'] = $eff.SearchBase }
+        if ($eff.Server)     { $params['Server']     = $eff.Server }
+        if ($eff.Credential) { $params['Credential'] = $eff.Credential }
+        if ($Limit -gt 0)    { $params['ResultSetSize'] = $Limit }
 
-        return @($results)
+        try {
+            $rawGroups = Get-ADGroup @params -ErrorAction Stop
+            $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+            foreach ($g in $rawGroups) {
+                $include = $true
+                if ($CategoryFilter -ne "All" -and $g.GroupCategory.ToString() -ne $CategoryFilter) { $include = $false }
+                if ($ScopeFilter -ne "All" -and $g.GroupScope.ToString() -ne $ScopeFilter) { $include = $false }
+
+                if ($include) {
+                    $memberCount = if ($g.Members) { $g.Members.Count } else { 0 }
+                    $ouPath = Convert-DNToOUPath -DistinguishedName $g.DistinguishedName
+
+                    $results.Add([PSCustomObject]@{
+                        Name              = $g.Name
+                        SamAccountName    = $g.SamAccountName
+                        GroupCategory     = $g.GroupCategory.ToString()
+                        GroupScope        = $g.GroupScope.ToString()
+                        Description       = if ($g.Description) { $g.Description } else { "" }
+                        MemberCount       = $memberCount
+                        Mail              = if ($g.mail) { $g.mail } else { "" }
+                        WhenCreated       = if ($g.whenCreated) { $g.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                        WhenChanged       = if ($g.whenChanged) { $g.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
+                        SID               = if ($g.SID) { $g.SID.Value } else { "" }
+                        ManagedBy         = if ($g.managedBy) { ($g.managedBy -replace '^CN=([^,]+).*', '$1') } else { "" }
+                        Info              = if ($g.info) { $g.info } else { "" }
+                        OUPath            = $ouPath
+                        DistinguishedName = $g.DistinguishedName
+                        ObjectGUID        = if ($g.ObjectGUID) { $g.ObjectGUID.ToString() } else { "" }
+                        RawGroup          = $g
+                    })
+                }
+            }
+            return @($results)
+        }
+        catch {
+            Write-Warning "RSAT group query failed, falling back to native LDAP query: $_"
+        }
     }
-    catch {
-        Write-Warning "Error querying AD groups: $_"
+
+    # Native ADSI / LDAP Fallback Engine
+    $cleanQuery = if ($SearchText) { $SearchText.Trim() } else { "" }
+    $ldapFilter = if ($cleanQuery) {
+        $esc = ConvertTo-LdapFilterEscaped $cleanQuery
+        "(&(objectClass=group)(|(name=*$esc*)(sAMAccountName=*$esc*)(description=*$esc*)))"
+    } else {
+        "(objectClass=group)"
+    }
+    $ldapProps = @('name', 'sAMAccountName', 'groupType', 'description', 'member', 'mail', 'whenCreated', 'whenChanged', 'objectSid', 'managedBy', 'info', 'distinguishedName', 'objectGUID')
+    $qRes = Invoke-LdapQuery -Filter $ldapFilter -SearchBase $eff.SearchBase -PropertiesToLoad $ldapProps -SizeLimit $Limit -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+    if (-not $qRes.Success -and $qRes.Error) {
+        $script:ADConnectionSession['LastError'] = $qRes.Error
         return @()
     }
+
+    $fbResults = [System.Collections.Generic.List[PSCustomObject]]::new()
+    foreach ($r in $qRes.Results) {
+        $gt = if ($r.grouptype) { [int64]$r.grouptype } else { 0 }
+        $cat = if (($gt -band 0x80000000) -ne 0) { "Security" } else { "Distribution" }
+        $scope = if (($gt -band 8) -ne 0) { "Universal" } elseif (($gt -band 4) -ne 0) { "DomainLocal" } else { "Global" }
+
+        if ($CategoryFilter -ne "All" -and $cat -ne $CategoryFilter) { continue }
+        if ($ScopeFilter -ne "All" -and $scope -ne $ScopeFilter) { continue }
+
+        $mCount = if ($null -eq $r.member) { 0 } elseif ($r.member -is [array]) { $r.member.Count } else { 1 }
+        $fbResults.Add([PSCustomObject]@{
+            Name              = if ($r.name) { $r.name } else { $r.samaccountname }
+            SamAccountName    = if ($r.samaccountname) { $r.samaccountname } else { "" }
+            GroupCategory     = $cat
+            GroupScope        = $scope
+            Description       = if ($r.description) { $r.description } else { "" }
+            MemberCount       = $mCount
+            Mail              = if ($r.mail) { $r.mail } else { "" }
+            WhenCreated       = if ($r.whencreated -is [DateTime]) { $r.whencreated.ToString("yyyy-MM-dd HH:mm") } elseif ($r.whencreated) { "$($r.whencreated)" } else { "" }
+            WhenChanged       = if ($r.whenchanged -is [DateTime]) { $r.whenchanged.ToString("yyyy-MM-dd HH:mm") } elseif ($r.whenchanged) { "$($r.whenchanged)" } else { "" }
+            SID               = if ($r.objectsid) { "$($r.objectsid)" } else { "" }
+            ManagedBy         = if ($r.managedby) { ($r.managedby -replace '^CN=([^,]+).*', '$1') } else { "" }
+            Info              = if ($r.info) { $r.info } else { "" }
+            OUPath            = Convert-DNToOUPath -DistinguishedName $r.DistinguishedName
+            DistinguishedName = $r.DistinguishedName
+            ObjectGUID        = if ($r.objectguid) { "$($r.objectguid)" } else { "" }
+            RawGroup          = $r
+        })
+    }
+    return @($fbResults)
 }
 
 function Get-ADGroupMembersList {
@@ -973,25 +1284,131 @@ function Remove-ADPrincipalFromGroup {
 #endregion
 
 #region Organizational Unit (OU) Operations
+function ConvertTo-CanonicalFromDN {
+    param (
+        [string]$DistinguishedName,
+        [string]$DomainName = ""
+    )
+    if ([string]::IsNullOrWhiteSpace($DistinguishedName)) { return "" }
+    $dcParts = [System.Collections.Generic.List[string]]::new()
+    $pathParts = [System.Collections.Generic.List[string]]::new()
+    foreach ($seg in ($DistinguishedName -split '(?<!\\),')) {
+        if ($seg -match '^(?i)DC=(.*)$') {
+            $dcParts.Add($matches[1])
+        } elseif ($seg -match '^[A-Za-z]+=(.*)$') {
+            $pathParts.Add($matches[1])
+        }
+    }
+    $root = if (-not [string]::IsNullOrWhiteSpace($DomainName)) { $DomainName } else { ($dcParts -join '.') }
+    if ($pathParts.Count -eq 0) { return "$root/" }
+    $pathParts.Reverse()
+    return "$root/$($pathParts -join '/')"
+}
+
+function Get-ADOUsCatalog {
+    param (
+        [string]$Server = "",
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
+    )
+
+    $eff = Resolve-ADEffectiveConnection -Server $Server -SearchBase $SearchBase -Credential $Credential
+    $rootDN = $eff.SearchBase
+    $rootName = [string]$script:ADConnectionSession['DomainName']
+    $allOUs = $null
+
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        try {
+            $domParams = @{ ErrorAction = 'Stop' }
+            if ($eff.Server)     { $domParams['Server']     = $eff.Server }
+            if ($eff.Credential) { $domParams['Credential'] = $eff.Credential }
+            $adDomain = Get-ADDomain @domParams
+            if ([string]::IsNullOrWhiteSpace($rootDN)) { $rootDN = $adDomain.DistinguishedName }
+            if ([string]::IsNullOrWhiteSpace($rootName)) { $rootName = $adDomain.DNSRoot }
+
+            $ouParams = @{
+                Filter      = '*'
+                Properties  = @('Name', 'Description', 'ProtectedFromAccidentalDeletion', 'CanonicalName', 'DistinguishedName')
+                ErrorAction = 'Stop'
+            }
+            if ($eff.Server)     { $ouParams['Server']     = $eff.Server }
+            if ($eff.Credential) { $ouParams['Credential'] = $eff.Credential }
+            if ($eff.SearchBase) { $ouParams['SearchBase'] = $eff.SearchBase }
+
+            $allOUs = @(Get-ADOrganizationalUnit @ouParams | Sort-Object CanonicalName)
+            return [PSCustomObject]@{ RootDN = $rootDN; RootName = $rootName; Items = $allOUs }
+        }
+        catch {
+            Write-Warning "RSAT OU query failed, falling back to native LDAP query: $_"
+        }
+    }
+
+    # Native ADSI / LDAP Fallback
+    try {
+        if ([string]::IsNullOrWhiteSpace($rootDN)) {
+            $dse = $null
+            try {
+                $dse = New-ADDirectoryEntry -DistinguishedName "RootDSE" -Connection $eff
+                $props = if ($dse) { $dse.Properties } else { $null }
+                if ($props -and $props.Contains('defaultNamingContext')) {
+                    $rootDN = [string]$props['defaultNamingContext'].Value
+                }
+            } catch {
+                $script:ADConnectionSession['LastError'] = $_.Exception.Message
+            } finally {
+                Invoke-ADSafeDispose @($dse)
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($rootDN)) { return $null }
+
+        if ([string]::IsNullOrWhiteSpace($rootName)) {
+            $dcSegs = ($rootDN -split '(?i)DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
+            $rootName = $dcSegs -join '.'
+        }
+
+        $qRes = Invoke-LdapQuery -Filter '(objectClass=organizationalUnit)' -SearchBase $rootDN -PropertiesToLoad @('ou', 'name', 'description', 'canonicalName', 'distinguishedName') -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if (-not $qRes.Success -and $qRes.Error) {
+            $script:ADConnectionSession['LastError'] = $qRes.Error
+            return $null
+        }
+
+        $items = [System.Collections.Generic.List[PSCustomObject]]::new()
+        foreach ($r in $qRes.Results) {
+            $dn = [string]$r.DistinguishedName
+            $name = if ($r.ou) { [string]$r.ou } elseif ($r.name) { [string]$r.name } elseif ($dn -match '^(?i)OU=([^,]+)') { $matches[1] } else { $dn }
+            $canon = if ($r.canonicalname) { [string]$r.canonicalname } else { ConvertTo-CanonicalFromDN -DistinguishedName $dn -DomainName $rootName }
+            $items.Add([PSCustomObject]@{
+                Name                            = $name
+                DistinguishedName               = $dn
+                CanonicalName                   = $canon
+                Description                     = if ($r.description) { [string]$r.description } else { "" }
+                ProtectedFromAccidentalDeletion = $false
+            })
+        }
+        $sorted = @($items | Sort-Object CanonicalName)
+        return [PSCustomObject]@{ RootDN = $rootDN; RootName = $rootName; Items = $sorted }
+    }
+    catch {
+        Write-Warning "LDAP OU catalog failed: $_"
+        return $null
+    }
+}
+
 function Get-ADOUTree {
     [CmdletBinding()]
     param (
-        [string]$Server = ""
+        [string]$Server = "",
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
     try {
-        $adDomain = if ($Server) { Get-ADDomain -Server $Server } else { Get-ADDomain }
-        $rootDN = $adDomain.DistinguishedName
-        $rootName = $adDomain.DNSRoot
+        $catalog = Get-ADOUsCatalog -Server $Server -SearchBase $SearchBase -Credential $Credential
+        if (-not $catalog) { return $null }
 
-        # Fetch all OUs in the domain
-        $ouParams = @{
-            Filter     = '*'
-            Properties = @('Name', 'Description', 'ProtectedFromAccidentalDeletion', 'CanonicalName', 'DistinguishedName')
-        }
-        if ($Server) { $ouParams['Server'] = $Server }
-
-        $allOUs = Get-ADOrganizationalUnit @ouParams | Sort-Object CanonicalName
+        $rootDN   = $catalog.RootDN
+        $rootName = $catalog.RootName
+        $allOUs   = $catalog.Items
 
         # Root Tree Node
         $rootNode = [PSCustomObject]@{
@@ -1005,11 +1422,9 @@ function Get-ADOUTree {
             Depth             = 0
         }
 
-        # Map nodes by DistinguishedName for easy hierarchy building
         $nodeMap = [System.Collections.Generic.Dictionary[string, PSCustomObject]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $nodeMap[$rootDN] = $rootNode
 
-        # Create nodes
         foreach ($ou in $allOUs) {
             $node = [PSCustomObject]@{
                 Name              = $ou.Name
@@ -1024,21 +1439,17 @@ function Get-ADOUTree {
             $nodeMap[$ou.DistinguishedName] = $node
         }
 
-        # Wire up hierarchy: find parent of each OU
         foreach ($ou in $allOUs) {
             $dn = $ou.DistinguishedName
             $node = $nodeMap[$dn]
-
-            # Parent DN is everything after the first comma
             $parentDN = ($dn -split '(?<!\\),', 2)[1]
 
-            if ($nodeMap.ContainsKey($parentDN)) {
+            if ($parentDN -and $nodeMap.ContainsKey($parentDN)) {
                 $parentNode = $nodeMap[$parentDN]
                 $node.Depth = $parentNode.Depth + 1
                 $parentNode.Children.Add($node)
             }
             else {
-                # Fallback to root
                 $rootNode.Children.Add($node)
             }
         }
@@ -1053,20 +1464,23 @@ function Get-ADOUTree {
 
 function Get-ADOUFlatList {
     [CmdletBinding()]
-    param ()
+    param (
+        [string]$Server = "",
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
+    )
 
     try {
-        $allOUs = Get-ADOrganizationalUnit -Filter * -Properties Description, ProtectedFromAccidentalDeletion, CanonicalName | 
-                  Sort-Object CanonicalName
+        $catalog = Get-ADOUsCatalog -Server $Server -SearchBase $SearchBase -Credential $Credential
+        if (-not $catalog) { return @() }
 
         $list = [System.Collections.Generic.List[PSCustomObject]]::new()
-
-        foreach ($ou in $allOUs) {
+        foreach ($ou in $catalog.Items) {
             $cleanCanonical = ($ou.CanonicalName -split '/', 2)[1]
             if ([string]::IsNullOrEmpty($cleanCanonical)) {
                 $cleanCanonical = $ou.Name
             }
-            
+
             $depth = ($ou.CanonicalName -split '/').Count - 2
             if ($depth -lt 0) { $depth = 0 }
             $indent = "  " * $depth
@@ -1155,6 +1569,71 @@ function Remove-ADOrganizationalUnitItem {
     }
 }
 
+function Format-ADDirectoryChildItem {
+    param (
+        [string]$ObjectClassRaw,
+        [object]$ObjectClassList,
+        [string]$Name,
+        [string]$SamAccountName,
+        [int64]$UserAccountControl = 0,
+        [int64]$GroupType = 0,
+        [string]$DistinguishedName,
+        [string]$Description = "",
+        [string]$Mail = "",
+        $WhenCreated = $null,
+        $WhenChanged = $null,
+        $RawObject = $null
+    )
+
+    $classes = if ($ObjectClassList -is [array]) { @($ObjectClassList) } else { @($ObjectClassRaw) }
+    $leafClass = if ($ObjectClassRaw) { $ObjectClassRaw } elseif ($classes.Count -gt 0) { [string]$classes[-1] } else { "" }
+
+    $friendlyType = if ($classes -contains 'computer' -or $leafClass -ieq 'computer') {
+        "Computer"
+    } elseif ($classes -contains 'user' -or $leafClass -ieq 'user') {
+        "User"
+    } elseif ($leafClass -ieq 'group' -or $classes -contains 'group') {
+        "Group"
+    } elseif ($leafClass -ieq 'organizationalUnit' -or $classes -contains 'organizationalUnit') {
+        "OU"
+    } elseif ($leafClass -ieq 'contact' -or $classes -contains 'contact') {
+        "Contact"
+    } elseif ($leafClass -ieq 'container' -or $classes -contains 'container') {
+        "Container"
+    } else {
+        $leafClass
+    }
+
+    $status = "Active"
+    if ($friendlyType -in @('User', 'Computer')) {
+        if (($UserAccountControl -band 2) -ne 0) { $status = "Disabled" }
+        elseif (($UserAccountControl -band 16) -ne 0) { $status = "Locked" }
+    } elseif ($friendlyType -eq 'Group') {
+        if ($GroupType -ne 0) {
+            $status = if (($GroupType -band 0x80000000) -ne 0) { "Security" } else { "Distribution" }
+        } else {
+            $status = "Group"
+        }
+    } elseif ($friendlyType -eq 'OU') {
+        $status = "OU"
+    } else {
+        $status = "Normal"
+    }
+
+    return [PSCustomObject]@{
+        ObjectClass       = $friendlyType
+        Name              = if ($Name) { $Name } else { "" }
+        SamAccountName    = if ($SamAccountName) { $SamAccountName } else { "-" }
+        Status            = $status
+        DistinguishedName = $DistinguishedName
+        Description       = if ($Description) { $Description } else { "" }
+        Mail              = if ($Mail) { $Mail } else { "" }
+        WhenCreated       = if ($WhenCreated -is [DateTime]) { $WhenCreated.ToString("yyyy-MM-dd HH:mm") } elseif ($WhenCreated) { "$WhenCreated" } else { "" }
+        WhenChanged       = if ($WhenChanged -is [DateTime]) { $WhenChanged.ToString("yyyy-MM-dd HH:mm") } elseif ($WhenChanged) { "$WhenChanged" } else { "" }
+        RawObject         = $RawObject
+    }
+}
+
 function Get-ADObjectsInOU {
     [CmdletBinding()]
     param (
@@ -1164,103 +1643,80 @@ function Get-ADObjectsInOU {
         [ValidateSet("OneLevel", "Subtree", "Base")]
         [string]$SearchScope = "OneLevel",
 
-        [string]$Server = ""
+        [string]$Server = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
     if ([string]::IsNullOrWhiteSpace($SearchBase)) {
         return @()
     }
 
-    try {
-        $filter = "(|(objectClass=user)(objectClass=group)(objectClass=computer)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=container))"
-        $props = @('objectClass', 'name', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated', 'whenChanged')
-        
-        $searchParams = @{
-            LDAPFilter  = $filter
-            SearchBase  = $SearchBase
-            SearchScope = $SearchScope
-            Properties  = $props
+    $eff = Resolve-ADEffectiveConnection -Server $Server -SearchBase $SearchBase -Credential $Credential
+    $filter = "(|(objectClass=user)(objectClass=group)(objectClass=computer)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=container))"
+    $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        try {
+            $props = @('objectClass', 'name', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated', 'whenChanged')
+            $searchParams = @{
+                LDAPFilter  = $filter
+                SearchBase  = $SearchBase
+                SearchScope = $SearchScope
+                Properties  = $props
+                ErrorAction = 'Stop'
+            }
+            if ($eff.Server)     { $searchParams['Server']     = $eff.Server }
+            if ($eff.Credential) { $searchParams['Credential'] = $eff.Credential }
+
+            $rawObjects = Get-ADObject @searchParams
+            foreach ($obj in $rawObjects) {
+                if ($obj.DistinguishedName -eq $SearchBase) { continue }
+                $uac = if ($obj.userAccountControl) { [int64]$obj.userAccountControl } else { 0 }
+                $gt  = if ($obj.groupType) { [int64]$obj.groupType } else { 0 }
+                $results.Add((Format-ADDirectoryChildItem -ObjectClassRaw ([string]$obj.ObjectClass) -ObjectClassList $obj.ObjectClass -Name $obj.Name -SamAccountName $obj.sAMAccountName -UserAccountControl $uac -GroupType $gt -DistinguishedName $obj.DistinguishedName -Description $obj.Description -Mail $obj.mail -WhenCreated $obj.whenCreated -WhenChanged $obj.whenChanged -RawObject $obj))
+            }
         }
-        if ($Server) { $searchParams['Server'] = $Server }
-
-        $rawObjects = Get-ADObject @searchParams -ErrorAction Stop
-
-        $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-        foreach ($obj in $rawObjects) {
-            # Skip the SearchBase itself if returned in Base/Subtree
-            if ($obj.DistinguishedName -eq $SearchBase) { continue }
-
-            $objClass = $obj.ObjectClass
-            $friendlyType = switch ($objClass) {
-                'user' {
-                    if ($obj.ObjectClass -contains 'user' -and -not ($obj.ObjectClass -contains 'computer')) { "User" }
-                    else { "Computer" }
-                }
-                'computer' { "Computer" }
-                'group'    { "Group" }
-                'organizationalUnit' { "OU" }
-                'contact'  { "Contact" }
-                'container'{ "Container" }
-                default    { 
-                    if ($obj.ObjectClass -is [array]) { $obj.ObjectClass[0] } else { [string]$obj.ObjectClass }
-                }
-            }
-
-            # Determine status based on type
-            $status = "Active"
-            if ($friendlyType -in @('User', 'Computer')) {
-                if ($obj.userAccountControl) {
-                    $uac = [int64]$obj.userAccountControl
-                    if (($uac -band 2) -ne 0) { $status = "Disabled" }
-                    elseif (($uac -band 16) -ne 0) { $status = "Locked" }
-                }
-            } elseif ($friendlyType -eq 'Group') {
-                if ($obj.groupType) {
-                    $gt = [int64]$obj.groupType
-                    $status = if (($gt -band 0x80000000) -ne 0) { "Security" } else { "Distribution" }
-                } else {
-                    $status = "Group"
-                }
-            } elseif ($friendlyType -eq 'OU') {
-                $status = "OU"
-            } else {
-                $status = "Normal"
-            }
-
-            $results.Add([PSCustomObject]@{
-                ObjectClass       = $friendlyType
-                Name              = if ($obj.Name) { $obj.Name } else { "" }
-                SamAccountName    = if ($obj.sAMAccountName) { $obj.sAMAccountName } else { "-" }
-                Status            = $status
-                DistinguishedName = $obj.DistinguishedName
-                Description       = if ($obj.Description) { $obj.Description } else { "" }
-                Mail              = if ($obj.mail) { $obj.mail } else { "" }
-                WhenCreated       = if ($obj.whenCreated) { $obj.whenCreated.ToString("yyyy-MM-dd HH:mm") } else { "" }
-                WhenChanged       = if ($obj.whenChanged) { $obj.whenChanged.ToString("yyyy-MM-dd HH:mm") } else { "" }
-                RawObject         = $obj
-            })
+        catch {
+            Write-Warning "RSAT Get-ADObjectsInOU failed, falling back to native LDAP query: $_"
+            $results.Clear()
         }
+    }
 
-        # Sort by ObjectClass priority (OU first, then Groups, Users, Computers, etc.), then by Name
-        $sorted = $results | Sort-Object @{
-            Expression = {
-                switch ($_.ObjectClass) {
-                    'OU'        { 1 }
-                    'Group'     { 2 }
-                    'User'      { 3 }
-                    'Computer'  { 4 }
-                    'Contact'   { 5 }
-                    default     { 6 }
-                }
+    if ($results.Count -eq 0) {
+        $dsScope = switch ($SearchScope) {
+            "OneLevel" { [System.DirectoryServices.SearchScope]::OneLevel }
+            "Base"     { [System.DirectoryServices.SearchScope]::Base }
+            default    { [System.DirectoryServices.SearchScope]::Subtree }
+        }
+        $ldapProps = @('objectClass', 'name', 'ou', 'sAMAccountName', 'userAccountControl', 'groupType', 'distinguishedName', 'description', 'mail', 'whenCreated', 'whenChanged')
+        $qRes = Invoke-LdapQuery -Filter $filter -SearchBase $SearchBase -Scope $dsScope -PropertiesToLoad $ldapProps -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if (-not $qRes.Success -and $qRes.Error) {
+            $script:ADConnectionSession['LastError'] = $qRes.Error
+            return @()
+        }
+        foreach ($row in $qRes.Results) {
+            if ($row.DistinguishedName -eq $SearchBase) { continue }
+            $itemName = if ($row.name) { [string]$row.name } elseif ($row.ou) { [string]$row.ou } else { "" }
+            $uac = if ($row.useraccountcontrol) { [int64]$row.useraccountcontrol } else { 0 }
+            $gt  = if ($row.grouptype) { [int64]$row.grouptype } else { 0 }
+            $results.Add((Format-ADDirectoryChildItem -ObjectClassRaw ([string]$row.ObjectClass) -ObjectClassList $row.objectclass -Name $itemName -SamAccountName $row.samaccountname -UserAccountControl $uac -GroupType $gt -DistinguishedName $row.DistinguishedName -Description $row.description -Mail $row.mail -WhenCreated $row.whencreated -WhenChanged $row.whenchanged -RawObject $row))
+        }
+    }
+
+    $sorted = $results | Sort-Object @{
+        Expression = {
+            switch ($_.ObjectClass) {
+                'OU'        { 1 }
+                'Group'     { 2 }
+                'User'      { 3 }
+                'Computer'  { 4 }
+                'Contact'   { 5 }
+                default     { 6 }
             }
-        }, Name
+        }
+    }, Name
 
-        return @($sorted)
-    }
-    catch {
-        Write-Error "Failed to query objects in OU '$SearchBase': $_"
-        return @()
-    }
+    return @($sorted)
 }
 #endregion
 
@@ -1268,8 +1724,13 @@ function Get-ADObjectsInOU {
 function Get-ADDashboardStats {
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
-    param ()
+    param (
+        [string]$Server = "",
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
+    )
 
+    $eff = Resolve-ADEffectiveConnection -Server $Server -SearchBase $SearchBase -Credential $Credential
     $stats = [PSCustomObject]@{
         TotalUsers    = 0
         ActiveUsers   = 0
@@ -1277,38 +1738,78 @@ function Get-ADDashboardStats {
         LockedUsers   = 0
         TotalGroups   = 0
         TotalOUs      = 0
-        DomainName    = ""
-        PDC           = ""
+        DomainName    = [string]$script:ADConnectionSession['DomainName']
+        PDC           = [string]$eff.Server
     }
 
+    if (Test-ADShouldUseRsat -Connection $eff) {
+        try {
+            $domParams = @{ ErrorAction = 'Stop' }
+            if ($eff.Server)     { $domParams['Server']     = $eff.Server }
+            if ($eff.Credential) { $domParams['Credential'] = $eff.Credential }
+            $dom = Get-ADDomain @domParams
+            $stats.DomainName = $dom.DNSRoot
+            $stats.PDC        = $dom.PDCEmulator
+
+            $uParams = @{ Filter = '*'; Properties = @('Enabled', 'LockedOut'); ErrorAction = 'Stop' }
+            $gParams = @{ Filter = '*'; ErrorAction = 'Stop' }
+            $oParams = @{ Filter = '*'; ErrorAction = 'Stop' }
+            foreach ($h in @($uParams, $gParams, $oParams)) {
+                if ($eff.Server)     { $h['Server']     = $eff.Server }
+                if ($eff.Credential) { $h['Credential'] = $eff.Credential }
+                if ($eff.SearchBase) { $h['SearchBase'] = $eff.SearchBase }
+            }
+
+            $users = @(Get-ADUser @uParams -ResultPageSize 1000)
+            $stats.TotalUsers = $users.Count
+
+            $disabledCount = 0
+            $lockedCount   = 0
+            foreach ($u in $users) {
+                if (-not $u.Enabled) { $disabledCount++ }
+                if ($u.LockedOut)    { $lockedCount++ }
+            }
+
+            $stats.DisabledUsers = $disabledCount
+            $stats.LockedUsers   = $lockedCount
+            $stats.ActiveUsers   = $users.Count - $disabledCount
+            $stats.TotalGroups   = @(Get-ADGroup @gParams -ResultPageSize 1000).Count
+            $stats.TotalOUs      = @(Get-ADOrganizationalUnit @oParams).Count
+            return $stats
+        }
+        catch {
+            Write-Warning "RSAT dashboard stats failed, falling back to native LDAP query: $_"
+        }
+    }
+
+    # Native ADSI / LDAP Fallback Engine
     try {
-        $dom = Get-ADDomain -ErrorAction Stop
-        $stats.DomainName = $dom.DNSRoot
-        $stats.PDC        = $dom.PDCEmulator
-
-        $users = Get-ADUser -Filter * -Properties Enabled, LockedOut -ResultPageSize 1000 -ErrorAction Stop
-        $stats.TotalUsers = $users.Count
-
-        $disabledCount = 0
-        $lockedCount   = 0
-        foreach ($u in $users) {
-            if (-not $u.Enabled) {
-                $disabledCount++
+        $uRes = Invoke-LdapQuery -Filter '(&(objectCategory=person)(objectClass=user))' -SearchBase $eff.SearchBase -PropertiesToLoad @('userAccountControl', 'lockoutTime', 'msDS-User-Account-Control-Computed') -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if ($uRes.Success) {
+            $stats.TotalUsers = $uRes.Results.Count
+            $disabled = 0; $locked = 0
+            foreach ($r in $uRes.Results) {
+                $uac = if ($r.useraccountcontrol) { [int64]$r.useraccountcontrol } else { 0 }
+                $cuac = if ($r.'msds-user-account-control-computed') { [int64]$r.'msds-user-account-control-computed' } else { 0 }
+                $lt = if ($r.lockouttime) { [int64]$r.lockouttime } else { 0 }
+                if (($uac -band 2) -ne 0) { $disabled++ }
+                if (($cuac -band 16) -ne 0 -or ($uac -band 16) -ne 0 -or $lt -gt 0) { $locked++ }
             }
-            if ($u.LockedOut) {
-                $lockedCount++
-            }
+            $stats.DisabledUsers = $disabled
+            $stats.LockedUsers   = $locked
+            $stats.ActiveUsers   = $uRes.Results.Count - $disabled
+        } elseif ($uRes.Error) {
+            $script:ADConnectionSession['LastError'] = $uRes.Error
         }
 
-        $stats.DisabledUsers = $disabledCount
-        $stats.LockedUsers   = $lockedCount
-        $stats.ActiveUsers   = $users.Count - $disabledCount
+        $gRes = Invoke-LdapQuery -Filter '(objectClass=group)' -SearchBase $eff.SearchBase -PropertiesToLoad @('cn') -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if ($gRes.Success) { $stats.TotalGroups = $gRes.Results.Count }
 
-        $stats.TotalGroups = (Get-ADGroup -Filter * -ResultPageSize 1000).Count
-        $stats.TotalOUs    = (Get-ADOrganizationalUnit -Filter *).Count
+        $oRes = Invoke-LdapQuery -Filter '(objectClass=organizationalUnit)' -SearchBase $eff.SearchBase -PropertiesToLoad @('ou') -Server $eff.Server -Port $eff.Port -UseSSL $eff.UseSSL -Credential $eff.Credential
+        if ($oRes.Success) { $stats.TotalOUs = $oRes.Results.Count }
     }
     catch {
-        Write-Warning "Could not fetch complete dashboard stats: $_"
+        Write-Warning "Could not fetch complete dashboard stats via LDAP fallback: $_"
     }
 
     return $stats
@@ -1328,6 +1829,9 @@ function Invoke-LdapQuery {
         [int]$PageSize = 1000,
         [int]$SizeLimit = 0,
         [string]$Server = "",
+        [int]$Port = 0,
+        [Nullable[bool]]$UseSSL = $null,
+        [System.Management.Automation.PSCredential]$Credential = $null,
         [switch]$ManageDsaIT,
         [scriptblock]$OnBatchReceived = $null,
         [int]$BatchSize = 250,
@@ -1337,7 +1841,8 @@ function Invoke-LdapQuery {
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $results = New-Object System.Collections.Generic.List[PSCustomObject]
-    $baseDn = $SearchBase
+    $eff = Resolve-ADEffectiveConnection -Server $Server -Port $Port -UseSSL $UseSSL -SearchBase $SearchBase -Credential $Credential
+    $baseDn = if (-not [string]::IsNullOrWhiteSpace($SearchBase)) { $SearchBase.Trim() } else { $eff.SearchBase }
     $errorMessage = ""
     $rootDse = $null
     $entry = $null
@@ -1382,12 +1887,18 @@ function Invoke-LdapQuery {
 
     try {
         if ([string]::IsNullOrWhiteSpace($baseDn)) {
-            $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
-            $baseDn = $rootDse.defaultNamingContext
+            $rootDse = New-ADDirectoryEntry -DistinguishedName "RootDSE" -Connection $eff
+            $dseProps = if ($rootDse) { $rootDse.Properties } else { $null }
+            if ($dseProps -and $dseProps.Contains('defaultNamingContext')) {
+                $baseDn = [string]$dseProps['defaultNamingContext'].Value
+            }
         }
 
-        $ldapPath = if ($Server) { "LDAP://$Server/$baseDn" } else { "LDAP://$baseDn" }
-        $entry = New-Object System.DirectoryServices.DirectoryEntry($ldapPath)
+        if ([string]::IsNullOrWhiteSpace($baseDn)) {
+            throw "Unable to determine defaultNamingContext (SearchBase) from directory server '$($eff.HostPort)'."
+        }
+
+        $entry = New-ADDirectoryEntry -DistinguishedName $baseDn -Connection $eff
         $searcher = New-Object System.DirectoryServices.DirectorySearcher($entry)
         $searcher.Filter = $Filter
         $searcher.SearchScope = $Scope
@@ -1465,13 +1976,11 @@ function Invoke-LdapQuery {
     }
     catch {
         $errorMessage = $_.Exception.Message
+        $script:ADConnectionSession['LastError'] = $errorMessage
         Write-Warning "LDAP Search failed: $_"
     }
     finally {
-        if ($searchResult -is [System.IDisposable]) { $searchResult.Dispose() }
-        if ($searcher -is [System.IDisposable])     { $searcher.Dispose() }
-        if ($entry -is [System.IDisposable])        { $entry.Dispose() }
-        if ($rootDse -is [System.IDisposable])      { $rootDse.Dispose() }
+        Invoke-ADSafeDispose @($searchResult, $searcher, $entry, $rootDse)
         $sw.Stop()
     }
 
@@ -2783,7 +3292,9 @@ function Test-ADConnectionDiagnostic {
     param (
         [string]$Server = "",
         [int]$Port = 389,
-        [int]$TimeoutMs = 3000
+        [int]$TimeoutMs = 3000,
+        [bool]$UseSSL = $false,
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
     $diag = [ordered]@{
@@ -2845,17 +3356,37 @@ function Test-ADConnectionDiagnostic {
         }
 
         $dseErrBefore = $global:Error.Count
+        $dse = $null
+        $ncEntry = $null
         try {
-            $dsePath = if ($targetHost) { "LDAP://$targetHost`:$Port/RootDSE" } else { "LDAP://RootDSE" }
-            $dse = New-Object System.DirectoryServices.DirectoryEntry($dsePath)
-            if ($dse.defaultNamingContext) {
+            $connProbe = [PSCustomObject]@{
+                Server     = $targetHost
+                Port       = $Port
+                UseSSL     = ($UseSSL -or ($Port -eq 636))
+                HostPort   = if ($targetHost -match ':\d+$') { $targetHost } else { "${targetHost}:${Port}" }
+                Credential = $Credential
+            }
+            $dse = New-ADDirectoryEntry -DistinguishedName "RootDSE" -Connection $connProbe
+            $dse.RefreshCache(@('defaultNamingContext'))
+            $nc = [string]$dse.Properties['defaultNamingContext'].Value
+            if (-not [string]::IsNullOrWhiteSpace($nc)) {
                 $diag['RootDseQueried'] = $true
-                $diag['DomainNamingNC'] = $dse.defaultNamingContext
+                $diag['DomainNamingNC'] = $nc
+                # If custom credentials were supplied, also verify authenticated bind against DefaultNamingContext
+                if ($Credential) {
+                    $ncEntry = New-ADDirectoryEntry -DistinguishedName $nc -Connection $connProbe
+                    $ncEntry.RefreshCache(@('distinguishedName'))
+                }
             }
         } catch {
+            if ($diag['TcpPortOpen'] -and [string]::IsNullOrWhiteSpace($diag['ErrorMessage'])) {
+                $diag['ErrorMessage'] = $_.Exception.Message
+            }
             if ($global:Error.Count -gt $dseErrBefore) {
                 $global:Error.RemoveAt(0)
             }
+        } finally {
+            Invoke-ADSafeDispose @($ncEntry, $dse)
         }
     }
     catch {
@@ -2901,7 +3432,7 @@ function Find-ADDomainControllersViaDns {
             $cimErrBefore = $global:Error.Count
             try {
                 $Domain = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).Domain
-            } catch {  =  }
+            } catch { $null = $_ }
             finally {
                 while ($global:Error.Count -gt $cimErrBefore) {
                     $global:Error.RemoveAt(0)
@@ -4425,6 +4956,7 @@ function Get-AD40SecurityAuditReports {
 }
 
 Export-ModuleMember -Function `
+    Set-ADConnectionContext, Get-ADConnectionContext, `
     Remove-DiacriticsText, `
     Get-ADUsersList, Get-ADUserDetail, Test-ADUsernameExists, New-ADUserItem, Set-ADUserItem, `
     Remove-ADUserItem, Set-ADUserPassword, Set-ADUserStatus, Unlock-ADUserAccount, Move-ADPrincipal, `

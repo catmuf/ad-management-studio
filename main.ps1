@@ -237,6 +237,12 @@ $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
 # Load App Settings & AD Context
 $appConfig = Get-AppSettings
 $adContext = Get-ADEnvironmentContext -Config $appConfig
+$script:ActiveADCredential = $null
+$script:SessionProfileCredentials = @{}
+$script:DisplayedConnectionProfiles = @()
+if ($adContext -and $adContext.IsConnected) {
+    Set-ADConnectionContext -Server $adContext.Server -Port ([int]$adContext.Port) -UseSSL ([bool]$adContext.UseSSL) -DefaultNamingContext $adContext.DefaultNamingContext -SearchBase $adContext.SearchBase -DomainName $adContext.DomainName
+}
 
 # Helper function to load and parse XAML files
 Set-Alias -Name Load-XamlWindow -Value Import-XamlWindow -Scope Global
@@ -1433,18 +1439,36 @@ if ($controls['CmbHtmlViewTemplate']) {
 }
 #endregion
 
-# Update Top Header Ribbon
-if ($adContext.IsConnected) {
-    if ($controls['TxtDomainBadge'])  { $controls['TxtDomainBadge'].Text = "Connected: $($adContext.DomainName)" }
-    if ($controls['TxtDCBadge'])      { $controls['TxtDCBadge'].Text     = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "Local DC" } }
-    if ($controls['TxtLatencyBadge']) { $controls['TxtLatencyBadge'].Text = "$($adContext.LatencyMs) ms" }
-    if ($controls['StatusDot'])       { $controls['StatusDot'].Fill      = [System.Windows.Media.Brushes]::LimeGreen }
-} else {
-    if ($controls['TxtDomainBadge'])  { $controls['TxtDomainBadge'].Text = "Not Connected to AD" }
-    if ($controls['TxtDCBadge'])      { $controls['TxtDCBadge'].Text     = $adContext.ErrorMessage }
-    if ($controls['TxtLatencyBadge']) { $controls['TxtLatencyBadge'].Text = "--" }
-    if ($controls['StatusDot'])       { $controls['StatusDot'].Fill      = [System.Windows.Media.Brushes]::Red }
+function global:Update-ConnectionHeader {
+    if ($adContext -and $adContext.IsConnected) {
+        if ($controls['TxtDomainBadge'])  { $controls['TxtDomainBadge'].Text = "Connected: $($adContext.DomainName)" }
+        if ($controls['TxtDCBadge'])      { $controls['TxtDCBadge'].Text     = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "Local DC" } }
+        if ($controls['TxtLatencyBadge']) { $controls['TxtLatencyBadge'].Text = "$($adContext.LatencyMs) ms" }
+        if ($controls['StatusDot'])       { $controls['StatusDot'].Fill      = [System.Windows.Media.Brushes]::LimeGreen }
+    } else {
+        if ($controls['TxtDomainBadge'])  { $controls['TxtDomainBadge'].Text = "Not Connected to AD" }
+        if ($controls['TxtDCBadge'])      { $controls['TxtDCBadge'].Text     = if ($adContext -and $adContext.ErrorMessage) { $adContext.ErrorMessage } else { "Offline" } }
+        if ($controls['TxtLatencyBadge']) { $controls['TxtLatencyBadge'].Text = "--" }
+        if ($controls['StatusDot'])       { $controls['StatusDot'].Fill      = [System.Windows.Media.Brushes]::Red }
+    }
+    if ($controls['TxtDashPdc']) { $controls['TxtDashPdc'].Text = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "Local DC" } }
+    if ($controls['TxtDashDefaultNC']) { $controls['TxtDashDefaultNC'].Text = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "--" } }
+    if ($controls['TxtDashModuleStatus']) {
+        $controls['TxtDashModuleStatus'].Text = if ($adContext.IsRSAT) { "RSAT + ADSI Dual Engine Active" } else { "ADSI / .NET LDAP Fallback Mode Active" }
+    }
+    if ($controls['TxtStatusServerUri']) {
+        $scheme = if ($adContext -and $adContext.UseSSL) { "ldaps" } else { "ldap" }
+        $uriPort = if ($adContext -and $adContext.Port) { [int]$adContext.Port } elseif ($scheme -eq "ldaps") { 636 } else { 389 }
+        $uriHost = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } elseif ($adContext.DomainName) { $adContext.DomainName } else { "RootDSE" }
+        $controls['TxtStatusServerUri'].Text = "${scheme}://${uriHost}:${uriPort}"
+    }
+    if ($controls['TxtStatusBindUser']) {
+        $controls['TxtStatusBindUser'].Text = if ($adContext.CurrentUser) { $adContext.CurrentUser } else { [System.Security.Principal.WindowsIdentity]::GetCurrent().Name }
+    }
 }
+
+# Update Top Header Ribbon
+Update-ConnectionHeader
 function global:Set-Status {
     param ([string]$Message, [string]$Count = "")
     if ($controls['TxtStatusMessage']) {
@@ -1458,7 +1482,10 @@ function global:Set-Status {
         }
     }
     if ($controls['TxtStatusServerUri']) {
-        $controls['TxtStatusServerUri'].Text = if ($adContext.Server) { "ldap://$($adContext.Server):389" } elseif ($adContext.DomainName) { "ldap://$($adContext.DomainName):389" } else { "ldap://RootDSE:389" }
+        $scheme = if ($adContext -and $adContext.UseSSL) { "ldaps" } else { "ldap" }
+        $uriPort = if ($adContext -and $adContext.Port) { [int]$adContext.Port } elseif ($scheme -eq "ldaps") { 636 } else { 389 }
+        $uriHost = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } elseif ($adContext.DomainName) { $adContext.DomainName } else { "RootDSE" }
+        $controls['TxtStatusServerUri'].Text = "${scheme}://${uriHost}:${uriPort}"
     }
     if ($controls['TxtStatusBindUser']) {
         $controls['TxtStatusBindUser'].Text = if ($adContext.CurrentUser) { $adContext.CurrentUser } else { [System.Security.Principal.WindowsIdentity]::GetCurrent().Name }
@@ -3732,7 +3759,7 @@ if ($controls['BtnDiagnostics']) {
 }
 
 if ($controls['BtnGlobalRefresh']) {
-    $controls['BtnGlobalRefresh'].Add_Click({ Refresh-All })
+    $controls['BtnGlobalRefresh'].Add_Click({ Refresh-All -ForceAll })
 }
 #endregion
 
@@ -4444,7 +4471,7 @@ function Show-PagedUsers {    param (
     }
 
     if ($controls['GridUsers']) {
-        $controls['GridUsers'].ItemsSource = @($pagedItems)
+        Set-GridItemsSource -Control $controls['GridUsers'] -Items $pagedItems
         Sync-DataGridColumnsProperties -DataGrid $controls['GridUsers']
     }
 
@@ -4544,7 +4571,7 @@ function Update-Users {
         }
 
         $rawUsers = Get-ADUsersList -SearchText $searchText -StatusFilter $statusFilter -SearchBase $searchBase -Limit ($appConfig.UI.PageSize)
-        $users = @($rawUsers)
+        $users = @($rawUsers | Where-Object { $null -ne $_ })
         $state.CachedUsers = $users
         if ([string]::IsNullOrWhiteSpace($searchText)) {
             $state.AllScopeUsers = $users
@@ -4553,7 +4580,12 @@ function Update-Users {
         $state.UsersPage = 1
         Render-PagedUsers -SourceItems $users
 
-        $countMsg = if ([string]::IsNullOrWhiteSpace($searchText)) {
+        $connCtx = if (Get-Command Get-ADConnectionContext -ErrorAction SilentlyContinue) { Get-ADConnectionContext } else { $null }
+        $connErr = if ($connCtx -and $connCtx.LastError) { $connCtx.LastError } else { "" }
+
+        $countMsg = if ($users.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($connErr)) {
+            "0 users ($connErr)"
+        } elseif ([string]::IsNullOrWhiteSpace($searchText)) {
             "$($users.Count) users displayed"
         } else {
             "$($users.Count) user(s) matching '$searchText'"
@@ -4568,7 +4600,11 @@ function Update-Users {
             }
         }
 
-        Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
+        if ($users.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($connErr)) {
+            Set-Status -Message "Directory query failed: $connErr" -Count "0 users (connection/auth error)"
+        } else {
+            Set-Status -Message "Loaded $($users.Count) user(s)." -Count "$($users.Count) users displayed"
+        }
     } finally {
         [System.Windows.Input.Mouse]::OverrideCursor = $null
     }
@@ -5502,7 +5538,7 @@ function Update-Groups {    Set-Status -Message "Loading groups from Active Dire
     $groups = @($rawGroups | ForEach-Object { $_ })
     $state.CachedGroups = $groups
     if ($controls['GridGroups']) {
-        $controls['GridGroups'].ItemsSource = $groups
+        Set-GridItemsSource -Control $controls['GridGroups'] -Items $groups
         Sync-DataGridColumnsProperties -DataGrid $controls['GridGroups']
     }
     if ($controls['TxtGroupsCountBadge']) {
@@ -5575,7 +5611,7 @@ function Select-GroupsLive {    $query = if ($controls['TxtSearchGroups']) { $co
 
     $finalArr = @($filtered)
     if ($controls['GridGroups']) {
-        $controls['GridGroups'].ItemsSource = $finalArr
+        Set-GridItemsSource -Control $controls['GridGroups'] -Items $finalArr
         Sync-DataGridColumnsProperties -DataGrid $controls['GridGroups']
     }
     if ($controls['TxtGroupsCountBadge']) {
@@ -6117,7 +6153,7 @@ function Select-ToDirectoryObject {    param (
                 $rawItems = Get-ADObjectsInOU -SearchBase $matchedNode.DistinguishedName -SearchScope $scope
                 $flatItems = @($rawItems | ForEach-Object { $_ })
                 if ($controls['GridOUObjects']) {
-                    $controls['GridOUObjects'].ItemsSource = $flatItems
+                    Set-GridItemsSource -Control $controls['GridOUObjects'] -Items $flatItems
                     Sync-DataGridColumnsProperties -DataGrid $controls['GridOUObjects']
 
                     foreach ($row in $flatItems) {
@@ -6147,7 +6183,7 @@ Set-Alias -Name Filter-OUTreeNodes -Value Select-OUTreeNodes -Scope Global
 function Select-OUTreeNodes {    param ([string]$Query)
     if ([string]::IsNullOrWhiteSpace($Query)) {
         if ($state.CachedOUTree -and $controls['TreeOUs']) {
-            $controls['TreeOUs'].ItemsSource = @($state.CachedOUTree)
+            Set-GridItemsSource -Control $controls['TreeOUs'] -Items $state.CachedOUTree
         }
         return
     }
@@ -6179,20 +6215,22 @@ function Select-OUTreeNodes {    param ([string]$Query)
             $fRoot = Filter-NodeRecursive $root
             if ($fRoot) { [void]$filteredRoots.Add($fRoot) }
         }
-        $controls['TreeOUs'].ItemsSource = $filteredRoots
+        Set-GridItemsSource -Control $controls['TreeOUs'] -Items $filteredRoots
     }
 }
 
 Set-Alias -Name Refresh-OUs -Value Update-OUs -Scope Global
 function Update-OUs {    Set-Status -Message "Building Organizational Unit hierarchy..."
-    $ouTree = Get-ADOUTree
+    $srvArg = if ($adContext -and $adContext.Server) { $adContext.Server } else { "" }
+    $baseArg = if ($adContext -and $adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "" }
+    $ouTree = Get-ADOUTree -Server $srvArg -SearchBase $baseArg -Credential $script:ActiveADCredential
     $state.CachedOUTree = $ouTree
-    if ($ouTree -and $controls['TreeOUs']) {
-        $controls['TreeOUs'].ItemsSource = @($ouTree)
+    if ($controls['TreeOUs']) {
+        Set-GridItemsSource -Control $controls['TreeOUs'] -Items $ouTree
     }
 
     # Populate OU filter dropdowns
-    $ouFlatList = Get-ADOUFlatList
+    $ouFlatList = @(Get-ADOUFlatList -Server $srvArg -SearchBase $baseArg -Credential $script:ActiveADCredential | Where-Object { $null -ne $_ })
     $state.CachedOUs = $ouFlatList
 
     if ($controls['CmbUserOUFilter']) {
@@ -6211,7 +6249,12 @@ function Update-OUs {    Set-Status -Message "Building Organizational Unit hiera
         }
     }
 
-    Set-Status -Message "OU hierarchy loaded ($($ouFlatList.Count) OUs)." -Count "$($ouFlatList.Count) OUs"
+    $connCtx = if (Get-Command Get-ADConnectionContext -ErrorAction SilentlyContinue) { Get-ADConnectionContext } else { $null }
+    if (-not $ouTree -and $connCtx -and -not [string]::IsNullOrWhiteSpace($connCtx.LastError)) {
+        Set-Status -Message "OU hierarchy failed: $($connCtx.LastError)" -Count "0 OUs (error)"
+    } else {
+        Set-Status -Message "OU hierarchy loaded ($($ouFlatList.Count) OUs)." -Count "$($ouFlatList.Count) OUs"
+    }
 }
 
 function Open-OUDialog {
@@ -6337,9 +6380,9 @@ function Import-OUObjectsUI {    $selectedNode = if ($controls['TreeOUs']) { $co
     try {
         Set-Status -Message "Fetching directory objects in $($selectedNode.Name)..."
         $rawItems = Get-ADObjectsInOU -SearchBase $selectedNode.DistinguishedName -SearchScope $scope
-        $flatItems = @($rawItems | ForEach-Object { $_ })
+        $flatItems = @($rawItems | Where-Object { $null -ne $_ })
         if ($controls['GridOUObjects']) {
-            $controls['GridOUObjects'].ItemsSource = $flatItems
+            Set-GridItemsSource -Control $controls['GridOUObjects'] -Items $flatItems
             Sync-DataGridColumnsProperties -DataGrid $controls['GridOUObjects']
         }
         if ($controls['TxtSelectedOUObjectsCount']) {
@@ -6461,7 +6504,7 @@ function Update-Computers {    Set-Status -Message "Loading domain computers..."
     }
     $state.CachedComputers = $computers
     if ($controls['GridComputers']) {
-        $controls['GridComputers'].ItemsSource = $computers
+        Set-GridItemsSource -Control $controls['GridComputers'] -Items $computers
         Sync-DataGridColumnsProperties -DataGrid $controls['GridComputers']
     }
     if ($controls['TxtComputersCountBadge']) {
@@ -6887,7 +6930,7 @@ function Register-SearchableAttributeDropdown {    param(
     $Combo.StaysOpenOnEdit = $true
     $Combo.MaxDropDownHeight = 320
 
-    $Combo.ApplyTemplate()
+    [void]$Combo.ApplyTemplate()
     $editBox = $Combo.Template.FindName("PART_EditableTextBox", $Combo)
     if (-not $editBox) { return }
 
@@ -10825,6 +10868,104 @@ if ($controls['CmbFilterRequestLog']) {
 #endregion
 
 #region 16. Connection Profiles & Diagnostics Logic
+function global:Connect-ADProfileContext {
+    <#
+    .SYNOPSIS
+        Activates a target Active Directory Domain Controller context, synchronizes headers and session credentials,
+        and reloads all directory views (Dashboard, OU Tree, Users, Groups, Computers).
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$ProfileName = "",
+        [string]$Server = "",
+        [int]$Port = 389,
+        [bool]$UseSSL = $false,
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null,
+        [bool]$UseCurrentCredentials = $true,
+        [string]$Username = "",
+        [bool]$ReadOnly = $false,
+        [bool]$Silent = $false
+    )
+
+    $effectiveCred = $Credential
+    if (-not $effectiveCred -and -not $UseCurrentCredentials) {
+        $credKeys = @($ProfileName, $Server) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        foreach ($ck in $credKeys) {
+            if ($script:SessionProfileCredentials -and $script:SessionProfileCredentials.ContainsKey($ck)) {
+                $effectiveCred = $script:SessionProfileCredentials[$ck]
+                break
+            }
+        }
+        if (-not $effectiveCred -and -not $Silent -and -not [string]::IsNullOrWhiteSpace($Server)) {
+            $promptUser = if (-not [string]::IsNullOrWhiteSpace($Username)) { " (Username: $Username)" } else { "" }
+            $enteredPw = Show-AppInputDialog -Prompt "Enter Active Directory password for '$Server'$promptUser`:" -Title "Credentials Required" -DefaultResponse ""
+            if (-not [string]::IsNullOrWhiteSpace($enteredPw) -and -not [string]::IsNullOrWhiteSpace($Username)) {
+                $secPw = ConvertTo-SecureString $enteredPw -AsPlainText -Force
+                $effectiveCred = [System.Management.Automation.PSCredential]::new($Username, $secPw)
+                if ($ProfileName) { $script:SessionProfileCredentials[$ProfileName] = $effectiveCred }
+                if ($Server)      { $script:SessionProfileCredentials[$Server]      = $effectiveCred }
+            }
+        }
+    }
+
+    $effPort = if ($Port -gt 0) { $Port } elseif ($UseSSL) { 636 } else { 389 }
+    $effSsl = [bool]($UseSSL -or ($effPort -eq 636))
+
+    Set-Status -Message "Connecting to Active Directory server '$Server':$effPort..."
+    $newCtx = Get-ADEnvironmentContext -Config $appConfig -Server $Server -Port $effPort -UseSSL $effSsl -SearchBase $SearchBase -Credential $effectiveCred
+
+    if (-not $newCtx -or -not $newCtx.IsConnected) {
+        $errDetail = if ($newCtx -and $newCtx.ErrorMessage) { $newCtx.ErrorMessage } else { "Unable to bind or reach RootDSE on '${Server}:${effPort}'." }
+        if ($adContext) {
+            $adContext.Server       = $Server
+            $adContext.Port         = $effPort
+            $adContext.UseSSL       = $effSsl
+            $adContext.IsConnected  = $false
+            $adContext.ErrorMessage = $errDetail
+        }
+        Update-ConnectionHeader
+        Invoke-ConnectionDiagnostics
+        Set-Status -Message "Connection to '$Server' failed: $errDetail" -Count "Disconnected"
+        if (-not $Silent) {
+            $null = [System.Windows.MessageBox]::Show("Could not connect to Active Directory server '$Server':$effPort`n`n$errDetail", "Connection Failed", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+        }
+        return $false
+    }
+
+    $global:adContext = $newCtx
+    $script:ActiveADCredential = $effectiveCred
+    $state.IsReadOnlyProfile = [bool]$ReadOnly
+    if ($controls['BorderReadOnlyBadge']) {
+        $controls['BorderReadOnlyBadge'].Visibility = if ($state.IsReadOnlyProfile) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    }
+
+    Set-ADConnectionContext -Server $newCtx.Server -Port ([int]$newCtx.Port) -UseSSL ([bool]$newCtx.UseSSL) -DefaultNamingContext $newCtx.DefaultNamingContext -SearchBase $newCtx.SearchBase -DomainName $newCtx.DomainName -Credential $effectiveCred
+
+    if ($appConfig -and $appConfig.Domain) {
+        $appConfig.Domain.DomainController = $newCtx.Server
+        $appConfig.Domain.DomainName       = $newCtx.DomainName
+        $appConfig.Domain.SearchBase       = $newCtx.SearchBase
+    }
+    if ($appConfig -and $appConfig.Ldap) {
+        $appConfig.Ldap.Port   = [int]$newCtx.Port
+        $appConfig.Ldap.UseSSL = [bool]$newCtx.UseSSL
+    }
+
+    [void](Update-ConnectionHeader)
+    [void](Clear-ADCache)
+    if ($controls['TxtSearchBaseDn']) {
+        $controls['TxtSearchBaseDn'].Text = $newCtx.DefaultNamingContext
+    }
+
+    [void](Invoke-ConnectionDiagnostics)
+    [void](Refresh-All -ForceAll)
+    [void](Populate-SearchAttributeDropdowns)
+
+    [void](Set-Status -Message "Connected to $($newCtx.Server):$($newCtx.Port) ($($newCtx.DefaultNamingContext)). Directory tree & lists refreshed.")
+    return $true
+}
+
 function Open-ConnectionDialog {
     $dlgPath = Join-Path $viewsPath "ConnectionDialog.xaml"
     $dlg = Load-XamlWindow -XamlPath $dlgPath
@@ -10840,8 +10981,17 @@ function Open-ConnectionDialog {
     }
     $dReader.Close()
 
-    $dControls['TxtServerHost'].Text = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+    $dControls['TxtServerHost'].Text = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+    $dControls['TxtPort'].Text = if ($adContext.Port) { "$($adContext.Port)" } else { "389" }
+    $dControls['ChkUseSSL'].IsChecked = [bool]$adContext.UseSSL
     $dControls['TxtSearchBase'].Text = $adContext.DefaultNamingContext
+
+    $dControls['ChkUseSSL'].Add_Checked({
+        if ($dControls['TxtPort'].Text.Trim() -eq "389") { $dControls['TxtPort'].Text = "636" }
+    })
+    $dControls['ChkUseSSL'].Add_Unchecked({
+        if ($dControls['TxtPort'].Text.Trim() -eq "636") { $dControls['TxtPort'].Text = "389" }
+    })
 
     $dControls['ChkCurrentCredentials'].Add_Checked({
         $dControls['PanelCustomCredentials'].Visibility = [System.Windows.Visibility]::Collapsed
@@ -10850,19 +11000,37 @@ function Open-ConnectionDialog {
         $dControls['PanelCustomCredentials'].Visibility = [System.Windows.Visibility]::Visible
     })
 
+    $buildDialogCredential = {
+        if ([bool]$dControls['ChkCurrentCredentials'].IsChecked) { return $null }
+        $u = if ($dControls['TxtUsername']) { $dControls['TxtUsername'].Text.Trim() } else { "" }
+        $pw = if ($dControls['TxtPassword']) { $dControls['TxtPassword'].Password } else { "" }
+        if ([string]::IsNullOrWhiteSpace($u)) { return $null }
+        $secPw = if ([string]::IsNullOrEmpty($pw)) {
+            [System.Security.SecureString]::new()
+        } else {
+            ConvertTo-SecureString $pw -AsPlainText -Force
+        }
+        return [System.Management.Automation.PSCredential]::new($u, $secPw)
+    }
+
     $dControls['BtnTestConnection'].Add_Click({
         $hostName = $dControls['TxtServerHost'].Text.Trim()
         $portNum = 389
         [void][int]::TryParse($dControls['TxtPort'].Text.Trim(), [ref]$portNum)
+        $useSsl = [bool]$dControls['ChkUseSSL'].IsChecked
+        $cred = & $buildDialogCredential
         $dControls['TxtDiagStatus'].Text = "Testing connection to ${hostName}:$portNum..."
         $isLight = ($state -and $state.CurrentTheme -eq "Light")
         $dControls['TxtDiagStatus'].Foreground = if ($isLight) { [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D97706") } else { [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FBBF24") }
 
-        $diag = Test-ADConnectionDiagnostic -Server $hostName -Port $portNum
+        $diag = Test-ADConnectionDiagnostic -Server $hostName -Port $portNum -UseSSL $useSsl -Credential $cred
         if ($diag.Success) {
             $dControls['TxtDiagStatus'].Text = "Connected Successfully ($($diag.LatencyMs) ms)"
             $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#107C41")
             $dControls['TxtDiagDetails'].Text = "IP: $($diag.IPAddress) | DefaultNC: $($diag.DefaultNamingContext)"
+            if ([string]::IsNullOrWhiteSpace($dControls['TxtSearchBase'].Text) -and $diag.DefaultNamingContext) {
+                $dControls['TxtSearchBase'].Text = $diag.DefaultNamingContext
+            }
         } else {
             $dControls['TxtDiagStatus'].Text = "Connection Failed"
             $dControls['TxtDiagStatus'].Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#D13438")
@@ -10872,7 +11040,9 @@ function Open-ConnectionDialog {
 
     $dControls['BtnCancel'].Add_Click({ $dlg.Close() })
 
-    $dControls['BtnSaveProfile'].Add_Click({
+    $saveDialogProfile = {
+        param([bool]$ConnectAfterSave = $false)
+
         $pName = $dControls['TxtProfileName'].Text.Trim()
         if ([string]::IsNullOrWhiteSpace($pName)) { $pName = "Profile $(([DateTime]::Now).ToString('HHmm'))" }
         $hostName = $dControls['TxtServerHost'].Text.Trim()
@@ -10881,14 +11051,31 @@ function Open-ConnectionDialog {
         $useSsl = [bool]$dControls['ChkUseSSL'].IsChecked
         $searchBase = $dControls['TxtSearchBase'].Text.Trim()
         $isReadOnly = if ($dControls['ChkReadOnlyProfile']) { [bool]$dControls['ChkReadOnlyProfile'].IsChecked } else { $false }
+        $useCurrentCreds = [bool]$dControls['ChkCurrentCredentials'].IsChecked
+        $customUser = if (-not $useCurrentCreds -and $dControls['TxtUsername']) { $dControls['TxtUsername'].Text.Trim() } else { "" }
+        $cred = & $buildDialogCredential
 
-        $newProf = @{
-            Name       = $pName
-            Server     = $hostName
-            Port       = $portNum
-            UseSSL     = $useSsl
-            SearchBase = $searchBase
-            ReadOnly   = $isReadOnly
+        if (-not $useCurrentCreds -and [string]::IsNullOrWhiteSpace($customUser)) {
+            [System.Windows.MessageBox]::Show("Please enter a Username (DOMAIN\user or user@domain) or re-enable Windows SSO credentials.", "Username Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+
+        if ($cred) {
+            $script:SessionProfileCredentials[$pName] = $cred
+            if (-not [string]::IsNullOrWhiteSpace($hostName)) {
+                $script:SessionProfileCredentials[$hostName] = $cred
+            }
+        }
+
+        $newProf = [PSCustomObject]@{
+            Name                  = $pName
+            Server                = $hostName
+            Port                  = $portNum
+            UseSSL                = $useSsl
+            SearchBase            = $searchBase
+            UseCurrentCredentials = $useCurrentCreds
+            Username              = $customUser
+            ReadOnly              = $isReadOnly
         }
 
         if (-not $appConfig.Profiles) {
@@ -10898,10 +11085,21 @@ function Open-ConnectionDialog {
         $appConfig.Profiles = $existingProfiles
         Save-AppSettings -Config $appConfig
 
-        [System.Windows.MessageBox]::Show("Connection profile '$pName' saved successfully.", "Profile Saved", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
-        $dlg.Close()
-        Refresh-Connections
-    })
+        if ($ConnectAfterSave) {
+            $dlg.Close()
+            [void](Connect-ADProfileContext -ProfileName $pName -Server $hostName -Port $portNum -UseSSL $useSsl -SearchBase $searchBase -Credential $cred -UseCurrentCredentials $useCurrentCreds -Username $customUser -ReadOnly $isReadOnly -Silent $false)
+            Refresh-Connections
+        } else {
+            [System.Windows.MessageBox]::Show("Connection profile '$pName' saved successfully.", "Profile Saved", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            $dlg.Close()
+            Refresh-Connections
+        }
+    }
+
+    if ($dControls['BtnSaveOnly']) {
+        $dControls['BtnSaveOnly'].Add_Click({ & $saveDialogProfile -ConnectAfterSave $false })
+    }
+    $dControls['BtnSaveProfile'].Add_Click({ & $saveDialogProfile -ConnectAfterSave $true })
 
     [void]$dlg.ShowDialog()
 }
@@ -10910,76 +11108,90 @@ Set-Alias -Name Refresh-Connections -Value Update-Connections -Scope Global
 function Update-Connections {
     $connSearchTxt = if ($controls['TxtSearchConnections']) { $controls['TxtSearchConnections'] } else { $controls['TxtDnsDiscoveryDomain'] }
     if ($connSearchTxt -and [string]::IsNullOrWhiteSpace($connSearchTxt.Text)) {
-        # Keep search box clean and prompt with placeholder
         if ($controls['TxtSearchConnectionsPlaceholder']) { $controls['TxtSearchConnectionsPlaceholder'].Visibility = [System.Windows.Visibility]::Visible }
     }
 
-    if ($controls['ListProfiles']) {
-        $controls['ListProfiles'].Items.Clear()
-        $profiles = @()
-        if ($appConfig.Profiles) {
-            $seenListNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($p in $appConfig.Profiles) {
-                if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
-                    if ($seenListNames.Add($p.Name)) {
-                        $profiles += $p
+    $script:IsUpdatingProfiles = $true
+    try {
+        if ($controls['ListProfiles']) {
+            $controls['ListProfiles'].Items.Clear()
+            $profiles = [System.Collections.Generic.List[object]]::new()
+            if ($appConfig.Profiles) {
+                $seenListNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                foreach ($p in $appConfig.Profiles) {
+                    if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
+                        if ($seenListNames.Add($p.Name)) {
+                            $profiles.Add($p)
+                        }
                     }
+                }
+            }
+            $script:DisplayedConnectionProfiles = @($profiles)
+
+            if ($profiles.Count -eq 0) {
+                $defaultServer = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+                [void]$controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
+            } else {
+                foreach ($p in $profiles) {
+                    $roTag = if ($p.ReadOnly) { " 🔒 [READ-ONLY]" } else { "" }
+                    $srv = if ($p.Server) { $p.Server } else { "Auto-Detect" }
+                    $pPort = if ($p.Port) { [int]$p.Port } else { 389 }
+                    [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($srv):$($pPort)]$roTag")
                 }
             }
         }
 
-        if ($profiles.Count -eq 0) {
-            $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-            [void]$controls['ListProfiles'].Items.Add("Default: Production Domain [$($defaultServer):389]")
-        } else {
-            foreach ($p in $profiles) {
-                $roTag = if ($p.ReadOnly) { " 🔒 [READ-ONLY]" } else { "" }
-                $srv = if ($p.Server) { $p.Server } else { "Auto-Detect" }
-                [void]$controls['ListProfiles'].Items.Add("$($p.Name) [$($srv):$($p.Port)]$roTag")
+        if ($controls['CmbActiveProfile']) {
+            $controls['CmbActiveProfile'].Items.Clear()
+            $defaultServer = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
+            $defaultLabel = "Default ($defaultServer)"
+            [void]$controls['CmbActiveProfile'].Items.Add($defaultLabel)
+            if ($appConfig.Profiles) {
+                $seenCmbNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                [void]$seenCmbNames.Add("Default")
+                [void]$seenCmbNames.Add($defaultLabel)
+                [void]$seenCmbNames.Add("Default (Auto-Detect)")
+                foreach ($p in $appConfig.Profiles) {
+                    if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
+                        if ($seenCmbNames.Add($p.Name)) {
+                            $roLabel = if ($p.ReadOnly) { " 🔒" } else { "" }
+                            [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)$roLabel")
+                        }
+                    }
+                }
+            }
+            $controls['CmbActiveProfile'].SelectedIndex = 0
+            $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile / Server: $defaultLabel"
+
+            if (-not $controls['CmbActiveProfile'].Tag) {
+                $controls['CmbActiveProfile'].Tag = "Initialized"
+                $controls['CmbActiveProfile'].Add_SelectionChanged({
+                    if ($script:IsUpdatingProfiles) { return }
+                    if ($controls['CmbActiveProfile'].SelectedItem) {
+                        $sel = [string]$controls['CmbActiveProfile'].SelectedItem
+                        $cleanName = ($sel -replace '\s*🔒.*$', '').Trim()
+                        $matched = $null
+                        if ($appConfig.Profiles) {
+                            $matched = $appConfig.Profiles | Where-Object { $_.Name -eq $cleanName } | Select-Object -First 1
+                        }
+                        $state.IsReadOnlyProfile = [bool]($matched -and $matched.ReadOnly)
+                        if ($controls['BorderReadOnlyBadge']) {
+                            $controls['BorderReadOnlyBadge'].Visibility = if ($state.IsReadOnlyProfile) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+                        }
+                        $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile: $sel"
+                        if ($matched -and -not [string]::IsNullOrWhiteSpace($matched.Server)) {
+                            $pPort = if ($matched.Port) { [int]$matched.Port } else { 389 }
+                            $pSsl = [bool]$matched.UseSSL
+                            $useCurr = if ($null -ne $matched.UseCurrentCredentials) { [bool]$matched.UseCurrentCredentials } else { $true }
+                            [void](Connect-ADProfileContext -ProfileName $matched.Name -Server $matched.Server -Port $pPort -UseSSL $pSsl -SearchBase ([string]$matched.SearchBase) -UseCurrentCredentials $useCurr -Username ([string]$matched.Username) -ReadOnly ([bool]$matched.ReadOnly) -Silent $true)
+                        }
+                    }
+                })
             }
         }
     }
-
-    if ($controls['CmbActiveProfile']) {
-        $controls['CmbActiveProfile'].Items.Clear()
-        $defaultServer = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-        $defaultLabel = "Default ($defaultServer)"
-        [void]$controls['CmbActiveProfile'].Items.Add($defaultLabel)
-        if ($appConfig.Profiles) {
-            $seenCmbNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            [void]$seenCmbNames.Add("Default")
-            [void]$seenCmbNames.Add($defaultLabel)
-            [void]$seenCmbNames.Add("Default (Auto-Detect)")
-            foreach ($p in $appConfig.Profiles) {
-                if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
-                    if ($seenCmbNames.Add($p.Name)) {
-                        $roLabel = if ($p.ReadOnly) { " 🔒" } else { "" }
-                        [void]$controls['CmbActiveProfile'].Items.Add("$($p.Name)$roLabel")
-                    }
-                }
-            }
-        }
-        $controls['CmbActiveProfile'].SelectedIndex = 0
-        $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile / Server: $defaultLabel"
-
-        if (-not $controls['CmbActiveProfile'].Tag) {
-            $controls['CmbActiveProfile'].Tag = "Initialized"
-            $controls['CmbActiveProfile'].Add_SelectionChanged({
-                if ($controls['CmbActiveProfile'].SelectedItem) {
-                    $sel = [string]$controls['CmbActiveProfile'].SelectedItem
-                    $cleanName = ($sel -replace '\s*🔒.*$', '').Trim()
-                    $matched = $null
-                    if ($appConfig.Profiles) {
-                        $matched = $appConfig.Profiles | Where-Object { $_.Name -eq $cleanName } | Select-Object -First 1
-                    }
-                    $state.IsReadOnlyProfile = [bool]($matched -and $matched.ReadOnly)
-                    if ($controls['BorderReadOnlyBadge']) {
-                        $controls['BorderReadOnlyBadge'].Visibility = if ($state.IsReadOnlyProfile) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-                    }
-                    $controls['CmbActiveProfile'].ToolTip = "Active Directory Profile: $sel"
-                }
-            })
-        }
+    finally {
+        $script:IsUpdatingProfiles = $false
     }
 
     if (-not $state.AutoDetectedConnections -or $state.AutoDetectedConnections.Count -eq 0) {
@@ -10990,13 +11202,16 @@ function Update-Connections {
 Set-Alias -Name Run-ConnectionDiagnostics -Value Invoke-ConnectionDiagnostics -Scope Global
 function Invoke-ConnectionDiagnostics {
     Set-Status -Message "Running full Active Directory connection diagnostics..."
-    $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } elseif ($adContext.DomainName) { $adContext.DomainName } else { "127.0.0.1" }
-    $diag = Test-ADConnectionDiagnostic -Server $server -Port 389
+    $server = if ($adContext.Server) { $adContext.Server } elseif ($adContext.PDCEmulator) { $adContext.PDCEmulator } elseif ($adContext.DomainName) { $adContext.DomainName } else { "127.0.0.1" }
+    $port   = if ($adContext.Port) { [int]$adContext.Port } else { 389 }
+    $useSsl = [bool]($adContext.UseSSL)
+    $diag = Test-ADConnectionDiagnostic -Server $server -Port $port -UseSSL $useSsl -Credential $script:ActiveADCredential
 
-    if ($controls['TxtDiagServer']) { $controls['TxtDiagServer'].Text = $server }
+    if ($controls['TxtDiagServer']) { $controls['TxtDiagServer'].Text = "$server`:$port" }
     if ($controls['TxtDiagIp']) { $controls['TxtDiagIp'].Text = if ($diag.IPAddress) { $diag.IPAddress } else { "--" } }
     if ($controls['TxtDiagPortStatus']) {
-        $controls['TxtDiagPortStatus'].Text = if ($diag.PortOpen) { "OPEN (Port 389 Active)" } else { "CLOSED / FILTERED" }
+        $proto = if ($useSsl -or $port -eq 636) { "LDAPS" } else { "LDAP" }
+        $controls['TxtDiagPortStatus'].Text = if ($diag.PortOpen) { "OPEN (Port $port $proto Active)" } else { "CLOSED / FILTERED (Port $port)" }
         $controls['TxtDiagPortStatus'].Foreground = if ($diag.PortOpen) { [System.Windows.Media.Brushes]::LimeGreen } else { [System.Windows.Media.Brushes]::Red }
     }
     if ($controls['TxtDiagLatency']) {
@@ -11351,45 +11566,41 @@ if ($controls['BtnDeleteProfile']) {
 
 if ($controls['BtnConnectProfile']) {
     $controls['BtnConnectProfile'].Add_Click({
-        # Priority 1: Check selected item in GridActiveConnections
+        $isOfflineTest = ($env:TEST_MODE -eq '1' -or $env:AD_STUDIO_SYNC_MODE -eq '1')
+
+        # Priority 1: Check selected profile in ListProfiles (BtnConnectProfile sits directly under ListProfiles)
+        $selIdx = if ($controls['ListProfiles']) { $controls['ListProfiles'].SelectedIndex } else { -1 }
+        $profileList = if ($script:DisplayedConnectionProfiles -and $script:DisplayedConnectionProfiles.Count -gt 0) { $script:DisplayedConnectionProfiles } else { @($appConfig.Profiles) }
+        if ($selIdx -ge 0 -and $profileList -and $selIdx -lt $profileList.Count) {
+            $p = $profileList[$selIdx]
+            $pHost = if ($p.Server) { [string]$p.Server } else { "" }
+            $pPort = if ($p.Port) { [int]$p.Port } else { 389 }
+            $pSsl  = [bool]$p.UseSSL
+            $useCurr = if ($null -ne $p.UseCurrentCredentials) { [bool]$p.UseCurrentCredentials } else { $true }
+            if (-not [string]::IsNullOrWhiteSpace($pHost)) {
+                [void](Connect-ADProfileContext -ProfileName ([string]$p.Name) -Server $pHost -Port $pPort -UseSSL $pSsl -SearchBase ([string]$p.SearchBase) -UseCurrentCredentials $useCurr -Username ([string]$p.Username) -ReadOnly ([bool]$p.ReadOnly) -Silent:$isOfflineTest)
+                return
+            }
+        }
+
+        # Priority 2: Fallback to selected item in GridActiveConnections
         $gridSel = if ($controls['GridActiveConnections']) { $controls['GridActiveConnections'].SelectedItem } else { $null }
         if ($gridSel) {
-            $targetHost = if ($gridSel.HostName) { $gridSel.HostName } else { $gridSel.IPAddress }
+            $targetHost = if ($gridSel.HostName) { [string]$gridSel.HostName } else { [string]$gridSel.IPAddress }
             $targetPort = if ($gridSel.Port) { [int]$gridSel.Port } else { 389 }
-            Set-Status -Message "Connecting to auto-detected server '$targetHost' ($targetPort)..."
-            if ($adContext) {
-                if ($adContext.PSObject.Properties['Server']) {
-                    $adContext.Server = $targetHost
-                } else {
-                    $adContext | Add-Member -MemberType NoteProperty -Name "Server" -Value $targetHost -Force
-                }
-                if ($adContext.PSObject.Properties['PDCEmulator']) {
-                    $adContext.PDCEmulator = $targetHost
-                }
-            }
-            Run-ConnectionDiagnostics
+            [void](Connect-ADProfileContext -ProfileName $targetHost -Server $targetHost -Port $targetPort -UseSSL:($targetPort -eq 636) -ReadOnly:([bool]$gridSel.ReadOnly) -Silent:$isOfflineTest)
             return
         }
 
-        # Priority 2: Check selected profile in ListProfiles
-        $selIdx = if ($controls['ListProfiles']) { $controls['ListProfiles'].SelectedIndex } else { -1 }
-        if ($selIdx -ge 0 -and $appConfig.Profiles -and $selIdx -lt $appConfig.Profiles.Count) {
-            $p = $appConfig.Profiles[$selIdx]
-            Set-Status -Message "Connecting to profile '$($p.Name)' ($($p.Server):$($p.Port))..."
-            if ($adContext -and -not [string]::IsNullOrWhiteSpace($p.Server)) {
-                if ($adContext.PSObject.Properties['Server']) {
-                    $adContext.Server = $p.Server
-                } else {
-                    $adContext | Add-Member -MemberType NoteProperty -Name "Server" -Value $p.Server -Force
-                }
-                if ($adContext.PSObject.Properties['PDCEmulator']) {
-                    $adContext.PDCEmulator = $p.Server
-                }
-            }
-            Run-ConnectionDiagnostics
-        } else {
-            Set-Status -Message "Connected to default profile."
-            Run-ConnectionDiagnostics
+        Set-Status -Message "Connected to default profile."
+        Run-ConnectionDiagnostics
+    })
+}
+
+if ($controls['ListProfiles']) {
+    $controls['ListProfiles'].Add_MouseDoubleClick({
+        if ($controls['BtnConnectProfile']) {
+            $controls['BtnConnectProfile'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
         }
     })
 }
@@ -11409,7 +11620,9 @@ if ($controls['BtnTestConnection']) {
 # Double-click on GridActiveConnections row connects immediately
 if ($controls['GridActiveConnections']) {
     $controls['GridActiveConnections'].Add_MouseDoubleClick({
-        if ($controls['BtnConnectProfile']) {
+        if ($controls['BtnConnectDiscoveredDC']) {
+            $controls['BtnConnectDiscoveredDC'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        } elseif ($controls['BtnConnectProfile']) {
             $controls['BtnConnectProfile'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
         }
     })
@@ -11563,13 +11776,15 @@ if ($controls['BtnConnectDiscoveredDC']) {
         # Add as a profile or switch active server
         $hostPrefix = if ($targetHost -match '^([^.]+)') { $matches[1].ToUpper() } else { $targetHost.ToUpper() }
         $profName = "DC: $hostPrefix"
-        $newProf = @{
-            Name       = $profName
-            Server     = $targetHost
-            Port       = $targetPort
-            UseSSL     = ($targetPort -eq 636)
-            SearchBase = $adContext.DefaultNamingContext
-            ReadOnly   = $false
+        $newProf = [PSCustomObject]@{
+            Name                  = $profName
+            Server                = $targetHost
+            Port                  = $targetPort
+            UseSSL                = ($targetPort -eq 636)
+            SearchBase            = if ($adContext.DefaultNamingContext) { [string]$adContext.DefaultNamingContext } else { "" }
+            UseCurrentCredentials = $true
+            Username              = ""
+            ReadOnly              = $false
         }
 
         if (-not $appConfig.Profiles) {
@@ -11578,10 +11793,13 @@ if ($controls['BtnConnectDiscoveredDC']) {
         $profiles = @($appConfig.Profiles | Where-Object { $_.Server -ne $targetHost }) + @($newProf)
         $appConfig.Profiles = $profiles
         Save-AppSettings -Config $appConfig
-        Refresh-Connections
 
-        [System.Windows.MessageBox]::Show("Configured connection profile '$profName' ($($targetHost):$targetPort).", "DC Connected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
-        Run-ConnectionDiagnostics
+        $isOfflineTest = ($env:TEST_MODE -eq '1' -or $env:AD_STUDIO_SYNC_MODE -eq '1')
+        $connectedOk = Connect-ADProfileContext -ProfileName $profName -Server $targetHost -Port $targetPort -UseSSL ($targetPort -eq 636) -UseCurrentCredentials $true -Silent:$isOfflineTest
+        Refresh-Connections
+        if ($connectedOk -and -not $isOfflineTest) {
+            [System.Windows.MessageBox]::Show("Connected to '$targetHost' ($($adContext.DefaultNamingContext)) and refreshed AD objects & OU tree.", "DC Connected", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        }
     })
 }
 #region 17. Active Directory Recycle Bin & Tombstone Reanimation Logic
@@ -14709,11 +14927,13 @@ if ($controls['BtnClearLogs']) {
 }
 
 Set-Alias -Name Refresh-All -Value Update-All -Scope Global
-function Update-All {    Refresh-Dashboard
+function Update-All {
+    param([switch]$ForceAll)
+    Refresh-Dashboard
     Refresh-OUs
-    if ($controls['NavUsers'] -and $controls['NavUsers'].IsChecked)         { Refresh-Users }
-    if ($controls['NavGroups'] -and $controls['NavGroups'].IsChecked)       { Refresh-Groups }
-    if ($controls['NavComputers'] -and $controls['NavComputers'].IsChecked) { Refresh-Computers }
+    if ($ForceAll -or ($controls['NavUsers'] -and $controls['NavUsers'].IsChecked))         { Refresh-Users }
+    if ($ForceAll -or ($controls['NavGroups'] -and $controls['NavGroups'].IsChecked))       { Refresh-Groups }
+    if ($ForceAll -or ($controls['NavComputers'] -and $controls['NavComputers'].IsChecked)) { Refresh-Computers }
 }
 
 function Update-HeaderLayoutResponsive {
@@ -14963,6 +15183,12 @@ function Initialize-HorizontalMenuBar {
     if ($controls['MenuFileDisconnect']) {
         $controls['MenuFileDisconnect'].Add_Click({
             $adContext.IsConnected = $false
+            $adContext.ErrorMessage = "Disconnected"
+            $script:ActiveADCredential = $null
+            if (Get-Command Set-ADConnectionContext -ErrorAction SilentlyContinue) {
+                Set-ADConnectionContext -ClearCredential
+            }
+            Update-ConnectionHeader
             Set-Status -Message "Disconnected from Active Directory."
         })
     }

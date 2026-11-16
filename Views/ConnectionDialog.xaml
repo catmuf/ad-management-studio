@@ -235,7 +235,8 @@
         <Grid Grid.Row="3">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Name="BtnCancel" Style="{StaticResource ModernButton}" Content="Cancel" Margin="0,0,8,0"/>
-                <Button Name="BtnSaveProfile" Style="{StaticResource PrimaryButton}" Content="Save Profile"/>
+                <Button Name="BtnSaveOnly" Style="{StaticResource ModernButton}" Content="Save Only" Margin="0,0,8,0"/>
+                <Button Name="BtnSaveProfile" Style="{StaticResource PrimaryButton}" Content="⚡ Save &amp; Connect"/>
             </StackPanel>
         </Grid>
     </Grid>

@@ -155,43 +155,149 @@ function Save-AppSettings {
 function Get-ADEnvironmentContext {
     [CmdletBinding()]
     param (
-        [PSCustomObject]$Config
+        [PSCustomObject]$Config,
+        [string]$Server = "",
+        [int]$Port = 0,
+        [bool]$UseSSL = $false,
+        [string]$SearchBase = "",
+        [System.Management.Automation.PSCredential]$Credential = $null
     )
 
+    $explicitServer = -not [string]::IsNullOrWhiteSpace($Server)
+    $resolvedServer = $Server.Trim()
+    if (-not $explicitServer -and $Config -and $Config.Domain -and (-not [string]::IsNullOrWhiteSpace($Config.Domain.DomainController))) {
+        $resolvedServer = $Config.Domain.DomainController.Trim()
+    }
+
+    $resolvedUseSsl = $UseSSL
+    if (-not $PSBoundParameters.ContainsKey('UseSSL') -and $Port -le 0 -and -not $explicitServer -and $Config -and $Config.Ldap -and $Config.Ldap.UseSSL) {
+        $resolvedUseSsl = [bool]$Config.Ldap.UseSSL
+    }
+
+    $resolvedPort = if ($Port -gt 0) {
+        $Port
+    } elseif (-not $explicitServer -and $Config -and $Config.Ldap -and $Config.Ldap.Port) {
+        [int]$Config.Ldap.Port
+    } elseif ($resolvedUseSsl) {
+        636
+    } else {
+        389
+    }
+    if ($resolvedPort -eq 636) { $resolvedUseSsl = $true }
+    elseif ($resolvedPort -eq 389 -and -not $PSBoundParameters.ContainsKey('UseSSL')) { $resolvedUseSsl = $false }
+
+    $resolvedSearchBase = $SearchBase.Trim()
+    if ([string]::IsNullOrWhiteSpace($resolvedSearchBase) -and -not $explicitServer -and $Config -and $Config.Domain -and (-not [string]::IsNullOrWhiteSpace($Config.Domain.SearchBase))) {
+        $resolvedSearchBase = $Config.Domain.SearchBase.Trim()
+    }
+
+    $currentIdentity = try {
+        if ($Credential -and -not [string]::IsNullOrWhiteSpace($Credential.UserName)) {
+            $Credential.UserName
+        } else {
+            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        }
+    } catch { "" }
+
     $context = [PSCustomObject]@{
-        IsConnected          = $false
-        Server               = ""
-        DomainName           = ""
-        ForestName           = ""
-        NetBIOSName          = ""
-        PDCEmulator          = ""
-        DefaultNamingContext = ""
-        DomainControllers    = @()
-        ErrorMessage         = ""
+        IsConnected           = $false
+        Server                = $resolvedServer
+        Port                  = $resolvedPort
+        UseSSL                = $resolvedUseSsl
+        DomainName            = ""
+        ForestName            = ""
+        NetBIOSName           = ""
+        PDCEmulator           = ""
+        DefaultNamingContext  = ""
+        RootNamingContext     = ""
+        ConfigurationNC       = ""
+        SearchBase            = $resolvedSearchBase
+        DomainControllers     = @()
+        CurrentUser           = $currentIdentity
+        IsRSAT                = [bool](Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue)
+        LatencyMs             = 0
+        ErrorMessage          = ""
     }
 
-    $targetServer = $null
-    if ($Config -and $Config.Domain -and (-not [string]::IsNullOrWhiteSpace($Config.Domain.DomainController))) {
-        $targetServer = $Config.Domain.DomainController
-    }
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $disposeMethod = [System.IDisposable].GetMethod('Dispose')
 
-    # Strategy 1: Fast Native .NET ADSI RootDSE (~40ms, zero external dependencies)
+    # Strategy 1: Fast Native .NET ADSI RootDSE (supports explicit host, port, SSL, and custom credentials without RSAT)
+    $rootDse = $null
     try {
-        $dsePath = if ($targetServer) { "LDAP://$targetServer/RootDSE" } else { "LDAP://RootDSE" }
-        $rootDse = [System.DirectoryServices.DirectoryEntry]$dsePath
-        
-        $defNC = $rootDse.defaultNamingContext
-        $dnsHost = $rootDse.dnsHostName
+        $hostPortPart = ""
+        if (-not [string]::IsNullOrWhiteSpace($resolvedServer)) {
+            $prefHost = $resolvedServer
+            $prefPort = $resolvedPort
+            if ($resolvedServer -match '^([^:]+):(\d+)$') {
+                $prefHost = $Matches[1]
+                $prefPort = [int]$Matches[2]
+                $hostPortPart = $resolvedServer
+            } else {
+                $hostPortPart = "${resolvedServer}:${resolvedPort}"
+            }
 
-        if ($defNC) {
-            $parts = ($defNC -split 'DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
+            # Fast TCP preflight avoids 21s blocking TCP SYN timeouts when a remote DC is unreachable
+            $tcp = $null
+            try {
+                $tcp = [System.Net.Sockets.TcpClient]::new()
+                $ar = $tcp.BeginConnect($prefHost, $prefPort, $null, $null)
+                if (-not $ar.AsyncWaitHandle.WaitOne(2500, $false)) {
+                    throw "TCP connection to '${prefHost}:${prefPort}' timed out after 2500 ms."
+                }
+                $tcp.EndConnect($ar)
+            } finally {
+                if ($null -ne $tcp) {
+                    try { $tcp.Close() } catch { $null = $_ }
+                }
+            }
+        }
+        $dsePath = if ($hostPortPart) { "LDAP://$hostPortPart/RootDSE" } else { "LDAP://RootDSE" }
+
+        if ($Credential) {
+            $authType = [System.DirectoryServices.AuthenticationTypes]::Secure
+            if ($resolvedUseSsl) {
+                $authType = $authType -bor [System.DirectoryServices.AuthenticationTypes]::SecureSocketsLayer
+            }
+            $netCred = $Credential.GetNetworkCredential()
+            $rootDse = [System.DirectoryServices.DirectoryEntry]::new($dsePath, $Credential.UserName, $netCred.Password, $authType)
+        } elseif ($resolvedUseSsl) {
+            $authType = [System.DirectoryServices.AuthenticationTypes]::Secure -bor [System.DirectoryServices.AuthenticationTypes]::SecureSocketsLayer
+            $rootDse = [System.DirectoryServices.DirectoryEntry]::new($dsePath, $null, $null, $authType)
+        } else {
+            $rootDse = [System.DirectoryServices.DirectoryEntry]::new($dsePath)
+        }
+
+        $props = $rootDse.Properties
+        $defNC = if ($props -and $props.Contains('defaultNamingContext')) { $props['defaultNamingContext'].Value } else { $null }
+        $rootDomNC = if ($props -and $props.Contains('rootDomainNamingContext')) { $props['rootDomainNamingContext'].Value } else { $null }
+        $cfgNC = if ($props -and $props.Contains('configurationNamingContext')) { $props['configurationNamingContext'].Value } else { $null }
+        $dnsHost = if ($props -and $props.Contains('dnsHostName')) { $props['dnsHostName'].Value } else { $null }
+
+        $effectiveNC = if (-not [string]::IsNullOrWhiteSpace($resolvedSearchBase)) { $resolvedSearchBase } else { [string]$defNC }
+        if (-not [string]::IsNullOrWhiteSpace($effectiveNC)) {
+            $ncForFqdn = if ($defNC) { [string]$defNC } else { $effectiveNC }
+            $parts = ($ncForFqdn -split '(?i)DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
             $domainFqdn = $parts -join '.'
 
+            $forestFqdn = ""
+            if ($rootDomNC) {
+                $fParts = ([string]$rootDomNC -split '(?i)DC=' | Where-Object { $_ }) | ForEach-Object { $_.TrimEnd(',') }
+                $forestFqdn = $fParts -join '.'
+            }
+
+            $sw.Stop()
             $context.IsConnected          = $true
-            $context.DomainName           = if ($domainFqdn) { $domainFqdn } else { $dnsHost }
-            $context.PDCEmulator          = $dnsHost
-            $context.DefaultNamingContext = $defNC
-            $context.DomainControllers    = @($dnsHost)
+            $context.Server               = if ($resolvedServer) { $resolvedServer } elseif ($dnsHost) { [string]$dnsHost } else { $domainFqdn }
+            $context.DomainName           = if ($domainFqdn) { $domainFqdn } elseif ($dnsHost) { [string]$dnsHost } else { $resolvedServer }
+            $context.ForestName           = $forestFqdn
+            $context.PDCEmulator          = if ($dnsHost) { [string]$dnsHost } else { $context.Server }
+            $context.DefaultNamingContext = $effectiveNC
+            $context.RootNamingContext    = [string]$defNC
+            $context.ConfigurationNC      = [string]$cfgNC
+            $context.SearchBase           = $effectiveNC
+            $context.DomainControllers    = @($context.PDCEmulator)
+            $context.LatencyMs            = [int]$sw.ElapsedMilliseconds
             $context.ErrorMessage         = ""
             return $context
         }
@@ -199,22 +305,33 @@ function Get-ADEnvironmentContext {
     catch {
         $context.ErrorMessage = $_.Exception.Message
     }
+    finally {
+        if ($null -ne $rootDse -and ($rootDse -is [System.IDisposable])) {
+            try { [void]$disposeMethod.Invoke($rootDse, $null) } catch { $null = $_ }
+        }
+    }
 
     # Strategy 2: ActiveDirectory PowerShell Module (Fallback if RootDSE was uncontactable)
     if (Get-Module -Name ActiveDirectory -ErrorAction SilentlyContinue) {
         try {
-            $adDomain = if ($targetServer) {
-                Get-ADDomain -Server $targetServer -ErrorAction Stop
-            } else {
-                Get-ADDomain -ErrorAction Stop
-            }
+            $domParams = @{ ErrorAction = 'Stop' }
+            if ($resolvedServer) { $domParams['Server'] = $resolvedServer }
+            if ($Credential)     { $domParams['Credential'] = $Credential }
+            $adDomain = Get-ADDomain @domParams
 
+            $sw.Stop()
+            $effectiveNC = if (-not [string]::IsNullOrWhiteSpace($resolvedSearchBase)) { $resolvedSearchBase } else { $adDomain.DistinguishedName }
             $context.IsConnected          = $true
+            $context.Server               = if ($resolvedServer) { $resolvedServer } else { $adDomain.PDCEmulator }
             $context.DomainName           = $adDomain.DNSRoot
             $context.ForestName           = $adDomain.Forest
             $context.NetBIOSName          = $adDomain.NetBIOSName
             $context.PDCEmulator          = $adDomain.PDCEmulator
-            $context.DefaultNamingContext = $adDomain.DistinguishedName
+            $context.DefaultNamingContext = $effectiveNC
+            $context.RootNamingContext    = $adDomain.DistinguishedName
+            $context.SearchBase           = $effectiveNC
+            $context.IsRSAT               = $true
+            $context.LatencyMs            = [int]$sw.ElapsedMilliseconds
             $context.DomainControllers    = @($adDomain.ReplicaDirectoryServers)
             if ($adDomain.PDCEmulator -and -not ($context.DomainControllers -contains $adDomain.PDCEmulator)) {
                 $context.DomainControllers = @($adDomain.PDCEmulator) + $context.DomainControllers
@@ -227,6 +344,8 @@ function Get-ADEnvironmentContext {
         }
     }
 
+    $sw.Stop()
+    $context.LatencyMs = [int]$sw.ElapsedMilliseconds
     return $context
 }
 
