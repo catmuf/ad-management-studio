@@ -105,16 +105,16 @@ function Get-AppSettings {
             if (-not $jsonContent.Profiles) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
             } else {
-                $sanitized = @()
+                $sanitized = [System.Collections.Generic.List[object]]::new()
                 $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
                 foreach ($p in $jsonContent.Profiles) {
                     if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
                         if ($seen.Add($p.Name)) {
-                            $sanitized += $p
+                            $sanitized.Add($p)
                         }
                     }
                 }
-                $jsonContent.Profiles = $sanitized
+                $jsonContent.Profiles = $sanitized.ToArray()
             }
             return $jsonContent
         }

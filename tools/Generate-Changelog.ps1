@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Generates full historical changelog from all git commits since project inception.
 .DESCRIPTION

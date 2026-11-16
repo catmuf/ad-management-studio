@@ -36,6 +36,12 @@ $rootPath = $PSScriptRoot
 if (-not $rootPath) { $rootPath = Get-Location }
 $repoRoot = (Resolve-Path (Join-Path $rootPath "..")).Path
 Set-Location $repoRoot
+$psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { (Get-Process -Id $PID).Path }
+function Invoke-SubPS {
+    param([string]$ScriptText)
+    $b64 = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($ScriptText))
+    return & $psExe -NoProfile -STA -ExecutionPolicy Bypass -EncodedCommand $b64
+}
 
 $configPath = Join-Path $repoRoot "config.json"
 $backupConfigPath = Join-Path $repoRoot "config.json.testbak"
@@ -67,7 +73,8 @@ Write-Output ('CONFIG_RESTORE=' + `$config.UI.RestoreTabsOnStartup)
 Write-Output ('CONFIG_OPENTABS=' + (`$config.UI.OpenTabs -join ','))
 Write-Output ('CONFIG_ACTIVETAB=' + `$config.UI.ActiveTab)
 "@
-    $output = & pwsh.exe -NoProfile -STA -ExecutionPolicy Bypass -Command $cmdScript
+    $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { (Get-Process -Id $PID).Path }
+    $output = Invoke-SubPS -ScriptText $cmdScript
     $output | ForEach-Object { Write-TestLog "  $_" "Gray" }
 
     Assert-TestCondition "Default RestoreTabsOnStartup is false" ($cfg.UI.RestoreTabsOnStartup -eq $false)
@@ -142,7 +149,7 @@ if (`$state.RestoreTabsOnStartup) {
 Write-Output 'SAVED_SESSION_SAVED=TRUE'
 "@
 
-    $res = & pwsh.exe -NoProfile -STA -ExecutionPolicy Bypass -Command $uiTestScript
+    $res = Invoke-SubPS -ScriptText $uiTestScript
     $res | ForEach-Object { Write-TestLog "  $_" "Gray" }
 
     # Validate saved config
@@ -194,7 +201,7 @@ Write-Output ('RESTORED_ACTIVE_ID=' + `$state.ActiveTabId)
 Write-Output ('RESTORED_ACTIVE_PANEL=' + `$activeObj.PanelName)
 "@
 
-    $res2 = & pwsh.exe -NoProfile -STA -ExecutionPolicy Bypass -Command $restoreScript
+    $res2 = Invoke-SubPS -ScriptText $restoreScript
     $res2 | ForEach-Object { Write-TestLog "  $_" "Gray" }
 
     Assert-TestCondition "Restored 5 tabs from previous session" ([bool]($res2 -match "RESTORED_COUNT=5"))
@@ -230,7 +237,7 @@ if (-not `$state.RestoreTabsOnStartup) {
 Write-Output 'REVERTED_TO_DEFAULT=TRUE'
 "@
 
-    $res3 = & pwsh.exe -NoProfile -STA -ExecutionPolicy Bypass -Command $disableScript
+    $res3 = Invoke-SubPS -ScriptText $disableScript
     $res3 | ForEach-Object { Write-TestLog "  $_" "Gray" }
 
     $revertedCfg = Get-Content -Path $configPath -Raw | ConvertFrom-Json
@@ -286,7 +293,7 @@ Write-Output ('LIVE_OPENTABS=' + ((`$testState.OpenTabs | ForEach-Object { `$_.P
 Write-Output ('LIVE_ACTIVETAB=' + `$active.PanelName)
 "@
 
-    $res4 = & pwsh.exe -NoProfile -STA -ExecutionPolicy Bypass -Command $liveWpfScript
+    $res4 = Invoke-SubPS -ScriptText $liveWpfScript
     $res4 | ForEach-Object { Write-TestLog "  $_" "Gray" }
 
     Assert-TestCondition "Live WPF loaded 4 tabs" ([bool]($res4 -match "LIVE_OPENTABS_COUNT=4"))

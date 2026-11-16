@@ -28,9 +28,31 @@ function global:Refresh-All {}
 function global:Refresh-Connections {}
 function global:Populate-SearchAttributeDropdowns {}
 
-# Load main.ps1 offscreen
+function Invoke-MockMessageBoxShow {
+    param($text, $title, $button, $icon)
+    if ($text -is [System.Array] -and $null -eq $title -and $null -eq $button) {
+        $arr = $text
+        $text = if ($arr.Count -gt 0) { $arr[0] } else { "" }
+        $title = if ($arr.Count -gt 1) { $arr[1] } else { "" }
+        $button = if ($arr.Count -gt 2) { $arr[2] } else { $null }
+        $icon = if ($arr.Count -gt 3) { $arr[3] } else { $null }
+    }
+    $null = $icon; $null = $text
+    Write-Host "  [MOCK-MSG] $title" -ForegroundColor DarkGray
+    if ($button -eq [System.Windows.MessageBoxButton]::YesNo -or $button -eq [System.Windows.MessageBoxButton]::YesNoCancel -or "$button" -match "YesNo") {
+        return [System.Windows.MessageBoxResult]::Yes
+    }
+    return [System.Windows.MessageBoxResult]::OK
+}
+
+# Load main.ps1 offscreen (neutralizing ShowDialog, MessageBox, external browser launch, print dialog, and startup AD sweep)
 $mainScript = Get-Content (Join-Path $projectRoot "main.ps1") -Raw -Encoding utf8
 $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', '$window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual; $window.Left = -32000; $window.Top = -32000; $window.Show()'
+$mainScriptOffscreen = $mainScriptOffscreen -replace '\[System\.Windows\.MessageBox\]::Show', 'Invoke-MockMessageBoxShow'
+$mainScriptOffscreen = $mainScriptOffscreen -replace 'Start-Process \$tempPath', 'Write-Host "  [MOCK-BROWSER] External browser launch bypassed"'
+$mainScriptOffscreen = $mainScriptOffscreen -replace '\$doc\.parentWindow\.execScript\("window\.print\(\)"\)', 'Write-Host "  [MOCK-PRINT] Print dialog bypassed"'
+$mainScriptOffscreen = $mainScriptOffscreen -replace '\$doc\.execCommand\("Print",\s*\$true,\s*\$null\)', 'Write-Host "  [MOCK-PRINT] Print dialog bypassed"'
+$mainScriptOffscreen = $mainScriptOffscreen -replace '(?s)# Progressive Asynchronous Background Loading of Directory Telemetry.*?\r?\n\s*\)\r?\n\}\)', '})'
 
 . ([scriptblock]::Create($mainScriptOffscreen))
 

@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Specialized Attribute &amp; Value Editor - Object Studio"
@@ -6,8 +6,8 @@
     MinHeight="550" MinWidth="750"
     WindowStartupLocation="CenterOwner"
     ResizeMode="CanResize"
-    Background="#181A20"
-    Foreground="#E5E7EB"
+    Background="{DynamicResource BgDark}"
+    Foreground="{DynamicResource TextPrimary}"
     FontFamily="Segoe UI, Segoe UI Variable, Arial"
     FontSize="13">
 
@@ -26,6 +26,9 @@
         <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#9CA3AF"/>
         <SolidColorBrush x:Key="TextMuted" Color="#6B7280"/>
+        <SolidColorBrush x:Key="InfoColor" Color="#38BDF8"/>
+        <SolidColorBrush x:Key="TextAccent" Color="#60A5FA"/>
+        <SolidColorBrush x:Key="EditorRawFg" Color="#A7F3D0"/>
         <SolidColorBrush x:Key="SuccessColor" Color="#10B981"/>
         <SolidColorBrush x:Key="WarningColor" Color="#F59E0B"/>
         <SolidColorBrush x:Key="DangerColor" Color="#EF4444"/>
@@ -35,15 +38,15 @@
 
         <!-- Base TextBlock Style -->
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontSize" Value="13"/>
         </Style>
 
         <!-- Modern Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource ButtonBg}"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -56,8 +59,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{StaticResource ButtonHoverBg}"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource ButtonHoverBorder}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -67,23 +70,23 @@
 
         <!-- Primary Button Style -->
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="{StaticResource AccentPrimary}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
 
         <!-- Danger Button Style -->
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="{StaticResource DangerColor}"/>
+            <Setter Property="Background" Value="{DynamicResource DangerColor}"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
 
         <!-- Modern TextBox Style -->
         <Style x:Key="ModernTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="{StaticResource InputBg}"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -101,23 +104,23 @@
 
         <!-- Modern ComboBox Style -->
         <Style x:Key="ModernComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="{StaticResource InputBg}"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,4"/>
         </Style>
 
         <!-- Modern TabControl & TabItem Styles -->
         <Style TargetType="TabControl">
-            <Setter Property="Background" Value="{StaticResource BgCard}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="Background" Value="{DynamicResource BgCard}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Arrow"/>
         </Style>
 
         <Style x:Key="ModernTabItem" TargetType="TabItem">
-            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="16,8"/>
@@ -126,7 +129,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border Name="tabBorder" Cursor="Hand" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+                        <Border Name="tabBorder" Cursor="Hand" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
                             <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -135,13 +138,13 @@
                                     <Condition Property="IsSelected" Value="False"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="tabBorder" Property="Background" Value="{StaticResource ButtonHoverBg}"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                             </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="tabBorder" Property="Background" Value="{StaticResource BgCard}"/>
-                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{StaticResource AccentPrimary}"/>
-                                <Setter Property="Foreground" Value="{StaticResource AccentPrimary}"/>
+                                <Setter TargetName="tabBorder" Property="Background" Value="{DynamicResource BgCard}"/>
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimary}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -151,8 +154,8 @@
 
         <!-- Modern GroupBox Style -->
         <Style x:Key="ModernGroupBox" TargetType="GroupBox">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
             <Setter Property="Padding" Value="8"/>
@@ -167,7 +170,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+        <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -178,20 +181,20 @@
                 <TextBlock Grid.Column="0" Text="🧩" FontSize="26" VerticalAlignment="Center" Margin="0,0,12,0"/>
                 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Specialized Attribute &amp; Value Editor - Object Studio" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
-                    <TextBlock Text="Apache Directory Studio parity editors for Hex/Binary dumps, X.509 Certificates, Photos, LDAP Dates, and Password Hashes." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0"/>
+                    <TextBlock Text="Specialized Attribute &amp; Value Editor - Object Studio" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+                    <TextBlock Text="Apache Directory Studio parity editors for Hex/Binary dumps, X.509 Certificates, Photos, LDAP Dates, and Password Hashes." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- Attribute metadata pills -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
-                        <TextBlock Name="TxtTargetAttribute" Text="Attribute: (General)" FontSize="11" Foreground="{StaticResource AccentPrimary}" FontWeight="SemiBold"/>
+                    <Border Background="{DynamicResource BgDark}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
+                        <TextBlock Name="TxtTargetAttribute" Text="Attribute: (General)" FontSize="11" Foreground="{DynamicResource AccentPrimary}" FontWeight="SemiBold"/>
                     </Border>
-                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
-                        <TextBlock Name="TxtTargetSyntax" Text="Syntax: Binary / String" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    <Border Background="{DynamicResource BgDark}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,6,0">
+                        <TextBlock Name="TxtTargetSyntax" Text="Syntax: Binary / String" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                     </Border>
-                    <Border Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
-                        <TextBlock Name="TxtTargetSize" Text="Size: 0 B" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    <Border Background="{DynamicResource BgDark}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                        <TextBlock Name="TxtTargetSize" Text="Size: 0 B" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                     </Border>
                 </StackPanel>
             </Grid>
@@ -209,7 +212,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Hex Toolbar -->
-                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -222,14 +225,14 @@
                                 <Button Name="BtnHexClear" Style="{StaticResource ModernButton}" Height="28" Content="🗑️ Clear"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Name="TxtHexByteCount" Text="Total Bytes: 0" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Name="TxtHexByteCount" Text="Total Bytes: 0" Foreground="{DynamicResource TextSecondary}" FontSize="12" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Grid>
                     </Border>
 
                     <!-- Synchronized Dump Pane -->
                     <GroupBox Grid.Row="1" Header="Synchronized Offset, Hex Bytes &amp; ASCII Character Dump" Style="{StaticResource ModernGroupBox}">
-                        <TextBox Name="TxtHexDumpView" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#15171E" Foreground="#38BDF8"/>
+                        <TextBox Name="TxtHexDumpView" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource InputBg}" Foreground="{DynamicResource InfoColor}"/>
                     </GroupBox>
 
                     <!-- Raw Hex Edit & Preview Pane -->
@@ -240,8 +243,8 @@
                                 <RowDefinition Height="80"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Enter or paste raw hex digits (00-FF). Format / Sync Dump to re-render synchronized view." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                            <TextBox Grid.Row="1" Name="TxtHexRawInput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#15171E" Foreground="#A7F3D0"/>
+                            <TextBlock Grid.Row="0" Text="Enter or paste raw hex digits (00-FF). Format / Sync Dump to re-render synchronized view." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Name="TxtHexRawInput" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="{DynamicResource InputBg}" Foreground="{DynamicResource EditorRawFg}"/>
                             
                             <!-- Quick previews -->
                             <Grid Grid.Row="2" Margin="0,6,0,0">
@@ -250,11 +253,11 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                    <TextBlock Text="ASCII Preview:" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock Text="ASCII Preview:" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBox Name="TxtHexAsciiPreview" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" Height="26" Margin="0,2,0,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                                    <TextBlock Text="Base64 Preview:" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock Text="Base64 Preview:" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBox Name="TxtHexBase64Preview" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="11" IsReadOnly="True" Height="26" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
@@ -272,7 +275,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Certificate Toolbar -->
-                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -284,8 +287,8 @@
                                 <Button Name="BtnCertRevocation" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Check Revocation (X509Chain)" Margin="0,0,6,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Name="BadgeCertValidity" Background="{StaticResource BgDark}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
-                                    <TextBlock Name="TxtCertValidityBadge" Text="Status: Unknown" FontSize="11" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold"/>
+                                <Border Name="BadgeCertValidity" Background="{DynamicResource BgDark}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,4">
+                                    <TextBlock Name="TxtCertValidityBadge" Text="Status: Unknown" FontSize="11" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold"/>
                                 </Border>
                             </StackPanel>
                         </Grid>
@@ -309,19 +312,19 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Subject (CN):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Subject (CN):" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertSubjectCN" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Full Subject DN:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Full Subject DN:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertSubject" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Issuer (CN):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Issuer (CN):" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertIssuerCN" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Full Issuer DN:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Full Issuer DN:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="3" Grid.Column="1" Name="TxtCertIssuer" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Serial Number:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Serial Number:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="4" Grid.Column="1" Name="TxtCertSerial" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
                                 </Grid>
                             </GroupBox>
@@ -339,13 +342,13 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Valid From (NotBefore):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Valid From (NotBefore):" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertNotBefore" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Valid To (NotAfter):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Valid To (NotAfter):" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertNotAfter" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Validity Status:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Validity Status:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertValidityStatus" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
                                 </Grid>
                             </GroupBox>
@@ -366,22 +369,22 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Public Key:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Public Key:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Name="TxtCertPublicKey" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Signature Algorithm:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Signature Algorithm:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="1" Grid.Column="1" Name="TxtCertSigAlgo" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Key Usage:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Key Usage:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="2" Grid.Column="1" Name="TxtCertKeyUsage" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Subject Alt Names (SAN):" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Subject Alt Names (SAN):" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="3" Grid.Column="1" Name="TxtCertSan" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="SHA-1 Thumbprint:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="SHA-1 Thumbprint:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="4" Grid.Column="1" Name="TxtCertThumbprint" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
 
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="SHA-256 Thumbprint:" Foreground="{StaticResource TextSecondary}" Margin="0,2"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="SHA-256 Thumbprint:" Foreground="{DynamicResource TextSecondary}" Margin="0,2"/>
                                     <TextBox Grid.Row="5" Grid.Column="1" Name="TxtCertThumbprint256" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" IsReadOnly="True" Margin="0,2"/>
                                 </Grid>
                             </GroupBox>
@@ -404,7 +407,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Photo Toolbar -->
-                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Button Name="BtnPhotoImport" Style="{StaticResource ModernButton}" Height="28" Content="📁 Import from File..." Margin="0,0,6,0"/>
                             <Button Name="BtnPhotoExport" Style="{StaticResource ModernButton}" Height="28" Content="💾 Export to File..." Margin="0,0,6,0"/>
@@ -421,16 +424,16 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Left: Image Preview Frame -->
-                        <Border Grid.Column="0" Background="#15171E" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,10,0">
+                        <Border Grid.Column="0" Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,10,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Border Grid.Row="0" Background="#0F1117" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="200">
+                                <Border Grid.Row="0" Background="{DynamicResource BgDark}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" HorizontalAlignment="Center" VerticalAlignment="Center" Width="200" Height="200">
                                     <Image Name="ImgPhotoPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Grid.Row="1" Text="Preview (Uniform Scale)" FontSize="11" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Grid.Row="1" Text="Preview (Uniform Scale)" FontSize="11" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                             </Grid>
                         </Border>
 
@@ -449,25 +452,25 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Image Format:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Image Format:" Foreground="{DynamicResource TextSecondary}" Margin="0,4"/>
                                     <TextBox Grid.Row="0" Grid.Column="1" Name="TxtPhotoFormat" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Dimensions:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Dimensions:" Foreground="{DynamicResource TextSecondary}" Margin="0,4"/>
                                     <TextBox Grid.Row="1" Grid.Column="1" Name="TxtPhotoDimensions" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="File Size:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="File Size:" Foreground="{DynamicResource TextSecondary}" Margin="0,4"/>
                                     <TextBox Grid.Row="2" Grid.Column="1" Name="TxtPhotoSize" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="AD Compliance:" Foreground="{StaticResource TextSecondary}" Margin="0,4"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="AD Compliance:" Foreground="{DynamicResource TextSecondary}" Margin="0,4"/>
                                     <TextBox Grid.Row="3" Grid.Column="1" Name="TxtPhotoCompliance" Style="{StaticResource ModernTextBox}" FontWeight="SemiBold" IsReadOnly="True" Margin="0,4"/>
                                 </Grid>
                             </GroupBox>
 
                             <GroupBox Header="Active Directory Standards &amp; Recommendations" Style="{StaticResource ModernGroupBox}">
                                 <StackPanel Margin="4">
-                                    <TextBlock Text="• Active Directory thumbnailPhoto recommends 96x96 pixels (max 100 KB) for optimal rendering across Outlook, Teams, and SharePoint." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
-                                    <TextBlock Text="• jpegPhoto supports larger standard JPEG photos, but compact dimensions are recommended to minimize directory replication overhead." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6"/>
-                                    <TextBlock Name="TxtPhotoRecommendation" Text="Click 'Resize &amp; Crop to AD 96x96' to automatically center-crop and compress the image to AD recommended specs." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource AccentHover}"/>
+                                    <TextBlock Text="• Active Directory thumbnailPhoto recommends 96x96 pixels (max 100 KB) for optimal rendering across Outlook, Teams, and SharePoint." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
+                                    <TextBlock Text="• jpegPhoto supports larger standard JPEG photos, but compact dimensions are recommended to minimize directory replication overhead." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
+                                    <TextBlock Name="TxtPhotoRecommendation" Text="Click 'Resize &amp; Crop to AD 96x96' to automatically center-crop and compress the image to AD recommended specs." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource AccentHover}"/>
                                 </StackPanel>
                             </GroupBox>
                         </StackPanel>
@@ -485,9 +488,9 @@
                     </Grid.RowDefinitions>
 
                     <!-- Quick Presets Toolbar -->
-                    <Border Grid.Row="0" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                    <Border Grid.Row="0" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Presets: " VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                            <TextBlock Text="Presets: " VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold" Margin="0,0,6,0"/>
                             <Button Name="BtnDateNow" Style="{StaticResource ModernButton}" Height="26" Content="⏱️ Current Time" Margin="0,0,4,0"/>
                             <Button Name="BtnDateNever" Style="{StaticResource ModernButton}" Height="26" Content="♾️ Never Expires (FileTime Max)" Margin="0,0,4,0"/>
                             <Button Name="BtnDateMustChange" Style="{StaticResource ModernButton}" Height="26" Content="🔄 Must Change (0)" Margin="0,0,4,0"/>
@@ -508,10 +511,10 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="Date:" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="0" Text="Date:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,8,0"/>
                             <DatePicker Grid.Column="1" Name="DpDate" Height="30" VerticalContentAlignment="Center" Margin="0,0,16,0"/>
 
-                            <TextBlock Grid.Column="2" Text="Time (HH:MM:SS):" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="2" Text="Time (HH:MM:SS):" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,8,0"/>
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                                 <TextBox Name="TxtDateHour" Style="{StaticResource ModernTextBox}" Width="36" TextAlignment="Center" Text="12"/>
                                 <TextBlock Text=":" VerticalAlignment="Center" Margin="4,0"/>
@@ -522,8 +525,8 @@
 
                             <!-- Timezone Switcher -->
                             <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <RadioButton Name="RbDateUtc" Content="UTC" Foreground="{StaticResource TextPrimary}" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                <RadioButton Name="RbDateLocal" Content="Local System Time" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                                <RadioButton Name="RbDateUtc" Content="UTC" Foreground="{DynamicResource TextPrimary}" IsChecked="True" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <RadioButton Name="RbDateLocal" Content="Local System Time" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Grid>
                     </GroupBox>
@@ -544,24 +547,24 @@
                             </Grid.RowDefinitions>
 
                             <!-- GeneralizedTime -->
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="LDAP GeneralizedTime:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="LDAP GeneralizedTime:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Name="TxtGeneralizedTime" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
                             <Button Grid.Row="0" Grid.Column="2" Name="BtnConvertFromGeneralized" Style="{StaticResource ModernButton}" Height="28" Content="Convert From Generalized" Margin="0,4"/>
 
                             <!-- FileTime -->
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Windows FileTime (64-bit):" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Windows FileTime (64-bit):" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Name="TxtFileTime" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
                             <Button Grid.Row="1" Grid.Column="2" Name="BtnConvertFromFileTime" Style="{StaticResource ModernButton}" Height="28" Content="Convert From FileTime" Margin="0,4"/>
 
                             <!-- Formatted Display -->
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Human Readable (UTC):" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Human Readable (UTC):" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtHumanTime" Style="{StaticResource ModernTextBox}" IsReadOnly="True" Margin="0,4"/>
 
                             <!-- Description -->
-                            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0">
+                            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="• LDAP GeneralizedTime syntax: YYYYMMDDhhmmss.0Z (used in createTimestamp, modifyTimestamp, whenCreated, whenChanged)." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="• Windows FileTime: 64-bit integer representing 100-nanosecond intervals since Jan 1, 1601 UTC (used in pwdLastSet, accountExpires, lastLogon)." FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock Text="• LDAP GeneralizedTime syntax: YYYYMMDDhhmmss.0Z (used in createTimestamp, modifyTimestamp, whenCreated, whenChanged)." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="• Windows FileTime: 64-bit integer representing 100-nanosecond intervals since Jan 1, 1601 UTC (used in pwdLastSet, accountExpires, lastLogon)." FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -593,11 +596,11 @@
                             </Grid.RowDefinitions>
 
                             <!-- Password Input -->
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Cleartext Password:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Cleartext Password:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtPasswordPlain" Style="{StaticResource ModernTextBox}" Margin="0,4"/>
 
                             <!-- Algorithm & Salt -->
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Hash Algorithm:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Hash Algorithm:" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
                                 <ComboBox Name="CmbPasswordAlgorithm" Style="{StaticResource ModernComboBox}" Width="150" Height="28" Margin="0,0,12,0">
                                     <ComboBoxItem Content="SSHA" IsSelected="True"/>
@@ -607,18 +610,18 @@
                                     <ComboBoxItem Content="SHA-256"/>
                                     <ComboBoxItem Content="MD5"/>
                                 </ComboBox>
-                                <TextBlock Text="Salt (Hex / Custom):" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,6,0"/>
+                                <TextBlock Text="Salt (Hex / Custom):" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,6,0"/>
                                 <TextBox Name="TxtPasswordSalt" Style="{StaticResource ModernTextBox}" Width="140" FontFamily="Consolas" Height="28" Margin="0,0,6,0"/>
                                 <Button Name="BtnGenerateSalt" Style="{StaticResource ModernButton}" Height="28" Content="🎲 New Salt"/>
                             </StackPanel>
                             <Button Grid.Row="1" Grid.Column="2" Name="BtnComputeHash" Style="{StaticResource PrimaryButton}" Height="28" Content="⚡ Generate LDAP Hash" Margin="6,4,0,4"/>
 
                             <!-- Hash Preview Result -->
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="LDAP Hash Preview:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Name="TxtPasswordHashResult" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" Foreground="#38BDF8" Margin="0,4,8,4"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="LDAP Hash Preview:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Name="TxtPasswordHashResult" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" FontSize="12" IsReadOnly="True" Foreground="{DynamicResource InfoColor}" Margin="0,4,8,4"/>
                             <Button Grid.Row="2" Grid.Column="2" Name="BtnCopyHash" Style="{StaticResource ModernButton}" Height="28" Content="📋 Copy Hash" Margin="0,4"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Text="Generates cryptographically salted LDAP hashes ({SSHA}, {SSHA512}, {SSHA256}, {SMD5}) compatible with OpenLDAP and AD LDS." FontSize="11" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Text="Generates cryptographically salted LDAP hashes ({SSHA}, {SSHA512}, {SSHA256}, {SMD5}) compatible with OpenLDAP and AD LDS." FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                         </Grid>
                     </GroupBox>
 
@@ -637,17 +640,17 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Candidate Password:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Candidate Password:" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="TxtVerifyPassword" Style="{StaticResource ModernTextBox}" Margin="0,4"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Target LDAP Hash:" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Target LDAP Hash:" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Name="TxtVerifyHash" Style="{StaticResource ModernTextBox}" FontFamily="Consolas" Margin="0,4,8,4"/>
                             <Button Grid.Row="1" Grid.Column="2" Name="BtnVerifyPassword" Style="{StaticResource PrimaryButton}" Height="28" Content="🔍 Test Match" Margin="0,4"/>
 
                             <!-- Verification Result -->
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Verification Result:" FontWeight="SemiBold" Foreground="{StaticResource TextSecondary}" Margin="0,6"/>
-                            <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Name="BorderVerifyResult" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,4">
-                                <TextBlock Name="TxtVerifyResult" Text="Enter a candidate password and LDAP hash, then click 'Test Match'." FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Verification Result:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,6"/>
+                            <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Name="BorderVerifyResult" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,4">
+                                <TextBlock Name="TxtVerifyResult" Text="Enter a candidate password and LDAP hash, then click 'Test Match'." FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
                             </Border>
                         </Grid>
                     </GroupBox>
@@ -656,14 +659,14 @@
         </TabControl>
 
         <!-- Footer / Action Buttons -->
-        <Border Grid.Row="2" Background="{StaticResource BgSurface}" BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
+        <Border Grid.Row="2" Background="{DynamicResource BgSurface}" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,10,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Name="TxtDialogStatus" Text="Ready: Select a tab to edit or inspect specialized attribute values." VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                <TextBlock Name="TxtDialogStatus" Text="Ready: Select a tab to edit or inspect specialized attribute values." VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Name="BtnApplyValue" Style="{StaticResource PrimaryButton}" Height="30" Content="💾 Apply / Save Value" Margin="0,0,8,0"/>

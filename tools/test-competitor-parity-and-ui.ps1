@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Automated verification suite for Competitor Parity & UI Modernization (Phase 1 to Phase 4).
     Validates Omnibar 2.0, Directory Breadcrumbs, Telemetry, Client IP LPM Resolver,
@@ -269,6 +269,59 @@ Assert-Test "Zero personal usernames or hardcoded absolute paths in modified cod
             throw "Hardcoded user profile absolute path found in file: $f"
         }
     }
+}
+
+# ---------------------------------------------------------
+# Test 8: v3.4.0 Audit, Theme, Async & Workspace Architecture Checks
+# ---------------------------------------------------------
+Write-Host "`n[8/8] Testing v3.4.0 Audit, Theme, Async & Virtualization Compliance..." -ForegroundColor Yellow
+
+Assert-Test "Zero VisualBasic InputBox or raw Clipboard::SetText calls in main.ps1" {
+    $mTxt = [System.IO.File]::ReadAllText((Join-Path $scriptRoot "main.ps1"))
+    if ($mTxt -match '\[Microsoft\.VisualBasic\.Interaction\]::InputBox') { throw "Legacy InputBox still present" }
+    if ($mTxt -match '\[System\.Windows\.Clipboard\]::SetText\(') { throw "Raw Clipboard::SetText still present" }
+}
+
+Assert-Test "Zero DataGrids nested inside ScrollViewer in MainWindow.xaml" {
+    [xml]$mw = [System.IO.File]::ReadAllText((Join-Path $scriptRoot "Views\MainWindow.xaml"))
+    $ns = [System.Xml.XmlNamespaceManager]::new($mw.NameTable)
+    $ns.AddNamespace("w", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
+    $nested = $mw.SelectNodes("//w:ScrollViewer//w:DataGrid", $ns)
+    if ($nested.Count -gt 0) { throw "Found $($nested.Count) DataGrid(s) nested inside ScrollViewer" }
+}
+
+Assert-Test "All 22 XAML dialogs and ThemeDictionaries load without errors" {
+    foreach ($xf in (Get-ChildItem (Join-Path $scriptRoot "Views\*.xaml"), (Join-Path $scriptRoot "Themes\*.xaml"))) {
+        $fs = [System.IO.FileStream]::new($xf.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read, 65536)
+        try {
+            $loaded = [System.Windows.Markup.XamlReader]::Load($fs)
+            if (-not $loaded) { throw "Null XAML load on $($xf.Name)" }
+        } finally { $fs.Dispose() }
+    }
+}
+
+Assert-Test "100% of lazy module exports are mapped in ServiceAutoLoadMap and use Approved Verbs" {
+    $mTxt = [System.IO.File]::ReadAllText((Join-Path $scriptRoot "main.ps1"))
+    $lazyMods = @('AclService','AuditReportService','DiagnosticService','GpoService','KerberosService','LdapSqlService','NetworkService','ReplicationService','ScimFilterService','ScimService','SpecializedEditorService','TemplateService','ExportService')
+    $approved = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($v in (Get-Verb)) { [void]$approved.Add($v.Verb) }
+    foreach ($lm in $lazyMods) {
+        $mi = Import-Module (Join-Path $scriptRoot "Modules\$lm.psm1") -PassThru -DisableNameChecking -Force
+        foreach ($fn in $mi.ExportedFunctions.Keys) {
+            if ($mTxt -notmatch "'$([regex]::Escape($fn))'\s*=\s*'$lm'") { throw "Unmapped export $lm::$fn" }
+            if ($fn -match '^([A-Za-z]+)-' -and -not $approved.Contains($matches[1])) { throw "Unapproved verb in $lm::$fn" }
+        }
+        Remove-Module $lm -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Assert-Test "Phase D controls & SuiteRailTabControl exist in MainWindow.xaml" {
+    $xamlContent = [System.IO.File]::ReadAllText((Join-Path $scriptRoot "Views\MainWindow.xaml"))
+    $win = [System.Windows.Markup.XamlReader]::Parse($xamlContent)
+    foreach ($nm in @('BtnCancelStatusTask','BtnUserMoreActions','PopUserMoreActions','BtnTestHttpUrl','BtnRunTraceRoute','BtnRunWhoIsGeo','BtnRunLdapPerf','BtnScanMailConflicts','BtnScanTopQuota','TxtHttpUrlInput','TxtNetTraceTarget','TxtLdapPerfServer','GridMailQuotaResults')) {
+        if (-not $win.FindName($nm)) { throw "Missing control $nm" }
+    }
+    if (-not $win.Resources.Contains('SuiteRailTabControl')) { throw "Missing SuiteRailTabControl resource" }
 }
 
 # ---------------------------------------------------------

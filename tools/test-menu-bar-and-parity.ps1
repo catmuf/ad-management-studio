@@ -35,10 +35,16 @@ function Invoke-MockMessageBoxShow {
 }
 
 function Invoke-MockInputBox {
-    param($prompt, $title, $default)
-    $null = $prompt; $null = $title
-    Write-TestLog "  [MOCK-INPUT] $title -> returning: $default" "DarkGray"
-    return $default
+    param([object]$Prompt, [string]$Title, [string]$DefaultResponse)
+    if ($Prompt -is [System.Array] -and -not $Title) {
+        $arr = $Prompt
+        $Prompt = if ($arr.Count -gt 0) { $arr[0] } else { "" }
+        $Title = if ($arr.Count -gt 1) { $arr[1] } else { "" }
+        $DefaultResponse = if ($arr.Count -gt 2) { $arr[2] } else { "" }
+    }
+    $null = $Prompt
+    Write-TestLog "  [MOCK-INPUT] $Title -> returning: $DefaultResponse" "DarkGray"
+    return $DefaultResponse
 }
 
 function Assert-TestAction {
@@ -108,7 +114,7 @@ $dlg.Close()
 
 $mainScriptOffscreen = $mainScript.Replace('[void]$window.ShowDialog()', $offscreenReplacement)
 $mainScriptOffscreen = $mainScriptOffscreen.Replace('[System.Windows.MessageBox]::Show', 'Invoke-MockMessageBoxShow')
-$mainScriptOffscreen = $mainScriptOffscreen.Replace('[Microsoft.VisualBasic.Interaction]::InputBox', 'Invoke-MockInputBox')
+$mainScriptOffscreen = $mainScriptOffscreen -replace '(?<!function )Show-AppInputDialog\b', 'Invoke-MockInputBox'
 $mainScriptOffscreen = $mainScriptOffscreen.Replace('[void]$dlg.ShowDialog()', $neutralizeDialogs)
 $mainScriptOffscreen = $mainScriptOffscreen.Replace('[void]$win.ShowDialog()', '$win.Close()')
 $mainScriptOffscreen = $mainScriptOffscreen.Replace('$dialogRes = $win.ShowDialog()', '$win.Close(); $dialogRes = $true')

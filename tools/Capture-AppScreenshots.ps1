@@ -121,7 +121,21 @@ function Format-NodeThemeLight ($node) {
         }
     }
     elseif ($node -is [System.Windows.Controls.TextBlock]) {
-        if ($node.Foreground -is [System.Windows.Media.SolidColorBrush]) {
+        $isAccentHost = $false
+        $p = $node.Parent
+        for ($depth = 0; $depth -lt 3 -and $p; $depth++) {
+            if ($p -is [System.Windows.Controls.Button] -or $p -is [System.Windows.Controls.Border]) {
+                if ($p.Background -is [System.Windows.Media.SolidColorBrush]) {
+                    $bgHex = ("#{0:X2}{1:X2}{2:X2}" -f $p.Background.Color.R, $p.Background.Color.G, $p.Background.Color.B).ToUpper()
+                    if ($bgHex -in @('#0078D4', '#107C41', '#D13438', '#D97706', '#4F46E5', '#0284C7', '#DC2626', '#064E3B', '#2563EB', '#8E5AA5')) {
+                        $isAccentHost = $true
+                        break
+                    }
+                }
+            }
+            $p = if ($p -is [System.Windows.FrameworkElement]) { $p.Parent } else { $null }
+        }
+        if (-not $isAccentHost -and $node.Foreground -is [System.Windows.Media.SolidColorBrush]) {
             $hex = ("#{0:X2}{1:X2}{2:X2}" -f $node.Foreground.Color.R, $node.Foreground.Color.G, $node.Foreground.Color.B).ToUpper()
             if ($script:ColorMapFgLight.ContainsKey($hex)) {
                 $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapFgLight[$hex])
@@ -139,40 +153,52 @@ function Format-NodeThemeLight ($node) {
 }
 
 function Format-WindowLightTheme ($win) {
-    $resourceMap = @{
-        "BgDark"              = "#F8FAFC"
-        "BgSidebar"           = "#F1F5F9"
-        "BgSurface"           = "#FFFFFF"
-        "BgCard"              = "#FFFFFF"
-        "BgInput"             = "#FFFFFF"
-        "BorderBrushColor"    = "#CBD5E1"
-        "TextPrimary"         = "#0F172A"
-        "TextSecondary"       = "#475569"
-        "TextMuted"           = "#64748B"
-        "NavHoverBg"          = "#E2E8F0"
-        "NavSelectedBg"       = "#E2E8F0"
-        "DropDownBg"          = "#FFFFFF"
-        "DropDownBorderBrush" = "#CBD5E1"
-        "DropDownItemHoverBg" = "#F1F5F9"
-        "DropDownItemHoverFg" = "#0F172A"
-        "ButtonBg"            = "#F1F5F9"
-        "ButtonHoverBg"       = "#E2E8F0"
-        "ButtonHoverBorder"   = "#94A3B8"
-        "DataGridHeaderBg"    = "#F1F5F9"
-        "DataGridHeaderFg"    = "#1E293B"
-        "DataGridRowBg"       = "#FFFFFF"
-        "DataGridAltRowBg"    = "#F8FAFC"
-        "DataGridGridLines"   = "#E2E8F0"
-        "ContextMenuBg"       = "#FFFFFF"
-        "DangerButtonBg"      = "#FEF2F2"
-        "DangerButtonFg"      = "#DC2626"
-        "DangerButtonBorder"  = "#FCA5A5"
-        "AccentPrimary"       = "#0284C7"
-        "AccentHover"         = "#0369A1"
-    }
-
-    foreach ($k in $resourceMap.Keys) {
-        $win.Resources[$k] = $script:BrushConverter.ConvertFromString($resourceMap[$k])
+    $themeMod = Join-Path (Split-Path -Parent $PSScriptRoot) "Modules\ThemeService.psm1"
+    $themesDir = Join-Path (Split-Path -Parent $PSScriptRoot) "Themes"
+    $lightDictPath = Join-Path $themesDir "LightTheme.xaml"
+    if (Test-Path $lightDictPath) {
+        $fs = [System.IO.FileStream]::new($lightDictPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read, 16384)
+        try {
+            $dict = [System.Windows.Markup.XamlReader]::Load($fs)
+            foreach ($k in $dict.Keys) { $win.Resources[$k] = $dict[$k] }
+        } finally { $fs.Dispose() }
+        $win.Resources["AccentPrimary"] = $script:BrushConverter.ConvertFromString("#0284C7")
+        $win.Resources["AccentHover"]   = $script:BrushConverter.ConvertFromString("#0369A1")
+    } else {
+        $resourceMap = @{
+            "BgDark"              = "#F8FAFC"
+            "BgSidebar"           = "#F1F5F9"
+            "BgSurface"           = "#FFFFFF"
+            "BgCard"              = "#FFFFFF"
+            "BgInput"             = "#FFFFFF"
+            "BorderBrushColor"    = "#CBD5E1"
+            "TextPrimary"         = "#0F172A"
+            "TextSecondary"       = "#475569"
+            "TextMuted"           = "#64748B"
+            "NavHoverBg"          = "#E2E8F0"
+            "NavSelectedBg"       = "#E2E8F0"
+            "DropDownBg"          = "#FFFFFF"
+            "DropDownBorderBrush" = "#CBD5E1"
+            "DropDownItemHoverBg" = "#F1F5F9"
+            "DropDownItemHoverFg" = "#0F172A"
+            "ButtonBg"            = "#F1F5F9"
+            "ButtonHoverBg"       = "#E2E8F0"
+            "ButtonHoverBorder"   = "#94A3B8"
+            "DataGridHeaderBg"    = "#F1F5F9"
+            "DataGridHeaderFg"    = "#1E293B"
+            "DataGridRowBg"       = "#FFFFFF"
+            "DataGridAltRowBg"    = "#F8FAFC"
+            "DataGridGridLines"   = "#E2E8F0"
+            "ContextMenuBg"       = "#FFFFFF"
+            "DangerButtonBg"      = "#FEF2F2"
+            "DangerButtonFg"      = "#DC2626"
+            "DangerButtonBorder"  = "#FCA5A5"
+            "AccentPrimary"       = "#0284C7"
+            "AccentHover"         = "#0369A1"
+        }
+        foreach ($k in $resourceMap.Keys) {
+            $win.Resources[$k] = $script:BrushConverter.ConvertFromString($resourceMap[$k])
+        }
     }
     $win.Background = $script:BrushConverter.ConvertFromString("#F8FAFC")
     $win.Foreground = $script:BrushConverter.ConvertFromString("#0F172A")
@@ -286,14 +312,14 @@ Render-WindowOffscreen -XamlPath $mainXamlPath -Width 1366 -Height 850 -OutputPa
     $g = $win.FindName("GridUsers")
     if ($g) {
         $g.ItemsSource = @(
-            [PSCustomObject]@{ sAMAccountName = "alex.morgan"; displayName = "Alex Morgan"; mail = "alex.morgan@contoso.com"; title = "Senior Systems Architect"; department = "IT Infrastructure"; enabled = $true; lastLogonTimestamp = "2026-10-14 08:32" },
-            [PSCustomObject]@{ sAMAccountName = "sarah.chen"; displayName = "Sarah Chen"; mail = "sarah.chen@contoso.com"; title = "Lead Security Engineer"; department = "SecOps"; enabled = $true; lastLogonTimestamp = "2026-10-14 09:12" },
-            [PSCustomObject]@{ sAMAccountName = "marcus.vance"; displayName = "Marcus Vance"; mail = "marcus.vance@contoso.com"; title = "DevOps Lead"; department = "Cloud Engineering"; enabled = $true; lastLogonTimestamp = "2026-10-14 07:45" },
-            [PSCustomObject]@{ sAMAccountName = "elena.rostova"; displayName = "Elena Rostova"; mail = "elena.rostova@contoso.com"; title = "Identity Governance Lead"; department = "IAM"; enabled = $true; lastLogonTimestamp = "2026-10-13 18:20" },
-            [PSCustomObject]@{ sAMAccountName = "david.kim"; displayName = "David Kim"; mail = "david.kim@contoso.com"; title = "Principal DBA"; department = "Data Operations"; enabled = $true; lastLogonTimestamp = "2026-10-14 06:50" },
-            [PSCustomObject]@{ sAMAccountName = "rachel.adams"; displayName = "Rachel Adams"; mail = "rachel.adams@contoso.com"; title = "HR Director"; department = "Human Resources"; enabled = $true; lastLogonTimestamp = "2026-10-13 16:15" },
-            [PSCustomObject]@{ sAMAccountName = "james.wilson"; displayName = "James Wilson"; mail = "james.wilson@contoso.com"; title = "Network Architect"; department = "Core Networks"; enabled = $true; lastLogonTimestamp = "2026-10-14 08:05" },
-            [PSCustomObject]@{ sAMAccountName = "service-ldap-sync"; displayName = "SVC LDAP DirSync"; mail = "svc-dirsync@contoso.com"; title = "Managed Service Account"; department = "Identity Services"; enabled = $true; lastLogonTimestamp = "2026-10-14 09:15" }
+            [PSCustomObject]@{ sAMAccountName = "alex.morgan"; displayName = "Alex Morgan"; mail = "alex.morgan@contoso.com"; title = "Senior Systems Architect"; department = "IT Infrastructure"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 08:32" },
+            [PSCustomObject]@{ sAMAccountName = "sarah.chen"; displayName = "Sarah Chen"; mail = "sarah.chen@contoso.com"; title = "Lead Security Engineer"; department = "SecOps"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 09:12" },
+            [PSCustomObject]@{ sAMAccountName = "marcus.vance"; displayName = "Marcus Vance"; mail = "marcus.vance@contoso.com"; title = "DevOps Lead"; department = "Cloud Engineering"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 07:45" },
+            [PSCustomObject]@{ sAMAccountName = "elena.rostova"; displayName = "Elena Rostova"; mail = "elena.rostova@contoso.com"; title = "Identity Governance Lead"; department = "IAM"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-13 18:20" },
+            [PSCustomObject]@{ sAMAccountName = "david.kim"; displayName = "David Kim"; mail = "david.kim@contoso.com"; title = "Principal DBA"; department = "Data Operations"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 06:50" },
+            [PSCustomObject]@{ sAMAccountName = "rachel.adams"; displayName = "Rachel Adams"; mail = "rachel.adams@contoso.com"; title = "HR Director"; department = "Human Resources"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-13 16:15" },
+            [PSCustomObject]@{ sAMAccountName = "james.wilson"; displayName = "James Wilson"; mail = "james.wilson@contoso.com"; title = "Network Architect"; department = "Core Networks"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 08:05" },
+            [PSCustomObject]@{ sAMAccountName = "service-ldap-sync"; displayName = "SVC LDAP DirSync"; mail = "svc-dirsync@contoso.com"; title = "Managed Service Account"; department = "Identity Services"; enabled = $true; StatusBadge = "Active"; lastLogonTimestamp = "2026-10-14 09:15" }
         )
         $g.SelectedIndex = 0
     }

@@ -5,6 +5,7 @@
 param()
 
 $projectRoot = (Get-Location).Path
+$env:AD_STUDIO_SYNC_MODE = '1'
 $logOutput = [System.Collections.Generic.List[string]]::new()
 $recordedErrors = [System.Collections.Generic.List[string]]::new()
 
@@ -40,11 +41,16 @@ function Invoke-MockMessageBoxShow {
 }
 
 function Invoke-MockInputBox {
-    param($prompt, $title, $default)
-    $null = $prompt
-    $null = $title
-    Write-TestLog "  [MOCK-INPUT] $title -> returning: $default" "DarkGray"
-    return $default
+    param([object]$Prompt, [string]$Title, [string]$DefaultResponse)
+    if ($Prompt -is [System.Array] -and -not $Title) {
+        $arr = $Prompt
+        $Prompt = if ($arr.Count -gt 0) { $arr[0] } else { "" }
+        $Title = if ($arr.Count -gt 1) { $arr[1] } else { "" }
+        $DefaultResponse = if ($arr.Count -gt 2) { $arr[2] } else { "" }
+    }
+    $null = $Prompt
+    Write-TestLog "  [MOCK-INPUT] $Title -> returning: $DefaultResponse" "DarkGray"
+    return $DefaultResponse
 }
 
 Write-TestLog "======================================================================" "Cyan"
@@ -76,7 +82,7 @@ $window.Show()
 
 $mainScriptOffscreen = $mainScript -replace '\[void\]\$window\.ShowDialog\(\)', $offscreenReplacement
 $mainScriptOffscreen = $mainScriptOffscreen -replace '\[System\.Windows\.MessageBox\]::Show', 'Invoke-MockMessageBoxShow'
-$mainScriptOffscreen = $mainScriptOffscreen -replace '\[Microsoft\.VisualBasic\.Interaction\]::InputBox', 'Invoke-MockInputBox'
+$mainScriptOffscreen = $mainScriptOffscreen -replace '(?<!function )Show-AppInputDialog\b', 'Invoke-MockInputBox'
 
 # Neutralize modal dialog windows so they close immediately
 $neutralizeDialogs = @'

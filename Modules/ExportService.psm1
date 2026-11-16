@@ -10,7 +10,8 @@ function Export-ADDataToCsv {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [System.Collections.IEnumerable]$Data,
+        [AllowNull()]
+        [object]$Data,
 
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
@@ -26,20 +27,22 @@ function Export-ADDataToCsv {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
+        $normalizedData = if ($null -eq $Data) { @() } else { @($Data) }
+
         $exportList = if ($PropertiesToExport -and $PropertiesToExport.Count -gt 0) {
-            $Data | Select-Object -Property $PropertiesToExport
+            @($normalizedData | Select-Object -Property $PropertiesToExport)
         } else {
-            $Data
+            @($normalizedData)
         }
 
-        # Export with UTF-8 encoding and specified delimiter
-        $exportList | Export-Csv -Path $FilePath -Delimiter $Delimiter -NoTypeInformation -Encoding UTF8
+        $exportRows = @($exportList | Where-Object { $null -ne $_ })
+        $exportRows | Export-Csv -Path $FilePath -Delimiter $Delimiter -NoTypeInformation -Encoding UTF8
 
         return [PSCustomObject]@{
             Success  = $true
             FilePath = $FilePath
-            Count    = @($exportList).Count
-            Message  = "Export completed successfully ($(@($exportList).Count) records)."
+            Count    = $exportRows.Count
+            Message  = "Export completed successfully ($($exportRows.Count) records)."
         }
     }
     catch {

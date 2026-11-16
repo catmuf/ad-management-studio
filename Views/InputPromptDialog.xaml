@@ -1,0 +1,114 @@
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Name="WinInputPrompt"
+        Title="Input Required"
+        MinWidth="440" Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource BgDark}"
+        Foreground="{DynamicResource TextPrimary}"
+        FontFamily="Segoe UI, Segoe UI Variable, Arial"
+        FontSize="13">
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgDark" Color="#0F1015"/>
+        <SolidColorBrush x:Key="BgCard" Color="#252936"/>
+        <SolidColorBrush x:Key="BgInput" Color="#181A22"/>
+        <SolidColorBrush x:Key="BorderBrushColor" Color="#2F3446"/>
+        <SolidColorBrush x:Key="AccentPrimary" Color="#0078D4"/>
+        <SolidColorBrush x:Key="AccentHover" Color="#1084D9"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#9CA3AF"/>
+        <SolidColorBrush x:Key="ButtonBg" Color="#252936"/>
+        <SolidColorBrush x:Key="ButtonHoverBg" Color="#323749"/>
+        <SolidColorBrush x:Key="ButtonHoverBorder" Color="#4B526D"/>
+
+        <Style x:Key="PromptTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PromptButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBg}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PromptPrimaryButton" TargetType="Button" BasedOn="{StaticResource PromptButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimary}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHover}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource BgSurface}" Margin="16" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1" CornerRadius="8" Padding="18">
+        <StackPanel>
+            <TextBlock Name="TxtPromptHeader" Text="Input Required" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextAccent}" Margin="0,0,0,8"/>
+            <TextBlock Name="TxtPromptMessage" Text="Please enter a value:" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" FontSize="12.5" Margin="0,0,0,12"/>
+            <TextBox Name="TxtPromptValue" Style="{StaticResource PromptTextBox}" Height="34" Margin="0,0,0,16"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="BtnPromptCancel" Style="{StaticResource PromptButton}" Content="Cancel" IsCancel="True" Margin="0,0,8,0"/>
+                <Button Name="BtnPromptOk" Style="{StaticResource PromptPrimaryButton}" Content="OK" IsDefault="True" MinWidth="82"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

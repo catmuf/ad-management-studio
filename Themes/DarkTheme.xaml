@@ -1,0 +1,68 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Core Surface Hierarchy -->
+    <SolidColorBrush x:Key="BgDark" Color="#0F1015"/>
+    <SolidColorBrush x:Key="BgSidebar" Color="#161820"/>
+    <SolidColorBrush x:Key="BgSurface" Color="#1E212B"/>
+    <SolidColorBrush x:Key="BgCard" Color="#252936"/>
+    <SolidColorBrush x:Key="BgCardAlt" Color="#1A1D27"/>
+    <SolidColorBrush x:Key="BgInput" Color="#181A22"/>
+    <SolidColorBrush x:Key="InputBg" Color="#181A22"/>
+    <SolidColorBrush x:Key="BorderBrushColor" Color="#2F3446"/>
+
+    <!-- Accent & Semantic Colors -->
+    <SolidColorBrush x:Key="AccentPrimary" Color="#0078D4"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#1084D9"/>
+    <SolidColorBrush x:Key="AccentActive" Color="#006CBE"/>
+    <SolidColorBrush x:Key="SuccessColor" Color="#107C41"/>
+    <SolidColorBrush x:Key="DangerColor" Color="#D13438"/>
+    <SolidColorBrush x:Key="WarningColor" Color="#F59E0B"/>
+    <SolidColorBrush x:Key="InfoColor" Color="#38BDF8"/>
+
+    <!-- Typography -->
+    <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#9CA3AF"/>
+    <SolidColorBrush x:Key="TextMuted" Color="#6B7280"/>
+    <SolidColorBrush x:Key="TextAccent" Color="#60A5FA"/>
+
+    <!-- Interactive Component Brushes -->
+    <SolidColorBrush x:Key="NavHoverBg" Color="#1E212B"/>
+    <SolidColorBrush x:Key="NavSelectedBg" Color="#252936"/>
+    <SolidColorBrush x:Key="DropDownBg" Color="#181A22"/>
+    <SolidColorBrush x:Key="DropDownBorderBrush" Color="#383E54"/>
+    <SolidColorBrush x:Key="DropDownItemHoverBg" Color="#282D3E"/>
+    <SolidColorBrush x:Key="DropDownItemHoverFg" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ButtonBg" Color="#252936"/>
+    <SolidColorBrush x:Key="ButtonHoverBg" Color="#323749"/>
+    <SolidColorBrush x:Key="ButtonHoverBorder" Color="#4B526D"/>
+    <SolidColorBrush x:Key="ContextMenuBg" Color="#181A22"/>
+
+    <!-- DataGrid Brushes -->
+    <SolidColorBrush x:Key="DataGridHeaderBg" Color="#1F232F"/>
+    <SolidColorBrush x:Key="DataGridHeaderFg" Color="#D1D5DB"/>
+    <SolidColorBrush x:Key="DataGridRowBg" Color="#161820"/>
+    <SolidColorBrush x:Key="DataGridAltRowBg" Color="#1B1E28"/>
+    <SolidColorBrush x:Key="DataGridGridLines" Color="#262A38"/>
+    <SolidColorBrush x:Key="GridRowBg" Color="#161820"/>
+    <SolidColorBrush x:Key="GridRowAltBg" Color="#1B1E28"/>
+    <SolidColorBrush x:Key="GridLineBrush" Color="#262A38"/>
+
+    <!-- Semantic Status & Badge Brushes -->
+    <SolidColorBrush x:Key="DangerButtonBg" Color="#3A1C20"/>
+    <SolidColorBrush x:Key="DangerButtonBorder" Color="#D13438"/>
+    <SolidColorBrush x:Key="DangerButtonFg" Color="#FFA3A8"/>
+    <SolidColorBrush x:Key="BadgeInfoBg" Color="#1E293B"/>
+    <SolidColorBrush x:Key="BadgeInfoBorder" Color="#334155"/>
+    <SolidColorBrush x:Key="BadgeInfoFg" Color="#38BDF8"/>
+    <SolidColorBrush x:Key="BadgeTlsBg" Color="#1E3A5F"/>
+    <SolidColorBrush x:Key="BadgeTlsBorder" Color="#0284C7"/>
+    <SolidColorBrush x:Key="BadgeTlsFg" Color="#38BDF8"/>
+    <SolidColorBrush x:Key="BadgeWarnBg" Color="#78350F"/>
+    <SolidColorBrush x:Key="BadgeWarnBorder" Color="#D97706"/>
+    <SolidColorBrush x:Key="BadgeWarnFg" Color="#FDE68A"/>
+    <SolidColorBrush x:Key="BadgeSuccessBg" Color="#064E3B"/>
+    <SolidColorBrush x:Key="BadgeSuccessBorder" Color="#059669"/>
+    <SolidColorBrush x:Key="BadgeSuccessFg" Color="#34D399"/>
+    <SolidColorBrush x:Key="BadgePurpleBg" Color="#8E5AA5"/>
+    <SolidColorBrush x:Key="EditorRawFg" Color="#A7F3D0"/>
+</ResourceDictionary>

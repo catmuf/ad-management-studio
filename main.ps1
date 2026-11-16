@@ -64,6 +64,9 @@ Import-Module (Join-Path $modulesPath "ConfigService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "LoggingService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "ValidationService.psm1") -DisableNameChecking
 Import-Module (Join-Path $modulesPath "ADService.psm1") -DisableNameChecking
+Import-Module (Join-Path $modulesPath "ThemeService.psm1") -DisableNameChecking -Global
+Import-Module (Join-Path $modulesPath "AsyncService.psm1") -DisableNameChecking -Global
+Import-Module (Join-Path $modulesPath "WorkspaceService.psm1") -DisableNameChecking -Global
 
 # JIT Lazy Service Loader Engine
 function Import-ServiceLazy {
@@ -76,51 +79,143 @@ function Import-ServiceLazy {
     }
 }
 
-# Dynamic Command-Not-Found Auto-Loader for Specialized Services
+# Dynamic Command-Not-Found Auto-Loader for Specialized Services (Complete Export Registry)
 $script:ServiceAutoLoadMap = @{
-    'Get-EffectiveAclRights'            = 'AclService'
-    'Convert-SecurityDescriptorToSddl'  = 'AclService'
-    'Get-AclPermissionsReport'          = 'AclService'
-    'Get-AdminSdHolderOrphans'          = 'AclService'
-    'Get-KerberosTicketCache'           = 'KerberosService'
-    'Clear-KerberosTicketCache'         = 'KerberosService'
-    'Test-KerberosSpn'                  = 'KerberosService'
-    'Get-TokenGroupsAndSize'            = 'KerberosService'
-    'Get-AdReplicationTopology'         = 'ReplicationService'
-    'Get-SubnetSiteCoverage'            = 'ReplicationService'
-    'Get-GpoConsistency'                = 'GpoService'
-    'Get-AttributeReplicationMetadata'  = 'ReplicationService'
-    'Get-SiteTopologyBrowser'           = 'ReplicationService'
-    'Test-ReplicationLatency'           = 'ReplicationService'
-    'Get-SchemaVersionMatrix'           = 'ReplicationService'
-    'Find-CircularGroupMemberships'     = 'DiagnosticService'
-    'Test-AdServicePorts'               = 'NetworkService'
-    'Test-UncPathAccessibility'         = 'NetworkService'
-    'Convert-LdapFilterToScim'          = 'ScimFilterService'
-    'Convert-ScimFilterToLdap'          = 'ScimFilterService'
-    'Show-HexEditorDialog'              = 'SpecializedEditorService'
-    'Show-CertificateDialog'            = 'SpecializedEditorService'
-    'Show-UacDialog'                    = 'SpecializedEditorService'
-    'Export-ADDataToCsv'                = 'ExportService'
-    'Export-ADDataToLdif'               = 'ExportService'
-    'Export-ADDataToJson'               = 'ExportService'
-    'Export-ADSecurityAuditToHtml'      = 'ExportService'
-    'Export-ADObjectToHtml'             = 'ExportService'
-    'Get-ADObjectHtmlContent'           = 'ExportService'
-    'Export-ADDataToDsml'               = 'ExportService'
-    'Export-ADDataToScim'               = 'ExportService'
-    'New-LdifChangeScript'              = 'ExportService'
-    'Invoke-TemplateSubstitution'       = 'TemplateService'
-    'Resolve-AccountNameConflict'       = 'TemplateService'
-    'Get-ADProvisioningTemplates'       = 'TemplateService'
-    'Save-ADProvisioningTemplates'      = 'TemplateService'
-    'New-ADProvisioningProfile'         = 'TemplateService'
-    'Invoke-ADObjectProvisioningPlan'   = 'TemplateService'
-    'Substitute-Template'               = 'TemplateService'
-    'Invoke-LdapSqlQuery'               = 'LdapSqlService'
-    'Invoke-ADSqlExtendedQuery'         = 'LdapSqlService'
-    'Get-ADSecurityAuditReport'         = 'AuditReportService'
-    'Get-AD40SecurityAuditReports'      = 'AuditReportService'
+    # AclService
+    'ConvertFrom-ADSecurityDescriptorString' = 'AclService'
+    'Get-ADObjectAcl'                        = 'AclService'
+    'Get-ADEffectivePermissions'             = 'AclService'
+    'Get-ADEffectivePermissions6Way'         = 'AclService'
+    'Find-AdminSDHolderOrphans'              = 'AclService'
+    'Reset-AdminSDHolderOrphan'              = 'AclService'
+    'Repair-AdminSDHolderOrphan'             = 'AclService'
+    'Reset-AllAdminSDHolderOrphans'          = 'AclService'
+    'Invoke-ADSDPropTask'                    = 'AclService'
+    'Get-ADDelegationReport'                 = 'AclService'
+    'Get-ADDelegationReportsCatalog'         = 'AclService'
+    'Compare-ADPermissions'                  = 'AclService'
+    'Get-ADControlAccessRights'              = 'AclService'
+    'Find-ADPropertySet'                     = 'AclService'
+    'Expand-ADTrusteeMembers'                = 'AclService'
+    'Test-ADAclQueryMatch'                   = 'AclService'
+    'Find-ADTrusteeAssignments'              = 'AclService'
+    # AuditReportService
+    'Get-ADSecurityAuditReport'              = 'AuditReportService'
+    'Get-AD40SecurityAuditReports'           = 'AuditReportService'
+    'Get-ADSecurityAudits40'                 = 'AuditReportService'
+    'Get-SecurityAuditCatalog'               = 'AuditReportService'
+    # DiagnosticService
+    'Find-CircularGroupReferences'           = 'DiagnosticService'
+    'Find-CircularGroupReferencesWithChain'  = 'DiagnosticService'
+    'Disconnect-CircularGroupReference'      = 'DiagnosticService'
+    'Compare-ADUserGroupMemberships'         = 'DiagnosticService'
+    'Compare-ADGroupMemberships'             = 'DiagnosticService'
+    'Compare-ADObjectsSideBySide'            = 'DiagnosticService'
+    'Get-ADGroupLineage'                     = 'DiagnosticService'
+    'Find-ADAccountLockoutSource'            = 'DiagnosticService'
+    'Unlock-ADUserAcrossDCs'                 = 'DiagnosticService'
+    'Resolve-ADErrorCode'                    = 'DiagnosticService'
+    'Convert-ADTimestamp'                    = 'DiagnosticService'
+    'Get-ADOrgStructure'                     = 'DiagnosticService'
+    'Find-ADUserGroupChanges'                = 'DiagnosticService'
+    'Get-ADResultantPSO'                     = 'DiagnosticService'
+    'Get-LocalLogonSessions'                 = 'DiagnosticService'
+    'Convert-ASN1Structure'                  = 'DiagnosticService'
+    'Invoke-Win32Logon'                      = 'DiagnosticService'
+    'Convert-Base64Data'                     = 'DiagnosticService'
+    'Resolve-ADSecurityIdentifierEx'         = 'DiagnosticService'
+    'Find-ADMailProxyConflicts'              = 'DiagnosticService'
+    'Get-ADTopQuotaUsage'                    = 'DiagnosticService'
+    # GpoService
+    'Get-ADGpoHierarchy'                     = 'GpoService'
+    'Read-GpoRegistryPol'                    = 'GpoService'
+    'Test-GpoReplicationMultiDC'             = 'GpoService'
+    'Get-ADWmiFilters'                       = 'GpoService'
+    # KerberosService
+    'Get-KerberosTicketCache'                = 'KerberosService'
+    'Clear-KerberosTicketCache'              = 'KerberosService'
+    'Test-KerberosSpnTicket'                 = 'KerberosService'
+    'Find-DuplicateSPNs'                     = 'KerberosService'
+    'Measure-ADUserTokenSize'                = 'KerberosService'
+    'Measure-ADUserTokenSizeWithThresholds'  = 'KerberosService'
+    'Get-ADRidPoolStatus'                    = 'KerberosService'
+    'Get-ADRidPoolExhaustionStatus'          = 'KerberosService'
+    'Get-UserRightsPrivileges'               = 'KerberosService'
+    # LdapSqlService
+    'Invoke-ADSqlExtendedQuery'              = 'LdapSqlService'
+    'Invoke-LdapSqlQuery'                    = 'LdapSqlService'
+    'Invoke-DirectorySql'                    = 'LdapSqlService'
+    'Query-ADSql'                            = 'LdapSqlService'
+    # NetworkService
+    'Test-ADUncPath'                         = 'NetworkService'
+    'Test-ADUncPath7Tier'                    = 'NetworkService'
+    'Test-WebsiteCertificate'                = 'NetworkService'
+    'Test-ADDcResolution'                    = 'NetworkService'
+    'Test-ADDomainControllerPorts'           = 'NetworkService'
+    'Invoke-DsGetDcName'                     = 'NetworkService'
+    'Test-HttpUrlHeaders'                    = 'NetworkService'
+    'Get-NetworkTraceAndWhoIs'               = 'NetworkService'
+    'Measure-LdapPerformanceBenchmark'       = 'NetworkService'
+    # ReplicationService
+    'Get-ADReplicationAttributeMetadata'     = 'ReplicationService'
+    'Get-ADDCUpdateCounters'                 = 'ReplicationService'
+    'Test-ADSubnetOverlap'                   = 'ReplicationService'
+    'Convert-CIDRToRange'                    = 'ReplicationService'
+    'Resolve-ClientIPToSiteSubnet'           = 'ReplicationService'
+    'Get-ADSitesTopology'                    = 'ReplicationService'
+    'Get-ADMultiDCRealTimeLastLogon'         = 'ReplicationService'
+    'Test-GpoReplicationConsistency'         = 'ReplicationService'
+    'Get-ADSiteBrowserData'                  = 'ReplicationService'
+    'Test-ADReplicationLatencyProbe'         = 'ReplicationService'
+    'Invoke-ADCanaryReplicationTest'         = 'ReplicationService'
+    'Get-ADDirSyncChanges'                   = 'ReplicationService'
+    'Get-ADSchemaVersionsMatrix'             = 'ReplicationService'
+    'Get-ADForestTrusts'                     = 'ReplicationService'
+    # ScimFilterService & ScimService
+    'Convert-ScimFilterToLdapFilter'         = 'ScimFilterService'
+    'Convert-LdapFilterToScimFilter'         = 'ScimFilterService'
+    'Test-ScimFilterSyntax'                  = 'ScimFilterService'
+    'Convert-ADObjectToScimJson'             = 'ScimService'
+    'Convert-ScimJsonToADAttributes'         = 'ScimService'
+    'Invoke-ScimBulkOperations'              = 'ScimService'
+    'Get-ScimSchemaDefinition'               = 'ScimService'
+    # SpecializedEditorService
+    'Format-BinaryHexDump'                   = 'SpecializedEditorService'
+    'Convert-HexStringToByteArray'           = 'SpecializedEditorService'
+    'Get-X509CertificateMetadata'            = 'SpecializedEditorService'
+    'Convert-GeneralizedTimeToDateTime'      = 'SpecializedEditorService'
+    'Convert-DateTimeToGeneralizedTime'      = 'SpecializedEditorService'
+    'Convert-FileTimeToDateTime'             = 'SpecializedEditorService'
+    'Convert-DateTimeToFileTime'             = 'SpecializedEditorService'
+    'New-LdapPasswordHash'                   = 'SpecializedEditorService'
+    'Test-LdapPasswordHash'                  = 'SpecializedEditorService'
+    'Format-ThumbnailPhotoImage'             = 'SpecializedEditorService'
+    # TemplateService
+    'Invoke-TemplateSubstitution'            = 'TemplateService'
+    'Resolve-AccountNameConflict'            = 'TemplateService'
+    'Get-ADProvisioningTemplates'            = 'TemplateService'
+    'Save-ADProvisioningTemplates'           = 'TemplateService'
+    'New-ADProvisioningProfile'              = 'TemplateService'
+    'Invoke-ADObjectProvisioningPlan'        = 'TemplateService'
+    'Substitute-Template'                    = 'TemplateService'
+    'Resolve-ADNameCollision'                = 'TemplateService'
+    'Get-ProvisioningProfiles'               = 'TemplateService'
+    'Set-ProvisioningProfiles'               = 'TemplateService'
+    # ExportService
+    'Export-ADDataToCsv'                     = 'ExportService'
+    'Export-LdapQueryToCsvStream'            = 'ExportService'
+    'Export-ADDataToLdif'                    = 'ExportService'
+    'Export-ADDataToJson'                    = 'ExportService'
+    'Export-ADSecurityAuditToHtml'           = 'ExportService'
+    'Export-ADObjectToHtml'                  = 'ExportService'
+    'Get-ADObjectHtmlContent'                = 'ExportService'
+    'Export-ADDataToDsml'                    = 'ExportService'
+    'Export-ADDataToScim'                    = 'ExportService'
+    'New-LdifChangeScript'                   = 'ExportService'
+    'Convert-ScimFilterToLdap'               = 'ExportService'
+    'Convert-LdapFilterToScim'               = 'ExportService'
+    'New-ScimBulkRequest'                    = 'ExportService'
+    'Convert-ScimBulkRequestToOperations'    = 'ExportService'
 }
 
 $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
@@ -156,14 +251,20 @@ function Import-XamlWindow {    param ([string]$XamlPath)
         $fileStream.Dispose()
     }
 
-    # Inherit window resources and ensure newly loaded modal dialog inherits active theme
+    # Inherit active theme dictionary resources and ensure newly loaded modal dialog inherits active theme
     if ($window -and $loadedWin -ne $window) {
-        foreach ($key in $window.Resources.Keys) {
-            $loadedWin.Resources[$key] = $window.Resources[$key]
+        $currTheme  = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+        $currAccent = if ($appConfig -and $appConfig.UI -and $appConfig.UI.AccentTone) { $appConfig.UI.AccentTone } else { "Blue" }
+        if (Get-Command Sync-WindowThemeResources -ErrorAction SilentlyContinue) {
+            Sync-WindowThemeResources -TargetWindow $loadedWin -Theme $currTheme -AccentTone $currAccent
+        } else {
+            foreach ($key in $window.Resources.Keys) {
+                $loadedWin.Resources[$key] = $window.Resources[$key]
+            }
         }
         $loadedWin.Add_Loaded({
-            $currTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
-            if ($currTheme -eq "Light" -and (Get-Command Set-ThemeNode -ErrorAction SilentlyContinue)) {
+            $cTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+            if ($cTheme -eq "Light" -and (Get-Command Set-ThemeNode -ErrorAction SilentlyContinue)) {
                 Apply-ThemeNode $this "Light"
             }
         })
@@ -175,6 +276,57 @@ function Import-XamlWindow {    param ([string]$XamlPath)
     }
 
     return $loadedWin
+}
+
+function Show-AppInputDialog {
+    [CmdletBinding()]
+    param(
+        [object]$Prompt = "",
+        [string]$Title = "Input Required",
+        [string]$DefaultResponse = ""
+    )
+    if ($Prompt -is [System.Array]) {
+        $arr = $Prompt
+        $Prompt          = if ($arr.Count -gt 0) { [string]$arr[0] } else { "" }
+        if ($arr.Count -gt 1 -and $Title -eq "Input Required") { $Title = [string]$arr[1] }
+        if ($arr.Count -gt 2 -and [string]::IsNullOrEmpty($DefaultResponse)) { $DefaultResponse = [string]$arr[2] }
+    } else {
+        $Prompt = [string]$Prompt
+    }
+    $dlgPath = Join-Path $script:viewsPath "InputPromptDialog.xaml"
+    $dlg = Load-XamlWindow -XamlPath $dlgPath
+    if ($window -and $window.IsVisible) { $dlg.Owner = $window }
+    $dlg.Title = $Title
+    $hdr = $dlg.FindName("TxtPromptHeader");  if ($hdr) { $hdr.Text = $Title }
+    $msg = $dlg.FindName("TxtPromptMessage"); if ($msg) { $msg.Text = $Prompt }
+    $txt = $dlg.FindName("TxtPromptValue")
+    if ($txt) {
+        $txt.Text = if ($null -ne $DefaultResponse) { "$DefaultResponse" } else { "" }
+    }
+    $okBtn = $dlg.FindName("BtnPromptOk")
+    if ($okBtn) {
+        $okBtn.Add_Click({
+            $ownerWin = [System.Windows.Window]::GetWindow($this)
+            if ($ownerWin) { $ownerWin.DialogResult = $true }
+        })
+    }
+    $cancelBtn = $dlg.FindName("BtnPromptCancel")
+    if ($cancelBtn) {
+        $cancelBtn.Add_Click({
+            $ownerWin = [System.Windows.Window]::GetWindow($this)
+            if ($ownerWin) { $ownerWin.DialogResult = $false }
+        })
+    }
+    $dlg.Add_Loaded({
+        $vBox = $this.FindName("TxtPromptValue")
+        if ($vBox) {
+            [void]$vBox.Focus()
+            $vBox.SelectAll()
+        }
+    })
+    $res = $dlg.ShowDialog()
+    if ($res -eq $true -and $txt) { return $txt.Text }
+    return $null
 }
 
 # Load Main Window
@@ -376,6 +528,28 @@ $script:PanelCatalog = [ordered]@{
     'Connections'          = [PSCustomObject]@{ Title = 'Connections';          Icon = '🌐'; Category = 'System';              ToolTip = 'Directory server connection profiles & credentials' }
     'Settings'             = [PSCustomObject]@{ Title = 'Settings';             Icon = '⚙️'; Category = 'System';              ToolTip = 'Application configuration & workspace preferences' }
 }
+if (Get-Command Initialize-WorkspaceContext -ErrorAction SilentlyContinue) {
+    $hostInvoker = {
+        param([string]$Fn, [hashtable]$NamedArgs = @{}, [object[]]$PosArgs = @())
+        $cmd = Get-Command $Fn -ErrorAction SilentlyContinue
+        if ($cmd) {
+            if ($NamedArgs -and $NamedArgs.Count -gt 0) { return & $cmd @NamedArgs }
+            elseif ($PosArgs -and $PosArgs.Count -gt 0) { return & $cmd @PosArgs }
+            else { return & $cmd }
+        }
+    }
+    Initialize-WorkspaceContext `
+        -Window $window `
+        -Controls $controls `
+        -State $state `
+        -Config $appConfig `
+        -MainWindowXamlPath $mainWindowXamlPath `
+        -ViewsPath $viewsPath `
+        -MainScriptPath $PSCommandPath `
+        -DefaultStartupTabs $script:DefaultStartupTabs `
+        -PanelCatalog $script:PanelCatalog `
+        -HostInvoke $hostInvoker
+}
 
 
 
@@ -520,280 +694,6 @@ function Update-AllExternalToolsMenus {    Populate-ExternalToolsMenu $controls[
 }
 
 #region Application Theme Engine (Dark / Light Mode)
-$script:OriginalBrushes = @{}
-$script:BrushConverter = New-Object System.Windows.Media.BrushConverter
-
-function Convert-BrushToHex ($brush) {
-    if (-not $brush) { return "" }
-    if ($brush -is [System.Windows.Media.SolidColorBrush]) {
-        if ($brush.Color.A -eq 0) { return "TRANSPARENT" }
-        return ("#{0:X2}{1:X2}{2:X2}" -f $brush.Color.R, $brush.Color.G, $brush.Color.B).ToUpper()
-    }
-    return ""
-}
-
-$script:ColorMapBgLight = @{
-    '#0F1015' = '#F1F5F9'
-    '#111319' = '#FFFFFF'
-    '#111827' = '#F8FAFC'
-    '#13151D' = '#F1F5F9'
-    '#14161C' = '#F8FAFC'
-    '#14161F' = '#F8FAFC'
-    '#161820' = '#F1F5F9'
-    '#161821' = '#F8FAFC'
-    '#161822' = '#F8FAFC'
-    '#18191D' = '#F8FAFC'
-    '#181A20' = '#F8FAFC'
-    '#181A22' = '#FFFFFF'
-    '#181B24' = '#FFFFFF'
-    '#1A1C23' = '#FFFFFF'
-    '#1A1D27' = '#FFFFFF'
-    '#1B1E28' = '#F8FAFC'
-    '#1E212B' = '#F1F5F9'
-    '#1E212D' = '#FFFFFF'
-    '#1E222D' = '#FFFFFF'
-    '#1E2232' = '#FFFFFF'
-    '#1E293B' = '#F1F5F9'
-    '#1F232E' = '#F1F5F9'
-    '#22252F' = '#F1F5F9'
-    '#222634' = '#F1F5F9'
-    '#252936' = '#FFFFFF'
-    '#252A3A' = '#F1F5F9'
-    '#253352' = '#E2E8F0'
-    '#282D3E' = '#F1F5F9'
-    '#292E3E' = '#F1F5F9'
-    '#292F42' = '#F1F5F9'
-    '#2A2D3A' = '#FFFFFF'
-    '#2B2F3E' = '#F1F5F9'
-    '#2D313F' = '#F1F5F9'
-    '#323749' = '#E2E8F0'
-    '#334155' = '#E2E8F0'
-    '#373B4D' = '#E2E8F0'
-    '#3A1C20' = '#FEF2F2'
-}
-
-$script:ColorMapFgLight = @{
-    '#FFFFFF' = '#0F172A'
-    '#F8FAFC' = '#0F172A'
-    '#F3F4F6' = '#0F172A'
-    '#F1F5F9' = '#0F172A'
-    '#E5E7EB' = '#1E293B'
-    '#D1D5DB' = '#334155'
-    '#9CA3AF' = '#475569'
-    '#6B7280' = '#64748B'
-    '#60A5FA' = '#2563EB'
-    '#38BDF8' = '#0284C7'
-    '#93C5FD' = '#1D4ED8'
-    '#A78BFA' = '#7C3AED'
-    '#34D399' = '#059669'
-    '#10B981' = '#047857'
-    '#FBBF24' = '#D97706'
-    '#F59E0B' = '#B45309'
-    '#EF4444' = '#DC2626'
-    '#4B5563' = '#475569'
-    '#FFA3A8' = '#DC2626'
-}
-
-$script:ColorMapBorderLight = @{
-    '#1F2937' = '#CBD5E1'
-    '#252936' = '#CBD5E1'
-    '#252A3A' = '#CBD5E1'
-    '#292E3E' = '#CBD5E1'
-    '#2D313F' = '#CBD5E1'
-    '#2E3345' = '#CBD5E1'
-    '#2F3446' = '#CBD5E1'
-    '#334155' = '#CBD5E1'
-    '#373B4D' = '#CBD5E1'
-    '#374151' = '#CBD5E1'
-    '#383E54' = '#CBD5E1'
-    '#4B526D' = '#94A3B8'
-}
-
-$script:ColorMapBgDark = @{
-    '#F1F5F9' = '#161820'
-    '#F8FAFC' = '#14161C'
-    '#FFFFFF' = '#1A1D27'
-    '#E2E8F0' = '#253352'
-    '#FEF2F2' = '#3A1C20'
-}
-
-$script:ColorMapFgDark = @{
-    '#0F172A' = '#FFFFFF'
-    '#1E293B' = '#E5E7EB'
-    '#334155' = '#D1D5DB'
-    '#475569' = '#9CA3AF'
-    '#64748B' = '#6B7280'
-    '#2563EB' = '#60A5FA'
-    '#0284C7' = '#38BDF8'
-    '#1D4ED8' = '#93C5FD'
-    '#7C3AED' = '#A78BFA'
-    '#059669' = '#34D399'
-    '#047857' = '#10B981'
-    '#D97706' = '#FBBF24'
-    '#B45309' = '#F59E0B'
-    '#DC2626' = '#EF4444'
-}
-
-$script:ColorMapBorderDark = @{
-    '#CBD5E1' = '#2F3446'
-    '#94A3B8' = '#4B526D'
-    '#E2E8F0' = '#252936'
-}
-
-function Test-IsDynamicExpression ($node, $prop) {
-    if (-not $node -or -not $prop) { return $false }
-    try {
-        $source = [System.Windows.DependencyPropertyHelper]::GetValueSource($node, $prop)
-        return [bool]$source.IsExpression
-    } catch {
-        return $false
-    }
-}
-
-Set-Alias -Name Apply-ThemeNode -Value Set-ThemeNode -Scope Global
-function Set-ThemeNode ($node, [string]$targetTheme) {    if (-not $node -or -not ($node -is [System.Windows.FrameworkElement])) { return }
-    # Search attribute outcome badge has dedicated theme management via Set-SearchAttrOutcomeBadge
-    if ($node.Name -in @('BorderSearchAttrOutcome', 'TxtSearchAttrOutcomeLabel', 'TxtSearchAttrOutcome')) {
-        return
-    }
-    $id = $node.GetHashCode()
-
-    $bgProp = switch ($node) {
-        { $_ -is [System.Windows.Controls.Border] }    { [System.Windows.Controls.Border]::BackgroundProperty }
-        { $_ -is [System.Windows.Controls.Control] }   { [System.Windows.Controls.Control]::BackgroundProperty }
-        { $_ -is [System.Windows.Controls.Panel] }     { [System.Windows.Controls.Panel]::BackgroundProperty }
-        { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::BackgroundProperty }
-        default { $null }
-    }
-    $fgProp = switch ($node) {
-        { $_ -is [System.Windows.Controls.Control] }   { [System.Windows.Controls.Control]::ForegroundProperty }
-        { $_ -is [System.Windows.Controls.TextBlock] } { [System.Windows.Controls.TextBlock]::ForegroundProperty }
-        default { $null }
-    }
-    $borderProp = switch ($node) {
-        { $_ -is [System.Windows.Controls.Border] }  { [System.Windows.Controls.Border]::BorderBrushProperty }
-        { $_ -is [System.Windows.Controls.Control] } { [System.Windows.Controls.Control]::BorderBrushProperty }
-        default { $null }
-    }
-
-    # Only treat property as having a local static brush if ReadLocalValue is NOT UnsetValue and NOT a dynamic expression
-    $localBg = if ($bgProp) { $node.ReadLocalValue($bgProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
-    $isBgDynamic = ($bgProp -and (Test-IsDynamicExpression $node $bgProp))
-    $hasLocalBg = ($localBg -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isBgDynamic)
-
-    $localFg = if ($fgProp) { $node.ReadLocalValue($fgProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
-    $isFgDynamic = ($fgProp -and (Test-IsDynamicExpression $node $fgProp))
-    $hasLocalFg = ($localFg -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isFgDynamic)
-
-    $localBorder = if ($borderProp) { $node.ReadLocalValue($borderProp) } else { [System.Windows.DependencyProperty]::UnsetValue }
-    $isBorderDynamic = ($borderProp -and (Test-IsDynamicExpression $node $borderProp))
-    $hasLocalBorder = ($localBorder -ne [System.Windows.DependencyProperty]::UnsetValue -and -not $isBorderDynamic)
-
-    if ($targetTheme -eq "Light") {
-        # Cache original dark brushes if element has local static properties
-        if (-not $script:OriginalBrushes.ContainsKey($id)) {
-            $script:OriginalBrushes[$id] = @{
-                Bg     = if ($hasLocalBg) { $localBg } else { $null }
-                Fg     = if ($hasLocalFg) { $localFg } else { $null }
-                Border = if ($hasLocalBorder) { $localBorder } else { $null }
-            }
-        }
-        $orig = $script:OriginalBrushes[$id]
-
-        # Apply Light Background for local static properties
-        if ($orig.Bg) {
-            $hex = Convert-BrushToHex $orig.Bg
-            if ($hex -ne "TRANSPARENT" -and $script:ColorMapBgLight.ContainsKey($hex)) {
-                $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgLight[$hex])
-            }
-        }
-
-        # Apply Light Foreground (protect primary/accent action badges and buttons)
-        if ($orig.Fg) {
-            $isAccentHost = $false
-            $checkBg = $node.Background
-            if (-not $checkBg -and ($node.Parent -is [System.Windows.Controls.Button] -or $node.Parent -is [System.Windows.Controls.Border])) {
-                $checkBg = $node.Parent.Background
-            } elseif (-not $checkBg -and $node.Parent -is [System.Windows.Controls.Panel] -and ($node.Parent.Parent -is [System.Windows.Controls.Button] -or $node.Parent.Parent -is [System.Windows.Controls.Border])) {
-                $checkBg = $node.Parent.Parent.Background
-            }
-            if ($checkBg) {
-                $bgHex = Convert-BrushToHex $checkBg
-                if ($bgHex -in @('#0078D4', '#107C41', '#D13438', '#D97706', '#4F46E5', '#0284C7', '#DC2626', '#064E3B')) {
-                    $isAccentHost = $true
-                }
-            }
-
-            if (-not $isAccentHost) {
-                $hex = Convert-BrushToHex $orig.Fg
-                if ($hex -ne "TRANSPARENT" -and $script:ColorMapFgLight.ContainsKey($hex)) {
-                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapFgLight[$hex])
-                }
-            }
-        }
-
-        # Apply Light BorderBrush for local static properties
-        if ($orig.Border) {
-            $hex = Convert-BrushToHex $orig.Border
-            if ($hex -ne "TRANSPARENT" -and $script:ColorMapBorderLight.ContainsKey($hex)) {
-                $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderLight[$hex])
-            }
-        }
-    } else {
-        # Restore Dark Mode: restore cached original dark brushes, or clear local values if none was set
-        if ($script:OriginalBrushes.ContainsKey($id)) {
-            $saved = $script:OriginalBrushes[$id]
-            if ($null -ne $saved.Bg) {
-                $node.Background = $saved.Bg
-            } elseif ($bgProp -and -not $isBgDynamic) {
-                $node.ClearValue($bgProp)
-            }
-            if ($null -ne $saved.Fg) {
-                $node.Foreground = $saved.Fg
-            } elseif ($fgProp -and -not $isFgDynamic) {
-                $node.ClearValue($fgProp)
-            }
-            if ($null -ne $saved.Border) {
-                $node.BorderBrush = $saved.Border
-            } elseif ($borderProp -and -not $isBorderDynamic) {
-                $node.ClearValue($borderProp)
-            }
-        } else {
-            # Element was not cached (e.g. style-based or created in Light mode)
-            if ($bgProp -and -not $isBgDynamic -and $hasLocalBg) {
-                $hex = Convert-BrushToHex $localBg
-                if ($script:ColorMapBgDark.ContainsKey($hex)) {
-                    $node.Background = $script:BrushConverter.ConvertFromString($script:ColorMapBgDark[$hex])
-                } else {
-                    $node.ClearValue($bgProp)
-                }
-            }
-            if ($fgProp -and -not $isFgDynamic -and $hasLocalFg) {
-                $hex = Convert-BrushToHex $localFg
-                if ($script:ColorMapFgDark.ContainsKey($hex)) {
-                    $node.Foreground = $script:BrushConverter.ConvertFromString($script:ColorMapFgDark[$hex])
-                } else {
-                    $node.ClearValue($fgProp)
-                }
-            }
-            if ($borderProp -and -not $isBorderDynamic -and $hasLocalBorder) {
-                $hex = Convert-BrushToHex $localBorder
-                if ($script:ColorMapBorderDark.ContainsKey($hex)) {
-                    $node.BorderBrush = $script:BrushConverter.ConvertFromString($script:ColorMapBorderDark[$hex])
-                } else {
-                    $node.ClearValue($borderProp)
-                }
-            }
-        }
-    }
-
-    foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($node)) {
-        if ($child -is [System.Windows.FrameworkElement]) {
-            Apply-ThemeNode $child $targetTheme
-        }
-    }
-}
-
 function Set-ApplicationTheme {
     [CmdletBinding()]
     param (
@@ -808,88 +708,10 @@ function Set-ApplicationTheme {
     $isLight = ($Theme -eq "Light")
     $state.CurrentTheme = $Theme
 
-    # 1. Update Window Resource Brushes
-    $bgDarkVal           = if ($isLight) { "#F8FAFC" } else { "#0F1015" }
-    $bgSidebarVal        = if ($isLight) { "#F1F5F9" } else { "#161820" }
-    $bgSurfaceVal        = if ($isLight) { "#FFFFFF" } else { "#1E212B" }
-    $bgCardVal           = if ($isLight) { "#FFFFFF" } else { "#252936" }
-    $bgInputVal          = if ($isLight) { "#FFFFFF" } else { "#181A22" }
-    $borderVal           = if ($isLight) { "#CBD5E1" } else { "#2F3446" }
-    $textPriVal          = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
-    $textSecVal          = if ($isLight) { "#475569" } else { "#9CA3AF" }
-    $textMutVal          = if ($isLight) { "#64748B" } else { "#6B7280" }
+    # 1. Update Window & Application DynamicResource Brushes via ThemeService
+    Sync-WindowThemeResources -TargetWindow $window -Theme $Theme -AccentTone $AccentTone
 
-    # Component Dynamic Brushes
-    $navHoverBgVal       = if ($isLight) { "#E2E8F0" } else { "#1E212B" }
-    $navSelectedBgVal    = if ($isLight) { "#E2E8F0" } else { "#252936" }
-    $dropDownBgVal       = if ($isLight) { "#FFFFFF" } else { "#181A22" }
-    $dropDownBorderVal   = if ($isLight) { "#CBD5E1" } else { "#383E54" }
-    $dropDownItemHoverBg = if ($isLight) { "#F1F5F9" } else { "#282D3E" }
-    $dropDownItemHoverFg = if ($isLight) { "#0F172A" } else { "#FFFFFF" }
-    $buttonBgVal         = if ($isLight) { "#F1F5F9" } else { "#252936" }
-    $buttonHoverBgVal    = if ($isLight) { "#E2E8F0" } else { "#323749" }
-    $buttonHoverBorderVal= if ($isLight) { "#94A3B8" } else { "#4B526D" }
-    $dataGridHeaderBgVal = if ($isLight) { "#F1F5F9" } else { "#1F232F" }
-    $dataGridHeaderFgVal = if ($isLight) { "#1E293B" } else { "#D1D5DB" }
-    $dataGridRowBgVal    = if ($isLight) { "#FFFFFF" } else { "#161820" }
-    $dataGridAltRowBgVal = if ($isLight) { "#F8FAFC" } else { "#1B1E28" }
-    $dataGridGridLinesVal= if ($isLight) { "#E2E8F0" } else { "#262A38" }
-    $contextMenuBgVal    = if ($isLight) { "#FFFFFF" } else { "#181A22" }
-    $dangerBtnBgVal      = if ($isLight) { "#FEF2F2" } else { "#3A1C20" }
-    $dangerBtnFgVal      = if ($isLight) { "#DC2626" } else { "#FFA3A8" }
-    $dangerBtnBorderVal  = if ($isLight) { "#FCA5A5" } else { "#D13438" }
-
-    $resourceMap = @{
-        "BgDark"              = $bgDarkVal
-        "BgSidebar"           = $bgSidebarVal
-        "BgSurface"           = $bgSurfaceVal
-        "BgCard"              = $bgCardVal
-        "BgInput"             = $bgInputVal
-        "BorderBrushColor"    = $borderVal
-        "TextPrimary"         = $textPriVal
-        "TextSecondary"       = $textSecVal
-        "TextMuted"           = $textMutVal
-        "NavHoverBg"          = $navHoverBgVal
-        "NavSelectedBg"       = $navSelectedBgVal
-        "DropDownBg"          = $dropDownBgVal
-        "DropDownBorderBrush" = $dropDownBorderVal
-        "DropDownItemHoverBg" = $dropDownItemHoverBg
-        "DropDownItemHoverFg" = $dropDownItemHoverFg
-        "ButtonBg"            = $buttonBgVal
-        "ButtonHoverBg"       = $buttonHoverBgVal
-        "ButtonHoverBorder"   = $buttonHoverBorderVal
-        "DataGridHeaderBg"    = $dataGridHeaderBgVal
-        "DataGridHeaderFg"    = $dataGridHeaderFgVal
-        "DataGridRowBg"       = $dataGridRowBgVal
-        "DataGridAltRowBg"    = $dataGridAltRowBgVal
-        "DataGridGridLines"   = $dataGridGridLinesVal
-        "ContextMenuBg"       = $contextMenuBgVal
-        "DangerButtonBg"      = $dangerBtnBgVal
-        "DangerButtonFg"      = $dangerBtnFgVal
-        "DangerButtonBorder"  = $dangerBtnBorderVal
-    }
-
-    foreach ($k in $resourceMap.Keys) {
-        $window.Resources[$k] = $script:BrushConverter.ConvertFromString($resourceMap[$k])
-        if ([System.Windows.Application]::Current -and [System.Windows.Application]::Current.Resources) {
-            [System.Windows.Application]::Current.Resources[$k] = $window.Resources[$k]
-        }
-    }
-
-    # Accent tone handling
-    $accentHex = switch -Wildcard ($AccentTone) {
-        "*Sky*"     { "#0284C7" }
-        "*Emerald*" { "#107C41" }
-        "*Indigo*"  { "#4F46E5" }
-        "*Amber*"   { "#D97706" }
-        default     { "#0078D4" }
-    }
-    $window.Resources["AccentPrimary"] = $script:BrushConverter.ConvertFromString($accentHex)
-    if ([System.Windows.Application]::Current -and [System.Windows.Application]::Current.Resources) {
-        [System.Windows.Application]::Current.Resources["AccentPrimary"] = $window.Resources["AccentPrimary"]
-    }
-
-    # 2. Apply theme recursively across visual tree and all registered controls
+    # 2. Apply theme fallback recursively for any non-DynamicResource local brushes
     Apply-ThemeNode $window $Theme
     if ($controls) {
         foreach ($ctrl in $controls.Values) {
@@ -904,10 +726,7 @@ function Set-ApplicationTheme {
         foreach ($dRec in $state.DetachedWindows.Values) {
             $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
             if ($dWin -and $dWin -is [System.Windows.Window]) {
-                foreach ($k in $resourceMap.Keys) {
-                    $dWin.Resources[$k] = $window.Resources[$k]
-                }
-                $dWin.Resources["AccentPrimary"] = $window.Resources["AccentPrimary"]
+                Sync-WindowThemeResources -TargetWindow $dWin -Theme $Theme -AccentTone $AccentTone
                 Apply-ThemeNode $dWin $Theme
             }
         }
@@ -1364,6 +1183,14 @@ function global:Update-StatusBarTelemetry {
     }
 }
 
+if ($controls['BtnCancelStatusTask']) {
+    $controls['BtnCancelStatusTask'].Add_Click({
+        if (Get-Command Stop-ADAsyncOperation -ErrorAction SilentlyContinue) {
+            [void](Stop-ADAsyncOperation -All)
+        }
+    })
+}
+
 function global:Update-DirectoryBreadcrumb {
     param (
         [object]$Identity,
@@ -1647,13 +1474,19 @@ function global:Set-Status {
 function Set-AppClipboardText {
     param([string]$Text)
     if ([string]::IsNullOrEmpty($Text)) { return }
-    for ($i = 0; $i -lt 5; $i++) {
-        try {
-            [System.Windows.Clipboard]::SetDataObject($Text, $true)
-            return
-        } catch {
-            [System.Threading.Thread]::Sleep(50)
+    try {
+        [System.Windows.Forms.Clipboard]::SetDataObject($Text, $true, 5, 30)
+        return
+    } catch {
+        for ($i = 0; $i -lt 3; $i++) {
+            try {
+                [System.Windows.Clipboard]::SetDataObject($Text, $false)
+                return
+            } catch {
+                [System.Threading.Thread]::Sleep(25)
+            }
         }
+        Set-Status -Message "Clipboard busy (locked by another process) — please retry."
     }
 }
 Set-Alias -Name Set-ClipboardSafe -Value Set-AppClipboardText -Scope Global
@@ -1728,773 +1561,6 @@ function Add-NavHistory {    param ([string]$PanelName)
     Update-NavButtons
 }
 
-#region Workspace Engine (Multi-Tabs & Detachable Multi-Windows)
-
-Set-Alias -Name Launch-NewApplicationWindow -Value Start-NewApplicationWindow -Scope Global
-function Start-NewApplicationWindow {    param([string]$ToolName = "")
-    $powershellExe = (Get-Process -Id $PID).Path
-    $argList = "-STA -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    if (-not [string]::IsNullOrWhiteSpace($ToolName)) {
-        $argList += " -InitialTool `"$ToolName`""
-    }
-    Start-Process -FilePath $powershellExe -ArgumentList $argList -WindowStyle Hidden
-    Set-Status -Message "Launched new independent window$(if ($ToolName) { " for $ToolName" })."
-}
-
-function Rename-WorkspaceTab {
-    param([string]$TabId)
-    if ([string]::IsNullOrWhiteSpace($TabId)) { return }
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
-    if (-not $targetTab) {
-        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
-    }
-    if (-not $targetTab) { return }
-
-    $dialog = [System.Windows.Window]::new()
-    $dialog.Title = "Rename Tab"
-    $dialog.Width = 360
-    $dialog.Height = 155
-    $dialog.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
-    if ($window) { $dialog.Owner = $window }
-    $dialog.SetResourceReference([System.Windows.Window]::BackgroundProperty, "BgDark")
-    $dialog.SetResourceReference([System.Windows.Window]::ForegroundProperty, "TextPrimary")
-    $dialog.ResizeMode = [System.Windows.ResizeMode]::NoResize
-
-    $stack = [System.Windows.Controls.StackPanel]::new()
-    $stack.Margin = [System.Windows.Thickness]::new(16)
-
-    $lbl = [System.Windows.Controls.TextBlock]::new()
-    $lbl.Text = "Custom name for '$($targetTab.Title)':"
-    $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
-    $lbl.FontWeight = [System.Windows.FontWeights]::SemiBold
-    $lbl.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
-    [void]$stack.Children.Add($lbl)
-
-    $tb = [System.Windows.Controls.TextBox]::new()
-    $tb.Style = $window.TryFindResource("ModernTextBox")
-    $tb.Text = $targetTab.Title
-    $tb.Height = 28
-    $tb.Padding = [System.Windows.Thickness]::new(6, 3, 6, 3)
-    $tb.SelectAll()
-    [void]$stack.Children.Add($tb)
-
-    $btnPanel = [System.Windows.Controls.StackPanel]::new()
-    $btnPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-    $btnPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
-    $btnPanel.Margin = [System.Windows.Thickness]::new(0, 12, 0, 0)
-
-    $btnOk = [System.Windows.Controls.Button]::new()
-    $btnOk.Style = $window.TryFindResource("PrimaryButton")
-    $btnOk.Content = "Save"
-    $btnOk.Width = 70
-    $btnOk.Height = 26
-    $btnOk.Margin = [System.Windows.Thickness]::new(0, 0, 8, 0)
-    $btnOk.IsDefault = $true
-    $btnOk.Add_Click({
-        if (-not [string]::IsNullOrWhiteSpace($tb.Text)) {
-            $targetTab.Title = $tb.Text.Trim()
-            Update-WorkspaceTabStrip
-        }
-        $dialog.Close()
-    })
-    [void]$btnPanel.Children.Add($btnOk)
-
-    $btnCancel = [System.Windows.Controls.Button]::new()
-    $btnCancel.Style = $window.TryFindResource("ModernButton")
-    $btnCancel.Content = "Cancel"
-    $btnCancel.Width = 70
-    $btnCancel.Height = 26
-    $btnCancel.IsCancel = $true
-    $btnCancel.Add_Click({ $dialog.Close() })
-    [void]$btnPanel.Children.Add($btnCancel)
-
-    [void]$stack.Children.Add($btnPanel)
-    $dialog.Content = $stack
-    [void]$dialog.ShowDialog()
-}
-
-function global:Save-TabSessionState {
-    param($Tab)
-    if (-not $Tab -or -not $Tab.State) { return }
-    $p = $Tab.PanelName
-    switch ($p) {
-        "Users" {
-            if ($controls['TxtSearchUsers']) { $Tab.State['SearchUsers'] = $controls['TxtSearchUsers'].Text }
-            if ($controls['FilterUserAll']) {
-                $Tab.State['FilterUser'] = if ($controls['FilterUserActive'] -and $controls['FilterUserActive'].IsChecked) { "Active" }
-                    elseif ($controls['FilterUserDisabled'] -and $controls['FilterUserDisabled'].IsChecked) { "Disabled" }
-                    elseif ($controls['FilterUserLocked'] -and $controls['FilterUserLocked'].IsChecked) { "Locked" }
-                    else { "All" }
-            }
-            if ($controls['CmbUserOUFilter']) { $Tab.State['OUFilter'] = $controls['CmbUserOUFilter'].SelectedIndex }
-            if ($state.UsersCurrentList) { $Tab.State['UsersCurrentList'] = $state.UsersCurrentList }
-            if ($state.UsersPage) { $Tab.State['UsersPage'] = $state.UsersPage }
-        }
-        "Groups" {
-            if ($controls['TxtSearchGroups']) { $Tab.State['SearchGroups'] = $controls['TxtSearchGroups'].Text }
-            if ($controls['FilterGroupAll']) {
-                $Tab.State['FilterGroup'] = if ($controls['FilterGroupSec'] -and $controls['FilterGroupSec'].IsChecked) { "Security" }
-                    elseif ($controls['FilterGroupDist'] -and $controls['FilterGroupDist'].IsChecked) { "Distribution" }
-                    else { "All" }
-            }
-        }
-        "Computers" {
-            if ($controls['TxtSearchComputers']) { $Tab.State['SearchComputers'] = $controls['TxtSearchComputers'].Text }
-            if ($controls['FilterCompAll']) {
-                $Tab.State['FilterComp'] = if ($controls['FilterCompEnabled'] -and $controls['FilterCompEnabled'].IsChecked) { "Enabled" }
-                    elseif ($controls['FilterCompDisabled'] -and $controls['FilterCompDisabled'].IsChecked) { "Disabled" }
-                    else { "All" }
-            }
-        }
-        "DirectorySearch" {
-            if ($controls['TxtLdapFilter']) { $Tab.State['LdapFilter'] = $controls['TxtLdapFilter'].Text }
-            if ($controls['TxtLdapSearchBase']) { $Tab.State['SearchBase'] = $controls['TxtLdapSearchBase'].Text }
-            if ($controls['CmbLdapScope']) { $Tab.State['ScopeIndex'] = $controls['CmbLdapScope'].SelectedIndex }
-        }
-        "LdapSql" {
-            if ($controls['TxtLdapSqlQuery']) { $Tab.State['SqlQuery'] = $controls['TxtLdapSqlQuery'].Text }
-        }
-        "AttributeEditor" {
-            if ($controls['TxtSearchAttr']) { $Tab.State['SearchAttr'] = $controls['TxtSearchAttr'].Text }
-        }
-        "HtmlView" {
-            if ($Tab.InstanceNumber -le 1 -and $Tab.Id -eq $state.ActiveTabId) {
-                if ($controls['TxtHtmlViewDN'] -and $controls['TxtHtmlViewDN'].Text) {
-                    $Tab.State['CurrentHtmlDN'] = $controls['TxtHtmlViewDN'].Text
-                }
-                if ($state.CurrentHtmlTemplate) { $Tab.State['CurrentHtmlTemplate'] = $state.CurrentHtmlTemplate }
-                if ($state.CurrentHtmlRaw) { $Tab.State['CurrentHtmlRaw'] = $state.CurrentHtmlRaw }
-                if ($state.CurrentHtmlObject) { $Tab.State['CurrentHtmlObject'] = $state.CurrentHtmlObject }
-            }
-        }
-    }
-}
-
-function global:Restore-TabSessionState {
-    param($Tab)
-    if (-not $Tab -or -not $Tab.State) { return }
-    $p = $Tab.PanelName
-    switch ($p) {
-        "Users" {
-            if ($controls['TxtSearchUsers'] -and $Tab.State.ContainsKey('SearchUsers')) {
-                $controls['TxtSearchUsers'].Text = $Tab.State['SearchUsers']
-            }
-            if ($Tab.State.ContainsKey('FilterUser')) {
-                switch ($Tab.State['FilterUser']) {
-                    "Active"   { if ($controls['FilterUserActive'])   { $controls['FilterUserActive'].IsChecked = $true } }
-                    "Disabled" { if ($controls['FilterUserDisabled']) { $controls['FilterUserDisabled'].IsChecked = $true } }
-                    "Locked"   { if ($controls['FilterUserLocked'])   { $controls['FilterUserLocked'].IsChecked = $true } }
-                    default    { if ($controls['FilterUserAll'])      { $controls['FilterUserAll'].IsChecked = $true } }
-                }
-            }
-            if ($controls['CmbUserOUFilter'] -and $Tab.State.ContainsKey('OUFilter')) {
-                $controls['CmbUserOUFilter'].SelectedIndex = $Tab.State['OUFilter']
-            }
-            if ($Tab.State.ContainsKey('UsersCurrentList') -and $Tab.State['UsersCurrentList']) {
-                $state.UsersCurrentList = $Tab.State['UsersCurrentList']
-                $state.UsersPage = if ($Tab.State.ContainsKey('UsersPage')) { $Tab.State['UsersPage'] } else { 1 }
-                if (Get-Command Render-PagedUsers -ErrorAction SilentlyContinue) {
-                    Render-PagedUsers -SourceItems $state.UsersCurrentList
-                }
-            }
-        }
-        "Groups" {
-            if ($controls['TxtSearchGroups'] -and $Tab.State.ContainsKey('SearchGroups')) {
-                $controls['TxtSearchGroups'].Text = $Tab.State['SearchGroups']
-            }
-            if ($Tab.State.ContainsKey('FilterGroup')) {
-                switch ($Tab.State['FilterGroup']) {
-                    "Security"     { if ($controls['FilterGroupSec'])  { $controls['FilterGroupSec'].IsChecked = $true } }
-                    "Distribution" { if ($controls['FilterGroupDist']) { $controls['FilterGroupDist'].IsChecked = $true } }
-                    default        { if ($controls['FilterGroupAll'])  { $controls['FilterGroupAll'].IsChecked = $true } }
-                }
-            }
-        }
-        "Computers" {
-            if ($controls['TxtSearchComputers'] -and $Tab.State.ContainsKey('SearchComputers')) {
-                $controls['TxtSearchComputers'].Text = $Tab.State['SearchComputers']
-            }
-            if ($Tab.State.ContainsKey('FilterComp')) {
-                switch ($Tab.State['FilterComp']) {
-                    "Enabled"  { if ($controls['FilterCompEnabled'])  { $controls['FilterCompEnabled'].IsChecked = $true } }
-                    "Disabled" { if ($controls['FilterCompDisabled']) { $controls['FilterCompDisabled'].IsChecked = $true } }
-                    default    { if ($controls['FilterCompAll'])      { $controls['FilterCompAll'].IsChecked = $true } }
-                }
-            }
-        }
-        "DirectorySearch" {
-            if ($controls['TxtLdapFilter'] -and $Tab.State.ContainsKey('LdapFilter')) {
-                $controls['TxtLdapFilter'].Text = $Tab.State['LdapFilter']
-            }
-            if ($controls['TxtLdapSearchBase'] -and $Tab.State.ContainsKey('SearchBase')) {
-                $controls['TxtLdapSearchBase'].Text = $Tab.State['SearchBase']
-            }
-            if ($controls['CmbLdapScope'] -and $Tab.State.ContainsKey('ScopeIndex')) {
-                $controls['CmbLdapScope'].SelectedIndex = $Tab.State['ScopeIndex']
-            }
-        }
-        "LdapSql" {
-            if ($controls['TxtLdapSqlQuery'] -and $Tab.State.ContainsKey('SqlQuery')) {
-                $controls['TxtLdapSqlQuery'].Text = $Tab.State['SqlQuery']
-            }
-        }
-        "AttributeEditor" {
-            if ($controls['TxtSearchAttr'] -and $Tab.State.ContainsKey('SearchAttr')) {
-                $controls['TxtSearchAttr'].Text = $Tab.State['SearchAttr']
-            }
-        }
-        "HtmlView" {
-            if ($Tab.State.ContainsKey('CurrentHtmlDN') -and $Tab.State['CurrentHtmlDN']) {
-                $state.CurrentHtmlDN = $Tab.State['CurrentHtmlDN']
-                if ($Tab.State.ContainsKey('CurrentHtmlTemplate')) { $state.CurrentHtmlTemplate = $Tab.State['CurrentHtmlTemplate'] }
-                if ($Tab.State.ContainsKey('CurrentHtmlRaw')) { $state.CurrentHtmlRaw = $Tab.State['CurrentHtmlRaw'] }
-                if ($Tab.State.ContainsKey('CurrentHtmlObject')) { $state.CurrentHtmlObject = $Tab.State['CurrentHtmlObject'] }
-                if ($controls['TxtHtmlViewDN']) { $controls['TxtHtmlViewDN'].Text = $state.CurrentHtmlDN }
-                if ($controls['BrowserHtmlView'] -and $state.CurrentHtmlRaw) {
-                    Set-SafeBrowserHtml -Browser $controls['BrowserHtmlView'] -Html $state.CurrentHtmlRaw
-                }
-            }
-        }
-
-    }
-}
-
-function global:Update-WorkspaceTabStrip {
-    if (-not $controls['WorkspaceTabHost']) { return }
-    $tabHost = $controls['WorkspaceTabHost']
-    $tabHost.Children.Clear()
-    
-    # If in Single mode, hide tab bar
-    if ($state.WorkspaceMode -eq "Single") {
-        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Collapsed }
-        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🔲" }
-        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Single" }
-        return
-    } else {
-        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Visible }
-        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🗂️" }
-        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Tabs" }
-    }
-
-    foreach ($tab in $state.OpenTabs) {
-        $pName = $tab.PanelName
-        if ([string]::IsNullOrWhiteSpace($pName)) { continue }
-        $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $script:PanelCatalog.Contains($pName)) { $script:PanelCatalog[$pName] } else { [PSCustomObject]@{ Title = $pName; Icon = "📄"; Category = "Tool" } }
-        $isActive = ($state.ActiveTabId -eq $tab.Id)
-        $isDetached = ($state.DetachedWindows.ContainsKey($tab.Id))
-        $tabTitle = if ($tab.Title) { $tab.Title } else { $meta.Title }
-
-        # Tab Outer Border
-        $tabBorder = [System.Windows.Controls.Border]::new()
-        $tabBorder.Height = 28
-        $tabBorder.CornerRadius = [System.Windows.CornerRadius]::new(4)
-        $tabBorder.Margin = [System.Windows.Thickness]::new(0, 0, 4, 0)
-        $tabBorder.Padding = [System.Windows.Thickness]::new(8, 2, 6, 2)
-        $tabBorder.Cursor = [System.Windows.Input.Cursors]::Hand
-        $tabBorder.ToolTip = if ($isDetached) { "$tabTitle (Detached Window) - Click to focus" } else { "$tabTitle - Click to view, Drag to reorder" }
-        $tabBorder.Tag = $tab.Id
-
-        # Dynamic theming for tab border
-        if ($isActive) {
-            $tabBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BgCard")
-            $tabBorder.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "AccentPrimary")
-            $tabBorder.BorderThickness = [System.Windows.Thickness]::new(1, 1, 1, 2)
-        } else {
-            $tabBorder.Background = [System.Windows.Media.Brushes]::Transparent
-            $tabBorder.BorderBrush = [System.Windows.Media.Brushes]::Transparent
-            $tabBorder.BorderThickness = [System.Windows.Thickness]::new(1)
-        }
-
-        # Tab Inner Content
-        $tabPanel = [System.Windows.Controls.StackPanel]::new()
-        $tabPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-        $tabPanel.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tabPanel.Tag = $tab.Id
-
-        # Icon
-        $tbIcon = [System.Windows.Controls.TextBlock]::new()
-        $tbIcon.Text = if ($isDetached) { "⧉ $($meta.Icon)" } else { $meta.Icon }
-        $tbIcon.FontSize = 11
-        $tbIcon.Margin = [System.Windows.Thickness]::new(0, 0, 5, 0)
-        $tbIcon.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tbIcon.Tag = $tab.Id
-        if ($isActive) {
-            $tbIcon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentPrimary")
-        } else {
-            $tbIcon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
-        }
-        [void]$tabPanel.Children.Add($tbIcon)
-
-        # Title
-        $tbTitle = [System.Windows.Controls.TextBlock]::new()
-        $tbTitle.Text = $tabTitle
-        $tbTitle.FontSize = 11.5
-        $tbTitle.FontWeight = if ($isActive) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
-        $tbTitle.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $tbTitle.Tag = $tab.Id
-        if ($isActive) {
-            $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimary")
-        } else {
-            $tbTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextSecondary")
-        }
-        [void]$tabPanel.Children.Add($tbTitle)
-
-        # Detach Button
-        if ($state.AllowMultiWindow) {
-            $btnDetach = [System.Windows.Controls.Button]::new()
-            $btnDetach.Style = $window.TryFindResource("WorkspaceTabDetachBtn")
-            $btnDetach.Content = if ($isDetached) { [string][char]0x2B07 } else { [string][char]0x29C9 }
-            $btnDetach.ToolTip = if ($isDetached) { "Dock back into main window" } else { "Detach to separate window" }
-            $btnDetach.Tag = $tab.Id
-            $btnDetach.Add_Click([System.Windows.RoutedEventHandler]{
-                param($s, $e)
-                $e.Handled = $true
-                $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                    if ($state.DetachedWindows.ContainsKey($tId)) {
-                        Dock-PanelToMainWindow -TabId $tId
-                    } else {
-                        Detach-PanelToWindow -TabId $tId
-                    }
-                }
-            })
-            [void]$tabPanel.Children.Add($btnDetach)
-        }
-
-        # Close Button (X)
-        $btnClose = [System.Windows.Controls.Button]::new()
-        $btnClose.Style = $window.TryFindResource("WorkspaceTabCloseBtn")
-        $btnClose.Content = [string][char]0x2715
-        $btnClose.ToolTip = "Close tab (Ctrl+W)"
-        $btnClose.Tag = $tab.Id
-        $btnClose.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $e.Handled = $true
-            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                Remove-WorkspaceTab -TabId $tId
-            }
-        })
-        [void]$tabPanel.Children.Add($btnClose)
-
-        $tabBorder.Child = $tabPanel
-
-        # Drag & Click Handlers on Tab Border
-        $tabBorder.Add_PreviewMouseLeftButtonDown([System.Windows.Input.MouseButtonEventHandler]{
-            param($s, $e)
-            $src = $e.OriginalSource
-            if ($src -is [System.Windows.FrameworkElement]) {
-                $cur = $src
-                $isBtn = $false
-                while ($cur -and $cur -ne $s) {
-                    if ($cur -is [System.Windows.Controls.Button]) { $isBtn = $true; break }
-                    $cur = [System.Windows.Media.VisualTreeHelper]::GetParent($cur)
-                }
-                if ($isBtn) { return }
-            }
-            $state.TabDragContext.IsMouseDown = $true
-            $state.TabDragContext.IsDragging = $false
-            $state.TabDragContext.StartPoint = $e.GetPosition($controls['WorkspaceTabHost'])
-            $state.TabDragContext.SourceTabId = $s.Tag
-            $state.TabDragContext.SourceBorder = $s
-        })
-
-        $tabBorder.Add_PreviewMouseMove([System.Windows.Input.MouseEventHandler]{
-            param($s, $e)
-            if (-not $state.TabDragContext.IsMouseDown) { return }
-            if ($state.TabDragContext.SourceBorder -ne $s) { return }
-            $hostPanel = $controls['WorkspaceTabHost']
-            if (-not $hostPanel) { return }
-            $curPos = $e.GetPosition($hostPanel)
-            $deltaX = [Math]::Abs($curPos.X - $state.TabDragContext.StartPoint.X)
-
-            if (-not $state.TabDragContext.IsDragging -and $deltaX -ge 6) {
-                $state.TabDragContext.IsDragging = $true
-                [void]$s.CaptureMouse()
-                $s.Opacity = 0.65
-                $s.Cursor = [System.Windows.Input.Cursors]::SizeWE
-            }
-
-            if ($state.TabDragContext.IsDragging) {
-                $curTabId = $state.TabDragContext.SourceTabId
-                $curIdx = -1
-                for ($idx = 0; $idx -lt $state.OpenTabs.Count; $idx++) {
-                    if ($state.OpenTabs[$idx].Id -eq $curTabId) { $curIdx = $idx; break }
-                }
-                if ($curIdx -ge 0) {
-                    for ($targetIdx = 0; $targetIdx -lt $hostPanel.Children.Count; $targetIdx++) {
-                        $child = $hostPanel.Children[$targetIdx]
-                        if ($child -eq $s) { continue }
-                        $childPos = $child.TranslatePoint([System.Windows.Point]::new(0, 0), $hostPanel)
-                        $midX = $childPos.X + ($child.ActualWidth / 2)
-
-                        if ($curIdx -lt $targetIdx -and $curPos.X -gt $midX) {
-                            $tabItem = $state.OpenTabs[$curIdx]
-                            $state.OpenTabs.RemoveAt($curIdx)
-                            $state.OpenTabs.Insert($targetIdx, $tabItem)
-                            $hostPanel.Children.Remove($s)
-                            $hostPanel.Children.Insert($targetIdx, $s)
-                            break
-                        } elseif ($curIdx -gt $targetIdx -and $curPos.X -lt $midX) {
-                            $tabItem = $state.OpenTabs[$curIdx]
-                            $state.OpenTabs.RemoveAt($curIdx)
-                            $state.OpenTabs.Insert($targetIdx, $tabItem)
-                            $hostPanel.Children.Remove($s)
-                            $hostPanel.Children.Insert($targetIdx, $s)
-                            break
-                        }
-                    }
-                }
-            }
-        })
-
-        $tabBorder.Add_PreviewMouseLeftButtonUp([System.Windows.Input.MouseButtonEventHandler]{
-            param($s, $e)
-            $null = $e
-            if ($state.TabDragContext.IsMouseDown) {
-                $wasDragging = $state.TabDragContext.IsDragging
-                $tabId = $state.TabDragContext.SourceTabId
-
-                if ($wasDragging) {
-                    $s.ReleaseMouseCapture()
-                    $s.Opacity = 1.0
-                    $s.Cursor = [System.Windows.Input.Cursors]::Hand
-                    $state.TabDragContext.IsDragging = $false
-                    $state.TabDragContext.IsMouseDown = $false
-                    $state.TabDragContext.SourceBorder = $null
-
-                    if ($state.RestoreTabsOnStartup) {
-                        $openNames = @($state.OpenTabs | ForEach-Object { $_.PanelName })
-                        $appConfig.UI.OpenTabs = $openNames
-                        $curActive = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-                        if ($curActive) { $appConfig.UI.ActiveTab = $curActive.PanelName }
-                        [void](Save-AppSettings -Config $appConfig)
-                    }
-                    Update-WorkspaceTabStrip
-                } else {
-                    $state.TabDragContext.IsMouseDown = $false
-                    $state.TabDragContext.SourceBorder = $null
-                    if (-not [string]::IsNullOrWhiteSpace($tabId)) {
-                        Select-WorkspaceTab -TabId $tabId
-                    }
-                }
-            }
-        })
-
-        $tabBorder.Add_LostMouseCapture([System.Windows.Input.MouseEventHandler]{
-            param($s, $e)
-            $null = $e
-            if ($state.TabDragContext.IsDragging) {
-                $s.Opacity = 1.0
-                $s.Cursor = [System.Windows.Input.Cursors]::Hand
-                $state.TabDragContext.IsDragging = $false
-                $state.TabDragContext.IsMouseDown = $false
-                $state.TabDragContext.SourceBorder = $null
-                Update-WorkspaceTabStrip
-            }
-        })
-
-        # Middle Click to close
-        $tabBorder.Add_MouseDown([System.Windows.Input.MouseButtonEventHandler]{
-            param($s, $e)
-            if ($e.ChangedButton -eq [System.Windows.Input.MouseButton]::Middle) {
-                $e.Handled = $true
-                $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) {
-                    $s.Tag
-                } elseif ($e.Source -is [System.Windows.FrameworkElement] -and $e.Source.Tag) {
-                    $e.Source.Tag
-                } else {
-                    $null
-                }
-                if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                    Remove-WorkspaceTab -TabId $tId
-                }
-            }
-        })
-
-        # Tab Context Menu
-        $cm = [System.Windows.Controls.ContextMenu]::new()
-        $cm.Style = $window.TryFindResource("ModernContextMenu")
-
-        $miDup = [System.Windows.Controls.MenuItem]::new()
-        $miDup.Header = "➕  Duplicate Tab (New Instance)"
-        $miDup.Tag = $pName
-        $miDup.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
-            }
-        })
-        [void]$cm.Items.Add($miDup)
-
-        $miRename = [System.Windows.Controls.MenuItem]::new()
-        $miRename.Header = "🏷️  Rename Tab..."
-        $miRename.Tag = $tab.Id
-        $miRename.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                Rename-WorkspaceTab -TabId $tId
-            }
-        })
-        [void]$cm.Items.Add($miRename)
-
-        $miNewWin = [System.Windows.Controls.MenuItem]::new()
-        $miNewWin.Header = "⧉  Open in Detached Window"
-        $miNewWin.Tag = $pName
-        $miNewWin.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $p = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($p)) {
-                Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
-                $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $p } | Select-Object -Last 1
-                if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
-            }
-        })
-        [void]$cm.Items.Add($miNewWin)
-
-        [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
-
-        $miDetach = [System.Windows.Controls.MenuItem]::new()
-        $miDetach.Header = if ($isDetached) { "$([char]0x2B07) Dock Back into Main Window" } else { "$([char]0x29C9) Detach to Separate Window" }
-        $miDetach.Tag = $tab.Id
-        $miDetach.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                if ($state.DetachedWindows.ContainsKey($tId)) {
-                    Dock-PanelToMainWindow -TabId $tId
-                } else {
-                    Detach-PanelToWindow -TabId $tId
-                }
-            }
-        })
-        [void]$cm.Items.Add($miDetach)
-
-        [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
-
-        $miClose = [System.Windows.Controls.MenuItem]::new()
-        $miClose.Header = "✕ Close Tab"
-        $miClose.Tag = $tab.Id
-        $miClose.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                Remove-WorkspaceTab -TabId $tId
-            }
-        })
-        [void]$cm.Items.Add($miClose)
-
-        $miCloseOthers = [System.Windows.Controls.MenuItem]::new()
-        $miCloseOthers.Header = "Close Other Tabs"
-        $miCloseOthers.Tag = $tab.Id
-        $miCloseOthers.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $e
-            $tId = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-            if (-not [string]::IsNullOrWhiteSpace($tId)) {
-                $toClose = @($state.OpenTabs | Where-Object { $_.Id -ne $tId })
-                foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.Id }
-            }
-        })
-        [void]$cm.Items.Add($miCloseOthers)
-
-        $miCloseAll = [System.Windows.Controls.MenuItem]::new()
-        $miCloseAll.Header = "Close All Tabs"
-        $miCloseAll.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $s; $null = $e
-            $toClose = @($state.OpenTabs)
-            foreach ($t in $toClose) { Remove-WorkspaceTab -TabId $t.Id }
-        })
-        [void]$cm.Items.Add($miCloseAll)
-
-        $tabBorder.ContextMenu = $cm
-        [void]$tabHost.Children.Add($tabBorder)
-    }
-}
-
-function global:Disconnect-VisualElement {
-    param([System.Windows.UIElement]$Element)
-    if (-not $Element) { return }
-    try {
-        if ($Element -is [System.Windows.FrameworkElement]) {
-            $parent = $Element.Parent
-            if ($parent -is [System.Windows.Controls.Panel]) {
-                $parent.Children.Remove($Element)
-            } elseif ($parent -is [System.Windows.Controls.ContentControl]) {
-                $parent.Content = $null
-            } elseif ($parent -is [System.Windows.Controls.Decorator]) {
-                $parent.Child = $null
-            }
-        }
-        $visualParent = [System.Windows.Media.VisualTreeHelper]::GetParent($Element)
-        if ($visualParent -and $visualParent -is [System.Windows.Controls.Panel] -and $visualParent.Children.Contains($Element)) {
-            $visualParent.Children.Remove($Element)
-        }
-    } catch {
-        Write-AppLog -Level "WARN" -Category "Workspace" -Message "Exception during visual element disconnect: $_"
-    }
-}
-
-function global:Add-WorkspaceTab {
-    param (
-        [string]$PanelName,
-        [bool]$Activate = $true,
-        [switch]$NewInstance,
-        [string]$CustomTitle = ""
-    )
-    if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
-
-    $existing = if (-not $NewInstance) {
-        $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName } | Select-Object -First 1
-    } else { $null }
-
-    if ($existing) {
-        Write-AppLog -Level "INFO" -Category "Workspace" -Message "Switching to existing tab for '$PanelName' (Id=$($existing.Id))"
-        if ($Activate) {
-            Select-WorkspaceTab -TabId $existing.Id
-        } else {
-            Update-WorkspaceTabStrip
-        }
-        return
-    }
-
-    $meta = if (-not [string]::IsNullOrWhiteSpace($PanelName) -and $script:PanelCatalog.Contains($PanelName)) {
-        $script:PanelCatalog[$PanelName]
-    } else {
-        [PSCustomObject]@{ Title = $PanelName; Icon = "📄"; Category = "Tool" }
-    }
-
-    $existingCount = @($state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName }).Count
-    $instanceNum = $existingCount + 1
-    $tabId = "${PanelName}_$([guid]::NewGuid().ToString('N').Substring(0, 6))"
-
-    $displayTitle = if (-not [string]::IsNullOrWhiteSpace($CustomTitle)) {
-        $CustomTitle
-    } elseif ($instanceNum -gt 1) {
-        "$($meta.Title) ($instanceNum)"
-    } else {
-        $meta.Title
-    }
-
-    $tabObj = [PSCustomObject]@{
-        Id                  = $tabId
-        PanelName           = $PanelName
-        Title               = $displayTitle
-        Icon                = $meta.Icon
-        InstanceNumber      = $instanceNum
-        State               = @{}
-        DockedPanelInstance = $null
-    }
-    $state.OpenTabs.Add($tabObj)
-
-    Write-AppLog -Level "INFO" -Category "Workspace" -Message "Opened tab '$displayTitle' (Panel=$PanelName, Id=$tabId, Instance=$instanceNum)"
-
-    if ($Activate) {
-        Select-WorkspaceTab -TabId $tabId
-    } else {
-        Update-WorkspaceTabStrip
-    }
-}
-
-function global:Remove-WorkspaceTab {
-    param ([string]$TabId)
-    if ([string]::IsNullOrWhiteSpace($TabId)) { return }
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
-    if (-not $targetTab) {
-        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
-    }
-    if (-not $targetTab) { return }
-
-    Write-AppLog -Level "INFO" -Category "Workspace" -Message "Closing tab '$($targetTab.Title)' (Id=$($targetTab.Id), Panel=$($targetTab.PanelName))"
-
-    if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
-        $dRec = $state.DetachedWindows[$targetTab.Id]
-        $dWin = if ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] } else { $dRec }
-        if ($dWin -and $dWin -is [System.Windows.Window]) {
-            $dWin.Tag = "TabRemoved"
-            try { $dWin.Close() } catch { Write-AppError -Category "Workspace" -Message "Error closing detached window for tab $($targetTab.Id): $_" }
-        }
-        [void]$state.DetachedWindows.Remove($targetTab.Id)
-    }
-
-    if ($targetTab.PSObject.Properties['DockedPanelInstance'] -and $targetTab.DockedPanelInstance) {
-        Disconnect-VisualElement -Element $targetTab.DockedPanelInstance
-        $targetTab.DockedPanelInstance = $null
-    }
-
-    $idx = $state.OpenTabs.IndexOf($targetTab)
-    [void]$state.OpenTabs.Remove($targetTab)
-
-    if ($state.ActiveTabId -eq $targetTab.Id) {
-        if ($state.OpenTabs.Count -gt 0) {
-            $newIdx = [Math]::Min($idx, $state.OpenTabs.Count - 1)
-            $nextTab = $state.OpenTabs[$newIdx]
-            Select-WorkspaceTab -TabId $nextTab.Id
-        } else {
-            Add-WorkspaceTab -PanelName "Dashboard" -Activate $true
-        }
-    } else {
-        Update-WorkspaceTabStrip
-    }
-}
-
-function Get-NamedElements {
-    param([System.Windows.DependencyObject]$element)
-    $res = @{}
-    if (-not $element) { return $res }
-    $queue = [System.Collections.Queue]::new()
-    $visited = [System.Collections.Generic.HashSet[System.Windows.DependencyObject]]::new()
-    $queue.Enqueue($element)
-    while ($queue.Count -gt 0) {
-        $curr = $queue.Dequeue()
-        if (-not $curr -or -not $visited.Add($curr)) { continue }
-        if ($curr -is [System.Windows.FrameworkElement] -and -not [string]::IsNullOrWhiteSpace($curr.Name)) {
-            $res[$curr.Name] = $curr
-        }
-        if ($curr -is [System.Windows.FrameworkElement] -and $curr.ContextMenu) {
-            $queue.Enqueue($curr.ContextMenu)
-        }
-        if ($curr -is [System.Windows.Controls.ItemsControl]) {
-            foreach ($item in $curr.Items) {
-                if ($item -is [System.Windows.DependencyObject]) {
-                    $queue.Enqueue($item)
-                }
-            }
-        }
-        foreach ($child in [System.Windows.LogicalTreeHelper]::GetChildren($curr)) {
-            if ($child -is [System.Windows.DependencyObject]) {
-                $queue.Enqueue($child)
-            }
-        }
-    }
-    return $res
-}
-
-function New-PanelInstance {
-    param([string]$PanelName)
-    $xmlR = [System.Xml.XmlReader]::Create($mainWindowXamlPath)
-    $tempWin = [System.Windows.Markup.XamlReader]::Load($xmlR)
-    $xmlR.Close()
-    $pKey = "Panel$PanelName"
-    $panel = $tempWin.FindName($pKey)
-    $viewport = $tempWin.FindName("ViewportContainer")
-    if ($viewport -and $viewport.Children.Contains($panel)) {
-        $viewport.Children.Remove($panel)
-    }
-    $ctrls = Get-NamedElements -element $panel
-    return [PSCustomObject]@{
-        Panel    = $panel
-        Controls = $ctrls
-    }
-}
 
 Set-Alias -Name Open-ResetPasswordDialog -Value Open-PasswordDialog -Scope Global
 Set-Alias -Name Open-MoveOUDialog -Value Open-MoveDialog -Scope Global
@@ -3335,7 +2401,7 @@ function Connect-SecondaryPanelInstance {    param(
         if ($c['BtnDeleteUser'] -and $grid) {
             $c['BtnDeleteUser'].Add_Click({
                 $u = $grid.SelectedItem
-                if ($u) { Delete-UserAction -TargetUser $u }
+                if ($u) { Remove-UserAction -TargetUser $u }
             }.GetNewClosure())
         }
         if ($c['BtnExportUsers']) {
@@ -3362,6 +2428,18 @@ function Connect-SecondaryPanelInstance {    param(
             $c['BtnUserResetColumns'].Add_Click({
                 Reset-TableColumns -TableName "Users" -TargetGrid $grid
             }.GetNewClosure())
+        }
+        if ($c['PopUserMoreActions'] -and $c['BtnUserMoreActions']) {
+            $popRef = $c['PopUserMoreActions']; $btnMoreRef = $c['BtnUserMoreActions']
+            $popRef.Add_Closed({ if ($btnMoreRef) { $btnMoreRef.IsChecked = $false } }.GetNewClosure())
+            $btnMoreRef.Tag = "SecLocal"
+        }
+        foreach ($locBtn in @(
+            'BtnSearchUsers', 'BtnClearSearchUsers', 'BtnNewUser', 'BtnEditUser', 'BtnViewUser',
+            'BtnResetPassword', 'BtnToggleStatus', 'BtnMoveUser', 'BtnDeleteUser', 'BtnExportUsers',
+            'BtnUserAddToBasket', 'BtnUserAddColumn', 'BtnUserResetColumns'
+        )) {
+            if ($c[$locBtn]) { $c[$locBtn].Tag = "SecLocal" }
         }
         if ($grid) {
             $grid.Add_MouseDoubleClick({
@@ -3491,6 +2569,13 @@ function Connect-SecondaryPanelInstance {    param(
                 Reset-TableColumns -TableName "Groups" -TargetGrid $grid
             }.GetNewClosure())
         }
+        foreach ($locBtn in @(
+            'BtnSearchGroups', 'BtnClearSearchGroups', 'BtnNewGroup', 'BtnEditGroup',
+            'BtnDeleteGroup', 'BtnExportGroups', 'BtnGroupAddToBasket',
+            'BtnGroupAddColumn', 'BtnGroupResetColumns'
+        )) {
+            if ($c[$locBtn]) { $c[$locBtn].Tag = "SecLocal" }
+        }
         if ($grid) {
             $grid.Add_MouseDoubleClick({
                 param($s, $e)
@@ -3605,6 +2690,12 @@ function Connect-SecondaryPanelInstance {    param(
             $c['BtnCompResetColumns'].Add_Click({
                 Reset-TableColumns -TableName "Computers" -TargetGrid $grid
             }.GetNewClosure())
+        }
+        foreach ($locBtn in @(
+            'BtnSearchComputers', 'BtnClearSearchComputers', 'BtnToggleCompStatus', 'BtnExportComputers',
+            'BtnCompAddToBasket', 'BtnCompAddColumn', 'BtnCompResetColumns'
+        )) {
+            if ($c[$locBtn]) { $c[$locBtn].Tag = "SecLocal" }
         }
         if ($grid) {
             Connect-ComputerContextMenu -Ctrls $c -TargetGrid $grid -OwnerWindow $win
@@ -4046,6 +3137,230 @@ function Connect-SecondaryPanelInstance {    param(
         }
         $panel.Tag = $localScope
     }
+    elseif ($PanelName -eq "Dashboard") {
+        $allU = @($state.CachedUsers)
+        if ($c['CardTotalUsers'])    { $c['CardTotalUsers'].Text    = "$($allU.Count)" }
+        if ($c['CardActiveUsers'])   { $c['CardActiveUsers'].Text   = "$(@($allU | Where-Object { $_.Enabled -eq $true }).Count)" }
+        if ($c['CardDisabledUsers']) { $c['CardDisabledUsers'].Text = "$(@($allU | Where-Object { $_.Enabled -eq $false }).Count)" }
+        if ($c['CardLockedUsers'])   { $c['CardLockedUsers'].Text   = "$(@($allU | Where-Object { $_.LockedOut -eq $true }).Count)" }
+        if ($c['CardTotalGroups'])   { $c['CardTotalGroups'].Text   = "$(@($state.CachedGroups).Count)" }
+        if ($c['CardTotalOUs'])      { $c['CardTotalOUs'].Text      = "$(@($state.CachedOUs).Count)" }
+        if ($c['TxtDashPdc'] -and $adContext.PDCEmulator) { $c['TxtDashPdc'].Text = $adContext.PDCEmulator }
+        if ($c['TxtDashDefaultNC'] -and $adContext.DefaultNamingContext) { $c['TxtDashDefaultNC'].Text = $adContext.DefaultNamingContext }
+        foreach ($pair in @(
+            @('BtnDashSearch','DirectorySearch'), @('BtnDashSql','LdapSql'),
+            @('BtnDashAttributes','AttributeEditor'), @('BtnDashAudits','AuditReports'),
+            @('BtnDashTestConn','Connections'), @('CardBtnGroups','Groups'), @('CardBtnOUs','OUs')
+        )) {
+            $bn = $pair[0]; $tp = $pair[1]
+            if ($c[$bn]) {
+                $c[$bn].Tag = "NavDirect"
+                $c[$bn].Add_Click({ param($s,$e); $null = $s; $null = $e; Show-Panel $tp }.GetNewClosure())
+            }
+        }
+    }
+    elseif ($PanelName -eq "OUs") {
+        $grid = $c['GridOUObjects']; $txtF = $c['TxtFilterOUs']; $ph = $c['TxtFilterOUsPlaceholder']; $btnC = $c['BtnClearFilterOUs']
+        $tree = $c['TreeOUs']
+        if ($tree -and $controls['TreeOUs'] -and $tree.Items.Count -eq 0) {
+            foreach ($ou in @($state.CachedOUs)) {
+                $ti = [System.Windows.Controls.TreeViewItem]::new()
+                $ti.Header = $ou.DisplayName
+                $ti.Tag = $ou.DistinguishedName
+                [void]$tree.Items.Add($ti)
+            }
+        }
+        if ($grid -and $controls['GridOUObjects'] -and $controls['GridOUObjects'].ItemsSource) {
+            $grid.ItemsSource = $controls['GridOUObjects'].ItemsSource
+        }
+        if ($txtF) {
+            $txtF.Add_TextChanged({
+                $q = $txtF.Text.Trim()
+                if ($ph) { $ph.Visibility = if ($q.Length -gt 0) { 'Collapsed' } else { 'Visible' } }
+                if ($btnC) { $btnC.Visibility = if ($q.Length -gt 0) { 'Visible' } else { 'Collapsed' } }
+                if ($controls['TxtFilterOUs']) { $controls['TxtFilterOUs'].Text = $txtF.Text }
+            }.GetNewClosure())
+        }
+        if ($btnC) { $btnC.Tag = "SecLocal"; $btnC.Add_Click({ if ($txtF) { $txtF.Text = "" } }.GetNewClosure()) }
+    }
+    elseif ($PanelName -eq "RecycleBin") {
+        $grid = $c['GridRecycleBin']; $txtS = $c['TxtSearchRecycleBin']; $ph = $c['TxtSearchRecycleBinPlaceholder']; $btnC = $c['BtnClearSearchRecycleBin']
+        if ($grid) { $grid.ItemsSource = @($state.CachedRecycleBin) }
+        if ($c['TxtRecycleBinCountBadge']) { $c['TxtRecycleBinCountBadge'].Text = "$(@($state.CachedRecycleBin).Count) objects" }
+        if ($txtS) {
+            $txtS.Add_TextChanged({
+                $q = $txtS.Text.Trim()
+                if ($ph) { $ph.Visibility = if ($q.Length -gt 0) { 'Collapsed' } else { 'Visible' } }
+                if ($btnC) { $btnC.Visibility = if ($q.Length -gt 0) { 'Visible' } else { 'Collapsed' } }
+                if ($grid) {
+                    $grid.ItemsSource = if ([string]::IsNullOrWhiteSpace($q)) { @($state.CachedRecycleBin) } else {
+                        @($state.CachedRecycleBin | Where-Object { $_.Name -match [regex]::Escape($q) -or $_.SamAccountName -match [regex]::Escape($q) -or $_.DistinguishedName -match [regex]::Escape($q) })
+                    }
+                }
+            }.GetNewClosure())
+        }
+        if ($btnC) { $btnC.Tag = "SecLocal"; $btnC.Add_Click({ if ($txtS) { $txtS.Text = "" } }.GetNewClosure()) }
+    }
+    elseif ($PanelName -eq "ObjectCompare") {
+        if ($c['GridCompareResults'] -and $state.CurrentCompare) { $c['GridCompareResults'].ItemsSource = @($state.CurrentCompare) }
+        if ($c['BtnSwapCompare']) {
+            $c['BtnSwapCompare'].Tag = "SecLocal"
+            $c['BtnSwapCompare'].Add_Click({
+                if ($c['TxtCompareObjectA'] -and $c['TxtCompareObjectB']) {
+                    $tmp = $c['TxtCompareObjectA'].Text; $c['TxtCompareObjectA'].Text = $c['TxtCompareObjectB'].Text; $c['TxtCompareObjectB'].Text = $tmp
+                }
+            }.GetNewClosure())
+        }
+        if ($c['BtnExecuteCompare']) {
+            $c['BtnExecuteCompare'].Tag = "SecSyncRun"
+            $c['BtnExecuteCompare'].Add_Click({
+                if ($c['TxtCompareObjectA'] -and $controls['TxtCompareObjectA']) { $controls['TxtCompareObjectA'].Text = $c['TxtCompareObjectA'].Text }
+                if ($c['TxtCompareObjectB'] -and $controls['TxtCompareObjectB']) { $controls['TxtCompareObjectB'].Text = $c['TxtCompareObjectB'].Text }
+                if ($controls['BtnExecuteCompare']) { $controls['BtnExecuteCompare'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                if ($c['GridCompareResults'] -and $controls['GridCompareResults']) { $c['GridCompareResults'].ItemsSource = $controls['GridCompareResults'].ItemsSource }
+            }.GetNewClosure())
+        }
+    }
+    elseif ($PanelName -eq "LdifStudio") {
+        if ($c['TxtLdifEditor'] -and $controls['TxtLdifEditor']) { $c['TxtLdifEditor'].Text = $controls['TxtLdifEditor'].Text }
+        if ($c['BtnClearLdif']) {
+            $c['BtnClearLdif'].Tag = "SecLocal"
+            $c['BtnClearLdif'].Add_Click({ if ($c['TxtLdifEditor']) { $c['TxtLdifEditor'].Text = "" } }.GetNewClosure())
+        }
+    }
+    elseif ($PanelName -eq "AuditReports") {
+        if ($state.CurrentAuditReport) {
+            if ($c['TxtAuditSummary']) { $c['TxtAuditSummary'].Text = "$($state.CurrentAuditReport.Title) - $($state.CurrentAuditReport.Description)" }
+            if ($c['TxtAuditCount'])   { $c['TxtAuditCount'].Text   = "$($state.CurrentAuditReport.Count) Findings" }
+            if ($c['GridAuditResults']) { $c['GridAuditResults'].ItemsSource = @($state.CurrentAuditReport.Findings) }
+        }
+        foreach ($bn in @('BtnRunAudit','BtnRunAuditReport')) {
+            if ($c[$bn]) {
+                $c[$bn].Tag = "SecSyncRun"
+                $c[$bn].Add_Click({
+                    if ($c['CmbAuditCategory'] -and $controls['CmbAuditCategory']) { $controls['CmbAuditCategory'].SelectedIndex = $c['CmbAuditCategory'].SelectedIndex }
+                    if ($c['CmbAuditDays'] -and $controls['CmbAuditDays']) { $controls['CmbAuditDays'].SelectedIndex = $c['CmbAuditDays'].SelectedIndex }
+                    if ($controls['BtnRunAudit']) { $controls['BtnRunAudit'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)) }
+                    if ($state.CurrentAuditReport -and $c['GridAuditResults']) {
+                        $c['GridAuditResults'].ItemsSource = @($state.CurrentAuditReport.Findings)
+                        if ($c['TxtAuditCount']) { $c['TxtAuditCount'].Text = "$($state.CurrentAuditReport.Count) Findings" }
+                    }
+                }.GetNewClosure())
+            }
+        }
+    }
+    elseif ($PanelName -eq "SchemaBrowser") {
+        $grid = $c['GridSchema']; $txtS = $c['TxtSearchSchema']
+        if ($grid -and $state.CachedSchema) { $grid.ItemsSource = @($state.CachedSchema) }
+        if ($txtS) {
+            $txtS.Add_TextChanged({
+                $q = $txtS.Text.Trim()
+                if ($grid) {
+                    $grid.ItemsSource = if ([string]::IsNullOrWhiteSpace($q)) { @($state.CachedSchema) } else {
+                        @($state.CachedSchema | Where-Object { $_.Name -like "*$q*" -or $_.OID -like "*$q*" })
+                    }
+                }
+            }.GetNewClosure())
+        }
+        if ($grid) {
+            $grid.Add_SelectionChanged({
+                $sel = $grid.SelectedItem
+                if ($sel) {
+                    if ($c['TxtSchemaDetailName']) { $c['TxtSchemaDetailName'].Text = "$($sel.Name)" }
+                    if ($c['TxtSchemaDetailOID'])  { $c['TxtSchemaDetailOID'].Text  = "$($sel.OID)" }
+                    if ($c['TxtSchemaDetailCategory']) { $c['TxtSchemaDetailCategory'].Text = "$($sel.Category)" }
+                    if ($c['TxtSchemaDetailInheritance']) { $c['TxtSchemaDetailInheritance'].Text = "$($sel.SubClassOf)" }
+                    if ($c['ListSchemaMust']) { $c['ListSchemaMust'].ItemsSource = @($sel.MustContain) }
+                    if ($c['ListSchemaMay'])  { $c['ListSchemaMay'].ItemsSource  = @($sel.MayContain) }
+                }
+            }.GetNewClosure())
+        }
+    }
+    elseif ($PanelName -eq "BulkEditor") {
+        if ($c['TxtBulkLog'] -and $controls['TxtBulkLog']) { $c['TxtBulkLog'].Text = $controls['TxtBulkLog'].Text }
+    }
+    elseif ($PanelName -eq "Basket") {
+        if ($c['GridBasket']) { $c['GridBasket'].ItemsSource = $state.BasketItems }
+        if ($c['TxtBasketCountBadge']) { $c['TxtBasketCountBadge'].Text = "$($state.BasketItems.Count) objects staged" }
+    }
+    elseif ($PanelName -eq "RequestLog") {
+        $grid = $c['GridRequestLog']; $txtF = $c['TxtFilterRequestLog']
+        if ($grid) { $grid.ItemsSource = $state.RequestLogs }
+        if ($c['TxtRequestLogCountBadge']) { $c['TxtRequestLogCountBadge'].Text = "$($state.RequestLogs.Count) requests" }
+        if ($txtF) {
+            $txtF.Add_TextChanged({
+                $q = $txtF.Text.Trim()
+                if ($grid) {
+                    $grid.ItemsSource = if ([string]::IsNullOrWhiteSpace($q)) { $state.RequestLogs } else {
+                        @($state.RequestLogs | Where-Object { $_.Operation -match [regex]::Escape($q) -or $_.TargetDN -match [regex]::Escape($q) -or $_.Status -match [regex]::Escape($q) })
+                    }
+                }
+            }.GetNewClosure())
+        }
+        if ($grid) {
+            $grid.Add_SelectionChanged({
+                $sel = $grid.SelectedItem
+                if ($sel -and $c['TxtRequestLogDetails']) { $c['TxtRequestLogDetails'].Text = "$($sel.Details)" }
+            }.GetNewClosure())
+        }
+    }
+    elseif ($PanelName -eq "KerberosSuite") {
+        foreach ($gn in @('GridKerberosTickets','GridTokenGroups','GridRidPool','GridDuplicateSpnResults')) {
+            if ($c[$gn] -and $controls[$gn] -and $controls[$gn].ItemsSource) { $c[$gn].ItemsSource = $controls[$gn].ItemsSource }
+        }
+    }
+    elseif ($PanelName -eq "ReplicationSuite") {
+        foreach ($gn in @('GridMultiDcLogon','GridSubnetOverlaps','GridGpoSync','GridReplMetadata','GridSites','GridSiteLinks','GridSubnets','GridLatencyProbe','GridSchemaConvergence','GridCanaryResults')) {
+            if ($c[$gn] -and $controls[$gn] -and $controls[$gn].ItemsSource) { $c[$gn].ItemsSource = $controls[$gn].ItemsSource }
+        }
+    }
+    elseif ($PanelName -eq "DiagnosticsToolbox") {
+        foreach ($gn in @('GridCircularGroups','GridDiffResults','GridGroupDiffResults','GridLockoutDcs','GridGroupChanges','GridSessions')) {
+            if ($c[$gn] -and $controls[$gn] -and $controls[$gn].ItemsSource) { $c[$gn].ItemsSource = $controls[$gn].ItemsSource }
+        }
+    }
+    elseif ($PanelName -eq "NetworkDiagnostics") {
+        if ($c['TxtUncPathInput'] -and $controls['TxtUncPathInput']) { $c['TxtUncPathInput'].Text = $controls['TxtUncPathInput'].Text }
+        if ($c['TxtCertUrlInput'] -and $controls['TxtCertUrlInput']) { $c['TxtCertUrlInput'].Text = $controls['TxtCertUrlInput'].Text }
+        if ($c['TxtDcScanHost'] -and $controls['TxtDcScanHost']) { $c['TxtDcScanHost'].Text = $controls['TxtDcScanHost'].Text }
+        foreach ($gn in @('GridUncResults','GridCertResults','GridDcPorts')) {
+            if ($c[$gn] -and $controls[$gn] -and $controls[$gn].ItemsSource) { $c[$gn].ItemsSource = $controls[$gn].ItemsSource }
+        }
+    }
+    elseif ($PanelName -eq "ServerMonitor") {
+        foreach ($tn in @('TxtMonDnsHost','TxtMonServiceName','TxtMonDomainLevel','TxtMonForestLevel','TxtMonTimeSkew')) {
+            if ($c[$tn] -and $controls[$tn]) { $c[$tn].Text = $controls[$tn].Text }
+        }
+        if ($c['GridPartitions']) { $c['GridPartitions'].ItemsSource = @($state.CachedPartitions) }
+        if ($c['GridDcHealth'] -and $controls['GridDcHealth'] -and $controls['GridDcHealth'].ItemsSource) { $c['GridDcHealth'].ItemsSource = $controls['GridDcHealth'].ItemsSource }
+    }
+    elseif ($PanelName -eq "Connections") {
+        $grid = $c['GridActiveConnections']; $txtS = $c['TxtSearchConnections']; $ph = $c['TxtSearchConnectionsPlaceholder']; $btnC = $c['BtnClearSearchConnections']
+        if ($grid) { $grid.ItemsSource = @($state.AutoDetectedConnections) }
+        if ($c['ListProfiles'] -and $controls['ListProfiles']) {
+            $c['ListProfiles'].Items.Clear()
+            foreach ($it in $controls['ListProfiles'].Items) { [void]$c['ListProfiles'].Items.Add($it) }
+        }
+        if ($txtS) {
+            $txtS.Add_TextChanged({
+                $q = $txtS.Text.Trim()
+                if ($ph) { $ph.Visibility = if ($q.Length -gt 0) { 'Collapsed' } else { 'Visible' } }
+                if ($btnC) { $btnC.Visibility = if ($q.Length -gt 0) { 'Visible' } else { 'Collapsed' } }
+                if ($grid) {
+                    $grid.ItemsSource = if ([string]::IsNullOrWhiteSpace($q)) { @($state.AutoDetectedConnections) } else {
+                        @($state.AutoDetectedConnections | Where-Object { "$($_.HostName) $($_.Domain) $($_.Role) $($_.IPAddress)".Trim() -match [regex]::Escape($q) })
+                    }
+                }
+            }.GetNewClosure())
+        }
+        if ($btnC) { $btnC.Tag = "SecLocal"; $btnC.Add_Click({ if ($txtS) { $txtS.Text = "" } }.GetNewClosure()) }
+    }
+    elseif ($PanelName -eq "Settings") {
+        if ($c['GridExternalTools']) { $c['GridExternalTools'].ItemsSource = $state.ExternalTools }
+        if ($c['TxtCfgSearchBase'] -and $controls['TxtCfgSearchBase']) { $c['TxtCfgSearchBase'].Text = $controls['TxtCfgSearchBase'].Text }
+        if ($c['CmbThemeMode'] -and $controls['CmbThemeMode']) { $c['CmbThemeMode'].SelectedIndex = $controls['CmbThemeMode'].SelectedIndex }
+        if ($c['CmbAccentTone'] -and $controls['CmbAccentTone']) { $c['CmbAccentTone'].SelectedIndex = $controls['CmbAccentTone'].SelectedIndex }
+    }
 
     # Universal button delegate for any unhandled buttons in secondary panels
     foreach ($k in $c.Keys) {
@@ -4064,948 +3379,6 @@ function Connect-SecondaryPanelInstance {    param(
     }
 }
 
-function global:Save-SecondaryPanelSessionState {
-    param($Tab, $PanelObj, [string]$PanelName)
-    if (-not $Tab -or -not $Tab.State -or -not $PanelObj) { return }
-    $c = $PanelObj.Controls
-    switch ($PanelName) {
-        "HtmlView" {
-            if ($c['TxtHtmlViewDN']) { $Tab.State['CurrentHtmlDN'] = $c['TxtHtmlViewDN'].Text }
-            if ($state.CurrentHtmlRaw -and (-not $Tab.State.ContainsKey('CurrentHtmlRaw') -or -not $Tab.State['CurrentHtmlRaw'])) {
-                $Tab.State['CurrentHtmlRaw'] = $state.CurrentHtmlRaw
-            }
-            if ($state.CurrentHtmlTemplate -and (-not $Tab.State.ContainsKey('CurrentHtmlTemplate') -or -not $Tab.State['CurrentHtmlTemplate'])) {
-                $Tab.State['CurrentHtmlTemplate'] = $state.CurrentHtmlTemplate
-            }
-            if ($state.CurrentHtmlObject -and (-not $Tab.State.ContainsKey('CurrentHtmlObject') -or -not $Tab.State['CurrentHtmlObject'])) {
-                $Tab.State['CurrentHtmlObject'] = $state.CurrentHtmlObject
-            }
-        }
-        "Users" {
-            if ($c['TxtSearchUsers']) { $Tab.State['SearchUsers'] = $c['TxtSearchUsers'].Text }
-            if ($c['FilterUserAll']) {
-                $Tab.State['FilterUser'] = if ($c['FilterUserActive'] -and $c['FilterUserActive'].IsChecked) { "Active" }
-                    elseif ($c['FilterUserDisabled'] -and $c['FilterUserDisabled'].IsChecked) { "Disabled" }
-                    elseif ($c['FilterUserLocked'] -and $c['FilterUserLocked'].IsChecked) { "Locked" }
-                    else { "All" }
-            }
-            if ($c['CmbUserOUFilter']) { $Tab.State['OUFilter'] = $c['CmbUserOUFilter'].SelectedIndex }
-        }
-        "Groups" {
-            if ($c['TxtSearchGroups']) { $Tab.State['SearchGroups'] = $c['TxtSearchGroups'].Text }
-            if ($c['FilterGroupAll']) {
-                $Tab.State['FilterGroup'] = if ($c['FilterGroupSec'] -and $c['FilterGroupSec'].IsChecked) { "Security" }
-                    elseif ($c['FilterGroupDist'] -and $c['FilterGroupDist'].IsChecked) { "Distribution" }
-                    else { "All" }
-            }
-        }
-        "Computers" {
-            if ($c['TxtSearchComputers']) { $Tab.State['SearchComputers'] = $c['TxtSearchComputers'].Text }
-            if ($c['FilterCompAll']) {
-                $Tab.State['FilterComp'] = if ($c['FilterCompEnabled'] -and $c['FilterCompEnabled'].IsChecked) { "Enabled" }
-                    elseif ($c['FilterCompDisabled'] -and $c['FilterCompDisabled'].IsChecked) { "Disabled" }
-                    else { "All" }
-            }
-        }
-        "DirectorySearch" {
-            if ($c['TxtRawLdapFilter']) { $Tab.State['LdapFilter'] = $c['TxtRawLdapFilter'].Text }
-            if ($c['TxtSearchBaseDn']) { $Tab.State['SearchBase'] = $c['TxtSearchBaseDn'].Text }
-            if ($c['CmbSearchScope']) { $Tab.State['ScopeIndex'] = $c['CmbSearchScope'].SelectedIndex }
-        }
-        "LdapSql" {
-            if ($c['TxtSqlQuery']) { $Tab.State['SqlQuery'] = $c['TxtSqlQuery'].Text }
-        }
-        "AttributeEditor" {
-            if ($c['TxtAttrEditorDN']) { $Tab.State['AttrDN'] = $c['TxtAttrEditorDN'].Text }
-            if ($c['TxtSearchAttributes']) { $Tab.State['SearchAttr'] = $c['TxtSearchAttributes'].Text }
-            if ($c['ChkShowOperationalAttributes']) { $Tab.State['ShowOpAttr'] = [bool]$c['ChkShowOperationalAttributes'].IsChecked }
-        }
-        "SecurityAcl" {
-            if ($c['TxtAclTargetDN']) { $Tab.State['AclDN'] = $c['TxtAclTargetDN'].Text }
-            if ($c['TxtAclTrustee']) { $Tab.State['AclTrustee'] = $c['TxtAclTrustee'].Text }
-        }
-    }
-}
-
-function global:Restore-SecondaryPanelSessionState {
-    param($Tab, $PanelObj, [string]$PanelName)
-    if (-not $Tab -or -not $Tab.State -or -not $PanelObj) { return }
-    $c = $PanelObj.Controls
-    if (-not $c) { return }
-    switch ($PanelName) {
-        "Users" {
-            if ($c['TxtSearchUsers'] -and $Tab.State.ContainsKey('SearchUsers')) {
-                $c['TxtSearchUsers'].Text = $Tab.State['SearchUsers']
-            }
-            if ($Tab.State.ContainsKey('FilterUser')) {
-                switch ($Tab.State['FilterUser']) {
-                    "Active"   { if ($c['FilterUserActive'])   { $c['FilterUserActive'].IsChecked = $true } }
-                    "Disabled" { if ($c['FilterUserDisabled']) { $c['FilterUserDisabled'].IsChecked = $true } }
-                    "Locked"   { if ($c['FilterUserLocked'])   { $c['FilterUserLocked'].IsChecked = $true } }
-                    default    { if ($c['FilterUserAll'])      { $c['FilterUserAll'].IsChecked = $true } }
-                }
-            }
-            if ($c['CmbUserOUFilter'] -and $Tab.State.ContainsKey('OUFilter')) {
-                $c['CmbUserOUFilter'].SelectedIndex = $Tab.State['OUFilter']
-            }
-        }
-        "Groups" {
-            if ($c['TxtSearchGroups'] -and $Tab.State.ContainsKey('SearchGroups')) {
-                $c['TxtSearchGroups'].Text = $Tab.State['SearchGroups']
-            }
-            if ($Tab.State.ContainsKey('FilterGroup')) {
-                switch ($Tab.State['FilterGroup']) {
-                    "Security"     { if ($c['FilterGroupSec'])  { $c['FilterGroupSec'].IsChecked = $true } }
-                    "Distribution" { if ($c['FilterGroupDist']) { $c['FilterGroupDist'].IsChecked = $true } }
-                    default        { if ($c['FilterGroupAll'])  { $c['FilterGroupAll'].IsChecked = $true } }
-                }
-            }
-        }
-        "Computers" {
-            if ($c['TxtSearchComputers'] -and $Tab.State.ContainsKey('SearchComputers')) {
-                $c['TxtSearchComputers'].Text = $Tab.State['SearchComputers']
-            }
-            if ($Tab.State.ContainsKey('FilterComp')) {
-                switch ($Tab.State['FilterComp']) {
-                    "Enabled"  { if ($c['FilterCompEnabled'])  { $c['FilterCompEnabled'].IsChecked = $true } }
-                    "Disabled" { if ($c['FilterCompDisabled']) { $c['FilterCompDisabled'].IsChecked = $true } }
-                    default    { if ($c['FilterCompAll'])       { $c['FilterCompAll'].IsChecked = $true } }
-                }
-            }
-        }
-        "DirectorySearch" {
-            if ($c['TxtRawLdapFilter'] -and $Tab.State.ContainsKey('LdapFilter')) { $c['TxtRawLdapFilter'].Text = $Tab.State['LdapFilter'] }
-            if ($c['TxtSearchBaseDn'] -and $Tab.State.ContainsKey('SearchBase')) { $c['TxtSearchBaseDn'].Text = $Tab.State['SearchBase'] }
-            if ($c['CmbSearchScope'] -and $Tab.State.ContainsKey('ScopeIndex')) { $c['CmbSearchScope'].SelectedIndex = $Tab.State['ScopeIndex'] }
-        }
-        "LdapSql" {
-            if ($c['TxtSqlQuery'] -and $Tab.State.ContainsKey('SqlQuery')) { $c['TxtSqlQuery'].Text = $Tab.State['SqlQuery'] }
-        }
-        "AttributeEditor" {
-            if ($c['TxtAttrEditorDN'] -and $Tab.State.ContainsKey('AttrDN')) { $c['TxtAttrEditorDN'].Text = $Tab.State['AttrDN'] }
-            if ($c['TxtSearchAttributes'] -and $Tab.State.ContainsKey('SearchAttr')) { $c['TxtSearchAttributes'].Text = $Tab.State['SearchAttr'] }
-            if ($c['ChkShowOperationalAttributes'] -and $Tab.State.ContainsKey('ShowOpAttr')) { $c['ChkShowOperationalAttributes'].IsChecked = $Tab.State['ShowOpAttr'] }
-        }
-        "SecurityAcl" {
-            if ($c['TxtAclTargetDN'] -and $Tab.State.ContainsKey('AclDN')) { $c['TxtAclTargetDN'].Text = $Tab.State['AclDN'] }
-            if ($c['TxtAclTrustee'] -and $Tab.State.ContainsKey('AclTrustee')) { $c['TxtAclTrustee'].Text = $Tab.State['AclTrustee'] }
-        }
-        "HtmlView" {
-            if ($c['TxtHtmlViewDN'] -and $Tab.State.ContainsKey('CurrentHtmlDN')) {
-                $c['TxtHtmlViewDN'].Text = $Tab.State['CurrentHtmlDN']
-            }
-            if ($c['TxtHtmlViewDNPlaceholder']) {
-                $hasText = -not [string]::IsNullOrEmpty($c['TxtHtmlViewDN'].Text)
-                $c['TxtHtmlViewDNPlaceholder'].Visibility = if ($hasText) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible }
-            }
-            if ($c['TxtHtmlViewStatusBadge'] -and $Tab.State.ContainsKey('CurrentHtmlDN') -and $Tab.State['CurrentHtmlDN']) {
-                $disp = ($Tab.State['CurrentHtmlDN'] -split ',')[0] -replace '^CN=|^OU=', ''
-                $c['TxtHtmlViewStatusBadge'].Text = $disp
-            }
-            if ($c['BrowserHtmlView'] -and $Tab.State.ContainsKey('CurrentHtmlRaw') -and $Tab.State['CurrentHtmlRaw']) {
-                Set-SafeBrowserHtml -Browser $c['BrowserHtmlView'] -Html $Tab.State['CurrentHtmlRaw']
-            }
-        }
-
-    }
-}
-
-function global:Select-WorkspaceTab {
-    param ([string]$TabId)
-    if ([string]::IsNullOrWhiteSpace($TabId)) { return }
-
-    $targetTab = $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
-    if (-not $targetTab) {
-        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $TabId } | Select-Object -First 1
-    }
-    if (-not $targetTab) { return }
-
-    if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
-        $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $null -Force
-    }
-
-    # If this specific tab instance is detached in its own window, keep it in foreground
-    if ($state.DetachedWindows.ContainsKey($targetTab.Id)) {
-        $dRec = $state.DetachedWindows[$targetTab.Id]
-        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
-                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
-                elseif ($dRec.Window) { $dRec.Window }
-                else { $null }
-        if ($dWin) {
-            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $dWin.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$dWin.Activate()
-            [void]$dWin.Focus()
-            return
-        }
-    }
-
-    # Save state of previously active tab before switching
-    if ($state.ActiveTabId -and $state.ActiveTabId -ne $targetTab.Id) {
-        $prevTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        if ($prevTab) {
-            Save-TabSessionState -Tab $prevTab
-        }
-    }
-
-    $state.ActiveTabId = $targetTab.Id
-    $PanelName = $targetTab.PanelName
-    $targetCtrlName = "Panel$PanelName"
-
-    # Restore session state for the selected tab
-    Restore-TabSessionState -Tab $targetTab
-
-    $primaryPanel = $controls[$targetCtrlName]
-    if ($controls['ViewportContainer']) {
-        if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
-            $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $null -Force
-        }
-        if ($targetTab.InstanceNumber -gt 1) {
-            # Secondary instance: Ensure its dedicated panel instance is mounted in ViewportContainer
-            if (-not $targetTab.DockedPanelInstance) {
-                $secObj = New-PanelInstance -PanelName $PanelName
-                Wire-SecondaryPanelInstance -panelObj $secObj -win $window -tab $targetTab -PanelName $PanelName
-                $targetTab.DockedPanelInstance = $secObj.Panel
-                if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
-                    $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $secObj.Controls -Force
-                } else {
-                    $targetTab.DockedPanelControls = $secObj.Controls
-                }
-                Restore-SecondaryPanelSessionState -Tab $targetTab -PanelObj $secObj -PanelName $PanelName
-            }
-            if ($targetTab.DockedPanelInstance -and -not $controls['ViewportContainer'].Children.Contains($targetTab.DockedPanelInstance)) {
-                Disconnect-VisualElement -Element $targetTab.DockedPanelInstance
-                [void]$controls['ViewportContainer'].Children.Add($targetTab.DockedPanelInstance)
-            }
-            if ($targetTab.DockedPanelInstance) {
-                $targetTab.DockedPanelInstance.Visibility = [System.Windows.Visibility]::Visible
-            }
-        } else {
-            # Primary instance: Ensure primary panel is in ViewportContainer if not detached
-            if ($primaryPanel -and -not $state.DetachedWindows.ContainsKey($targetTab.Id)) {
-                if (-not $controls['ViewportContainer'].Children.Contains($primaryPanel)) {
-                    Disconnect-VisualElement -Element $primaryPanel
-                    [void]$controls['ViewportContainer'].Children.Add($primaryPanel)
-                }
-            }
-        }
-
-        foreach ($child in $controls['ViewportContainer'].Children) {
-            if ($child -is [System.Windows.UIElement]) {
-                $child.Visibility = if ($targetTab.DockedPanelInstance -and $child -eq $targetTab.DockedPanelInstance) {
-                    [System.Windows.Visibility]::Visible
-                } elseif (-not $targetTab.DockedPanelInstance -and $child -eq $primaryPanel) {
-                    [System.Windows.Visibility]::Visible
-                } else {
-                    [System.Windows.Visibility]::Collapsed
-                }
-            }
-        }
-    }
-
-    $state.IsSelectingTab = $true
-    try {
-        $radio = $controls["Nav$PanelName"]
-        if ($radio -and -not $radio.IsChecked) {
-            $radio.IsChecked = $true
-        }
-    } finally {
-        $state.IsSelectingTab = $false
-    }
-
-    Record-NavHistory -PanelName $PanelName
-    Update-WorkspaceTabStrip
-}
-
-Set-Alias -Name Detach-PanelToWindow -Value Dismount-PanelToWindow -Scope Global
-function Dismount-PanelToWindow {    param (
-        [string]$PanelName = "",
-        [string]$TabId = ""
-    )
-    if (-not $state.AllowMultiWindow) {
-        [System.Windows.MessageBox]::Show("Multi-Window workspace is currently disabled in Settings.", "Workspace Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
-        return
-    }
-
-    $targetTab = if (-not [string]::IsNullOrWhiteSpace($TabId)) {
-        $state.OpenTabs | Where-Object { $_.Id -eq $TabId } | Select-Object -First 1
-    } elseif ($state.ActiveTabId) {
-        $activeT = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        if ($activeT -and (-not $PanelName -or $activeT.PanelName -eq $PanelName)) { $activeT } else { $null }
-    } else { $null }
-
-    if (-not $targetTab -and -not [string]::IsNullOrWhiteSpace($PanelName)) {
-        $targetTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName } | Select-Object -First 1
-    }
-
-    if (-not $targetTab) { return }
-
-    $targetTabId = $targetTab.Id
-    $pName = $targetTab.PanelName
-
-    # If already detached, activate and focus
-    if ($state.DetachedWindows.ContainsKey($targetTabId)) {
-        $dRec = $state.DetachedWindows[$targetTabId]
-        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
-                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
-                elseif ($dRec.Window) { $dRec.Window }
-                else { $null }
-        if ($dWin) {
-            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $dWin.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$dWin.Activate()
-            [void]$dWin.Focus()
-        }
-        return
-    }
-
-    # Save session state before detaching
-    Save-TabSessionState -Tab $targetTab
-
-    $meta = if (-not [string]::IsNullOrWhiteSpace($pName) -and $script:PanelCatalog.Contains($pName)) {
-        $script:PanelCatalog[$pName]
-    } else {
-        [PSCustomObject]@{ Title = $pName; Icon = "📋"; Category = "Tool Window" }
-    }
-    $tabDisplayTitle = if ($targetTab.Title) { $targetTab.Title } else { $meta.Title }
-
-    # Load detached window instance
-    $detachedXamlPath = Join-Path $viewsPath "DetachedPanelWindow.xaml"
-    $detachedWin = Load-XamlWindow -XamlPath $detachedXamlPath
-    foreach ($k in $window.Resources.Keys) {
-        $detachedWin.Resources[$k] = $window.Resources[$k]
-    }
-    if (Get-Command Apply-ThemeNode -ErrorAction SilentlyContinue) {
-        $currTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Light" }
-        Apply-ThemeNode $detachedWin $currTheme
-    }
-    Register-WpfExceptionHandler -Dispatcher $detachedWin.Dispatcher -Window $detachedWin
-
-    $detachedWin.Title = "Active Directory Management Studio - $tabDisplayTitle"
-
-    $txtIcon = $detachedWin.FindName("TxtDetachedIcon")
-    if ($txtIcon) { $txtIcon.Text = if ($targetTab.Icon) { $targetTab.Icon } elseif ($meta.Icon) { $meta.Icon } else { "📋" } }
-    $txtTitle = $detachedWin.FindName("TxtDetachedTitle")
-    if ($txtTitle) { $txtTitle.Text = $tabDisplayTitle }
-    $txtCategory = $detachedWin.FindName("TxtDetachedCategory")
-    if ($txtCategory) { $txtCategory.Text = $meta.Category }
-
-    $contentHost = $detachedWin.FindName("DetachedContentHost")
-
-    $primaryKey = "Panel$pName"
-    $primaryPanel = $controls[$primaryKey]
-    $isPrimaryTab = ($targetTab.InstanceNumber -le 1)
-    $primaryAlreadyDetached = [bool]($state.DetachedWindows.Values | Where-Object { -not $_.IsSecondary -and $_.PanelName -eq $pName })
-
-    $panelToMount = $null
-    $isSecondary = $false
-    $namedControls = @{}
-
-    if ($isPrimaryTab -and $primaryPanel -and -not $primaryAlreadyDetached) {
-        Disconnect-VisualElement -Element $primaryPanel
-        $panelToMount = $primaryPanel
-        $isSecondary = $false
-        $namedControls = $controls
-    } else {
-        $isSecondary = $true
-        if ($targetTab.DockedPanelInstance) {
-            $panelToMount = $targetTab.DockedPanelInstance
-            Disconnect-VisualElement -Element $panelToMount
-            $namedControls = if ($targetTab.PSObject.Properties['DockedPanelControls'] -and $targetTab.DockedPanelControls) {
-                $targetTab.DockedPanelControls
-            } else {
-                Get-NamedElements -element $panelToMount
-            }
-        } else {
-            $panelObj = New-PanelInstance -PanelName $pName
-            $panelToMount = $panelObj.Panel
-            $namedControls = $panelObj.Controls
-            if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
-                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $panelToMount -Force
-            } else {
-                $targetTab.DockedPanelInstance = $panelToMount
-            }
-            if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
-                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $namedControls -Force
-            } else {
-                $targetTab.DockedPanelControls = $namedControls
-            }
-            Wire-SecondaryPanelInstance -panelObj $panelObj -win $detachedWin -tab $targetTab -PanelName $pName
-            Restore-SecondaryPanelSessionState -Tab $targetTab -PanelObj $panelObj -PanelName $pName
-        }
-    }
-
-    if ($contentHost -and $panelToMount) {
-        Disconnect-VisualElement -Element $panelToMount
-        [void]$contentHost.Children.Add($panelToMount)
-        $panelToMount.Visibility = [System.Windows.Visibility]::Visible
-    }
-
-    $state.DetachedWindows[$targetTabId] = @{
-        Window      = $detachedWin
-        TabId       = $targetTabId
-        PanelName   = $pName
-        Panel       = $panelToMount
-        IsSecondary = $isSecondary
-        Controls    = $namedControls
-    }
-
-    $detachedWinClosed = $false
-    $HandleCloseOrDock = {
-        param([bool]$DockBackToMain)
-        if ($detachedWinClosed) { return }
-        $detachedWinClosed = $true
-        if ($detachedWin.Tag -eq "TabRemoved") {
-            if ($state.DetachedWindows.ContainsKey($targetTabId)) {
-                [void]$state.DetachedWindows.Remove($targetTabId)
-            }
-            return
-        }
-
-        if ($isSecondary) {
-            Save-SecondaryPanelSessionState -Tab $targetTab -PanelObj @{ Panel = $panelToMount; Controls = $namedControls } -PanelName $pName
-        } else {
-            Save-TabSessionState -Tab $targetTab
-        }
-
-        $gControlsVar = Get-Variable -Name 'controls' -Scope Global -ErrorAction SilentlyContinue
-        $gControls = if ($gControlsVar) { $gControlsVar.Value } else { $null }
-        $vContainer = if ($controls -and $controls['ViewportContainer']) { $controls['ViewportContainer'] }
-                      elseif ($script:controls -and $script:controls['ViewportContainer']) { $script:controls['ViewportContainer'] }
-                      elseif ($gControls -and $gControls['ViewportContainer']) { $gControls['ViewportContainer'] }
-                      elseif ($window) { $window.FindName('ViewportContainer') }
-                      else { $null }
-
-        if (-not $isSecondary -and $primaryPanel -and $vContainer) {
-            Disconnect-VisualElement -Element $primaryPanel
-            if (-not $vContainer.Children.Contains($primaryPanel)) {
-                [void]$vContainer.Children.Add($primaryPanel)
-            }
-            $primaryPanel.Visibility = if ($DockBackToMain) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-        } elseif ($isSecondary -and $panelToMount -and $vContainer) {
-            Disconnect-VisualElement -Element $panelToMount
-            if (-not ($targetTab.PSObject.Properties['DockedPanelInstance'])) {
-                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelInstance" -Value $panelToMount -Force
-            } else {
-                $targetTab.DockedPanelInstance = $panelToMount
-            }
-            if (-not ($targetTab.PSObject.Properties['DockedPanelControls'])) {
-                $targetTab | Add-Member -MemberType NoteProperty -Name "DockedPanelControls" -Value $namedControls -Force
-            } else {
-                $targetTab.DockedPanelControls = $namedControls
-            }
-            if (-not $vContainer.Children.Contains($panelToMount)) {
-                [void]$vContainer.Children.Add($panelToMount)
-            }
-            $panelToMount.Visibility = if ($DockBackToMain) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-        }
-
-        if ($state.DetachedWindows.ContainsKey($targetTabId)) {
-            [void]$state.DetachedWindows.Remove($targetTabId)
-        }
-
-        if ($DockBackToMain) {
-            Select-WorkspaceTab -TabId $targetTabId
-            if ($window) {
-                if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                    $window.WindowState = [System.Windows.WindowState]::Normal
-                }
-                [void]$window.Activate()
-                [void]$window.Focus()
-            }
-        } else {
-            Update-WorkspaceTabStrip
-        }
-    }.GetNewClosure()
-
-    $detachedWin.Tag = $HandleCloseOrDock
-
-    $btnDock = $detachedWin.FindName("BtnDockBack")
-    if ($btnDock) {
-        $btnDock.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $s; $null = $e
-            & $HandleCloseOrDock $true
-            $detachedWin.Close()
-        }.GetNewClosure())
-    }
-
-    $detachedWin.Add_Closing([System.ComponentModel.CancelEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        & $HandleCloseOrDock $true
-    }.GetNewClosure())
-
-    $detachedWin.Add_KeyDown([System.Windows.Input.KeyEventHandler]{
-        param($s, $e)
-        $null = $s
-        if ($e.Key -eq [System.Windows.Input.Key]::W -and ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
-            & $HandleCloseOrDock $true
-            $detachedWin.Close()
-            $e.Handled = $true
-        }
-    }.GetNewClosure())
-
-    $detachedWin.Show()
-    Update-WorkspaceTabStrip
-
-    # If this was the active tab in MainWindow, switch MainWindow to an active docked tab
-    if ($state.ActiveTabId -eq $targetTabId) {
-        $remainingDocked = $state.OpenTabs | Where-Object { -not $state.DetachedWindows.ContainsKey($_.Id) }
-        if ($remainingDocked -and ($remainingDocked.Count -gt 0)) {
-            Select-WorkspaceTab -TabId $remainingDocked[0].Id
-        }
-    }
-}
-
-Set-Alias -Name Dock-PanelToMainWindow -Value Mount-PanelToMainWindow -Scope Global
-function Mount-PanelToMainWindow {    param (
-        [string]$PanelName = "",
-        [string]$TabId = "",
-        [switch]$NoActivate
-    )
-    $targetTabId = if (-not [string]::IsNullOrWhiteSpace($TabId)) {
-        $TabId
-    } elseif (-not [string]::IsNullOrWhiteSpace($PanelName)) {
-        $found = foreach ($k in $state.DetachedWindows.Keys) {
-            $t = $state.OpenTabs | Where-Object { $_.Id -eq $k -and $_.PanelName -eq $PanelName } | Select-Object -First 1
-            if ($t) { $t.Id; break }
-        }
-        $found
-    } else { $null }
-
-    if (-not $targetTabId -or -not $state.DetachedWindows.ContainsKey($targetTabId)) { return }
-
-    $dRec = $state.DetachedWindows[$targetTabId]
-    $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
-            elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
-            elseif ($dRec.Window) { $dRec.Window }
-            else { $null }
-
-    if ($dWin) {
-        try {
-            $closeDockHandler = $dWin.Tag
-            if ($closeDockHandler -is [scriptblock]) {
-                & $closeDockHandler (-not $NoActivate)
-            }
-            $dWin.Close()
-        } catch {
-            Write-AppError -Category "Workspace" -Message "Error during dock back: $_"
-        }
-    } else {
-        [void]$state.DetachedWindows.Remove($targetTabId)
-    }
-
-    if (-not $NoActivate -and -not $dWin) {
-        Select-WorkspaceTab -TabId $targetTabId
-        if ($window) {
-            if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $window.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$window.Activate()
-            [void]$window.Focus()
-        }
-    } else {
-        Update-WorkspaceTabStrip
-    }
-}
-
-Set-Alias -Name Dock-AllDetachedWindows -Value Mount-AllDetachedWindows -Scope Global
-function Mount-AllDetachedWindows {    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
-        Set-Status -Message "No detached tool windows are currently open."
-        return
-    }
-    $tabIds = @($state.DetachedWindows.Keys)
-    foreach ($tId in $tabIds) {
-        Dock-PanelToMainWindow -TabId $tId -NoActivate
-    }
-    if ($state.ActiveTabId) {
-        Select-WorkspaceTab -TabId $state.ActiveTabId
-    }
-    Set-Status -Message "All detached tool windows docked back into main window."
-}
-
-function Show-AllDetachedWindows {
-    if (-not $state.DetachedWindows -or $state.DetachedWindows.Count -eq 0) {
-        Set-Status -Message "No detached tool windows are currently open."
-        return
-    }
-    foreach ($dRec in $state.DetachedWindows.Values) {
-        $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
-                elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
-                elseif ($dRec.Window) { $dRec.Window }
-                else { $null }
-        if ($dWin) {
-            if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) {
-                $dWin.WindowState = [System.Windows.WindowState]::Normal
-            }
-            [void]$dWin.Activate()
-        }
-    }
-    Set-Status -Message "All detached tool windows active."
-}
-
-function Reset-WorkspaceLayout {
-    Dock-AllDetachedWindows
-    $defaultTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
-    $state.OpenTabs.Clear()
-    foreach ($t in $defaultTabs) {
-        Add-WorkspaceTab -PanelName $t -Activate $false
-    }
-    $dashTab = $state.OpenTabs | Where-Object { $_.PanelName -eq "Dashboard" } | Select-Object -First 1
-    $targetId = if ($dashTab) { $dashTab.Id } elseif ($state.OpenTabs.Count -gt 0) { $state.OpenTabs[0].Id } else { "Dashboard" }
-    Select-WorkspaceTab -TabId $targetId
-    Set-WorkspaceMode -Mode "Tabs"
-    $appConfig.UI.OpenTabs = @($defaultTabs)
-    $appConfig.UI.ActiveTab = "Dashboard"
-    Save-AppSettings -Config $appConfig
-    Set-Status -Message "Workspace layout reset to default multi-tab layout."
-}
-
-function Show-WorkspaceLayoutMenu {
-    param ($targetElement)
-    $cm = [System.Windows.Controls.ContextMenu]::new()
-    $cm.Style = $window.TryFindResource("ModernContextMenu")
-    if ($targetElement) {
-        $cm.PlacementTarget = $targetElement
-        $cm.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
-    }
-
-    # SECTION 1: WORKSPACE VIEWPORT LAYOUT
-    $secWorkspace = [System.Windows.Controls.MenuItem]::new()
-    $secWorkspace.Header = "🗂️ WORKSPACE MODE"
-    $secWorkspace.IsEnabled = $false
-    $secWorkspace.FontWeight = [System.Windows.FontWeights]::Bold
-    [void]$cm.Items.Add($secWorkspace)
-
-    # Item: Multi-Tab Workspace
-    $miTabs = [System.Windows.Controls.MenuItem]::new()
-    $isTabs = ($state.WorkspaceMode -eq "Tabs")
-    $miTabs.Header = if ($isTabs) { "✔  🗂️ Multi-Tab Workspace (Active)" } else { "    🗂️ Multi-Tab Workspace" }
-    $miTabs.FontWeight = if ($isTabs) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
-    $miTabs.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        Set-WorkspaceMode -Mode "Tabs"
-        Save-AppSettings -Config $appConfig
-        Set-Status -Message "Workspace layout changed to: Multi-Tab Workspace"
-    })
-    [void]$cm.Items.Add($miTabs)
-
-    # Item: Single Window Viewport
-    $miSingle = [System.Windows.Controls.MenuItem]::new()
-    $isSingle = ($state.WorkspaceMode -eq "Single")
-    $miSingle.Header = if ($isSingle) { "✔  🔲 Single Window Viewport (Active)" } else { "    🔲 Single Window Viewport" }
-    $miSingle.FontWeight = if ($isSingle) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal }
-    $miSingle.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        Set-WorkspaceMode -Mode "Single"
-        Save-AppSettings -Config $appConfig
-        Set-Status -Message "Workspace layout changed to: Single Window Viewport"
-    })
-    [void]$cm.Items.Add($miSingle)
-
-    # SEPARATOR
-    [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
-
-    # SECTION 2: WINDOW LAYOUT & DETACHED WINDOWS
-    $secWindows = [System.Windows.Controls.MenuItem]::new()
-    $detachedCount = if ($state.DetachedWindows) { $state.DetachedWindows.Count } else { 0 }
-    $secWindows.Header = "⧉ WINDOW & MULTI-WINDOW LAYOUT"
-    $secWindows.IsEnabled = $false
-    $secWindows.FontWeight = [System.Windows.FontWeights]::Bold
-    [void]$cm.Items.Add($secWindows)
-
-    # Open New Application Window
-    $miNewAppWin = [System.Windows.Controls.MenuItem]::new()
-    $miNewAppWin.Header = "🗖  Open New Application Window"
-    $miNewAppWin.InputGestureText = "Ctrl+N"
-    $miNewAppWin.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        Launch-NewApplicationWindow
-    })
-    [void]$cm.Items.Add($miNewAppWin)
-
-    # Open Active Tool in Detached Window
-    $miNewToolWin = [System.Windows.Controls.MenuItem]::new()
-    $miNewToolWin.Header = "⧉  Open Active Tool in Detached Window"
-    $miNewToolWin.IsEnabled = [bool]($state.ActiveTabId)
-    $miNewToolWin.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
-        if (-not [string]::IsNullOrWhiteSpace($p)) {
-            Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
-            $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $p } | Select-Object -Last 1
-            if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
-        }
-    })
-    [void]$cm.Items.Add($miNewToolWin)
-
-    # Detach Current Tab
-    $miDetachCur = [System.Windows.Controls.MenuItem]::new()
-    $miDetachCur.Header = "⧉  Detach Current Tool to Separate Window"
-    $miDetachCur.InputGestureText = "Ctrl+Shift+D"
-    $miDetachCur.IsEnabled = [bool]($state.ActiveTabId -and -not $state.DetachedWindows.ContainsKey($state.ActiveTabId))
-    $miDetachCur.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        if ($activeTab) {
-            Detach-PanelToWindow -PanelName $activeTab.PanelName -TabId $activeTab.Id
-        }
-    })
-    [void]$cm.Items.Add($miDetachCur)
-
-    # Dock All Windows Back
-    $miDockAll = [System.Windows.Controls.MenuItem]::new()
-    $miDockAll.Header = if ($detachedCount -gt 0) { "⬇️  Dock All Windows Back into Main Window ($detachedCount detached)" } else { "⬇️  Dock All Windows Back into Main Window" }
-    $miDockAll.IsEnabled = ($detachedCount -gt 0)
-    $miDockAll.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        Dock-AllDetachedWindows
-    })
-    [void]$cm.Items.Add($miDockAll)
-
-    if ($detachedCount -gt 0) {
-        $miFocusAll = [System.Windows.Controls.MenuItem]::new()
-        $miFocusAll.Header = "🪟  Bring All Detached Windows to Front"
-        $miFocusAll.Add_Click([System.Windows.RoutedEventHandler]{
-            param($s, $e)
-            $null = $s; $null = $e
-            Show-AllDetachedWindows
-        })
-        [void]$cm.Items.Add($miFocusAll)
-    }
-
-    # Toggle Multi-Window Allowed
-    $miAllowMulti = [System.Windows.Controls.MenuItem]::new()
-    $miAllowMulti.Header = if ($state.AllowMultiWindow) { "✔  Allow Multi-Window (Detached Windows Enabled)" } else { "    Allow Multi-Window (Detached Windows Disabled)" }
-    $miAllowMulti.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        $state.AllowMultiWindow = -not $state.AllowMultiWindow
-        $appConfig.UI.AllowMultiWindow = $state.AllowMultiWindow
-        Save-AppSettings -Config $appConfig
-        if (-not $state.AllowMultiWindow) {
-            Dock-AllDetachedWindows
-        }
-        Update-WorkspaceTabStrip
-        Set-Status -Message "Multi-Window workspace is now $(if ($state.AllowMultiWindow) { 'Enabled' } else { 'Disabled' })."
-    })
-    [void]$cm.Items.Add($miAllowMulti)
-
-    # SEPARATOR
-    [void]$cm.Items.Add([System.Windows.Controls.Separator]::new())
-
-    # SECTION 3: TABS & LAYOUT PRESETS
-    $miNewTab = [System.Windows.Controls.MenuItem]::new()
-    $miNewTab.Header = "➕  Open Tool in New Tab..."
-    $miNewTab.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        if ($controls['BtnWorkspaceNewTab']) {
-            $controls['BtnWorkspaceNewTab'].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
-        }
-    })
-    [void]$cm.Items.Add($miNewTab)
-
-    # Duplicate Active Tab
-    $miDupActive = [System.Windows.Controls.MenuItem]::new()
-    $miDupActive.Header = "➕  Duplicate Active Tab (New Instance)"
-    $miDupActive.InputGestureText = "Ctrl+Shift+N"
-    $miDupActive.IsEnabled = [bool]($state.ActiveTabId)
-    $miDupActive.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        $activeTab = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId } | Select-Object -First 1
-        $p = if ($activeTab) { $activeTab.PanelName } else { $state.ActiveTabId }
-        if (-not [string]::IsNullOrWhiteSpace($p)) {
-            Add-WorkspaceTab -PanelName $p -NewInstance -Activate $true
-        }
-    })
-    [void]$cm.Items.Add($miDupActive)
-
-    $miResetTabs = [System.Windows.Controls.MenuItem]::new()
-    $miResetTabs.Header = "🔄  Reset Workspace to Default Tabs (Dashboard, Users, Groups, Computers)"
-    $miResetTabs.Add_Click([System.Windows.RoutedEventHandler]{
-        param($s, $e)
-        $null = $s; $null = $e
-        Reset-WorkspaceLayout
-    })
-    [void]$cm.Items.Add($miResetTabs)
-
-    $cm.IsOpen = $true
-}
-
-function Set-WorkspaceMode {
-    param ([string]$Mode)
-    if ($Mode -notin @("Tabs", "Single")) { $Mode = "Tabs" }
-    $state.WorkspaceMode = $Mode
-    $appConfig.UI.WorkspaceMode = $Mode
-
-    if ($controls['CmbWorkspaceMode']) {
-        $controls['CmbWorkspaceMode'].SelectedIndex = if ($Mode -eq "Tabs") { 0 } else { 1 }
-    }
-
-    if ($Mode -eq "Single") {
-        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Collapsed }
-        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🔲" }
-        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Single" }
-        if ($controls['TxtHeaderLayoutIcon']) { $controls['TxtHeaderLayoutIcon'].Text = "🔲" }
-        if ($controls['BtnWorkspaceLayoutMenu']) { $controls['BtnWorkspaceLayoutMenu'].ToolTip = "Switch Workspace & Window Layout (Single Viewport active - Ctrl+Shift+M)" }
-    } else {
-        if ($controls['WorkspaceTabBar']) { $controls['WorkspaceTabBar'].Visibility = [System.Windows.Visibility]::Visible }
-        if ($controls['TxtWorkspaceModeIcon']) { $controls['TxtWorkspaceModeIcon'].Text = "🗂️" }
-        if ($controls['TxtWorkspaceModeLabel']) { $controls['TxtWorkspaceModeLabel'].Text = "Tabs" }
-        if ($controls['TxtHeaderLayoutIcon']) { $controls['TxtHeaderLayoutIcon'].Text = "🗂️" }
-        if ($controls['BtnWorkspaceLayoutMenu']) { $controls['BtnWorkspaceLayoutMenu'].ToolTip = "Switch Workspace & Window Layout (Multi-Tab Workspace active - Ctrl+Shift+M)" }
-    }
-    Update-WorkspaceTabStrip
-}
-
-Set-Alias -Name Init-SidebarNavigationContextMenus -Value Initialize-SidebarNavigationContextMenus -Scope Global
-function Initialize-SidebarNavigationContextMenus {    $panels = @(
-        'Dashboard', 'Users', 'Groups', 'OUs', 'Computers',
-        'DirectorySearch', 'LdapSql', 'AttributeEditor', 'HtmlView', 'ObjectCompare',
-        'LdifStudio', 'AuditReports', 'SchemaBrowser', 'BulkEditor',
-        'Basket', 'RequestLog',
-        'RecycleBin', 'ServerMonitor',
-        'Connections', 'Settings',
-        'SecurityAcl', 'KerberosSuite', 'ReplicationSuite', 'DiagnosticsToolbox', 'NetworkDiagnostics'
-    )
-    foreach ($p in $panels) {
-        $radio = $controls["Nav$p"]
-        if ($radio) {
-            $cm = [System.Windows.Controls.ContextMenu]::new()
-            $cm.Style = $window.TryFindResource("ModernContextMenu")
-
-            $miTab = [System.Windows.Controls.MenuItem]::new()
-            $miTab.Header = "🗂️ Open in Tab"
-            $miTab.Tag = $p
-            $miTab.Add_Click([System.Windows.RoutedEventHandler]{
-                param($s, $e)
-                $null = $e
-                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                if (-not [string]::IsNullOrWhiteSpace($target)) {
-                    Add-WorkspaceTab -PanelName $target -Activate $true
-                }
-            })
-            [void]$cm.Items.Add($miTab)
-
-            $miTabNew = [System.Windows.Controls.MenuItem]::new()
-            $miTabNew.Header = "➕ Open New Instance in Tab"
-            $miTabNew.Tag = $p
-            $miTabNew.Add_Click([System.Windows.RoutedEventHandler]{
-                param($s, $e)
-                $null = $e
-                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                if (-not [string]::IsNullOrWhiteSpace($target)) {
-                    Add-WorkspaceTab -PanelName $target -NewInstance -Activate $true
-                }
-            })
-            [void]$cm.Items.Add($miTabNew)
-
-            $miWin = [System.Windows.Controls.MenuItem]::new()
-            $miWin.Header = "⧉ Detach to Separate Window"
-            $miWin.Tag = $p
-            $miWin.Add_Click([System.Windows.RoutedEventHandler]{
-                param($s, $e)
-                $null = $e
-                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                if (-not [string]::IsNullOrWhiteSpace($target)) {
-                    Detach-PanelToWindow -PanelName $target
-                }
-            })
-            [void]$cm.Items.Add($miWin)
-
-            $miIndWin = [System.Windows.Controls.MenuItem]::new()
-            $miIndWin.Header = "⧉ Open in Detached Window"
-            $miIndWin.Tag = $p
-            $miIndWin.Add_Click([System.Windows.RoutedEventHandler]{
-                param($s, $e)
-                $null = $e
-                $target = if ($s -is [System.Windows.FrameworkElement] -and $s.Tag) { $s.Tag } else { $null }
-                if (-not [string]::IsNullOrWhiteSpace($target)) {
-                    Add-WorkspaceTab -PanelName $target -NewInstance -Activate $true
-                    $newTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $target } | Select-Object -Last 1
-                    if ($newTab) { Detach-PanelToWindow -TabId $newTab.Id }
-                }
-            })
-            [void]$cm.Items.Add($miIndWin)
-
-            $radio.ContextMenu = $cm
-        }
-    }
-}
-
-function Show-Panel {
-    param ([string]$PanelName)
-    if ([string]::IsNullOrWhiteSpace($PanelName)) { return }
-
-    # JIT Lazy Service Loading for Target Panel
-    switch ($PanelName) {
-        'SecurityAcl'        { Import-ServiceLazy 'AclService' }
-        'KerberosSuite'      { Import-ServiceLazy 'KerberosService' }
-        'ReplicationSuite'   { Import-ServiceLazy 'ReplicationService'; Import-ServiceLazy 'GpoService' }
-        'DiagnosticsToolbox' { Import-ServiceLazy 'DiagnosticService' }
-        'NetworkDiagnostics' { Import-ServiceLazy 'NetworkService' }
-        'DirectorySearch'    { Import-ServiceLazy 'ScimFilterService'; Import-ServiceLazy 'ScimService' }
-    }
-
-    if ($state.WorkspaceMode -eq "Tabs") {
-        $activeDocked = $state.OpenTabs | Where-Object { $_.Id -eq $state.ActiveTabId -and $_.PanelName -eq $PanelName } | Select-Object -First 1
-        if ($activeDocked) {
-            Select-WorkspaceTab -TabId $activeDocked.Id
-            Record-NavHistory -PanelName $PanelName
-            return
-        }
-        $dockedTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName -and -not $state.DetachedWindows.ContainsKey($_.Id) } | Select-Object -First 1
-        if ($dockedTab) {
-            Select-WorkspaceTab -TabId $dockedTab.Id
-        } else {
-            $detachedTab = $state.OpenTabs | Where-Object { $_.PanelName -eq $PanelName -and $state.DetachedWindows.ContainsKey($_.Id) } | Select-Object -First 1
-            if ($detachedTab) {
-                $dRec = $state.DetachedWindows[$detachedTab.Id]
-                $dWin = if ($dRec -is [System.Windows.Window]) { $dRec }
-                        elseif ($dRec -is [System.Collections.IDictionary] -and $dRec.ContainsKey('Window')) { $dRec['Window'] }
-                        elseif ($dRec.Window) { $dRec.Window }
-                        else { $null }
-                if ($dWin) {
-                    if ($dWin.WindowState -eq [System.Windows.WindowState]::Minimized) { $dWin.WindowState = [System.Windows.WindowState]::Normal }
-                    [void]$dWin.Activate()
-                    [void]$dWin.Focus()
-                }
-            } else {
-                Add-WorkspaceTab -PanelName $PanelName -Activate $true
-            }
-        }
-    } else {
-        $panels = @(
-            'PanelDashboard', 'PanelUsers', 'PanelGroups', 'PanelOUs', 'PanelComputers',
-            'PanelDirectorySearch', 'PanelLdapSql', 'PanelAttributeEditor', 'PanelHtmlView', 'PanelObjectCompare',
-            'PanelLdifStudio', 'PanelAuditReports', 'PanelSchemaBrowser', 'PanelBulkEditor',
-            'PanelBasket', 'PanelRequestLog',
-            'PanelRecycleBin', 'PanelServerMonitor',
-            'PanelConnections', 'PanelSettings',
-            'PanelSecurityAcl', 'PanelKerberosSuite', 'PanelReplicationSuite', 'PanelDiagnosticsToolbox', 'PanelNetworkDiagnostics'
-        )
-        $targetName = "Panel$PanelName"
-        foreach ($p in $panels) {
-            if ($controls[$p]) {
-                $controls[$p].Visibility = if ($p -eq $targetName) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-            }
-        }
-        $state.ActiveTabId = $PanelName
-    }
-    Record-NavHistory -PanelName $PanelName
-}
 
 # Wire TabBar Action Buttons
 if ($controls['BtnWorkspaceNewTab']) {
@@ -5205,7 +3578,8 @@ if ($controls['NavNetworkDiagnostics']) { $controls['NavNetworkDiagnostics'].Add
 #endregion
 
 #region Sidebar Visibility & Toggle Engine
-Set-Alias -Name Toggle-SidebarMenu -Value Toggle-SidebarVisibility -Scope Global
+Set-Alias -Name Toggle-SidebarMenu -Value Switch-SidebarVisibility -Scope Global
+Set-Alias -Name Toggle-SidebarVisibility -Value Switch-SidebarVisibility -Scope Global
 function Set-SidebarVisibility {
     param ([bool]$Visible)
     $state.SidebarVisible = $Visible
@@ -5231,7 +3605,7 @@ function Set-SidebarVisibility {
     Set-Status -Message $statusText
 }
 
-function Toggle-SidebarVisibility {
+function Switch-SidebarVisibility {
     $currentVisible = if ($controls['PrimarySidebar']) {
         $controls['PrimarySidebar'].Visibility -eq [System.Windows.Visibility]::Visible
     } else { $true }
@@ -5239,7 +3613,7 @@ function Toggle-SidebarVisibility {
 }
 
 if ($controls['BtnToggleSidebar']) {
-    $controls['BtnToggleSidebar'].Add_Click({ Toggle-SidebarVisibility })
+    $controls['BtnToggleSidebar'].Add_Click({ Switch-SidebarVisibility })
 }
 if ($controls['BtnCollapseSidebar']) {
     $controls['BtnCollapseSidebar'].Add_Click({ Set-SidebarVisibility -Visible $false })
@@ -5362,6 +3736,26 @@ if ($controls['BtnGlobalRefresh']) {
 }
 #endregion
 
+function Clear-ADCache {
+    if ($state) {
+        $state.CachedUsers = @()
+        $state.CachedGroups = @()
+        $state.CachedComputers = @()
+        $state.CachedOUs = @()
+        $state.CachedOUTree = $null
+        $state.AllScopeUsers = @()
+        $state.SearchAttributesLoaded = $false
+        if ($state.MasterAttributeList) { $state.MasterAttributeList.Clear() }
+    }
+    [System.GC]::Collect()
+    Set-Status -Message "In-memory directory caches cleared."
+}
+
+# Wire static initial Breadcrumb Home button cleanly on startup
+if ($controls['BtnBreadcrumbHome']) {
+    $controls['BtnBreadcrumbHome'].Add_Click({ Show-Panel "Dashboard" })
+}
+
 #region Global Quick Search & Command Palette Omnibar (Softerra / Apache Studio / NetTools Parity)
 $script:OmnibarCommands = @(
     [PSCustomObject]@{ Name = "> Users"; Description = "Navigate to Users Management viewport"; Type = "COMMAND"; Action = { Show-Panel "Users"; Refresh-Users } }
@@ -5375,8 +3769,12 @@ $script:OmnibarCommands = @(
     [PSCustomObject]@{ Name = "> Security ACL"; Description = "AD Permissions Browser, Effective Permissions & SDDL Inspector"; Type = "COMMAND"; Action = { Show-Panel "SecurityAcl" } }
     [PSCustomObject]@{ Name = "> Kerberos Suite"; Description = "Kerberos ticket analyzer, SPN validator & PAC token sizing"; Type = "COMMAND"; Action = { Show-Panel "KerberosSuite" } }
     [PSCustomObject]@{ Name = "> Replication Suite"; Description = "AD replication topology, DC metadata, subnets & site resolution"; Type = "COMMAND"; Action = { Show-Panel "ReplicationSuite" } }
-    [PSCustomObject]@{ Name = "> Diagnostics Toolbox"; Description = "AD Diagnostics: time converter, lockout analyzer, PSO calculator, group diff"; Type = "COMMAND"; Action = { Show-Panel "DiagnosticsToolbox" } }
-    [PSCustomObject]@{ Name = "> Network Diagnostics"; Description = "7-Tier UNC checker, DC port latency & certificate validator"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> Diagnostics Toolbox"; Description = "AD Diagnostics: time/SID converters, lockout analyzer, mail/proxy conflicts & top quota usage"; Type = "COMMAND"; Action = { Show-Panel "DiagnosticsToolbox" } }
+    [PSCustomObject]@{ Name = "> Network Diagnostics"; Description = "UNC checker, DC ports, certificate validator, HTTP headers, trace route/WhoIs & LDAP perf"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> HTTP Headers & TLS"; Description = "Inspect live HTTP response headers, status code and TLS certificate chain"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> Trace Route & WhoIs"; Description = "Run multi-hop traceroute, GeoIP summary and WhoIs lookup"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> LDAP Performance Benchmark"; Description = "Benchmark RootDSE LDAP bind latency (Min/Avg/P95/Max & q/s)"; Type = "COMMAND"; Action = { Show-Panel "NetworkDiagnostics" } }
+    [PSCustomObject]@{ Name = "> Mail & Proxy Conflicts"; Description = "Scan AD directory for duplicate mail/proxyAddresses & top object quota usage"; Type = "COMMAND"; Action = { Show-Panel "DiagnosticsToolbox" } }
     [PSCustomObject]@{ Name = "> Schema Browser"; Description = "Explore AD schema classes, attributes and syntax definitions"; Type = "COMMAND"; Action = { Show-Panel "SchemaBrowser"; Refresh-Schema } }
     [PSCustomObject]@{ Name = "> LDIF Studio"; Description = "LDIF Editor, script execution and import/export studio"; Type = "COMMAND"; Action = { Show-Panel "LdifStudio"; Init-LdifStudio } }
     [PSCustomObject]@{ Name = "> Audit Reports"; Description = "Security audit suite, compliance rules and custom reports"; Type = "COMMAND"; Action = { Show-Panel "AuditReports"; Refresh-CustomReportsDropdown } }
@@ -6772,7 +5170,12 @@ function global:Export-UsersAction {
     $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
     
     if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $usersToExport = if ($SourceItems -and $SourceItems.Count -gt 0) { $SourceItems } elseif ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { @(Get-ADUsersList | ForEach-Object { $_ }) }
+        $rawList = if ($SourceItems -and $SourceItems.Count -gt 0) { $SourceItems } elseif ($state.CachedUsers.Count -gt 0) { $state.CachedUsers } else { @(Get-ADUsersList | ForEach-Object { $_ }) }
+        $usersToExport = @($rawList | Where-Object { $null -ne $_ })
+        if ($usersToExport.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No user records available to export.", "Export Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
         $res = Export-ADDataToCsv -Data $usersToExport -FilePath $saveDlg.FileName -Delimiter ($appConfig.Defaults.ExportDelimiter) `
             -PropertiesToExport @('SamAccountName', 'DisplayName', 'UserPrincipalName', 'Mail', 'Title', 'Department', 'Office', 'Company', 'EmployeeID', 'Enabled', 'LockedOut', 'OUPath', 'LastLogonDate', 'DistinguishedName')
 
@@ -6849,11 +5252,7 @@ if ($controls['CmbUserOUFilter'])    { $controls['CmbUserOUFilter'].Add_Selectio
 if ($controls['BtnNewUser']) { $controls['BtnNewUser'].Add_Click({ Open-UserDialog -Mode "Create" }) }
 if ($controls['BtnNewUserTemplate']) {
     $controls['BtnNewUserTemplate'].Add_Click({
-        $choice = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "Select template number:`n1. Standard Employee (Corporate standard)`n2. Contractor (Expires in 90 days)`n3. Domain Admin Template (Privileged)`n4. Service Account (SPN / Non-expiring)",
-            "Template-Based Entry Creation",
-            "1"
-        )
+        $choice = Show-AppInputDialog -Prompt "Select template number:`n1. Standard Employee (Corporate standard)`n2. Contractor (Expires in 90 days)`n3. Domain Admin Template (Privileged)`n4. Service Account (SPN / Non-expiring)" -Title "Template-Based Entry Creation" -DefaultResponse "1"
         if ([string]::IsNullOrWhiteSpace($choice)) { return }
         $selectedTpl = switch ($choice.Trim()) {
             "1" { "Standard Employee" }
@@ -7549,7 +5948,12 @@ function global:Export-GroupsAction {
     $saveDlg.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
 
     if ($saveDlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $groupsToExport = if ($state.CachedGroups.Count -gt 0) { $state.CachedGroups } else { @(Get-ADGroupsList | ForEach-Object { $_ }) }
+        $rawList = if ($state.CachedGroups.Count -gt 0) { $state.CachedGroups } else { @(Get-ADGroupsList | ForEach-Object { $_ }) }
+        $groupsToExport = @($rawList | Where-Object { $null -ne $_ })
+        if ($groupsToExport.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No group records available to export.", "Export Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+            return
+        }
         $count = $groupsToExport.Count
         $filePath = $saveDlg.FileName
         Write-AppLog -Level "INFO" -Category "GroupManagement" -Message "Exporting $count group(s) to '$filePath'"
@@ -8228,6 +6632,50 @@ if ($controls['BtnExportComputers']) {
 #endregion
 
 #region 6. Directory Search (Visual LDAP Filter Builder)
+$script:SearchAttrOutcomeBrushes = $null
+function global:Get-SearchAttrOutcomeBrushes {
+    if ($null -eq $script:SearchAttrOutcomeBrushes) {
+        $makeSet = {
+            param([byte[]]$Bg, [byte[]]$Border, [byte[]]$Label, [byte[]]$Text)
+            $b1 = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb($Bg[0], $Bg[1], $Bg[2]));         if ($b1.CanFreeze) { $b1.Freeze() }
+            $b2 = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb($Border[0], $Border[1], $Border[2])); if ($b2.CanFreeze) { $b2.Freeze() }
+            $b3 = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb($Label[0], $Label[1], $Label[2]));   if ($b3.CanFreeze) { $b3.Freeze() }
+            $b4 = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb($Text[0], $Text[1], $Text[2]));     if ($b4.CanFreeze) { $b4.Freeze() }
+            return @{ Bg = $b1; Border = $b2; Label = $b3; Text = $b4 }
+        }
+        $script:SearchAttrOutcomeBrushes = @{
+            "Dark_Match"    = (& $makeSet @(6,78,59)    @(6,95,70)    @(167,243,208) @(74,222,128))
+            "Light_Match"   = (& $makeSet @(240,253,244) @(187,247,208) @(22,101,52)  @(21,128,61))
+            "Dark_NoMatch"  = (& $makeSet @(69,26,3)    @(120,53,15)  @(253,230,138) @(251,191,36))
+            "Light_NoMatch" = (& $makeSet @(254,252,232) @(254,240,138) @(133,77,14)  @(180,83,9))
+            "Dark_Info"     = (& $makeSet @(30,41,59)   @(51,65,85)   @(148,163,184) @(56,189,248))
+            "Light_Info"    = (& $makeSet @(240,249,255) @(186,230,253) @(7,89,133)   @(2,132,199))
+        }
+    }
+    return $script:SearchAttrOutcomeBrushes
+}
+
+function global:Set-GridItemsSource {
+    <#
+    .SYNOPSIS
+        Binds items safely to a WPF ItemsControl/DataGrid as a concrete List[object] so PowerShell 5.1 never unwraps 1-element arrays.
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        $Control,
+        [Parameter(Mandatory = $false)]
+        $Items
+    )
+    if ($null -eq $Control) { return }
+    $list = [System.Collections.Generic.List[object]]::new()
+    if ($null -ne $Items) {
+        foreach ($item in $Items) {
+            if ($null -ne $item) { [void]$list.Add($item) }
+        }
+    }
+    $Control.ItemsSource = $list
+}
+
 function global:Set-SearchAttrOutcomeBadge {
     param(
         [Parameter(Mandatory = $false)]
@@ -8242,19 +6690,17 @@ function global:Set-SearchAttrOutcomeBadge {
         [System.Windows.Controls.TextBlock]$OutcomeLabel = $null
     )
 
-    $hasControls = (Get-Variable -Name 'controls' -ErrorAction SilentlyContinue) -and ($null -ne $controls)
-    if (-not $OutcomeBorder -and $hasControls -and $controls.ContainsKey('BorderSearchAttrOutcome')) {
-        $OutcomeBorder = $controls['BorderSearchAttrOutcome']
+    if (-not $OutcomeBorder -and $script:controls -and $script:controls.ContainsKey('BorderSearchAttrOutcome')) {
+        $OutcomeBorder = $script:controls['BorderSearchAttrOutcome']
     }
-    if (-not $OutcomeText -and $hasControls -and $controls.ContainsKey('TxtSearchAttrOutcome')) {
-        $OutcomeText = $controls['TxtSearchAttrOutcome']
+    if (-not $OutcomeText -and $script:controls -and $script:controls.ContainsKey('TxtSearchAttrOutcome')) {
+        $OutcomeText = $script:controls['TxtSearchAttrOutcome']
     }
-    if (-not $OutcomeLabel -and $hasControls -and $controls.ContainsKey('TxtSearchAttrOutcomeLabel')) {
-        $OutcomeLabel = $controls['TxtSearchAttrOutcomeLabel']
+    if (-not $OutcomeLabel -and $script:controls -and $script:controls.ContainsKey('TxtSearchAttrOutcomeLabel')) {
+        $OutcomeLabel = $script:controls['TxtSearchAttrOutcomeLabel']
     }
     if (-not $OutcomeLabel -and $OutcomeBorder) {
-        $OutcomeLabel = $OutcomeBorder.FindName("TxtSearchAttrOutcomeLabel")
-        if (-not $OutcomeLabel -and $OutcomeBorder.Child -and ($OutcomeBorder.Child -is [System.Windows.Controls.Panel])) {
+        if ($OutcomeBorder.Child -and ($OutcomeBorder.Child -is [System.Windows.Controls.Panel])) {
             foreach ($ch in $OutcomeBorder.Child.Children) {
                 if ($ch -is [System.Windows.Controls.TextBlock] -and $ch -ne $OutcomeText) {
                     $OutcomeLabel = $ch
@@ -8262,69 +6708,57 @@ function global:Set-SearchAttrOutcomeBadge {
                 }
             }
         }
+        if (-not $OutcomeLabel) {
+            $OutcomeLabel = $OutcomeBorder.FindName("TxtSearchAttrOutcomeLabel")
+        }
     }
 
-    $hasState = (Get-Variable -Name 'state' -ErrorAction SilentlyContinue) -and ($null -ne $state)
+    $hasState = ($null -ne $script:state)
     if ($hasState) {
-        if (-not $state.PSObject.Properties['SearchAttrOutcomeStatus']) {
-            $state | Add-Member -NotePropertyName 'SearchAttrOutcomeStatus' -NotePropertyValue 'Info' -Force
+        if (-not $script:state.PSObject.Properties['SearchAttrOutcomeStatus']) {
+            $script:state | Add-Member -NotePropertyName 'SearchAttrOutcomeStatus' -NotePropertyValue 'Info' -Force
         }
-        if (-not $state.PSObject.Properties['SearchAttrOutcomeMessage']) {
-            $state | Add-Member -NotePropertyName 'SearchAttrOutcomeMessage' -NotePropertyValue '' -Force
+        if (-not $script:state.PSObject.Properties['SearchAttrOutcomeMessage']) {
+            $script:state | Add-Member -NotePropertyName 'SearchAttrOutcomeMessage' -NotePropertyValue '' -Force
         }
     }
 
     if ($Status) {
-        if ($hasState) { $state.SearchAttrOutcomeStatus = $Status }
-    } elseif ($hasState -and $state.SearchAttrOutcomeStatus) {
-        $Status = $state.SearchAttrOutcomeStatus
+        if ($hasState) { $script:state.SearchAttrOutcomeStatus = $Status }
+    } elseif ($hasState -and $script:state.SearchAttrOutcomeStatus) {
+        $Status = $script:state.SearchAttrOutcomeStatus
     } else {
         $Status = "Info"
-        if ($hasState) { $state.SearchAttrOutcomeStatus = "Info" }
+        if ($hasState) { $script:state.SearchAttrOutcomeStatus = "Info" }
     }
 
     if ($PSBoundParameters.ContainsKey('Message')) {
-        if ($hasState) { $state.SearchAttrOutcomeMessage = $Message }
-    } elseif ($hasState -and $state.SearchAttrOutcomeMessage) {
-        $Message = $state.SearchAttrOutcomeMessage
+        if ($hasState) { $script:state.SearchAttrOutcomeMessage = $Message }
+    } elseif ($hasState -and $script:state.SearchAttrOutcomeMessage) {
+        $Message = $script:state.SearchAttrOutcomeMessage
     }
 
-    $isLight = if ($hasState -and $state.CurrentTheme) { ($state.CurrentTheme -eq "Light") } else { $false }
+    $isLight = if ($hasState -and $script:state.CurrentTheme) { ($script:state.CurrentTheme -eq "Light") } else { $false }
+    $themeKey = if ($isLight) { "Light" } else { "Dark" }
+    $statusKey = if ($Status -in @("Match", "NoMatch", "Info")) { $Status } else { "Info" }
+    $cacheKey = "${themeKey}_${statusKey}"
 
-    switch ($Status) {
-        "Match" {
-            $bgHex     = if ($isLight) { "#F0FDF4" } else { "#064E3B" }
-            $borderHex = if ($isLight) { "#BBF7D0" } else { "#065F46" }
-            $labelHex  = if ($isLight) { "#166534" } else { "#A7F3D0" }
-            $textHex   = if ($isLight) { "#15803D" } else { "#4ADE80" }
+    $brushes = (Get-SearchAttrOutcomeBrushes)[$cacheKey]
+    if ($OutcomeBorder -and $OutcomeBorder.Tag -ne $cacheKey) {
+        $OutcomeBorder.Background  = $brushes.Bg
+        $OutcomeBorder.BorderBrush = $brushes.Border
+        $OutcomeBorder.Tag         = $cacheKey
+        if ($OutcomeLabel) {
+            $OutcomeLabel.Foreground = $brushes.Label
         }
-        "NoMatch" {
-            $bgHex     = if ($isLight) { "#FEFCE8" } else { "#451A03" }
-            $borderHex = if ($isLight) { "#FEF08A" } else { "#78350F" }
-            $labelHex  = if ($isLight) { "#854D0E" } else { "#FDE68A" }
-            $textHex   = if ($isLight) { "#B45309" } else { "#FBBF24" }
+        if ($OutcomeText) {
+            $OutcomeText.Foreground = $brushes.Text
         }
-        default { # "Info"
-            $bgHex     = if ($isLight) { "#F0F9FF" } else { "#1E293B" }
-            $borderHex = if ($isLight) { "#BAE6FD" } else { "#334155" }
-            $labelHex  = if ($isLight) { "#075985" } else { "#94A3B8" }
-            $textHex   = if ($isLight) { "#0284C7" } else { "#38BDF8" }
-        }
+    } elseif ($OutcomeText -and $null -eq $OutcomeBorder) {
+        $OutcomeText.Foreground = $brushes.Text
     }
-
-    $conv = [System.Windows.Media.BrushConverter]::new()
-    if ($OutcomeBorder) {
-        $OutcomeBorder.Background = $conv.ConvertFromString($bgHex)
-        $OutcomeBorder.BorderBrush = $conv.ConvertFromString($borderHex)
-    }
-    if ($OutcomeLabel) {
-        $OutcomeLabel.Foreground = $conv.ConvertFromString($labelHex)
-    }
-    if ($OutcomeText) {
-        if ($null -ne $Message) {
-            $OutcomeText.Text = $Message
-        }
-        $OutcomeText.Foreground = $conv.ConvertFromString($textHex)
+    if ($OutcomeText -and $null -ne $Message -and $OutcomeText.Text -ne $Message) {
+        $OutcomeText.Text = $Message
     }
 }
 
@@ -8400,7 +6834,8 @@ function global:Select-ComboAttributes {
                 $Combo.IsDropDownOpen = $true
             }
 
-            $exact = $matched | Where-Object { $_ -eq $trimmed } | Select-Object -First 1
+            $exact = $null
+            foreach ($m in $matched) { if ($m -ieq $trimmed) { $exact = $m; break } }
             $selected = if ($exact) { $exact } else { $matched[0] }
             $Combo.SelectedItem = $selected
 
@@ -8442,6 +6877,7 @@ function Register-SearchableAttributeDropdown {    param(
     $null = $OutcomeText; $null = $OutcomeBorder; $null = $IncludeAnyOption
 
     if (-not $Combo -or -not $MasterList -or $MasterList.Count -eq 0) { return }
+    [void](Get-SearchAttrOutcomeBrushes)
 
     $filterFunc = ${function:Select-ComboAttributes}
     if (-not $filterFunc) { $filterFunc = ${function:global:Select-ComboAttributes} }
@@ -8597,8 +7033,9 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
     )
 
     $allAttrNames = [System.Collections.Generic.List[string]]::new()
+    $seenAttrs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($p in $priorityAttrs) {
-        if (-not $allAttrNames.Contains($p)) { [void]$allAttrNames.Add($p) }
+        if ($seenAttrs.Add($p)) { [void]$allAttrNames.Add($p) }
     }
 
     try {
@@ -8606,7 +7043,7 @@ function Update-SearchAttributeDropdowns {    if ($state.SearchAttributesLoaded)
         if ($schemaAttrs -and $schemaAttrs.Count -gt 0) {
             $otherAttrs = $schemaAttrs | Select-Object -ExpandProperty Name | Sort-Object
             foreach ($attr in $otherAttrs) {
-                if (-not $allAttrNames.Contains($attr)) {
+                if (-not [string]::IsNullOrWhiteSpace($attr) -and $seenAttrs.Add($attr)) {
                     [void]$allAttrNames.Add($attr)
                 }
             }
@@ -9128,11 +7565,7 @@ if ($controls['BtnConvertScim']) {
     $controls['BtnConvertScim'].Add_Click({
         $currFilter = if ($controls['TxtRawLdapFilter']) { $controls['TxtRawLdapFilter'].Text.Trim() } else { "(objectClass=user)" }
         $scimEquiv = Convert-LdapFilterToScim -LdapFilter $currFilter
-        $userPrompt = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "RFC 7644 SCIM 2.0 ↔ RFC 4515 LDAP Filter Translator`r`n`r`nEquivalent SCIM 2.0 query for current LDAP filter:`r`n$scimEquiv`r`n`r`nEnter a SCIM filter to translate to LDAP, or press OK to keep active:",
-            "SCIM 2.0 Filter Translator",
-            $scimEquiv
-        )
+        $userPrompt = Show-AppInputDialog -Prompt "RFC 7644 SCIM 2.0 ↔ RFC 4515 LDAP Filter Translator`r`n`r`nEquivalent SCIM 2.0 query for current LDAP filter:`r`n$scimEquiv`r`n`r`nEnter a SCIM filter to translate to LDAP, or press OK to keep active:" -Title "SCIM 2.0 Filter Translator" -DefaultResponse $scimEquiv
         if (-not [string]::IsNullOrWhiteSpace($userPrompt) -and $userPrompt -ne $scimEquiv) {
             $translatedLdap = Convert-ScimFilterToLdap -ScimFilter $userPrompt
             if ($controls['TxtRawLdapFilter']) {
@@ -9159,7 +7592,8 @@ if ($controls['TxtRawLdapFilter']) {
 
 if ($controls['BtnRunLdapSearch']) { $controls['BtnRunLdapSearch'].Add_Click({ Invoke-LdapSearchUI }) }
 
-function Toggle-DirectorySearchAdvancedView {
+Set-Alias -Name Toggle-DirectorySearchAdvancedView -Value Switch-DirectorySearchAdvancedView -Scope Global
+function Switch-DirectorySearchAdvancedView {
     $advBlock = $controls['BlockAdvancedSearchFilters']
     $advActions = $controls['BlockAdvancedActionButtons']
     $btn = $controls['BtnToggleAdvancedSearch']
@@ -9184,7 +7618,7 @@ function Toggle-DirectorySearchAdvancedView {
 }
 
 if ($controls['BtnToggleAdvancedSearch']) {
-    $controls['BtnToggleAdvancedSearch'].Add_Click({ Toggle-DirectorySearchAdvancedView })
+    $controls['BtnToggleAdvancedSearch'].Add_Click({ Switch-DirectorySearchAdvancedView })
 }
 
 if ($controls['TxtRawLdapFilter']) {
@@ -9192,7 +7626,7 @@ if ($controls['TxtRawLdapFilter']) {
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
             Invoke-LdapSearchUI
         } elseif ($_.Key -eq [System.Windows.Input.Key]::F4) {
-            Toggle-DirectorySearchAdvancedView
+            Switch-DirectorySearchAdvancedView
             $_.Handled = $true
         } elseif ($_.Key -eq [System.Windows.Input.Key]::R -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
             $filter = $controls['TxtRawLdapFilter'].Text.Trim()
@@ -9287,7 +7721,7 @@ if ($controls['TxtRegexPattern']) {
         if ($_.Key -eq [System.Windows.Input.Key]::Enter) {
             Invoke-LdapSearchUI
         } elseif ($_.Key -eq [System.Windows.Input.Key]::F4) {
-            Toggle-DirectorySearchAdvancedView
+            Switch-DirectorySearchAdvancedView
             $_.Handled = $true
         }
     })
@@ -9716,6 +8150,7 @@ function Show-SpecializedEditorDialog {
         [string]$TargetDN = ""
     )
     $null = $TargetDN
+    Import-ServiceLazy 'SpecializedEditorService'
     $dlgPath = Join-Path $viewsPath "SpecializedEditorDialog.xaml"
     if (-not (Test-Path $dlgPath)) {
         [System.Windows.MessageBox]::Show("SpecializedEditorDialog.xaml not found at: $dlgPath", "Dialog Missing", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
@@ -10128,7 +8563,7 @@ function Open-AttributeEditDialog {
         $dControls['BtnCopyHex'].Add_Click({
             if ($script:stagedBinaryBytes) {
                 $hexOnly = ($script:stagedBinaryBytes | ForEach-Object { $_.ToString("X2") }) -join " "
-                [System.Windows.Clipboard]::SetText($hexOnly)
+                Set-AppClipboardText ($hexOnly)
                 [System.Windows.MessageBox]::Show("Hex bytes copied to clipboard.", "Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             }
         })
@@ -10562,9 +8997,9 @@ function Open-AddAttributeDialog {
         [System.Windows.MessageBox]::Show("Please load an object first before adding an attribute.", "Notice", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
         return
     }
-    $attrName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter attribute name to add (e.g. title, description, telephoneNumber):", "Add Attribute", "description")
+    $attrName = Show-AppInputDialog -Prompt "Enter attribute name to add (e.g. title, description, telephoneNumber):" -Title "Add Attribute" -DefaultResponse "description"
     if ([string]::IsNullOrWhiteSpace($attrName)) { return }
-    $attrVal = [Microsoft.VisualBasic.Interaction]::InputBox("Enter value for attribute '$attrName':", "Add Attribute Value", "")
+    $attrVal = Show-AppInputDialog -Prompt "Enter value for attribute '$attrName':" -Title "Add Attribute Value" -DefaultResponse ""
     if ($null -ne $attrVal) {
         $res = Add-ADObjectRawAttributeValue -DistinguishedName $targetDn -AttributeName $attrName -Value $attrVal
         if ($res.Success) {
@@ -10583,7 +9018,7 @@ if ($controls['BtnCopyAttrValue']) {
     $controls['BtnCopyAttrValue'].Add_Click({
         $selAttr = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
         if ($selAttr -and $selAttr.Value) {
-            [System.Windows.Clipboard]::SetText([string]$selAttr.Value)
+            Set-AppClipboardText ([string]$selAttr.Value)
             Set-Status -Message "Copied '$($selAttr.Name)' value to clipboard."
         }
     })
@@ -10653,7 +9088,7 @@ if ($controls['MenuCtxCopyAttrValue']) {
     $controls['MenuCtxCopyAttrValue'].Add_Click({
         $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
         if ($sel) {
-            [System.Windows.Clipboard]::SetText("$($sel.Value)")
+            Set-AppClipboardText ("$($sel.Value)")
             Set-Status -Message "Copied attribute value for '$($sel.Name)'."
         }
     })
@@ -10663,7 +9098,7 @@ if ($controls['MenuCtxCopyAttrName']) {
     $controls['MenuCtxCopyAttrName'].Add_Click({
         $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
         if ($sel) {
-            [System.Windows.Clipboard]::SetText("$($sel.Name)")
+            Set-AppClipboardText ("$($sel.Name)")
             Set-Status -Message "Copied attribute name: $($sel.Name)"
         }
     })
@@ -10674,7 +9109,7 @@ if ($controls['MenuCtxCopyAttrLdif']) {
         $sel = if ($controls['GridRawAttributes']) { $controls['GridRawAttributes'].SelectedItem } else { $null }
         if ($sel) {
             $ldifLine = "$($sel.Name): $($sel.Value)"
-            [System.Windows.Clipboard]::SetText($ldifLine)
+            Set-AppClipboardText ($ldifLine)
             Set-Status -Message "Copied LDIF line: $ldifLine"
         }
     })
@@ -10796,9 +9231,7 @@ function Update-CompareGridDisplay {
     } else {
         $state.CurrentCompare.Comparisons
     }
-    if ($controls['GridCompareResults']) {
-        $controls['GridCompareResults'].ItemsSource = @($items)
-    }
+    Set-GridItemsSource -Control $controls['GridCompareResults'] -Items $items
 }
 
 if ($controls['BtnExecuteCompare']) { $controls['BtnExecuteCompare'].Add_Click({ Run-ObjectCompareUI }) }
@@ -11194,42 +9627,61 @@ if ($controls['ListLdifRecords']) {
 #region 11. Security & Audit Reports Logic
 Set-Alias -Name Run-AuditReportsUI -Value Invoke-AuditReportsUI -Scope Global
 function Invoke-AuditReportsUI {
-    [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
-    try {
-        $catItem = if ($controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
-        $daysItem = if ($controls['CmbAuditDays'].SelectedItem) { [int]$controls['CmbAuditDays'].SelectedItem.Content.ToString() } else { 90 }
+    $catItem = if ($controls['CmbAuditCategory'] -and $controls['CmbAuditCategory'].SelectedItem) { $controls['CmbAuditCategory'].SelectedItem.Content.ToString() } else { "Inactive Users" }
+    $daysItem = if ($controls['CmbAuditDays'] -and $controls['CmbAuditDays'].SelectedItem) { [int]$controls['CmbAuditDays'].SelectedItem.Content.ToString() } else { 90 }
 
-        $auditType = switch -Wildcard ($catItem) {
-            "*Inactive Users*"          { "InactiveUsers" }
-            "*Passwords Never Expire*"  { "PasswordsNeverExpire" }
-            "*Expiring Soon*"           { "PasswordExpiringSoon" }
-            "*Not Required*"            { "PasswordNotRequired" }
-            "*Locked Out*"              { "LockedOutUsers" }
-            "*Privileged*"              { "PrivilegedAccounts" }
-            "*Empty Groups*"            { "EmptyGroups" }
-            "*Unprotected OUs*"         { "UnprotectedOUs" }
-            "*Service Accounts*"        { "ServiceAccounts" }
-            "*Inactive Computers*"      { "InactiveComputers" }
-            "*Recently Created*"        { "RecentlyCreated" }
-            "*Incomplete*"              { "IncompleteProfiles" }
-            "*AdminCount*"              { "AdminCountAccounts" }
-            "*Password Settings*"       { "PasswordSettingsObjects" }
-            "*PSO*"                     { "PasswordSettingsObjects" }
-            default                     { "InactiveUsers" }
-        }
-
-        Set-Status -Message "Running security audit: $catItem ($daysItem days threshold)..."
-        $report = Get-ADSecurityAuditReport -AuditType $auditType -InactiveDays $daysItem
-        $state.CurrentAuditReport = $report
-
-        if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($report.Title) - $($report.Description)" }
-        if ($controls['TxtAuditCount']) { $controls['TxtAuditCount'].Text = "$($report.Count) Findings" }
-        if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = @($report.Findings) }
-
-        Set-Status -Message "Security audit finished. Found $($report.Count) item(s)." -Count "$($report.Count) findings"
-    } finally {
-        [System.Windows.Input.Mouse]::OverrideCursor = $null
+    $auditType = switch -Wildcard ($catItem) {
+        "*Inactive Users*"          { "InactiveUsers" }
+        "*Passwords Never Expire*"  { "PasswordsNeverExpire" }
+        "*Expiring Soon*"           { "PasswordExpiringSoon" }
+        "*Not Required*"            { "PasswordNotRequired" }
+        "*Locked Out*"              { "LockedOutUsers" }
+        "*Privileged*"              { "PrivilegedAccounts" }
+        "*Empty Groups*"            { "EmptyGroups" }
+        "*Unprotected OUs*"         { "UnprotectedOUs" }
+        "*Service Accounts*"        { "ServiceAccounts" }
+        "*Inactive Computers*"      { "InactiveComputers" }
+        "*Recently Created*"        { "RecentlyCreated" }
+        "*Incomplete*"              { "IncompleteProfiles" }
+        "*AdminCount*"              { "AdminCountAccounts" }
+        "*Password Settings*"       { "PasswordSettingsObjects" }
+        "*PSO*"                     { "PasswordSettingsObjects" }
+        default                     { "InactiveUsers" }
     }
+
+    Import-ServiceLazy 'AuditReportService'
+    $mods = @(
+        (Join-Path $script:modulesPath "ConfigService.psm1"),
+        (Join-Path $script:modulesPath "LoggingService.psm1"),
+        (Join-Path $script:modulesPath "ADService.psm1"),
+        (Join-Path $script:modulesPath "AuditReportService.psm1")
+    )
+    Start-ADAsyncOperation `
+        -TaskDescription "Running security audit: $catItem ($daysItem days threshold)..." `
+        -ModulesToImport $mods `
+        -Parameters @{ AuditType = $auditType; Days = $daysItem } `
+        -ProgressBar $controls['ProgStatusTask'] `
+        -CancelButton $controls['BtnCancelStatusTask'] `
+        -Dispatcher $window.Dispatcher `
+        -StatusCallback { param($msg) Set-Status -Message $msg } `
+        -ScriptBlock {
+            param([string]$AuditType, [int]$Days)
+            Get-ADSecurityAuditReport -AuditType $AuditType -InactiveDays $Days
+        } `
+        -OnCompleted {
+            param($report)
+            if ($report) {
+                $state.CurrentAuditReport = $report
+                if ($controls['TxtAuditSummary']) { $controls['TxtAuditSummary'].Text = "$($report.Title) - $($report.Description)" }
+                if ($controls['TxtAuditCount'])   { $controls['TxtAuditCount'].Text   = "$($report.Count) Findings" }
+                if ($controls['GridAuditResults']) { $controls['GridAuditResults'].ItemsSource = @($report.Findings) }
+                Set-Status -Message "Security audit finished. Found $($report.Count) item(s)." -Count "$($report.Count) findings"
+            }
+        } `
+        -OnError {
+            param($err)
+            Set-Status -Message "Security audit error: $err"
+        }
 }
 
 if ($controls['BtnRunAudit'])       { $controls['BtnRunAudit'].Add_Click({ Run-AuditReportsUI }) }
@@ -12088,9 +10540,10 @@ if ($controls['BtnBasketModifyAttr']) {
             [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             return
         }
-        $attrName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the attribute name to update across all $($state.BasketItems.Count) basket objects:`n(e.g., department, company, description, title, mail, physicalDeliveryOfficeName)", "Bulk Edit Basket Objects", "department")
+        $attrName = Show-AppInputDialog -Prompt "Enter the attribute name to update across all $($state.BasketItems.Count) basket objects:`n(e.g., department, company, description, title, mail, physicalDeliveryOfficeName)" -Title "Bulk Edit Basket Objects" -DefaultResponse "department"
         if ([string]::IsNullOrWhiteSpace($attrName)) { return }
-        $newVal = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the new value for attribute '$attrName':`nSupports dynamic references: %givenName%, %sn%, %sAMAccountName%, %department%, %company%, %mail%, %title%, etc.`n(Leave blank to clear the attribute)", "Bulk Attribute Value", "")
+        $newVal = Show-AppInputDialog -Prompt "Enter the new value for attribute '$attrName':`nSupports dynamic references: %givenName%, %sn%, %sAMAccountName%, %department%, %company%, %mail%, %title%, etc.`n(Leave blank to clear the attribute)" -Title "Bulk Attribute Value" -DefaultResponse ""
+        if ($null -eq $newVal) { return }
         
         $confirm = [System.Windows.MessageBox]::Show("Update attribute '$attrName' to '$newVal' for all $($state.BasketItems.Count) staged objects?", "Confirm Bulk Update", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
         if ($confirm -ne [System.Windows.MessageBoxResult]::Yes) { return }
@@ -12181,7 +10634,7 @@ if ($controls['BtnBasketMoveOU']) {
             [System.Windows.MessageBox]::Show("Directory Basket is empty.", "Basket Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             return
         }
-        $targetOU = [Microsoft.VisualBasic.Interaction]::InputBox("Enter the target Organizational Unit (DN) to move all $($state.BasketItems.Count) staged objects into:", "Bulk Move Objects to OU", $state.DefaultNamingContext)
+        $targetOU = Show-AppInputDialog -Prompt "Enter the target Organizational Unit (DN) to move all $($state.BasketItems.Count) staged objects into:" -Title "Bulk Move Objects to OU" -DefaultResponse $state.DefaultNamingContext
         if ([string]::IsNullOrWhiteSpace($targetOU)) { return }
 
         $confirm = [System.Windows.MessageBox]::Show("Move all $($state.BasketItems.Count) objects to target OU:`n$targetOU`n`nProceed?", "Confirm Bulk Move", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
@@ -12828,7 +11281,8 @@ function Invoke-ADConnectionsAutoDetect {
     }
 }
 
-function Sort-ADConnectionsByPing {
+Set-Alias -Name Sort-ADConnectionsByPing -Value Update-ConnectionsPingSort -Scope Global
+function Update-ConnectionsPingSort {
     param ([switch]$Descending)
     if ($state.AutoDetectedConnections -and $state.AutoDetectedConnections.Count -gt 0) {
         $sorted = if ($Descending) {
@@ -12962,7 +11416,8 @@ if ($controls['GridActiveConnections']) {
 }
 
 #region Active Directory Connections Search & Filter Engine
-function Filter-ConnectionsList {
+Set-Alias -Name Filter-ConnectionsList -Value Update-ConnectionsFilter -Scope Global
+function Update-ConnectionsFilter {
     param([string]$Query)
     if (-not $controls['GridActiveConnections']) { return }
     if (-not $state.AutoDetectedConnections) { return }
@@ -13008,7 +11463,7 @@ if ($controls['TxtSearchConnections']) {
         if ($controls['BtnClearSearchConnections']) {
             $controls['BtnClearSearchConnections'].Visibility = if ($hasText) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
         }
-        Filter-ConnectionsList -Query $txt
+        Update-ConnectionsFilter -Query $txt
     })
 
     $controls['TxtSearchConnections'].Add_KeyDown({
@@ -13028,7 +11483,7 @@ if ($controls['BtnClearSearchConnections']) {
     $controls['BtnClearSearchConnections'].Add_Click({
         if ($controls['TxtSearchConnections']) {
             $controls['TxtSearchConnections'].Text = ""
-            Filter-ConnectionsList -Query ""
+            Update-ConnectionsFilter -Query ""
             $controls['TxtSearchConnections'].Focus()
         }
     })
@@ -13189,11 +11644,7 @@ function Restore-RecycleItemToOU {
         $ouList = @($adContext.DefaultNamingContext)
     }
 
-    $promptInput = [Microsoft.VisualBasic.Interaction]::InputBox(
-        "Enter target destination Organizational Unit Distinguished Name (DN):",
-        "Restore Object to Custom OU",
-        $ouList[0]
-    )
+    $promptInput = Show-AppInputDialog -Prompt "Enter target destination Organizational Unit Distinguished Name (DN):" -Title "Restore Object to Custom OU" -DefaultResponse $ouList[0]
 
     if ([string]::IsNullOrWhiteSpace($promptInput)) { return }
 
@@ -13303,7 +11754,7 @@ if ($controls['CtxRecycleCopyDN']) {
     $controls['CtxRecycleCopyDN'].Add_Click({
         $sel = if ($controls['GridRecycleBin']) { $controls['GridRecycleBin'].SelectedItem } else { $null }
         if ($sel) {
-            [System.Windows.Clipboard]::SetText($sel.DistinguishedName)
+            Set-AppClipboardText ($sel.DistinguishedName)
             Set-Status -Message "Copied Tombstone DN: $($sel.DistinguishedName)"
         }
     })
@@ -13317,7 +11768,7 @@ if ($controls['CtxRecycleCopyLdif']) {
             foreach ($a in $attrs) {
                 if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
             }
-            [System.Windows.Clipboard]::SetText($ldifBlock)
+            Set-AppClipboardText ($ldifBlock)
             Set-Status -Message "Copied LDIF record to clipboard for $($sel.Name)."
         }
     })
@@ -13385,12 +11836,7 @@ if ($controls['BtnNewAppPartition']) {
         $domainNC = if ($adContext.DefaultNamingContext) { $adContext.DefaultNamingContext } else { "DC=corp,DC=example,DC=com" }
         $defaultNewDN = "DC=AppPart01,$domainNC"
 
-        [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-        $inputDN = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "Enter the Distinguished Name (DN) for the new Application Directory Partition (NDNC):`r`n`r`nExample: DC=MyAppPartition,$domainNC",
-            "Create New Application Directory Partition",
-            $defaultNewDN
-        )
+        $inputDN = Show-AppInputDialog -Prompt "Enter the Distinguished Name (DN) for the new Application Directory Partition (NDNC):`r`n`r`nExample: DC=MyAppPartition,$domainNC" -Title "Create New Application Directory Partition" -DefaultResponse $defaultNewDN
 
         if (-not [string]::IsNullOrWhiteSpace($inputDN)) {
             $inputDN = $inputDN.Trim()
@@ -13734,7 +12180,7 @@ if ($controls['CtxOUTreeCopyDN']) {
     $controls['CtxOUTreeCopyDN'].Add_Click({
         $node = if ($controls['TreeOUs']) { $controls['TreeOUs'].SelectedItem } else { $null }
         $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
-        if ($dn) { [System.Windows.Clipboard]::SetText($dn); Set-Status -Message "Copied OU DN: $dn" }
+        if ($dn) { Set-AppClipboardText ($dn); Set-Status -Message "Copied OU DN: $dn" }
     })
 }
 if ($controls['CtxOUTreeCopyRdn']) {
@@ -13743,7 +12189,7 @@ if ($controls['CtxOUTreeCopyRdn']) {
         $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
         if ($dn) {
             $rdn = Get-ObjectRDN -DN $dn
-            [System.Windows.Clipboard]::SetText($rdn)
+            Set-AppClipboardText ($rdn)
             Set-Status -Message "Copied OU RDN: $rdn"
         }
     })
@@ -13754,7 +12200,7 @@ if ($controls['CtxOUTreeCopyCanonical']) {
         $dn = if ($node) { $node.DistinguishedName } else { $state.SelectedOU }
         if ($dn) {
             $can = Get-ObjectCanonicalName -DN $dn
-            [System.Windows.Clipboard]::SetText($can)
+            Set-AppClipboardText ($can)
             Set-Status -Message "Copied OU Canonical Name: $can"
         }
     })
@@ -13799,7 +12245,7 @@ if ($controls['CtxOuObjRename']) {
 if ($controls['CtxOuObjCopyDN']) {
     $controls['CtxOuObjCopyDN'].Add_Click({
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
-        if ($obj) { [System.Windows.Clipboard]::SetText($obj.DistinguishedName); Set-Status -Message "Copied DN: $($obj.DistinguishedName)" }
+        if ($obj) { Set-AppClipboardText ($obj.DistinguishedName); Set-Status -Message "Copied DN: $($obj.DistinguishedName)" }
     })
 }
 if ($controls['CtxOuObjCopyUrl']) {
@@ -13807,7 +12253,7 @@ if ($controls['CtxOuObjCopyUrl']) {
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
         if ($obj) {
             $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
-            [System.Windows.Clipboard]::SetText("ldap://$server/$($obj.DistinguishedName)")
+            Set-AppClipboardText ("ldap://$server/$($obj.DistinguishedName)")
             Set-Status -Message "Copied LDAP URL: $($obj.Name)"
         }
     })
@@ -13817,7 +12263,7 @@ if ($controls['CtxOuObjCopyRdn']) {
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
         if ($obj) {
             $rdn = Get-ObjectRDN -DN $obj.DistinguishedName
-            [System.Windows.Clipboard]::SetText($rdn)
+            Set-AppClipboardText ($rdn)
             Set-Status -Message "Copied RDN: $rdn"
         }
     })
@@ -13827,7 +12273,7 @@ if ($controls['CtxOuObjCopyCanonical']) {
         $obj = if ($controls['GridOUObjects']) { $controls['GridOUObjects'].SelectedItem } else { $null }
         if ($obj) {
             $can = Get-ObjectCanonicalName -DN $obj.DistinguishedName
-            [System.Windows.Clipboard]::SetText($can)
+            Set-AppClipboardText ($can)
             Set-Status -Message "Copied Canonical Name: $can"
         }
     })
@@ -13900,7 +12346,7 @@ if ($controls['CtxSearchLocateInTree']) {
 if ($controls['CtxSearchCopyDN']) {
     $controls['CtxSearchCopyDN'].Add_Click({
         $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
-        if ($s) { [System.Windows.Clipboard]::SetText($s.DistinguishedName); Set-Status -Message "Copied DN: $($s.DistinguishedName)" }
+        if ($s) { Set-AppClipboardText ($s.DistinguishedName); Set-Status -Message "Copied DN: $($s.DistinguishedName)" }
     })
 }
 if ($controls['CtxSearchCopySam']) {
@@ -13908,7 +12354,7 @@ if ($controls['CtxSearchCopySam']) {
         $s = if ($controls['GridSearchResults']) { $controls['GridSearchResults'].SelectedItem } else { $null }
         if ($s) {
             $sam = if ($s.SamAccountName) { $s.SamAccountName } else { $s.Name }
-            [System.Windows.Clipboard]::SetText($sam); Set-Status -Message "Copied Username/RDN: $sam"
+            Set-AppClipboardText ($sam); Set-Status -Message "Copied Username/RDN: $sam"
         }
     })
 }
@@ -13918,7 +12364,7 @@ if ($controls['CtxSearchCopyUrl']) {
         if ($s) {
             $server = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { $adContext.DomainName }
             $ldapUrl = "ldap://$server/$($s.DistinguishedName)"
-            [System.Windows.Clipboard]::SetText($ldapUrl)
+            Set-AppClipboardText ($ldapUrl)
             Set-Status -Message "Copied LDAP URL: $ldapUrl"
         }
     })
@@ -13932,7 +12378,7 @@ if ($controls['CtxSearchCopyLdif']) {
             foreach ($a in $attrs) {
                 if ($a.Value) { $ldifBlock += "$($a.Name): $($a.Value)`r`n" }
             }
-            [System.Windows.Clipboard]::SetText($ldifBlock)
+            Set-AppClipboardText ($ldifBlock)
             Set-Status -Message "Copied LDIF record to clipboard for $($s.DistinguishedName)."
         }
     })
@@ -14011,7 +12457,7 @@ if ($controls['CtxBasketRemove']) {
 if ($controls['CtxBasketCopyDN']) {
     $controls['CtxBasketCopyDN'].Add_Click({
         $b = if ($controls['GridBasket']) { $controls['GridBasket'].SelectedItem } else { $null }
-        if ($b) { [System.Windows.Clipboard]::SetText($b.DistinguishedName); Set-Status -Message "Copied DN: $($b.DistinguishedName)" }
+        if ($b) { Set-AppClipboardText ($b.DistinguishedName); Set-Status -Message "Copied DN: $($b.DistinguishedName)" }
     })
 }
 
@@ -14081,6 +12527,7 @@ function Initialize-ElevationBadge {    try {
 
 function Show-AclBrowserDialog {
     param([string]$TargetDN = "")
+    Import-ServiceLazy 'AclService'
     try {
         $dlgPath = Join-Path $viewsPath "AclBrowserDialog.xaml"
         $dlg = Load-XamlWindow -XamlPath $dlgPath
@@ -14151,7 +12598,7 @@ function Show-AclBrowserDialog {
             $dlgControls['BtnCopySddl'].Add_Click({
                 $sddlText = if ($dlgControls['TxtRawSddl']) { $dlgControls['TxtRawSddl'].Text } elseif ($dlgControls['TxtSddlBox']) { $dlgControls['TxtSddlBox'].Text } else { "" }
                 if (-not [string]::IsNullOrWhiteSpace($sddlText)) {
-                    [System.Windows.Clipboard]::SetText($sddlText)
+                    Set-AppClipboardText ($sddlText)
                     [System.Windows.MessageBox]::Show("SDDL copied to clipboard.", "Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
                 }
             })
@@ -14404,6 +12851,7 @@ function Show-DetachedGridDialog {
 }
 
 function Show-GpoExplorerDialog {
+    Import-ServiceLazy 'GpoService'
     try {
         $dlgPath = Join-Path $viewsPath "GpoExplorerDialog.xaml"
         $dlg = Load-XamlWindow -XamlPath $dlgPath
@@ -14489,6 +12937,7 @@ function Show-GpoExplorerDialog {
 
 function Show-Asn1ViewerDialog {
     param([string]$InitialData = "")
+    Import-ServiceLazy 'DiagnosticService'
     try {
         $dlgPath = Join-Path $viewsPath "Asn1ViewerDialog.xaml"
         $dlg = Load-XamlWindow -XamlPath $dlgPath
@@ -14591,6 +13040,7 @@ function Show-Asn1ViewerDialog {
 
 function Show-CompareValuesDialog {
     param([string]$LeftValue = "", [string]$RightValue = "")
+    Import-ServiceLazy 'DiagnosticService'
     try {
         $dlgPath = Join-Path $viewsPath "CompareValuesDialog.xaml"
         $dlg = Load-XamlWindow -XamlPath $dlgPath
@@ -14724,7 +13174,7 @@ if ($controls['BtnAclLoad']) {
 if ($controls['BtnAclCopySddl']) {
     $controls['BtnAclCopySddl'].Add_Click({
         if ($state.CurrentAclSddl) {
-            [System.Windows.Clipboard]::SetText($state.CurrentAclSddl)
+            Set-AppClipboardText ($state.CurrentAclSddl)
             [System.Windows.MessageBox]::Show("SDDL string copied to clipboard.", "SDDL Copied", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
         } else {
             [System.Windows.MessageBox]::Show("No SDDL string loaded yet. Inspect an object first.", "Information", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -14827,11 +13277,9 @@ if ($controls['BtnScanAdminSdHolder']) {
     $controls['BtnScanAdminSdHolder'].Add_Click({
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Scanning domain for AdminSDHolder protected orphans"
         Set-Status -Message "Scanning domain for AdminSDHolder protected orphans..."
-        $orphans = Find-AdminSDHolderOrphans
-        if ($controls['GridAdminSdOrphans']) {
-            $controls['GridAdminSdOrphans'].ItemsSource = $orphans
-        }
-        $count = if ($orphans) { $orphans.Count } else { 0 }
+        $orphans = @(Find-AdminSDHolderOrphans | Where-Object { $null -ne $_ })
+        Set-GridItemsSource -Control $controls['GridAdminSdOrphans'] -Items $orphans
+        $count = $orphans.Count
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "AdminSDHolder orphan scan complete: $count orphan account(s) found"
         Set-Status -Message "AdminSDHolder scan complete. Found $count orphan accounts."
     })
@@ -15150,21 +13598,35 @@ if ($controls['BtnRefreshRidPool']) {
 }
 if ($controls['BtnScanDuplicateSpn']) {
     $controls['BtnScanDuplicateSpn'].Add_Click({
+        Import-ServiceLazy 'KerberosService'
         Write-AppLog -Level "INFO" -Category "Kerberos" -Message "Scanning directory for duplicate Service Principal Names (SPNs)"
-        Set-Status -Message "Scanning directory for duplicate SPNs..."
-        $conflicts = Find-DuplicateSPNs
-        if ($controls['GridDuplicateSpnResults']) {
-            $controls['GridDuplicateSpnResults'].ItemsSource = $conflicts
-        }
-        $count = if ($conflicts) { $conflicts.Count } else { 0 }
-        if ($controls['TxtDuplicateSpnSummary']) {
-            $controls['TxtDuplicateSpnSummary'].Text = if ($count -gt 0) {
-                "⚠️ Found $count conflicting SPN cluster(s) across directory accounts."
-            } else {
-                "✅ Clean: Zero duplicate SPN registrations detected."
+        $mods = @(
+            (Join-Path $script:modulesPath "ConfigService.psm1"),
+            (Join-Path $script:modulesPath "ADService.psm1"),
+            (Join-Path $script:modulesPath "KerberosService.psm1")
+        )
+        Start-ADAsyncOperation `
+            -TaskDescription "Scanning directory for duplicate SPNs..." `
+            -ModulesToImport $mods `
+            -ProgressBar $controls['ProgStatusTask'] `
+            -CancelButton $controls['BtnCancelStatusTask'] `
+            -Dispatcher $window.Dispatcher `
+            -StatusCallback { param($msg) Set-Status -Message $msg } `
+            -ScriptBlock { Find-DuplicateSPNs } `
+            -OnCompleted {
+                param($conflicts)
+                $arr = @($conflicts | Where-Object { $null -ne $_ })
+                if ($controls['GridDuplicateSpnResults']) { $controls['GridDuplicateSpnResults'].ItemsSource = $arr }
+                $count = $arr.Count
+                if ($controls['TxtDuplicateSpnSummary']) {
+                    $controls['TxtDuplicateSpnSummary'].Text = if ($count -gt 0) {
+                        "⚠️ Found $count conflicting SPN cluster(s) across directory accounts."
+                    } else {
+                        "✅ Clean: Zero duplicate SPN registrations detected."
+                    }
+                }
+                Set-Status -Message "SPN scan completed ($count conflict(s) found)."
             }
-        }
-        Set-Status -Message "SPN scan completed ($count conflict(s) found)."
     })
 }
 
@@ -15190,19 +13652,35 @@ if ($controls['BtnScanMultiDcLogon']) {
             [System.Windows.MessageBox]::Show("Please enter a username or computer name to scan across DCs.", "Target Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
             return
         }
+        Import-ServiceLazy 'ReplicationService'
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Scanning multi-DC real-time lastLogon for target '$target'"
-        Set-Status -Message "Querying all domain controllers for real-time lastLogon for $target..."
-        $res = Get-ADMultiDCRealTimeLastLogon -Identity $target
-        if ($res) {
-            if ($controls['GridMultiDcLogon']) { $controls['GridMultiDcLogon'].ItemsSource = $res.DCResults }
-            if ($controls['TxtMultiDcConsensus']) {
-                $controls['TxtMultiDcConsensus'].Text = "Most recent logon consensus: $($res.ConsensusLastLogon) | Originating DC: $($res.OriginatingDC) ($($res.DCResults.Count) DCs scanned)"
+        $mods = @(
+            (Join-Path $script:modulesPath "ConfigService.psm1"),
+            (Join-Path $script:modulesPath "ADService.psm1"),
+            (Join-Path $script:modulesPath "ReplicationService.psm1")
+        )
+        Start-ADAsyncOperation `
+            -TaskDescription "Querying all domain controllers for real-time lastLogon for $target..." `
+            -ModulesToImport $mods `
+            -Parameters @{ TargetIdentity = $target } `
+            -ProgressBar $controls['ProgStatusTask'] `
+            -CancelButton $controls['BtnCancelStatusTask'] `
+            -Dispatcher $window.Dispatcher `
+            -StatusCallback { param($msg) Set-Status -Message $msg } `
+            -ScriptBlock { param([string]$TargetIdentity); Get-ADMultiDCRealTimeLastLogon -Identity $TargetIdentity } `
+            -OnCompleted {
+                param($res)
+                if ($res) {
+                    if ($controls['GridMultiDcLogon']) { $controls['GridMultiDcLogon'].ItemsSource = $res.DCResults }
+                    if ($controls['TxtMultiDcConsensus']) {
+                        $controls['TxtMultiDcConsensus'].Text = "Most recent logon consensus: $($res.ConsensusLastLogon) | Originating DC: $($res.OriginatingDC) ($($res.DCResults.Count) DCs scanned)"
+                    }
+                    Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Multi-DC logon scan completed: Consensus=$($res.ConsensusLastLogon), OriginatingDC=$($res.OriginatingDC), DCsScanned=$($res.DCResults.Count)"
+                    Set-Status -Message "Multi-DC logon scan complete."
+                } else {
+                    Write-AppError -Category "Diagnostics" -Message "Failed to retrieve multi-DC lastLogon consensus"
+                }
             }
-            Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Multi-DC logon scan completed for '$target': Consensus=$($res.ConsensusLastLogon), OriginatingDC=$($res.OriginatingDC), DCsScanned=$($res.DCResults.Count)"
-            Set-Status -Message "Multi-DC logon scan complete for $target."
-        } else {
-            Write-AppError -Category "Diagnostics" -Message "Failed to retrieve multi-DC lastLogon consensus for target '$target'"
-        }
     })
 }
 
@@ -15210,9 +13688,9 @@ if ($controls['BtnScanSubnetOverlaps']) {
     $controls['BtnScanSubnetOverlaps'].Add_Click({
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Auditing AD subnet boundaries for conflicts and overlaps"
         Set-Status -Message "Auditing AD subnet boundaries for conflicts and overlaps..."
-        $subs = Test-ADSubnetOverlap
-        if ($controls['GridSubnetOverlaps']) { $controls['GridSubnetOverlaps'].ItemsSource = $subs }
-        $count = if ($subs) { $subs.Count } else { 0 }
+        $subs = @(Test-ADSubnetOverlap | Where-Object { $null -ne $_ })
+        Set-GridItemsSource -Control $controls['GridSubnetOverlaps'] -Items $subs
+        $count = $subs.Count
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "AD subnet boundary audit completed ($count subnets analyzed)"
         Set-Status -Message "Subnet boundary audit complete: $count subnets analyzed."
     })
@@ -15291,16 +13769,31 @@ if ($controls['BtnLoadSiteBrowser']) {
 
 if ($controls['BtnRunLatencyProbe']) {
     $controls['BtnRunLatencyProbe'].Add_Click({
+        Import-ServiceLazy 'ReplicationService'
         Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Running cross-DC replication latency convergence probe"
-        Set-Status -Message "Running cross-DC replication latency convergence probe..."
-        $probe = Test-ADReplicationLatencyProbe
-        if ($probe) {
-            if ($controls['GridLatencyProbe']) { $controls['GridLatencyProbe'].ItemsSource = $probe.DCResults }
-            Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Replication latency probe complete: Status=$($probe.StatusBadge), Summary='$($probe.Summary)'"
-            Set-Status -Message "Latency probe complete: $($probe.StatusBadge) - $($probe.Summary)"
-        } else {
-            Write-AppError -Category "Diagnostics" -Message "Cross-DC replication latency probe failed or returned no results"
-        }
+        $mods = @(
+            (Join-Path $script:modulesPath "ConfigService.psm1"),
+            (Join-Path $script:modulesPath "ADService.psm1"),
+            (Join-Path $script:modulesPath "ReplicationService.psm1")
+        )
+        Start-ADAsyncOperation `
+            -TaskDescription "Running cross-DC replication latency convergence probe..." `
+            -ModulesToImport $mods `
+            -ProgressBar $controls['ProgStatusTask'] `
+            -CancelButton $controls['BtnCancelStatusTask'] `
+            -Dispatcher $window.Dispatcher `
+            -StatusCallback { param($msg) Set-Status -Message $msg } `
+            -ScriptBlock { Test-ADReplicationLatencyProbe } `
+            -OnCompleted {
+                param($probe)
+                if ($probe) {
+                    if ($controls['GridLatencyProbe']) { $controls['GridLatencyProbe'].ItemsSource = $probe.DCResults }
+                    Write-AppLog -Level "INFO" -Category "Diagnostics" -Message "Replication latency probe complete: Status=$($probe.StatusBadge), Summary='$($probe.Summary)'"
+                    Set-Status -Message "Latency probe complete: $($probe.StatusBadge) - $($probe.Summary)"
+                } else {
+                    Write-AppError -Category "Diagnostics" -Message "Cross-DC replication latency probe failed or returned no results"
+                }
+            }
     })
 }
 
@@ -15415,10 +13908,26 @@ if ($controls['BtnDiagOpenResolver']) {
 
 if ($controls['BtnScanCircularGroups']) {
     $controls['BtnScanCircularGroups'].Add_Click({
-        Set-Status -Message "Scanning domain group hierarchies for circular reference cycles..."
-        $cycles = Find-CircularGroupReferences
-        if ($controls['GridCircularGroups']) { $controls['GridCircularGroups'].ItemsSource = $cycles }
-        Set-Status -Message "Cycle scan finished. $($cycles.Count) cyclic loops identified."
+        Import-ServiceLazy 'DiagnosticService'
+        $mods = @(
+            (Join-Path $script:modulesPath "ConfigService.psm1"),
+            (Join-Path $script:modulesPath "ADService.psm1"),
+            (Join-Path $script:modulesPath "DiagnosticService.psm1")
+        )
+        Start-ADAsyncOperation `
+            -TaskDescription "Scanning domain group hierarchies for circular reference cycles..." `
+            -ModulesToImport $mods `
+            -ProgressBar $controls['ProgStatusTask'] `
+            -CancelButton $controls['BtnCancelStatusTask'] `
+            -Dispatcher $window.Dispatcher `
+            -StatusCallback { param($msg) Set-Status -Message $msg } `
+            -ScriptBlock { Find-CircularGroupReferences } `
+            -OnCompleted {
+                param($cycles)
+                $arr = @($cycles | Where-Object { $null -ne $_ })
+                if ($controls['GridCircularGroups']) { $controls['GridCircularGroups'].ItemsSource = $arr }
+                Set-Status -Message "Cycle scan finished. $($arr.Count) cyclic loops identified."
+            }
     })
 }
 
@@ -15639,12 +14148,28 @@ if ($controls['BtnRunUncTest']) {
             [System.Windows.MessageBox]::Show("Please enter a UNC path to test (e.g. \\domain.com\sysvol).", "Path Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
             return
         }
-        Set-Status -Message "Running 7-step diagnostics on UNC path $unc..."
-        $res = Test-ADUncPath -UncPath $unc
-        if ($res) {
-            if ($controls['GridUncResults']) { $controls['GridUncResults'].ItemsSource = $res.Steps }
-            Set-Status -Message "UNC Check Verdict: $($res.OverallVerdict) (Latency: $($res.TotalLatencyMs) ms)."
-        }
+        Import-ServiceLazy 'NetworkService'
+        $mods = @(
+            (Join-Path $script:modulesPath "ConfigService.psm1"),
+            (Join-Path $script:modulesPath "ADService.psm1"),
+            (Join-Path $script:modulesPath "NetworkService.psm1")
+        )
+        Start-ADAsyncOperation `
+            -TaskDescription "Running 7-step diagnostics on UNC path $unc..." `
+            -ModulesToImport $mods `
+            -Parameters @{ UncPath = $unc } `
+            -ProgressBar $controls['ProgStatusTask'] `
+            -CancelButton $controls['BtnCancelStatusTask'] `
+            -Dispatcher $window.Dispatcher `
+            -StatusCallback { param($msg) Set-Status -Message $msg } `
+            -ScriptBlock { param([string]$UncPath); Test-ADUncPath -UncPath $UncPath } `
+            -OnCompleted {
+                param($res)
+                if ($res) {
+                    if ($controls['GridUncResults']) { $controls['GridUncResults'].ItemsSource = $res.Steps }
+                    Set-Status -Message "UNC Check Verdict: $($res.OverallVerdict) (Latency: $($res.TotalLatencyMs) ms)."
+                }
+            }
     })
 }
 
@@ -15724,6 +14249,89 @@ if ($controls['BtnTestDns']) {
             $controls['TxtDsGetDcNameSummary'].Text = "DNS Resolution for $($dcHost):`r`nHostName: $dcHost`r`nAddressList: 10.0.0.1`r`nAliases: none"
         }
         Set-Status -Message "DNS resolved for $dcHost."
+    })
+}
+
+# Wire Overflow More Actions auto-close in Users Panel
+foreach ($ovBtnName in @('BtnNewUserTemplate','BtnMoveUser','BtnUserRawAttributes','BtnUserCompare','BtnUserAddToBasket','BtnUserAddColumn','BtnUserResetColumns')) {
+    if ($controls[$ovBtnName]) {
+        $controls[$ovBtnName].Add_Click({
+            if ($controls['BtnUserMoreActions']) { $controls['BtnUserMoreActions'].IsChecked = $false }
+        })
+    }
+}
+
+# Wire Tab 8: Mail Conflicts & Top Quota Audits
+if ($controls['BtnScanMailConflicts']) {
+    $controls['BtnScanMailConflicts'].Add_Click({
+        Import-ServiceLazy 'DiagnosticService'
+        Set-Status -Message "Scanning Active Directory mail & proxyAddresses for conflicts..."
+        $res = Find-ADMailProxyConflicts
+        if ($controls['GridMailQuotaResults']) { $controls['GridMailQuotaResults'].ItemsSource = @($res) }
+        $cnt = @($res | Where-Object { $_.ObjectCount -gt 1 }).Count
+        if ($controls['TxtMailQuotaSummary']) {
+            $controls['TxtMailQuotaSummary'].Text = "Mail ProxyAddress scan complete: $cnt collision cluster(s) detected across directory objects."
+        }
+        Set-Status -Message "Mail conflicts audit finished ($cnt collision clusters)."
+    })
+}
+
+if ($controls['BtnScanTopQuota']) {
+    $controls['BtnScanTopQuota'].Add_Click({
+        Import-ServiceLazy 'DiagnosticService'
+        Set-Status -Message "Querying Active Directory NTDS Quotas & top principals..."
+        $res = Get-ADTopQuotaUsage -Top 25
+        if ($controls['GridMailQuotaResults']) { $controls['GridMailQuotaResults'].ItemsSource = @($res) }
+        if ($controls['TxtMailQuotaSummary']) {
+            $controls['TxtMailQuotaSummary'].Text = "AD Quota delegation check complete ($(@($res).Count) entries displayed)."
+        }
+        Set-Status -Message "Top Quota audit finished."
+    })
+}
+
+# Wire NetTools HTTP Headers, TraceRoute/WhoIs, LDAP Performance
+if ($controls['BtnTestHttpUrl']) {
+    $controls['BtnTestHttpUrl'].Add_Click({
+        Import-ServiceLazy 'NetworkService'
+        $url = if ($controls['TxtHttpUrlInput']) { $controls['TxtHttpUrlInput'].Text.Trim() } else { "https://localhost" }
+        if ([string]::IsNullOrWhiteSpace($url)) { return }
+        Set-Status -Message "Inspecting HTTP/HTTPS headers for $url..."
+        $res = Test-HttpUrlHeaders -Url $url
+        if ($controls['GridHttpResults']) { $controls['GridHttpResults'].ItemsSource = @($res.Headers) }
+        if ($controls['TxtHttpSummary']) {
+            $controls['TxtHttpSummary'].Text = "[$($res.StatusBadge)] $($res.FinalUrl) | Latency: $($res.LatencyMs) ms | Server: $($res.Server) | TLS: $($res.TlsSubject)"
+        }
+        Set-Status -Message "HTTP inspection completed ($($res.StatusBadge) in $($res.LatencyMs) ms)."
+    })
+}
+
+$runTraceHandler = {
+    Import-ServiceLazy 'NetworkService'
+    $target = if ($controls['TxtNetTraceTarget']) { $controls['TxtNetTraceTarget'].Text.Trim() } else { "127.0.0.1" }
+    if ([string]::IsNullOrWhiteSpace($target)) { return }
+    Set-Status -Message "Tracing route and resolving WhoIs/IP info for $target..."
+    $res = Get-NetworkTraceAndWhoIs -Target $target -MaxHops 12
+    if ($controls['GridTraceRouteResults']) { $controls['GridTraceRouteResults'].ItemsSource = @($res.Hops) }
+    if ($controls['TxtTraceWhoIsSummary']) { $controls['TxtTraceWhoIsSummary'].Text = "Target: $($res.Target) ($($res.ResolvedIP)) | Hops: $($res.HopsCount) | $($res.GeoSummary)" }
+    if ($controls['TxtWhoIsOutput']) { $controls['TxtWhoIsOutput'].Text = $res.WhoIsText }
+    Set-Status -Message "TraceRoute & WhoIs complete for $($res.Target)."
+}
+if ($controls['BtnRunTraceRoute']) { $controls['BtnRunTraceRoute'].Add_Click($runTraceHandler) }
+if ($controls['BtnRunWhoIsGeo'])   { $controls['BtnRunWhoIsGeo'].Add_Click($runTraceHandler) }
+
+if ($controls['BtnRunLdapPerf']) {
+    $controls['BtnRunLdapPerf'].Add_Click({
+        Import-ServiceLazy 'NetworkService'
+        $srv = if ($controls['TxtLdapPerfServer']) { $controls['TxtLdapPerfServer'].Text.Trim() } else { "" }
+        if ([string]::IsNullOrWhiteSpace($srv)) { $srv = if ($adContext.PDCEmulator) { $adContext.PDCEmulator } else { "localhost" } }
+        $iters = 15
+        if ($controls['TxtLdapPerfIterations']) { [void][int]::TryParse($controls['TxtLdapPerfIterations'].Text.Trim(), [ref]$iters) }
+        if ($iters -lt 1) { $iters = 10 }
+        Set-Status -Message "Running LDAP performance benchmark against ${srv}:389 ($iters iterations)..."
+        $perf = Measure-LdapPerformanceBenchmark -Server $srv -Port 389 -Iterations $iters
+        if ($controls['GridLdapPerfResults']) { $controls['GridLdapPerfResults'].ItemsSource = @($perf.Samples) }
+        if ($controls['TxtLdapPerfSummary']) { $controls['TxtLdapPerfSummary'].Text = $perf.Summary }
+        Set-Status -Message "LDAP Performance Benchmark finished ($($perf.QueriesPerSec) q/s, Avg $($perf.AvgMs) ms)."
     })
 }
 
@@ -15873,11 +14481,12 @@ function Import-SettingsPanel {    if ($controls['ChkAutoDetect']) { $controls['
 
 if ($controls['BtnAddExternalTool']) {
     $controls['BtnAddExternalTool'].Add_Click({
-        $name = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Tool Name (e.g. Ping Host, PowerShell Query):", "Add External Tool", "Custom Tool")
+        $name = Show-AppInputDialog -Prompt "Enter Tool Name (e.g. Ping Host, PowerShell Query):" -Title "Add External Tool" -DefaultResponse "Custom Tool"
         if (-not $name) { return }
-        $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Executable or Command (e.g. ping.exe, mstsc.exe, powershell.exe):", "Tool Executable", "powershell.exe")
+        $cmd = Show-AppInputDialog -Prompt "Enter Executable or Command (e.g. ping.exe, mstsc.exe, powershell.exe):" -Title "Tool Executable" -DefaultResponse "powershell.exe"
         if (-not $cmd) { return }
-        $toolArgs = [Microsoft.VisualBasic.Interaction]::InputBox("Enter Arguments with Tokens (%sAMAccountName%, %dNSHostName%, %distinguishedName%, %mail%):", "Tool Arguments", "-NoExit -Command Write-Host 'Inspecting %sAMAccountName%'")
+        $toolArgs = Show-AppInputDialog -Prompt "Enter Arguments with Tokens (%sAMAccountName%, %dNSHostName%, %distinguishedName%, %mail%):" -Title "Tool Arguments" -DefaultResponse "-NoExit -Command Write-Host 'Inspecting %sAMAccountName%'"
+        if ($null -eq $toolArgs) { return }
 
         if (-not $state.ExternalTools) { $state.ExternalTools = [System.Collections.ArrayList]::new() }
         $toolObj = [PSCustomObject]@{
@@ -15900,11 +14509,12 @@ if ($controls['BtnEditExternalTool']) {
             [System.Windows.MessageBox]::Show("Please select an external tool to edit.", "Selection Required", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
             return
         }
-        $name = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Tool Name:", "Edit Tool", $sel.Name)
+        $name = Show-AppInputDialog -Prompt "Edit Tool Name:" -Title "Edit Tool" -DefaultResponse $sel.Name
         if (-not $name) { return }
-        $cmd = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Executable:", "Edit Executable", $sel.Command)
+        $cmd = Show-AppInputDialog -Prompt "Edit Executable:" -Title "Edit Executable" -DefaultResponse $sel.Command
         if (-not $cmd) { return }
-        $toolArgs = [Microsoft.VisualBasic.Interaction]::InputBox("Edit Arguments:", "Edit Arguments", $sel.Arguments)
+        $toolArgs = Show-AppInputDialog -Prompt "Edit Arguments:" -Title "Edit Arguments" -DefaultResponse $sel.Arguments
+        if ($null -eq $toolArgs) { return }
         $sel.Name = $name
         $sel.Command = $cmd
         $sel.Arguments = $toolArgs
@@ -16154,6 +14764,7 @@ function Update-MenuSettingsState {
 }
 
 function Show-ForestTrustsDialog {
+    Import-ServiceLazy 'ReplicationService'
     $trusts = Get-ADForestTrusts
     if (-not $trusts -or $trusts.Count -eq 0) {
         [System.Windows.MessageBox]::Show("No Active Directory Forest or Domain Trusts found.", "AD Forest Trusts", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -16178,11 +14789,8 @@ function Show-ForestTrustsDialog {
 }
 
 function Show-ErrorCodeLookupDialog {
-    $inputCode = [Microsoft.VisualBasic.Interaction]::InputBox(
-        "Enter Error Code in Hex (e.g., 0x80070005, 0x31) or Decimal (e.g., 5, 1326, 49):",
-        "Win32 / LDAP / Kerberos Error Code Lookup (NetTools Parity)",
-        "0x80070005"
-    )
+    Import-ServiceLazy 'DiagnosticService'
+    $inputCode = Show-AppInputDialog -Prompt "Enter Error Code in Hex (e.g., 0x80070005, 0x31) or Decimal (e.g., 5, 1326, 49):" -Title "Win32 / LDAP / Kerberos Error Code Lookup (NetTools Parity)" -DefaultResponse "0x80070005"
     if ([string]::IsNullOrWhiteSpace($inputCode)) { return }
 
     $res = Resolve-ADErrorCode -ErrorCode $inputCode
@@ -16197,11 +14805,8 @@ function Show-ErrorCodeLookupDialog {
 }
 
 function Show-OrgStructureDialog {
-    $identity = [Microsoft.VisualBasic.Interaction]::InputBox(
-        "Enter sAMAccountName or DistinguishedName of User:",
-        "Active Directory Organizational Structure",
-        "jdoe"
-    )
+    Import-ServiceLazy 'DiagnosticService'
+    $identity = Show-AppInputDialog -Prompt "Enter sAMAccountName or DistinguishedName of User:" -Title "Active Directory Organizational Structure" -DefaultResponse "jdoe"
     if ([string]::IsNullOrWhiteSpace($identity)) { return }
 
     $org = Get-ADOrgStructure -Identity $identity
@@ -16229,11 +14834,8 @@ function Show-OrgStructureDialog {
 }
 
 function Show-LogonVerificationDialog {
-    $userName = [Microsoft.VisualBasic.Interaction]::InputBox(
-        "Enter User Account to Verify Logon (e.g. jdoe):",
-        "Win32 LogonUser Verification (NetTools Parity)",
-        "administrator"
-    )
+    Import-ServiceLazy 'DiagnosticService'
+    $userName = Show-AppInputDialog -Prompt "Enter User Account to Verify Logon (e.g. jdoe):" -Title "Win32 LogonUser Verification (NetTools Parity)" -DefaultResponse "administrator"
     if ([string]::IsNullOrWhiteSpace($userName)) { return }
 
     $res = Invoke-Win32Logon -UserName $userName -Domain $adContext.DomainName
@@ -16457,7 +15059,7 @@ function Initialize-HorizontalMenuBar {
         $controls['MenuThemeLight'].Add_Click({ Set-ApplicationTheme -Theme "Light" -SavePreference; Update-MenuSettingsState })
     }
     if ($controls['MenuViewToggleSidebar']) {
-        $controls['MenuViewToggleSidebar'].Add_Click({ Toggle-SidebarVisibility })
+        $controls['MenuViewToggleSidebar'].Add_Click({ Switch-SidebarVisibility })
     }
     if ($controls['MenuViewRefresh']) {
         $controls['MenuViewRefresh'].Add_Click({
@@ -16869,6 +15471,7 @@ $window.Add_Closing({
         $appConfig.UI.ActiveTab = "Dashboard"
         [void](Save-AppSettings -Config $appConfig)
     }
+    if (Get-Command Close-ADAsyncPool -ErrorAction SilentlyContinue) { Close-ADAsyncPool }
     # Safely close all detached child windows
     if ($state.DetachedWindows) {
         $tabIds = @($state.DetachedWindows.Keys)
@@ -16901,7 +15504,7 @@ $window.Add_KeyDown({
     $null = $src
     # Ctrl+B: Toggle Sidebar Menu
     if ($e.Key -eq [System.Windows.Input.Key]::B -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -and -not ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Shift)) {
-        Toggle-SidebarVisibility
+        Switch-SidebarVisibility
         $e.Handled = $true
     }
     # Ctrl+Shift+B: Add to Directory Basket
@@ -16913,7 +15516,7 @@ $window.Add_KeyDown({
     }
     # Ctrl+\: Toggle Sidebar Menu (alternative shortcut)
     if ($e.Key -eq [System.Windows.Input.Key]::Oem5 -and ([System.Windows.Input.Keyboard]::Modifiers -band [System.Windows.Input.ModifierKeys]::Control)) {
-        Toggle-SidebarVisibility
+        Switch-SidebarVisibility
         $e.Handled = $true
     }
     # Ctrl+K: Omnibar Quick Search & Command Palette (Ctrl+K Parity)

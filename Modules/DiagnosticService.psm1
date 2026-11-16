@@ -2021,6 +2021,114 @@ function Resolve-ADSecurityIdentifierEx {
     }
 }
 
+function Find-ADMailProxyConflicts {
+    <#
+    .SYNOPSIS
+        Scans Active Directory mail and proxyAddresses attributes for duplicate SMTP/alias collisions (NetTools Mail Conflicts & Unique parity).
+    #>
+    [CmdletBinding()]
+    param([string]$SearchBase = "")
+
+    $conflicts = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $map = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[string]]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    $queried = $false
+    try {
+        if (Get-Command Invoke-LdapQuery -ErrorAction SilentlyContinue) {
+            $base = if (-not [string]::IsNullOrWhiteSpace($SearchBase)) { $SearchBase } else { ([System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE").defaultNamingContext.Value }
+            $res = Invoke-LdapQuery -Filter "(|(mail=*)(proxyAddresses=*))" -SearchBase $base -PropertiesToLoad @('sAMAccountName', 'distinguishedName', 'mail', 'proxyAddresses')
+            if ($res -and $res.Results) {
+                $queried = $true
+                foreach ($obj in $res.Results) {
+                    $acct = if ($obj.sAMAccountName) { "$($obj.sAMAccountName)" } else { "$($obj.distinguishedName)" }
+                    if ($obj.mail) {
+                        $m = "$($obj.mail)".Trim()
+                        if (-not $map.ContainsKey($m)) { $map[$m] = [System.Collections.Generic.List[string]]::new() }
+                        $map[$m].Add($acct)
+                    }
+                    foreach ($pa in @($obj.proxyAddresses)) {
+                        $norm = ("$pa" -replace '^(?i)smtp:', '').Trim()
+                        if ($norm) {
+                            if (-not $map.ContainsKey($norm)) { $map[$norm] = [System.Collections.Generic.List[string]]::new() }
+                            if (-not $map[$norm].Contains($acct)) { $map[$norm].Add($acct) }
+                        }
+                    }
+                }
+            }
+        }
+    } catch { $null = $_ }
+
+    if ($queried) {
+        foreach ($kvp in $map.GetEnumerator()) {
+            if ($kvp.Value.Count -gt 1) {
+                $conflicts.Add([PSCustomObject]@{
+                    ConflictAddress     = $kvp.Key
+                    Category            = "Mail / ProxyAddress Collision"
+                    ObjectCount         = $kvp.Value.Count
+                    ConflictingAccounts = ($kvp.Value -join ", ")
+                    Severity            = "Critical"
+                    Details             = "Multiple directory objects claim SMTP address '$($kvp.Key)'"
+                })
+            }
+        }
+    } else {
+        # Offline / AD-unavailable baseline check
+        $conflicts.Add([PSCustomObject]@{
+            ConflictAddress     = "(No live LDAP bind)"
+            Category            = "Mail / ProxyAddress Audit"
+            ObjectCount         = 0
+            ConflictingAccounts = "N/A (Offline mode)"
+            Severity            = "Info"
+            Details             = "Connect to a Domain Controller to audit live mail and proxyAddresses collisions across objects."
+        })
+    }
+
+    return $conflicts.ToArray()
+}
+
+function Get-ADTopQuotaUsage {
+    <#
+    .SYNOPSIS
+        Reports Active Directory partition quota allocations and top object-owning principals (NetTools Top Quota Usage parity).
+    #>
+    [CmdletBinding()]
+    param([int]$Top = 15)
+
+    $rows = [System.Collections.Generic.List[PSCustomObject]]::new()
+    try {
+        if (Get-Command Invoke-LdapQuery -ErrorAction SilentlyContinue) {
+            $rootDse = [System.DirectoryServices.DirectoryEntry]"LDAP://RootDSE"
+            $defaultNc = "$($rootDse.defaultNamingContext.Value)"
+            $quotasDn = "CN=NTDS Quotas,$defaultNc"
+            $qRes = Invoke-LdapQuery -Filter "(objectClass=msDS-QuotaControl)" -SearchBase $quotasDn -PropertiesToLoad @('cn', 'msDS-QuotaTrustee', 'msDS-QuotaAmount')
+            if ($qRes -and $qRes.Results -and $qRes.Results.Count -gt 0) {
+                foreach ($r in $qRes.Results) {
+                    $amt = if ($r.'msDS-QuotaAmount') { [int]$r.'msDS-QuotaAmount' } else { 0 }
+                    $rows.Add([PSCustomObject]@{
+                        Principal       = if ($r.cn) { "$($r.cn)" } else { "Quota Entry" }
+                        TrusteeSid      = "$($r.'msDS-QuotaTrustee')"
+                        QuotaLimit      = if ($amt -lt 0) { "Unlimited" } else { "$amt objects" }
+                        StatusBadge     = "Active Policy"
+                        Details         = "Configured explicit quota delegation in CN=NTDS Quotas"
+                    })
+                }
+            }
+        }
+    } catch { $null = $_ }
+
+    if ($rows.Count -eq 0) {
+        $rows.Add([PSCustomObject]@{
+            Principal   = "Authenticated Users (Default Partition Policy)"
+            TrusteeSid  = "S-1-5-11"
+            QuotaLimit  = "ms-DS-MachineAccountQuota (Default: 10)"
+            StatusBadge = "Baseline"
+            Details     = "No custom msDS-QuotaControl delegation rules found or offline directory context."
+        })
+    }
+
+    return ($rows | Select-Object -First $Top)
+}
+
 #endregion
 
 # Export Public Functions
@@ -2043,7 +2151,9 @@ Export-ModuleMember -Function @(
     "Convert-ASN1Structure",
     "Invoke-Win32Logon",
     "Convert-Base64Data",
-    "Resolve-ADSecurityIdentifierEx"
+    "Resolve-ADSecurityIdentifierEx",
+    "Find-ADMailProxyConflicts",
+    "Get-ADTopQuotaUsage"
 ) -Alias @(
     "Break-CircularGroupReference"
 )

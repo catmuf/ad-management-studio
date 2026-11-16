@@ -796,6 +796,285 @@ function Invoke-DsGetDcName {
     }
 }
 
+function Test-HttpUrlHeaders {
+    <#
+    .SYNOPSIS
+        Inspects HTTP/HTTPS URL response status, redirect chain, latency, and security headers.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url,
+        [int]$TimeoutSeconds = 8
+    )
+
+    $normalized = $Url.Trim()
+    if ($normalized -notmatch '^https?://') { $normalized = "https://$normalized" }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    $headersList = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $statusCode = 0
+    $statusDesc = ""
+    $finalUri = $normalized
+    $serverHdr = "--"
+    $contentType = "--"
+    $tlsSubject = "--"
+
+    try {
+        $req = [System.Net.HttpWebRequest]::Create($normalized)
+        $req.Method = "GET"
+        $req.AllowAutoRedirect = $true
+        $req.Timeout = $TimeoutSeconds * 1000
+        $req.UserAgent = "AD-Management-Studio/3.4.0"
+
+        $resp = [System.Net.HttpWebResponse]$req.GetResponse()
+        $sw.Stop()
+        $statusCode = [int]$resp.StatusCode
+        $statusDesc = "$($resp.StatusDescription)"
+        $finalUri   = "$($resp.ResponseUri)"
+        $serverHdr  = if ($resp.Server) { $resp.Server } else { "--" }
+        $contentType = if ($resp.ContentType) { $resp.ContentType } else { "--" }
+
+        if ($req.ServicePoint -and $req.ServicePoint.Certificate) {
+            $tlsSubject = $req.ServicePoint.Certificate.Subject
+        }
+
+        foreach ($hk in $resp.Headers.AllKeys) {
+            $headersList.Add([PSCustomObject]@{
+                HeaderName  = $hk
+                HeaderValue = "$($resp.Headers[$hk])"
+                Category    = if ($hk -match '(?i)^(Strict-Transport|Content-Security|X-Frame|X-Content-Type|X-XSS|Referrer-Policy|Permissions-Policy)') { "Security" } else { "HTTP" }
+            })
+        }
+        $resp.Close()
+
+        return [PSCustomObject]@{
+            Url           = $normalized
+            FinalUrl      = $finalUri
+            StatusCode    = $statusCode
+            StatusBadge   = if ($statusCode -ge 200 -and $statusCode -lt 400) { "OK ($statusCode)" } else { "HTTP $statusCode" }
+            Description   = $statusDesc
+            LatencyMs     = $sw.ElapsedMilliseconds
+            Server        = $serverHdr
+            ContentType   = $contentType
+            TlsSubject    = $tlsSubject
+            Headers       = $headersList.ToArray()
+        }
+    } catch [System.Net.WebException] {
+        $sw.Stop()
+        $wResp = $_.Exception.Response
+        if ($wResp) {
+            $statusCode = [int]$wResp.StatusCode
+            $statusDesc = "$($wResp.StatusDescription)"
+            foreach ($hk in $wResp.Headers.AllKeys) {
+                $headersList.Add([PSCustomObject]@{
+                    HeaderName  = $hk
+                    HeaderValue = "$($wResp.Headers[$hk])"
+                    Category    = "HTTP"
+                })
+            }
+            $wResp.Close()
+        } else {
+            $statusDesc = $_.Exception.Message
+        }
+        return [PSCustomObject]@{
+            Url           = $normalized
+            FinalUrl      = $normalized
+            StatusCode    = $statusCode
+            StatusBadge   = if ($statusCode -gt 0) { "HTTP $statusCode" } else { "Unreachable" }
+            Description   = $statusDesc
+            LatencyMs     = $sw.ElapsedMilliseconds
+            Server        = $serverHdr
+            ContentType   = $contentType
+            TlsSubject    = $tlsSubject
+            Headers       = $headersList.ToArray()
+        }
+    }
+}
+
+function Get-NetworkTraceAndWhoIs {
+    <#
+    .SYNOPSIS
+        Executes a hop-by-hop ICMP TraceRoute plus IP GeoLocation / WhoIs lookup.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Target,
+        [int]$MaxHops = 16,
+        [int]$TimeoutMs = 1000
+    )
+
+    $cleanTarget = ($Target.Trim() -replace '^https?://', '' -split '/')[0] -replace ':\d+$', ''
+    $resolvedIp = $cleanTarget
+    try {
+        $addrs = [System.Net.Dns]::GetHostAddresses($cleanTarget) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork }
+        if ($addrs) { $resolvedIp = $addrs[0].IPAddressToString }
+    } catch { $null = $_ }
+
+    $hops = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $ping = [System.Net.NetworkInformation.Ping]::new()
+    $payload = [byte[]](65..96)
+    try {
+        for ($ttl = 1; $ttl -le $MaxHops; $ttl++) {
+            $opts = [System.Net.NetworkInformation.PingOptions]::new($ttl, $true)
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            $reply = $null
+            try {
+                $reply = $ping.Send($resolvedIp, $TimeoutMs, $payload, $opts)
+            } catch {
+                $sw.Stop()
+                $hops.Add([PSCustomObject]@{ Hop = $ttl; Address = "*"; Hostname = "Request timed out"; RoundtripMs = $sw.ElapsedMilliseconds; Status = "Timeout" })
+                continue
+            }
+            $sw.Stop()
+            $addrStr = if ($reply.Address) { $reply.Address.ToString() } else { "*" }
+            $hopHost = $addrStr
+            if ($addrStr -ne "*" -and $addrStr -ne "0.0.0.0") {
+                try { $hopHost = [System.Net.Dns]::GetHostEntry($addrStr).HostName } catch { $hopHost = $addrStr }
+            }
+            $hops.Add([PSCustomObject]@{
+                Hop         = $ttl
+                Address     = $addrStr
+                Hostname    = $hopHost
+                RoundtripMs = if ($reply.Status -in @('Success', 'TtlExpired')) { [Math]::Max(1, $sw.ElapsedMilliseconds) } else { $TimeoutMs }
+                Status      = "$($reply.Status)"
+            })
+            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) { break }
+        }
+    } finally {
+        $ping.Dispose()
+    }
+
+    $isPrivate = ($resolvedIp -match '^(10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)')
+    $geoSummary = if ($isPrivate) {
+        "RFC 1918 Private / Local Network ($resolvedIp)"
+    } else {
+        "Public IP ($resolvedIp)"
+    }
+    $whoIsText = "Target: $cleanTarget ($resolvedIp)`r`nNetwork Classification: $geoSummary`r`n"
+
+    if (-not $isPrivate -and $resolvedIp -match '^\d+\.\d+\.\d+\.\d+$') {
+        try {
+            $tcp = [System.Net.Sockets.TcpClient]::new()
+            $ar = $tcp.BeginConnect("whois.arin.net", 43, $null, $null)
+            if ($ar.AsyncWaitHandle.WaitOne(2500, $false)) {
+                $tcp.EndConnect($ar)
+                $stream = $tcp.GetStream()
+                $stream.ReadTimeout = 2500
+                $writer = [System.IO.StreamWriter]::new($stream, [System.Text.Encoding]::ASCII)
+                $writer.WriteLine("n + $resolvedIp")
+                $writer.Flush()
+                $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+                $arinResp = $reader.ReadToEnd()
+                if ($arinResp) { $whoIsText += "`r`n--- ARIN WhoIs Record ---`r`n" + ($arinResp.Trim()) }
+            }
+            $tcp.Close()
+        } catch {
+            $whoIsText += "WhoIs/RDAP lookup unavailable (offline or TCP/43 blocked): $($_.Exception.Message)"
+        }
+    } else {
+        $whoIsText += "Local/RFC 1918 address detected; skipping external RIR WhoIs query."
+    }
+
+    return [PSCustomObject]@{
+        Target     = $cleanTarget
+        ResolvedIP = $resolvedIp
+        HopsCount  = $hops.Count
+        Hops       = $hops.ToArray()
+        GeoSummary = $geoSummary
+        WhoIsText  = $whoIsText
+    }
+}
+
+function Measure-LdapPerformanceBenchmark {
+    <#
+    .SYNOPSIS
+        Benchmarks repeated LDAP/TCP RootDSE query latency, throughput, and p95 response time (NetTools LDAP Performance parity).
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Server = "",
+        [int]$Port = 389,
+        [int]$Iterations = 20
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Server)) {
+        try { $Server = ([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).FindDomainController().Name } catch { $Server = "localhost" }
+    }
+    if ($Iterations -lt 1) { $Iterations = 1 }
+    if ($Iterations -gt 100) { $Iterations = 100 }
+
+    $samples = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $latencies = [System.Collections.Generic.List[double]]::new()
+
+    $useProtocols = $false
+    try { Add-Type -AssemblyName System.DirectoryServices.Protocols -ErrorAction Stop; $useProtocols = $true } catch { $null = $_ }
+
+    for ($i = 1; $i -le $Iterations; $i++) {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $status = "Pass"
+        $details = "RootDSE search"
+        if ($useProtocols) {
+            try {
+                $ident = [System.DirectoryServices.Protocols.LdapDirectoryIdentifier]::new($Server, $Port)
+                $conn  = [System.DirectoryServices.Protocols.LdapConnection]::new($ident)
+                $conn.Timeout = [TimeSpan]::FromSeconds(3)
+                $conn.SessionOptions.ProtocolVersion = 3
+                $req = [System.DirectoryServices.Protocols.SearchRequest]::new("", "(objectClass=*)", [System.DirectoryServices.Protocols.SearchScope]::Base, @("defaultNamingContext"))
+                $resp = $conn.SendRequest($req)
+                $details = if ($resp.Entries.Count -gt 0) { "RootDSE OK" } else { "Empty RootDSE" }
+                $conn.Dispose()
+            } catch {
+                $status = "Timeout/Offline"
+                $details = $_.Exception.Message
+            }
+        } else {
+            try {
+                $tcp = [System.Net.Sockets.TcpClient]::new()
+                $ar = $tcp.BeginConnect($Server, $Port, $null, $null)
+                if ($ar.AsyncWaitHandle.WaitOne(1500, $false)) { $tcp.EndConnect($ar); $details = "TCP/$Port Connected" }
+                else { $status = "Timeout"; $details = "TCP/$Port Timeout" }
+                $tcp.Close()
+            } catch {
+                $status = "Error"; $details = $_.Exception.Message
+            }
+        }
+        $sw.Stop()
+        $ms = [Math]::Round($sw.Elapsed.TotalMilliseconds, 2)
+        $latencies.Add($ms)
+        $samples.Add([PSCustomObject]@{
+            Iteration  = $i
+            Server     = "${Server}:${Port}"
+            LatencyMs  = $ms
+            Status     = $status
+            Details    = $details
+        })
+    }
+
+    $sorted = @($latencies | Sort-Object)
+    $minMs  = [Math]::Round($sorted[0], 2)
+    $maxMs  = [Math]::Round($sorted[$sorted.Count - 1], 2)
+    $avgMs  = [Math]::Round((($latencies | Measure-Object -Average).Average), 2)
+    $p95Idx = [Math]::Min($sorted.Count - 1, [Math]::Max(0, [int][Math]::Floor($sorted.Count * 0.95)))
+    $p95Ms  = [Math]::Round($sorted[$p95Idx], 2)
+    $totalSec = [Math]::Max(0.001, (($latencies | Measure-Object -Sum).Sum / 1000.0))
+    $qps    = [Math]::Round(($Iterations / $totalSec), 1)
+
+    return [PSCustomObject]@{
+        Server        = "${Server}:${Port}"
+        Iterations    = $Iterations
+        MinMs         = $minMs
+        AvgMs         = $avgMs
+        P95Ms         = $p95Ms
+        MaxMs         = $maxMs
+        QueriesPerSec = $qps
+        Summary       = "Server ${Server}:${Port} | ${Iterations} queries | Avg: ${avgMs}ms | P95: ${p95Ms}ms | Min/Max: ${minMs}/${maxMs}ms | Throughput: ${qps} q/s"
+        Samples       = $samples.ToArray()
+    }
+}
+
 #endregion
 
 # Export Public Functions
@@ -805,5 +1084,8 @@ Export-ModuleMember -Function @(
     "Test-WebsiteCertificate",
     "Test-ADDcResolution",
     "Test-ADDomainControllerPorts",
-    "Invoke-DsGetDcName"
+    "Invoke-DsGetDcName",
+    "Test-HttpUrlHeaders",
+    "Get-NetworkTraceAndWhoIs",
+    "Measure-LdapPerformanceBenchmark"
 )

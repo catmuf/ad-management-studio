@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Active Directory Access Control &amp; Permissions Browser"
@@ -146,7 +146,7 @@
                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <TextBlock Text="Color Legend: " VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,8,0" FontSize="11"/>
                         <Border Background="#D13438" CornerRadius="2" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="Full Control / Deny" Foreground="White" FontSize="10"/></Border>
-                        <Border Background="#8E5AA5" CornerRadius="2" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="Modify / Write" Foreground="White" FontSize="10"/></Border>
+                        <Border Background="{DynamicResource BadgePurpleBg}" CornerRadius="2" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="Modify / Write" Foreground="White" FontSize="10"/></Border>
                         <Border Background="#107C41" CornerRadius="2" Padding="6,2"><TextBlock Text="Read Access" Foreground="White" FontSize="10"/></Border>
                     </StackPanel>
                 </Grid>

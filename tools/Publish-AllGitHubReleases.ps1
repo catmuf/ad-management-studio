@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Publishes or synchronizes all release markdown documents to GitHub Releases.
 .DESCRIPTION

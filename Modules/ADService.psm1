@@ -2192,10 +2192,14 @@ function Compare-ADObjects {
     }
 
     $mapA = @{}
-    foreach ($a in $attrsA) { $mapA[$a.Name] = $a }
+    foreach ($a in $attrsA) {
+        if ($a -and -not [string]::IsNullOrWhiteSpace($a.Name)) { $mapA[$a.Name] = $a }
+    }
 
     $mapB = @{}
-    foreach ($b in $attrsB) { $mapB[$b.Name] = $b }
+    foreach ($b in $attrsB) {
+        if ($b -and -not [string]::IsNullOrWhiteSpace($b.Name)) { $mapB[$b.Name] = $b }
+    }
 
     $allNames = New-Object System.Collections.Generic.SortedSet[string]([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($k in $mapA.Keys) { [void]$allNames.Add($k) }
@@ -2286,13 +2290,15 @@ function Get-ADSchemaClasses {
         
         $classes = New-Object System.Collections.Generic.List[PSCustomObject]
         foreach ($r in $query.Results) {
-            $must = @()
-            if ($r.mustContain) { $must += $r.mustContain }
-            if ($r.systemMustContain) { $must += $r.systemMustContain }
+            $mustList = [System.Collections.Generic.List[string]]::new()
+            if ($r.mustContain)       { foreach ($x in @($r.mustContain))       { $mustList.Add([string]$x) } }
+            if ($r.systemMustContain) { foreach ($x in @($r.systemMustContain)) { $mustList.Add([string]$x) } }
 
-            $may = @()
-            if ($r.mayContain) { $may += $r.mayContain }
-            if ($r.systemMayContain) { $may += $r.systemMayContain }
+            $mayList = [System.Collections.Generic.List[string]]::new()
+            if ($r.mayContain)        { foreach ($x in @($r.mayContain))        { $mayList.Add([string]$x) } }
+            if ($r.systemMayContain)  { foreach ($x in @($r.systemMayContain))  { $mayList.Add([string]$x) } }
+            $must = $mustList.ToArray()
+            $may  = $mayList.ToArray()
 
             $catCode = if ($r.objectClassCategory) { [int]$r.objectClassCategory } else { 1 }
             $catBadge = switch ($catCode) {
@@ -3261,10 +3267,12 @@ function Get-ADDeletedObjects {
         Write-Warning "Failed to query AD Recycle Bin / Deleted Objects: $_"
     }
     finally {
-        if ($found -is [System.IDisposable])    { $found.Dispose() }
-        if ($searcher -is [System.IDisposable]) { $searcher.Dispose() }
-        if ($delEntry -is [System.IDisposable]) { $delEntry.Dispose() }
-        if ($rootDse -is [System.IDisposable])  { $rootDse.Dispose() }
+        $disposeMethod = [System.IDisposable].GetMethod('Dispose')
+        foreach ($resObj in @($found, $searcher, $delEntry, $rootDse)) {
+            if ($null -ne $resObj -and ($resObj -is [System.IDisposable])) {
+                try { [void]$disposeMethod.Invoke($resObj, $null) } catch { $null = $_ }
+            }
+        }
     }
 
     return @($results)

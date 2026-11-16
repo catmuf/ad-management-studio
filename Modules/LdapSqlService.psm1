@@ -225,31 +225,32 @@ function Invoke-ADSqlExtendedQuery {
         if ($expr -match '(?i)^CONCAT\((.+)\)$') {
             $inner = $matches[1].Trim()
             $argTokens = [System.Collections.Generic.List[string]]::new()
-            $current = ""
+            $currentSb = [System.Text.StringBuilder]::new()
             $inQuote = $false
             $quoteChar = [char]0
             for ($ci = 0; $ci -lt $inner.Length; $ci++) {
                 $ch = $inner[$ci]
                 if ($inQuote) {
-                    $current += $ch
+                    [void]$currentSb.Append($ch)
                     if ($ch -eq $quoteChar) { $inQuote = $false }
                 } else {
                     if ($ch -eq "'" -or $ch -eq '"') {
                         $inQuote = $true
                         $quoteChar = $ch
-                        $current += $ch
+                        [void]$currentSb.Append($ch)
                     } elseif ($ch -eq ',') {
-                        $argTokens.Add($current.Trim())
-                        $current = ""
+                        $argTokens.Add($currentSb.ToString().Trim())
+                        [void]$currentSb.Clear()
                     } else {
-                        $current += $ch
+                        [void]$currentSb.Append($ch)
                     }
                 }
             }
-            if ($current.Trim().Length -gt 0) { $argTokens.Add($current.Trim()) }
-            $evalParts = @()
+            $remToken = $currentSb.ToString().Trim()
+            if ($remToken.Length -gt 0) { $argTokens.Add($remToken) }
+            $evalParts = [System.Collections.Generic.List[string]]::new($argTokens.Count)
             foreach ($arg in $argTokens) {
-                $evalParts += (& $evaluateSqlExpr $arg $targetObj)
+                $evalParts.Add([string](& $evaluateSqlExpr $arg $targetObj))
             }
             return ($evalParts -join "")
         }
@@ -969,17 +970,19 @@ function Invoke-ADSqlExtendedQuery {
 
     $propsToLoad = @()
     if ($colsPart -ne "*") {
+        $propList = [System.Collections.Generic.List[string]]::new()
+        $propSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $colTokens = $colsPart -split ',\s*'
         foreach ($ct in $colTokens) {
             $attrTokens = [regex]::Matches($ct, '\b([a-zA-Z][a-zA-Z0-9_\-]+)\b')
             foreach ($at in $attrTokens) {
                 $tokenName = $at.Groups[1].Value
-                if ($tokenName -notmatch '^(?i)(UPPER|LOWER|SUBSTRING|LENGTH|AS)$') {
-                    $propsToLoad += $tokenName
+                if ($tokenName -notmatch '^(?i)(UPPER|LOWER|SUBSTRING|LENGTH|AS)$' -and $propSet.Add($tokenName)) {
+                    $propList.Add($tokenName)
                 }
             }
         }
-        $propsToLoad = @($propsToLoad | Select-Object -Unique)
+        $propsToLoad = $propList.ToArray()
     }
 
     $scope = [System.DirectoryServices.SearchScope]::Subtree
