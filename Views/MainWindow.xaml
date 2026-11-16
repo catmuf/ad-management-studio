@@ -1049,8 +1049,8 @@
             <!-- 3. VIEW -->
             <MenuItem Header="_View">
                 <MenuItem Header="🎨 _Theme Mode">
-                    <MenuItem Name="MenuThemeDark" Header="🌙 Dark Mode (Slate &amp; Midnight)" IsCheckable="True" IsChecked="True"/>
-                    <MenuItem Name="MenuThemeLight" Header="☀️ Light Mode (Clean Slate &amp; Polar White)" IsCheckable="True"/>
+                    <MenuItem Name="MenuThemeDark" Header="🌙 Dark Mode (Slate &amp; Midnight)" IsCheckable="True"/>
+                    <MenuItem Name="MenuThemeLight" Header="☀️ Light Mode (Clean Slate &amp; Polar White)" IsCheckable="True" IsChecked="True"/>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Name="MenuViewToggleSidebar" Header="📑 Toggle Side_bar Menu" InputGestureText="Ctrl+B" IsCheckable="True" IsChecked="True"/>
@@ -3508,8 +3508,8 @@
 
                                         <TextBlock Text="Interface Theme Mode:" Margin="0,0,0,4"/>
                                         <ComboBox Name="CmbThemeMode" Style="{StaticResource ModernComboBox}" Margin="0,0,0,12">
-                                            <ComboBoxItem Content="🌙 Dark Mode (Slate &amp; Midnight) - Default" IsSelected="True"/>
-                                            <ComboBoxItem Content="☀️ Light Mode (Clean Slate &amp; Polar White)"/>
+                                            <ComboBoxItem Content="🌙 Dark Mode (Slate &amp; Midnight)"/>
+                                            <ComboBoxItem Content="☀️ Light Mode (Clean Slate &amp; Polar White) - Default" IsSelected="True"/>
                                         </ComboBox>
 
                                         <TextBlock Text="Accent Tone Color:" Margin="0,0,0,4"/>

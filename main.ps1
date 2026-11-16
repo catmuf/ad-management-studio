@@ -269,7 +269,7 @@ function Import-XamlWindow {    param ([string]$XamlPath)
 
     # Inherit active theme dictionary resources and ensure newly loaded modal dialog inherits active theme
     if ($window -and $loadedWin -ne $window) {
-        $currTheme  = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+        $currTheme  = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Light" }
         $currAccent = if ($appConfig -and $appConfig.UI -and $appConfig.UI.AccentTone) { $appConfig.UI.AccentTone } else { "Blue" }
         if (Get-Command Sync-WindowThemeResources -ErrorAction SilentlyContinue) {
             Sync-WindowThemeResources -TargetWindow $loadedWin -Theme $currTheme -AccentTone $currAccent
@@ -279,7 +279,7 @@ function Import-XamlWindow {    param ([string]$XamlPath)
             }
         }
         $loadedWin.Add_Loaded({
-            $cTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+            $cTheme = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Light" }
             if ($cTheme -eq "Light" -and (Get-Command Set-ThemeNode -ErrorAction SilentlyContinue)) {
                 Apply-ThemeNode $this "Light"
             }
@@ -487,7 +487,7 @@ $state = [PSCustomObject]@{
     CurrentHtmlDN          = ""
     CurrentHtmlTemplate    = "Technical"
     CurrentHtmlRaw         = ""
-    CurrentTheme           = if ($appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Dark" }
+    CurrentTheme           = if ($appConfig.UI -and $appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Light" }
     SidebarVisible         = if ($null -ne $appConfig.UI.SidebarVisible) { [bool]$appConfig.UI.SidebarVisible } else { $true }
     WorkspaceMode          = if ($appConfig.UI.WorkspaceMode) { $appConfig.UI.WorkspaceMode } else { "Tabs" }
     AllowMultiWindow       = if ($null -ne $appConfig.UI.AllowMultiWindow) { $appConfig.UI.AllowMultiWindow } else { $true }
@@ -718,7 +718,7 @@ function Set-ApplicationTheme {
     [CmdletBinding()]
     param (
         [ValidateSet("Dark", "Light")]
-        [string]$Theme = "Dark",
+        [string]$Theme = "Light",
 
         [string]$AccentTone = "Blue",
 
@@ -766,13 +766,15 @@ function Set-ApplicationTheme {
         $controls['BtnQuickThemeToggle'].ToolTip = if ($isLight) { "Switch to Dark Mode (Ctrl+T)" } else { "Switch to Light Mode (Ctrl+T)" }
     }
 
-    # 4. Synchronize Settings ComboBox
+    # 4. Synchronize Settings ComboBox and View Menu checkmarks
     if ($controls['CmbThemeMode']) {
         $targetIndex = if ($isLight) { 1 } else { 0 }
         if ($controls['CmbThemeMode'].SelectedIndex -ne $targetIndex) {
             $controls['CmbThemeMode'].SelectedIndex = $targetIndex
         }
     }
+    if ($controls['MenuThemeDark'])  { $controls['MenuThemeDark'].IsChecked = (-not $isLight) }
+    if ($controls['MenuThemeLight']) { $controls['MenuThemeLight'].IsChecked = $isLight }
 
     # 5. Synchronize In-App HTML View if active and sync enabled
     if ($state.CurrentHtmlDN -and $appConfig.UI.SyncHtmlViewTheme) {
@@ -798,6 +800,7 @@ if ($controls['BtnQuickThemeToggle']) {
 
 # Wire Settings Appearance Controls
 if ($controls['CmbThemeMode']) {
+    $controls['CmbThemeMode'].SelectedIndex = if ($state.CurrentTheme -eq "Dark") { 0 } else { 1 }
     $controls['CmbThemeMode'].Add_SelectionChanged({
         $newTheme = if ($controls['CmbThemeMode'].SelectedIndex -eq 1) { "Light" } else { "Dark" }
         if ($newTheme -ne $state.CurrentTheme) {
@@ -14681,7 +14684,7 @@ function Import-SettingsPanel {    if ($controls['ChkAutoDetect']) { $controls['
         $controls['CmbExportDelimiter'].SelectedIndex = if ($delim -eq ",") { 1 } else { 0 }
     }
     if ($controls['CmbThemeMode']) {
-        $controls['CmbThemeMode'].SelectedIndex = if ($appConfig.UI.Theme -eq "Light") { 1 } else { 0 }
+        $controls['CmbThemeMode'].SelectedIndex = if ($appConfig.UI.Theme -eq "Dark") { 0 } else { 1 }
     }
     if ($controls['CmbAccentTone']) {
         $toneIdx = switch -Wildcard ($appConfig.UI.AccentTone) {
@@ -14893,14 +14896,17 @@ if ($controls['BtnResetSettings']) {
         if ($controls['ChkCfgRequirePwChange']) { $controls['ChkCfgRequirePwChange'].IsChecked = $true }
         if ($controls['CmbUsernameFormat']) { $controls['CmbUsernameFormat'].SelectedIndex = 0 }
         if ($controls['CmbExportDelimiter']) { $controls['CmbExportDelimiter'].SelectedIndex = 0 }
-        if ($controls['CmbThemeMode']) { $controls['CmbThemeMode'].SelectedIndex = 0 }
+        if ($controls['CmbThemeMode']) { $controls['CmbThemeMode'].SelectedIndex = 1 }
         if ($controls['CmbAccentTone']) { $controls['CmbAccentTone'].SelectedIndex = 0 }
         if ($controls['ChkThemeAutoSync']) { $controls['ChkThemeAutoSync'].IsChecked = $true }
         if ($controls['CmbWorkspaceMode']) { $controls['CmbWorkspaceMode'].SelectedIndex = 0 }
         if ($controls['ChkAllowMultiWindow']) { $controls['ChkAllowMultiWindow'].IsChecked = $true }
         if ($controls['ChkRestoreTabsOnStartup']) { $controls['ChkRestoreTabsOnStartup'].IsChecked = $false }
+        $appConfig.UI.Theme = "Light"
+        $appConfig.UI.AccentTone = "Blue"
         $appConfig.UI.RestoreTabsOnStartup = $false
         $state.RestoreTabsOnStartup = $false
+        Set-ApplicationTheme -Theme "Light" -AccentTone "Blue"
         $defaultTabs = if ($script:DefaultStartupTabs) { @($script:DefaultStartupTabs) } else { @("Dashboard", "Users", "SecurityAcl", "ReplicationSuite") }
         $appConfig.UI.OpenTabs = @($defaultTabs)
         $appConfig.UI.ActiveTab = "Dashboard"
@@ -14972,7 +14978,7 @@ function Update-HeaderLayoutResponsive {
 
 function Update-MenuSettingsState {
 
-    $isDark = ($appConfig.UI.Theme -ne "Light")
+    $isDark = ($appConfig.UI.Theme -eq "Dark")
     if ($controls['MenuThemeDark'])  { $controls['MenuThemeDark'].IsChecked = $isDark }
     if ($controls['MenuThemeLight']) { $controls['MenuThemeLight'].IsChecked = (-not $isDark) }
 
@@ -15623,9 +15629,9 @@ function Initialize-HorizontalMenuBar {
 
 # Initial Window Launch
 $window.Add_Loaded({
-    if ($appConfig.UI -and $appConfig.UI.Theme -eq "Light") {
-        Set-ApplicationTheme -Theme "Light" -AccentTone $appConfig.UI.AccentTone
-    }
+    $startupTheme = if ($appConfig.UI -and $appConfig.UI.Theme) { $appConfig.UI.Theme } else { "Light" }
+    $startupAccent = if ($appConfig.UI -and $appConfig.UI.AccentTone) { $appConfig.UI.AccentTone } else { "Blue" }
+    Set-ApplicationTheme -Theme $startupTheme -AccentTone $startupAccent
 
     # If running in Detached Window Mode, trigger initial panel load and return
     if (-not [string]::IsNullOrWhiteSpace($DetachedPanel)) {

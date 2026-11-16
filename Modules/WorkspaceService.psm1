@@ -1256,7 +1256,7 @@ function Dismount-PanelToWindow {    param (
     # Load detached window instance
     $detachedXamlPath = Join-Path $viewsPath "DetachedPanelWindow.xaml"
     $detachedWin = Invoke-WorkspaceHost -Name "Import-XamlWindow" -NamedArgs @{ XamlPath = $detachedXamlPath }
-    $currTheme  = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Dark" }
+    $currTheme  = if ($state -and $state.CurrentTheme) { $state.CurrentTheme } else { "Light" }
     $currAccent = if ($appConfig -and $appConfig.UI -and $appConfig.UI.AccentTone) { $appConfig.UI.AccentTone } else { "Blue" }
     if (Get-Command Sync-WindowThemeResources -ErrorAction SilentlyContinue) {
         Sync-WindowThemeResources -TargetWindow $detachedWin -Theme $currTheme -AccentTone $currAccent

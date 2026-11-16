@@ -158,6 +158,19 @@ $startupErrs = @($global:Error | ForEach-Object { $_.Exception.Message })
 
 Assert-Check "Force-reloading ADService replaces stale session module (Set-ADConnectionContext available)" ($null -ne (Get-Command Set-ADConnectionContext -ErrorAction SilentlyContinue))
 Assert-Check "Zero startup errors in `$global:Error without RSAT module" ($startupErrs.Count -eq 0) "Found=$($startupErrs.Count) $(if ($startupErrs.Count -gt 0) { $startupErrs[0] })"
+$tmpCfgDefault = Join-Path ([System.IO.Path]::GetTempPath()) ("adstudio_defcfg_" + [guid]::NewGuid().ToString('N') + ".json")
+$tmpCfgSaved = Join-Path ([System.IO.Path]::GetTempPath()) ("adstudio_savecfg_" + [guid]::NewGuid().ToString('N') + ".json")
+try {
+    $defCfg = Get-AppSettings -ConfigPath $tmpCfgDefault
+    Assert-Check "Get-AppSettings defaults UI.Theme to Light when config does not exist" ($defCfg.UI.Theme -eq 'Light')
+    $defCfg.UI.Theme = 'Dark'
+    [void](Save-AppSettings -Config $defCfg -ConfigPath $tmpCfgSaved)
+    $loadedSavedCfg = Get-AppSettings -ConfigPath $tmpCfgSaved
+    Assert-Check "Get-AppSettings preserves user-saved Dark theme" ($loadedSavedCfg.UI.Theme -eq 'Dark')
+} finally {
+    Remove-Item -Path $tmpCfgDefault, $tmpCfgSaved -Force -ErrorAction SilentlyContinue
+}
+Assert-Check "Application starts in Light Mode by default with synchronized menu and settings controls" ($state.CurrentTheme -eq 'Light' -and $controls['MenuThemeLight'].IsChecked -eq $true -and $controls['CmbThemeMode'].SelectedIndex -eq 1)
 
 # Re-inject offline mock context resolver + ADService mock after main.ps1 loaded
 function global:Get-ADEnvironmentContext {

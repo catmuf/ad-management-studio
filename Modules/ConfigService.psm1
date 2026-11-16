@@ -22,7 +22,7 @@ function Get-AppSettings {
             DisableOU        = ""
         }
         UI = [PSCustomObject]@{
-            Theme                  = "Dark"
+            Theme                  = "Light"
             AccentTone             = "Blue"
             SyncHtmlViewTheme      = $true
             AutoRefresh            = $false
@@ -78,7 +78,7 @@ function Get-AppSettings {
             if (-not $jsonContent.UI) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "UI" -Value $defaultConfig.UI -Force
             } else {
-                if (-not $jsonContent.UI.Theme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "Theme" -Value "Dark" -Force }
+                if (-not $jsonContent.UI.Theme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "Theme" -Value "Light" -Force }
                 if (-not $jsonContent.UI.AccentTone) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "AccentTone" -Value "Blue" -Force }
                 if ($null -eq $jsonContent.UI.SyncHtmlViewTheme) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "SyncHtmlViewTheme" -Value $true -Force }
                 if (-not $jsonContent.UI.WorkspaceMode) { $jsonContent.UI | Add-Member -MemberType NoteProperty -Name "WorkspaceMode" -Value "Tabs" -Force }
