@@ -4,22 +4,22 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ---
 
-## 🚀 v3.4.0 Enterprise Hardening, Async & UI Modernization Highlights
-
-- **Non-Blocking Async Architecture (`Modules/AsyncService.psm1`)**: Isolated `RunspacePool` background execution with Dispatcher marshaling and interactive status bar progress & cancellation (`ProgStatusTask`, `BtnCancelStatusTask`) across Audit Reports, Duplicate SPN scanning, DC Latency probes, Multi-DC LastLogon, Circular Group Loops, and 7-Tier UNC verification.
-- **Unified Light & Dark Theme Engine (`Themes/*.xaml`, `Modules/ThemeService.psm1`)**: Semantic DynamicResource color tokens with O(1) dictionary caching across MainWindow, all modal dialogs, and the new themed `Views/InputPromptDialog.xaml` (replacing blocking VisualBasic input dialogs).
-- **25/25 Workspace Fragment Cache & UI Virtualization (`Modules/WorkspaceService.psm1`)**: Extracted modular workspace engine with cached XAML fragments across all 25 workspaces, virtualized `ModernComboBox` popups (`VirtualizingStackPanel`), zero outer `ScrollViewer` wrappers around `DataGrid`s, collapsible `SuiteRailTabControl` sidebars across advanced suites, and a compact overflow action menu in Users.
-- **Extended NetTools & Diagnostics Parity**: Added `Test-HttpUrlHeaders` (HTTP & TLS inspector), `Get-NetworkTraceAndWhoIs`, `Measure-LdapPerformanceBenchmark`, `Find-ADMailProxyConflicts`, and `Get-ADTopQuotaUsage` with full GUI tabs and Omnibar command entries.
-- **Verification & Hygiene**: `100%` of lazy module exports mapped in `$script:ServiceAutoLoadMap` with approved PowerShell verbs (`0` unapproved), `75/75` UTF-8 BOM + CRLF compliance, `22/22` XAML load verification, `296` passing unit assertions (`6` suites under `tests/`), and `22/22` architectural parity checks.
-
----
-
-## 📊 Complete Commit-to-Version Reference Table (All 113+ Commits)
+## 📊 Complete Commit-to-Version Reference Table (All 123 Commits)
 
 | # | Version | Commit | Date | Subject |
 | :---: | :---: | :---: | :---: | :--- |
-| 113 | **v3.4.0** | [`ccdfe86`](https://github.com/catmuf/ad-management-studio/commit/ccdfe8669cabe31d5ddbc5b9aca9810441d58f87) | 2026-10-26 | fix(replication): resolve RoutedEventHandler cast exception on sample IP click handlers |
-| 112 | **v3.4.0** | [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2e3e571c56a81bb5e7a9b09be8c2ddca7a) | 2026-10-26 | feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner |
+| 123 | **v3.4.0** | [`704639a`](https://github.com/catmuf/ad-management-studio/commit/704639addb1c2269025b800297802c86c7fc97be) | 2026-11-17 | docs: remove wiki/releases references, enforce session-only config profiles, and sync handbook, walkthrough, and readme |
+| 122 | **v3.4.0** | [`b04df2e`](https://github.com/catmuf/ad-management-studio/commit/b04df2edc319cfb3d85a8eabc75251c66f0f7dbf) | 2026-11-17 | chore(ci): temporary cleanup workflow to delete all GitHub releases |
+| 121 | **v3.4.0** | [`743a3d2`](https://github.com/catmuf/ad-management-studio/commit/743a3d2215fe6976e97c6522c1fc77ef83bf7406) | 2026-11-16 | feat(ui): set Light Mode as default application theme while preserving saved preferences |
+| 120 | **v3.4.0** | [`b401d71`](https://github.com/catmuf/ad-management-studio/commit/b401d712d12aa274752ac7f03a891495c67a5391) | 2026-11-16 | fix(launch): reload modules with -Force, export global Import-ServiceLazy, and stop RSAT probe errors |
+| 119 | **v3.4.0** | [`be269e3`](https://github.com/catmuf/ad-management-studio/commit/be269e35d91e4482c060f212059c725de5469e20) | 2026-11-16 | fix(connection): bind live DC context with ADSI/LDAP fallback and refresh tree/object lists |
+| 118 | **v3.4.0** | [`5f18db9`](https://github.com/catmuf/ad-management-studio/commit/5f18db9882422757ad75a2de7e0ee587df98f729) | 2026-11-16 | docs: synchronize README, changelog, handbook, and walkthrough for v3.4.0 architecture and NetTools updates |
+| 117 | **v3.4.0** | [`281fbe2`](https://github.com/catmuf/ad-management-studio/commit/281fbe269fe0a252e6c2327291adce78aaccc19f) | 2026-11-16 | feat(studio): implement async RunspacePool, unified themes, virtualization, WorkspaceService cache, and extended NetTools parity |
+| 116 | **v3.4.0** | [`ddcde39`](https://github.com/catmuf/ad-management-studio/commit/ddcde394efcb0a5f4438310bca764ba240ef1173) | 2026-10-26 | docs(changelog): record commit ccdfe86 for sample IP handler fix in v3.4.0 |
+| 115 | **v3.4.0** | [`ccdfe86`](https://github.com/catmuf/ad-management-studio/commit/ccdfe8669cabe31d5ddbc5b9aca9810441d58f87) | 2026-10-26 | fix(replication): resolve RoutedEventHandler cast exception on sample IP click handlers |
+| 114 | **v3.4.0** | [`7a5c853`](https://github.com/catmuf/ad-management-studio/commit/7a5c8534251bd48f0432dd5868c74c67ad8a7f5d) | 2026-10-26 | docs(changelog): link commit 38dcfd2 in commit reference table |
+| 113 | **v3.4.0** | [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2863e795b2cb005a966b722b6bc5f86e77) | 2026-10-26 | feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner |
+| 112 | **v3.4.0** | [`ad9ef81`](https://github.com/catmuf/ad-management-studio/commit/ad9ef81978233e26057e6d7b40ef10dee7c950b9) | 2026-10-23 | docs: synchronize handbook, walkthrough, readme, and changelog with v3.4.0 capabilities |
 | 111 | **v3.4.0** | [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) | 2026-10-23 | docs(release): sync v3.4.0 release notes and full changelog |
 | 110 | **v3.4.0** | [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) | 2026-10-23 | feat(release): cut v3.4.0 release, update documentation and release pipelines |
 | 109 | **v3.4.0** | [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) | 2026-10-23 | feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers |
@@ -136,37 +136,38 @@ The project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## 🚀 Detailed Release History by Version
 
-### [v3.4.0] - 2026-10-26
-#### Competitor Feature Parity, Omnibar 2.0, Directory Breadcrumbs & Advanced Forensic Suites
+### [v3.4.0] - 2026-11-17
+#### RFC 2696 Paging, RFC 3268 Range Retrieval, Multi-Instance Dossiers & Live DC Fallback
 
-Delivers extensive feature parity and ergonomic modernization inspired by Softerra LDAP Administrator 2026, Apache Directory Studio, and NetTools across all 16 Active Directory infrastructure domains:
-- **Omnibar 2.0 Command Palette (`Ctrl+K`)**: Unified input field supporting fast AD object search and `>` action command palette with instant navigation, workspace switching, dark/light toggle, and cache purge.
-- **Interactive Directory Breadcrumb Bar**: Dynamically parses Distinguished Names into clickable visual hierarchy badges (Root ➔ Domain ➔ OU levels ➔ Leaf Principal) across Users, Groups, Computers, and OUs.
-- **Live Status Bar Telemetry**: Real-time memory consumption tracking (MB) and query latency telemetry badge (ms) refreshed automatically on every directory query and background timer.
-- **Client IP Site & Subnet Resolver (LPM)**: Resolves client IPv4 addresses against AD Sites and Subnets using Longest Prefix Match (LPM) logic, detecting shadowed CIDRs and identifying mapped domain controllers.
-- **Group Member Diff Engine**: Side-by-side comparative analysis of two Active Directory groups with 3-way Venn classification (`In Both Groups`, `Only in Group A`, `Only in Group B`), recursive principal expansion, and CSV export.
-- **Duplicate SPN Scanner**: Detects colliding Kerberos Service Principal Names across user and computer accounts that cause `KRB_AP_ERR_MODIFIED` authentication failures, generating automated `setspn -D` remediation syntax.
-- **Entra Connect & Cloud Sync Readiness**: 5 automated security audit rules in `Get-AD40SecurityAuditReports` identifying sync-breaking characters, non-routable UPN suffixes, duplicate UPNs, proxyAddress collisions, and missing identities.
-- **RFC 2696 Paging & RFC 3268 Range Retrieval**: Simple Paged Results bypassing the 1,000-object `MaxPageSize` limit and incremental `member;range` chunking for multi-thousand member groups.
-- **Multi-Instance Technical Dossier Tabs**: Independent per-user HTML dossier tabs with deduplication and in-tab address navigation.
+Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, non-blocking RunspacePool async execution, unified Light/Dark ThemeService (Light Mode default with saved preference preservation), WorkspaceService 25-panel fragment caching, live remote DC connection profile binding with pure ADSI/LDAP fallback and session-only profile privacy (no profiles persisted in config.json), -Force module reloading with global Import-ServiceLazy, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits.
 
-- **Commits in Release**: 8
-- **Dedicated Release Notes**: [docs/releases/v3.4.0.md](docs/releases/v3.4.0.md)
+- **Milestone Commit Range**: [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e8) .. [`704639a`](https://github.com/catmuf/ad-management-studio/commit/704639a)
+- **Commits in Milestone**: 18
 
-##### ✨ Features & Capabilities (4)
-- [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2e3e571c56a81bb5e7a9b09be8c2ddca7a) - feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner *(2026-10-26)*
+##### ✨ Features & Capabilities (6)
+- [`743a3d2`](https://github.com/catmuf/ad-management-studio/commit/743a3d2215fe6976e97c6522c1fc77ef83bf7406) - feat(ui): set Light Mode as default application theme while preserving saved preferences *(2026-11-16)*
+- [`281fbe2`](https://github.com/catmuf/ad-management-studio/commit/281fbe269fe0a252e6c2327291adce78aaccc19f) - feat(studio): implement async RunspacePool, unified themes, virtualization, WorkspaceService cache, and extended NetTools parity *(2026-11-16)*
+- [`38dcfd2`](https://github.com/catmuf/ad-management-studio/commit/38dcfd2863e795b2cb005a966b722b6bc5f86e77) - feat(competitor-parity): add Omnibar 2.0, Directory Breadcrumbs, Client IP LPM Resolver, Group Member Diff, and Duplicate SPN Scanner *(2026-10-26)*
 - [`e9b936c`](https://github.com/catmuf/ad-management-studio/commit/e9b936c9627414b1fd54d9bd956abfab200a06a7) - feat(release): cut v3.4.0 release, update documentation and release pipelines *(2026-10-23)*
 - [`a0f4eb4`](https://github.com/catmuf/ad-management-studio/commit/a0f4eb4cad5d16de5bf8e1dbf4301eddebf434d5) - feat(html-view): support multi-instance tabs, deduplication, and in-tab address navigation for HTML dossiers *(2026-10-23)*
 - [`dcb0ae9`](https://github.com/catmuf/ad-management-studio/commit/dcb0ae9382a847be78410eaa386787459555b600) - feat(ad-query): implement RFC 2696 LDAP paging, RFC 3268 range retrieval, and streamed exports *(2026-10-23)*
 
-##### 🐛 Bug Fixes & UX Hardening (2)
+##### 🐛 Bug Fixes & UX Hardening (4)
+- [`b401d71`](https://github.com/catmuf/ad-management-studio/commit/b401d712d12aa274752ac7f03a891495c67a5391) - fix(launch): reload modules with -Force, export global Import-ServiceLazy, and stop RSAT probe errors *(2026-11-16)*
+- [`be269e3`](https://github.com/catmuf/ad-management-studio/commit/be269e35d91e4482c060f212059c725de5469e20) - fix(connection): bind live DC context with ADSI/LDAP fallback and refresh tree/object lists *(2026-11-16)*
 - [`ccdfe86`](https://github.com/catmuf/ad-management-studio/commit/ccdfe8669cabe31d5ddbc5b9aca9810441d58f87) - fix(replication): resolve RoutedEventHandler cast exception on sample IP click handlers *(2026-10-26)*
 - [`7af88b4`](https://github.com/catmuf/ad-management-studio/commit/7af88b40e9ff97dcaf6cb44f65c601d24c644f88) - fix(runtime): resolve Show-ObjectHtmlView closure scope, COM maxPwdAge cast, and DateTime parsing in audit service *(2026-10-23)*
 
-##### 📚 Documentation & Visual Guides (1)
+##### 📚 Documentation & Visual Guides (6)
+- [`704639a`](https://github.com/catmuf/ad-management-studio/commit/704639addb1c2269025b800297802c86c7fc97be) - docs: remove wiki/releases references, enforce session-only config profiles, and sync handbook, walkthrough, and readme *(2026-11-17)*
+- [`5f18db9`](https://github.com/catmuf/ad-management-studio/commit/5f18db9882422757ad75a2de7e0ee587df98f729) - docs: synchronize README, changelog, handbook, and walkthrough for v3.4.0 architecture and NetTools updates *(2026-11-16)*
+- [`ddcde39`](https://github.com/catmuf/ad-management-studio/commit/ddcde394efcb0a5f4438310bca764ba240ef1173) - docs(changelog): record commit ccdfe86 for sample IP handler fix in v3.4.0 *(2026-10-26)*
+- [`7a5c853`](https://github.com/catmuf/ad-management-studio/commit/7a5c8534251bd48f0432dd5868c74c67ad8a7f5d) - docs(changelog): link commit 38dcfd2 in commit reference table *(2026-10-26)*
+- [`ad9ef81`](https://github.com/catmuf/ad-management-studio/commit/ad9ef81978233e26057e6d7b40ef10dee7c950b9) - docs: synchronize handbook, walkthrough, readme, and changelog with v3.4.0 capabilities *(2026-10-23)*
 - [`50d16e2`](https://github.com/catmuf/ad-management-studio/commit/50d16e2dab6cd0f40af03e9fe8112562fc943221) - docs(release): sync v3.4.0 release notes and full changelog *(2026-10-23)*
 
-##### 🛡️ Stability & Code Quality (1)
+##### 🛡️ Stability & Code Quality (2)
+- [`b04df2e`](https://github.com/catmuf/ad-management-studio/commit/b04df2edc319cfb3d85a8eabc75251c66f0f7dbf) - chore(ci): temporary cleanup workflow to delete all GitHub releases *(2026-11-17)*
 - [`da403e8`](https://github.com/catmuf/ad-management-studio/commit/da403e84623d6a96e6980e98a84ac36645b0641d) - refactor(search): consolidate attribute search into CmbFilterAttr and remove redundant TxtSearchAttrFilter *(2026-10-23)*
 
 ---
@@ -176,9 +177,8 @@ Delivers extensive feature parity and ergonomic modernization inspired by Softer
 
 Delivers sub-second application startup via direct XAML streaming and lazy RSAT loading, simple directory search mode with collapsible advanced filters and arrow toggle, active connection management enhancements (expandable DC table, sort arrows, live filter, internal horizontal scrolling), sidebar toggle button and Ctrl+B shortcut, configurable default startup tabs with session state saving, combobox virtualization with debouncing, light mode connection dialog fixes, architectural JIT decomposition of ADService, DirectoryEntry referral hang prevention, and DWM composition quota fallback resilience.
 
-- **Release Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`fbe83e9`](https://github.com/catmuf/ad-management-studio/commit/fbe83e9)
-- **Commits in Release**: 23
-- **Dedicated Release Notes**: [docs/releases/v3.3.0.md](docs/releases/v3.3.0.md)
+- **Milestone Commit Range**: [`ed38733`](https://github.com/catmuf/ad-management-studio/commit/ed38733) .. [`fbe83e9`](https://github.com/catmuf/ad-management-studio/commit/fbe83e9)
+- **Commits in Milestone**: 23
 
 ##### ✨ Features & Capabilities (6)
 - [`47fbe72`](https://github.com/catmuf/ad-management-studio/commit/47fbe72ccd3133194c4e2743ed447262f707d64c) - feat(release): standardize SemVer v3.3.0, update documentation, and prepare release *(2026-10-23)*
@@ -222,9 +222,8 @@ Delivers sub-second application startup via direct XAML streaming and lazy RSAT 
 
 Introduces native Windows horizontal menu bar (11 top-level menus, live checkmarks), Quick Tools dropdown, startup performance optimization via DataGrid UI virtualization and NameScope indexing, search bar alignment & sync, automated DNS SRV domain controller auto-detection with sortable ping latency measurements, standard SemVer v3.2.0 branding, and 19 regenerated application screenshots.
 
-- **Release Commit Range**: [`39892e0`](https://github.com/catmuf/ad-management-studio/commit/39892e0) .. [`ee7d53a`](https://github.com/catmuf/ad-management-studio/commit/ee7d53a)
-- **Commits in Release**: 7
-- **Dedicated Release Notes**: [docs/releases/v3.2.0.md](docs/releases/v3.2.0.md)
+- **Milestone Commit Range**: [`39892e0`](https://github.com/catmuf/ad-management-studio/commit/39892e0) .. [`ee7d53a`](https://github.com/catmuf/ad-management-studio/commit/ee7d53a)
+- **Commits in Milestone**: 7
 
 ##### ✨ Features & Capabilities (4)
 - [`ee7d53a`](https://github.com/catmuf/ad-management-studio/commit/ee7d53a9032aa1a8f876d747ccc291c65364fdf6) - feat(release): standardize SemVer v3.2.0, regenerate screenshots, and automate historical changelog *(2026-10-20)*
@@ -248,9 +247,8 @@ Introduces native Windows horizontal menu bar (11 top-level menus, live checkmar
 
 Deep stability hardening across all 24 administrative panels, recursive event loop elimination, 100% PSScriptAnalyzer compliance, ISO 8601 millisecond logging, multi-dossier tab preservation during navigation, and connection profile deduplication.
 
-- **Release Commit Range**: [`5353d4d`](https://github.com/catmuf/ad-management-studio/commit/5353d4d) .. [`0761bc1`](https://github.com/catmuf/ad-management-studio/commit/0761bc1)
-- **Commits in Release**: 10
-- **Dedicated Release Notes**: [docs/releases/v3.1.0.md](docs/releases/v3.1.0.md)
+- **Milestone Commit Range**: [`5353d4d`](https://github.com/catmuf/ad-management-studio/commit/5353d4d) .. [`0761bc1`](https://github.com/catmuf/ad-management-studio/commit/0761bc1)
+- **Commits in Milestone**: 10
 
 ##### ✨ Features & Capabilities (5)
 - [`d232145`](https://github.com/catmuf/ad-management-studio/commit/d232145d3efbee88f520c6f5d42d649585a9a2f0) - feat: in-process simultaneous multi-instance detached windows with dock-back *(2026-10-14)*
@@ -273,9 +271,8 @@ Deep stability hardening across all 24 administrative panels, recursive event lo
 
 Architectural breakthrough with in-process simultaneous multi-instance detached windows, crash-free zero-latency dock-back, headless automation CLI (tools/ad-studio-cli.ps1) with 5 command modes, structured error logging service, and advanced identity / SDProp trigger engine.
 
-- **Release Commit Range**: [`18bf0c5`](https://github.com/catmuf/ad-management-studio/commit/18bf0c5) .. [`5e81af1`](https://github.com/catmuf/ad-management-studio/commit/5e81af1)
-- **Commits in Release**: 11
-- **Dedicated Release Notes**: [docs/releases/v3.0.0.md](docs/releases/v3.0.0.md)
+- **Milestone Commit Range**: [`18bf0c5`](https://github.com/catmuf/ad-management-studio/commit/18bf0c5) .. [`5e81af1`](https://github.com/catmuf/ad-management-studio/commit/5e81af1)
+- **Commits in Milestone**: 11
 
 ##### ✨ Features & Capabilities (4)
 - [`5e81af1`](https://github.com/catmuf/ad-management-studio/commit/5e81af169058265d275f198c81b27a59f7a3ae95) - feat: add comprehensive application error logging service and logs directory *(2026-10-13)*
@@ -299,9 +296,8 @@ Architectural breakthrough with in-process simultaneous multi-instance detached 
 
 Introduces high-contrast accessibility-audited Light Theme, rich in-app HTML technical identity dossier, complete 16-module NetTools diagnostic parity (Effective Rights, Token Bloat, Replication Suite, 7-Tier UNC diagnostics), and in-window tab drag-and-drop workspace manager.
 
-- **Release Commit Range**: [`442d254`](https://github.com/catmuf/ad-management-studio/commit/442d254) .. [`3b8defa`](https://github.com/catmuf/ad-management-studio/commit/3b8defa)
-- **Commits in Release**: 17
-- **Dedicated Release Notes**: [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
+- **Milestone Commit Range**: [`442d254`](https://github.com/catmuf/ad-management-studio/commit/442d254) .. [`3b8defa`](https://github.com/catmuf/ad-management-studio/commit/3b8defa)
+- **Commits in Milestone**: 17
 
 ##### ✨ Features & Capabilities (6)
 - [`dbdb096`](https://github.com/catmuf/ad-management-studio/commit/dbdb096284abf5bb2b00c9102c5cc68d0580ea5b) - feat(workspace): add tab drag-and-drop reordering, multi-instance tabs, and independent multi-window launch *(2026-10-08)*
@@ -331,9 +327,8 @@ Introduces high-contrast accessibility-audited Light Theme, rich in-app HTML tec
 
 Achieves deep parity with Softerra LDAP Administrator and Apache Directory Studio, adding SCIM 2.0 cloud export, Active Directory Recycle Bin, Server Monitor telemetry, 15 security audit categories (48 reports), LDIF Document Outline tree, and schema class/attribute inspector.
 
-- **Release Commit Range**: [`628d823`](https://github.com/catmuf/ad-management-studio/commit/628d823) .. [`347b6fd`](https://github.com/catmuf/ad-management-studio/commit/347b6fd)
-- **Commits in Release**: 11
-- **Dedicated Release Notes**: [docs/releases/v2.3.0.md](docs/releases/v2.3.0.md)
+- **Milestone Commit Range**: [`628d823`](https://github.com/catmuf/ad-management-studio/commit/628d823) .. [`347b6fd`](https://github.com/catmuf/ad-management-studio/commit/347b6fd)
+- **Commits in Milestone**: 11
 
 ##### ✨ Features & Capabilities (6)
 - [`347b6fd`](https://github.com/catmuf/ad-management-studio/commit/347b6fd768229f788f9a9e55b95de3ea480b7de0) - feat: implement Softerra gallery parity features (omnibar, rename, LDIF outline, schema inspector, custom reports) *(2026-10-07)*
@@ -357,9 +352,8 @@ Achieves deep parity with Softerra LDAP Administrator and Apache Directory Studi
 
 Adds dynamic table column chooser across all directory grids, dedicated group membership manager dialog (search, add, remove, transitive toggle), responsive toolbars with WrapPanels, and universal UI contrast improvements.
 
-- **Release Commit Range**: [`e956b31`](https://github.com/catmuf/ad-management-studio/commit/e956b31) .. [`7a834fd`](https://github.com/catmuf/ad-management-studio/commit/7a834fd)
-- **Commits in Release**: 7
-- **Dedicated Release Notes**: [docs/releases/v2.2.0.md](docs/releases/v2.2.0.md)
+- **Milestone Commit Range**: [`e956b31`](https://github.com/catmuf/ad-management-studio/commit/e956b31) .. [`7a834fd`](https://github.com/catmuf/ad-management-studio/commit/7a834fd)
+- **Commits in Milestone**: 7
 
 ##### ✨ Features & Capabilities (2)
 - [`96b3f1f`](https://github.com/catmuf/ad-management-studio/commit/96b3f1f56ee189183b940ef9ff729c8689e9eeef) - feat: open Manage Members window on double clicking a group row *(2026-10-06)*
@@ -379,9 +373,8 @@ Adds dynamic table column chooser across all directory grids, dedicated group me
 
 Introduces real-time inline attribute dropdown search and filtering, live Active Directory schema attribute population, dynamic DataGrid column generation for ANSI LDAP-SQL results, and instant client-side user account filtering.
 
-- **Release Commit Range**: [`6100fe7`](https://github.com/catmuf/ad-management-studio/commit/6100fe7) .. [`aba6c61`](https://github.com/catmuf/ad-management-studio/commit/aba6c61)
-- **Commits in Release**: 10
-- **Dedicated Release Notes**: [docs/releases/v2.1.0.md](docs/releases/v2.1.0.md)
+- **Milestone Commit Range**: [`6100fe7`](https://github.com/catmuf/ad-management-studio/commit/6100fe7) .. [`aba6c61`](https://github.com/catmuf/ad-management-studio/commit/aba6c61)
+- **Commits in Milestone**: 10
 
 ##### ✨ Features & Capabilities (3)
 - [`767eede`](https://github.com/catmuf/ad-management-studio/commit/767eede786f7f9737bb216e48f30f38cd09fca6d) - feat(search): enable direct inline real-time search and selection in attribute dropdown menu *(2026-10-05)*
@@ -404,9 +397,8 @@ Introduces real-time inline attribute dropdown search and filtering, live Active
 
 Major overhaul of the interface into a professional SysAdmin edition, integrating dedicated Softerra LDAP engines and service modules, dialog controllers in main.ps1, and the comprehensive SysAdmin Handbook.
 
-- **Release Commit Range**: [`62d738d`](https://github.com/catmuf/ad-management-studio/commit/62d738d) .. [`9100df3`](https://github.com/catmuf/ad-management-studio/commit/9100df3)
-- **Commits in Release**: 5
-- **Dedicated Release Notes**: [docs/releases/v2.0.0.md](docs/releases/v2.0.0.md)
+- **Milestone Commit Range**: [`62d738d`](https://github.com/catmuf/ad-management-studio/commit/62d738d) .. [`9100df3`](https://github.com/catmuf/ad-management-studio/commit/9100df3)
+- **Commits in Milestone**: 5
 
 ##### ✨ Features & Capabilities (3)
 - [`bd6c6b0`](https://github.com/catmuf/ad-management-studio/commit/bd6c6b0f657c5d64e618c86b806793267e59f67a) - feat(app): wire Softerra LDAP suite controller logic, event handlers, and dialogs in main.ps1 *(2026-10-02)*
@@ -424,9 +416,8 @@ Major overhaul of the interface into a professional SysAdmin edition, integratin
 
 Foundation release completely refactoring the legacy project into Active Directory Management Studio with modern PowerShell and WPF/XAML architecture.
 
-- **Release Commit Range**: [`0422fe6`](https://github.com/catmuf/ad-management-studio/commit/0422fe6) .. [`0422fe6`](https://github.com/catmuf/ad-management-studio/commit/0422fe6)
-- **Commits in Release**: 1
-- **Dedicated Release Notes**: [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md)
+- **Milestone Commit Range**: [`0422fe6`](https://github.com/catmuf/ad-management-studio/commit/0422fe6) .. [`0422fe6`](https://github.com/catmuf/ad-management-studio/commit/0422fe6)
+- **Commits in Milestone**: 
 
 ##### ✨ Features & Capabilities (1)
 - [`0422fe6`](https://github.com/catmuf/ad-management-studio/commit/0422fe653496a7cf7ce8e63f2351d5ed29efe00c) - feat: complete overhaul to Active Directory Management Studio *(2026-09-23)*
@@ -438,9 +429,8 @@ Foundation release completely refactoring the legacy project into Active Directo
 
 Initial repository creation, baseline user management PowerShell scripts, and project configuration.
 
-- **Release Commit Range**: [`cc155ca`](https://github.com/catmuf/ad-management-studio/commit/cc155ca) .. [`3b526d6`](https://github.com/catmuf/ad-management-studio/commit/3b526d6)
-- **Commits in Release**: 3
-- **Dedicated Release Notes**: [docs/releases/v0.1.0.md](docs/releases/v0.1.0.md)
+- **Milestone Commit Range**: [`cc155ca`](https://github.com/catmuf/ad-management-studio/commit/cc155ca) .. [`3b526d6`](https://github.com/catmuf/ad-management-studio/commit/3b526d6)
+- **Commits in Milestone**: 3
 
 ##### 📦 Maintenance & Setup (3)
 - [`3b526d6`](https://github.com/catmuf/ad-management-studio/commit/3b526d6aac28cdaf4f1321393048377ac7347f8b) - Upload project *(2024-08-27)*
