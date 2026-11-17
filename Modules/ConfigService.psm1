@@ -102,20 +102,8 @@ function Get-AppSettings {
             if (-not $jsonContent.CustomReports) {
                 $jsonContent | Add-Member -MemberType NoteProperty -Name "CustomReports" -Value $defaultConfig.CustomReports -Force
             }
-            if (-not $jsonContent.Profiles) {
-                $jsonContent | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
-            } else {
-                $sanitized = [System.Collections.Generic.List[object]]::new()
-                $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-                foreach ($p in $jsonContent.Profiles) {
-                    if (-not [string]::IsNullOrWhiteSpace($p.Server) -or ($p.Name -ne "Default (Auto-Detect)")) {
-                        if ($seen.Add($p.Name)) {
-                            $sanitized.Add($p)
-                        }
-                    }
-                }
-                $jsonContent.Profiles = $sanitized.ToArray()
-            }
+            # Keep connection profiles strictly session-only in memory; never persist or load from config.json
+            $jsonContent | Add-Member -MemberType NoteProperty -Name "Profiles" -Value @() -Force
             return $jsonContent
         }
         catch {
@@ -140,6 +128,12 @@ function Save-AppSettings {
         [string]$ConfigPath = "$PSScriptRoot\..\config.json"
     )
 
+    $origProfiles = $null
+    $hasProfiles = $null -ne $Config.PSObject.Properties['Profiles']
+    if ($hasProfiles) {
+        $origProfiles = $Config.Profiles
+        $Config.Profiles = @()
+    }
     try {
         $json = $Config | ConvertTo-Json -Depth 5
         $utf8WithBom = [System.Text.UTF8Encoding]::new($true)
@@ -149,6 +143,11 @@ function Save-AppSettings {
     catch {
         Write-Error "Failed to save configuration to $($ConfigPath): $_"
         return $false
+    }
+    finally {
+        if ($hasProfiles) {
+            $Config.Profiles = $origProfiles
+        }
     }
 }
 

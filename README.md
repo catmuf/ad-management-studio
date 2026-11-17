@@ -11,13 +11,12 @@ A modern, high-performance administration workbench built with **PowerShell & WP
 [![Changelog](https://img.shields.io/badge/Changelog-Release%20History-informational?style=flat-square)](CHANGELOG.md)
 [![Handbook](https://img.shields.io/badge/Manual-SysAdmin%20Handbook-purple?style=flat-square)](HANDBOOK.md)
 [![Walkthrough](https://img.shields.io/badge/Guide-Visual%20Walkthrough-blue?style=flat-square)](WALKTHROUGH.md)
-[![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange?style=flat-square)](https://github.com/catmuf/ad-management-studio/wiki)
 
 ---
 
 ## 🖥️ Overview & Hero Presentation
 
-Active Directory Management Studio combines the speed and responsiveness of native Windows desktop applications with the forensic depth of tools like **Softerra LDAP Administrator**, **Apache Directory Studio**, and **NetTools**. Featuring sub-second startup via direct XAML streaming, a native 11-category Windows horizontal menu bar, an omnibar quick-search launcher (`Ctrl+K`), simple and advanced directory search modes, expandable connection diagnostics, tabbed workspace navigation with session saving, and 24 specialized administrative workspaces.
+Active Directory Management Studio combines the speed and responsiveness of native Windows desktop applications with the forensic depth of tools like **Softerra LDAP Administrator**, **Apache Directory Studio**, and **NetTools**. Featuring sub-second startup via direct XAML streaming, factory default **Light Mode** (`LightTheme.xaml`) with automatic preservation of user-saved theme preferences, live remote Domain Controller profile binding with pure **ADSI/LDAP fallback**, session-only connection profiles (never persisted to `config.json`), a native 11-category Windows horizontal menu bar, an omnibar quick-search launcher (`Ctrl+K`), simple and advanced directory search modes, expandable connection diagnostics, tabbed workspace navigation with session saving, and **25 specialized administrative workspaces**.
 
 ![Active Directory Management Studio - Main Dashboard Overview](docs/images/01_dashboard_overview.png)
 
@@ -39,13 +38,13 @@ Comprehensive lifecycle management for users, security groups, organizational un
 
 ### Gallery 2: Enterprise Security, Access Control & Kerberos Suite
 
-Forensic Active Directory security analysis including 6-way effective permissions evaluation, Kerberos PAC token bloat calculation, and 48 automated enterprise security hygiene audits.
+Forensic Active Directory security analysis including 6-way effective permissions evaluation, Kerberos PAC token bloat calculation, and 53 automated enterprise security hygiene audits.
 
 | View / Component | Visual Showcase | Technical Highlights |
 | :--- | :--- | :--- |
 | **6-Way Effective Rights & ACL Security Suite** | ![6-Way Effective Rights & ACL Security Suite](docs/images/06_security_acl_6way.png) | Visual DACL/SACL explorer with raw SDDL syntax viewer, trustee assignment scanner, inheritance trace, and automated AdminSDHolder / `adminCount=1` orphan detection. |
 | **Kerberos PAC Token Bloat Calculator** | ![Kerberos PAC Token Bloat Calculator](docs/images/07_kerberos_token_bloat.png) | Evaluates user token size against the RFC formula `1200 + 40d + 8s` to diagnose HTTP 400 Bad Request logon failures and recommend registry `MaxTokenSize` thresholds. |
-| **48 Enterprise Security Audit Reports** | ![48 Enterprise Security Audit Reports](docs/images/09_audit_reports_48.png) | Automated forensic audits categorized into User Accounts, Passwords, Security Groups, Computer Hygiene, AdminSDHolder, and Entra Connect & Cloud Sync Readiness, with instant export to styled HTML executive reports. |
+| **53 Enterprise Security Audit Reports** | ![53 Enterprise Security Audit Reports](docs/images/09_audit_reports_48.png) | Automated forensic audits across 6 categories (User Accounts, Passwords, Security Groups, Computer Hygiene, AdminSDHolder, and Entra Connect & Cloud Sync Readiness), with instant export to styled HTML executive reports. |
 | **Kerberos Duplicate SPN Conflict Scanner** | *(Specialized Kerberos Suite)* | NetTools parity tool detecting colliding Service Principal Names across user and computer accounts that cause `KRB_AP_ERR_MODIFIED` authentication failures, with automated `setspn -D` remediation generation. |
 
 ---
@@ -89,7 +88,7 @@ Comprehensive network and replication diagnostics matching NetTools capabilities
 | **Group Member Diff Engine (3-Way Venn)** | *(Diagnostics Suite)* | Side-by-side comparative analysis of two Active Directory groups with 3-way Venn classification (`In Both Groups`, `Only in Group A`, `Only in Group B`), recursive principal expansion, and CSV export. |
 | **HTTP/TLS, TraceRoute/WhoIs & LDAP Perf** | *(Network Diagnostics)* | Inspects HTTP status/response headers and TLS certificates (`Test-HttpUrlHeaders`), traces multi-hop routes with RFC1918/Geo/WhoIs (`Get-NetworkTraceAndWhoIs`), and benchmarks RootDSE LDAP bind latency (`Min/Avg/P95/Max` & `q/s`). |
 | **Mail/Proxy Conflicts & Top Quota Usage** | *(Diagnostics Toolbox)* | Scans the directory for conflicting `mail`/`proxyAddresses` SMTP collisions (`Find-ADMailProxyConflicts`) and identifies top Active Directory tombstones/object quota consumers (`Get-ADTopQuotaUsage`). |
-| **Connection Profiles & Server Monitor** | ![Connection Profiles & Server Monitor](docs/images/19_connection_profiles_manager.png) | Multi-forest profile manager supporting LDAPS SSL (port 636) and Global Catalog (port 3268), live TCP socket latency testing, RootDSE inspection, and DNS SRV auto-discovery. |
+| **Connection Profiles & Server Monitor** | ![Connection Profiles & Server Monitor](docs/images/19_connection_profiles_manager.png) | Session-only profile manager (keeps `"Profiles": []` clean in `config.json` on disk) supporting LDAPS SSL (`636`), Global Catalog (`3268`), **⚡ Save & Connect** (`BtnSaveProfile`) vs **Save Only** (`BtnSaveOnly`), custom credential binding (`PSCredential`), live TCP socket latency testing, RootDSE discovery, DNS SRV auto-discovery, and immediate live refresh of `TreeOUs`, `GridUsers`, `GridGroups`, `TxtSearchBaseDn`, header/status badges, and Dashboard KPIs via ADSI/LDAP fallback. |
 
 ---
 
@@ -111,7 +110,7 @@ Active Directory Management Studio features a native Windows menu bar organized 
 | **Diagnostics** | Circular Group Loop Detector, NetTools 7-Tier UNC Verifier, HTTP/TLS, TraceRoute/WhoIs, LDAP Perf Benchmark, Mail/Proxy Conflicts & Quota Usage, Resolver Scratchpad, Lockout Investigator | `Ctrl+R`, `Ctrl+L` | Network and infrastructure troubleshooting, loop breaking, quota/mail audits, and entity resolution. |
 | **Tools** | Active Directory Schema Browser, Bulk CSV Provisioning Wizard, Live Wire Protocol Request Log, LDIF Studio & Safety Simulator, Application Settings | `Ctrl+Shift+S`, `Ctrl+Shift+L`, `Ctrl+,` | System administration tools, schema inspection, and configuration. |
 | **Window** | New Workspace Tab, Detach Current Workspace (Floating Window), Re-dock All Floating Windows, Close Active Tab, Cycle Forward/Backward | `Ctrl+Shift+T`, `Ctrl+Shift+D`, `Ctrl+Shift+W`, `Ctrl+Tab` | Multi-monitor management, floating windows, and in-process tabbed navigation. |
-| **Help** | Keyboard Shortcuts Reference Guide, Open SysAdmin Handbook, Open Visual Walkthrough, Open GitHub Wiki, Online Documentation, About Studio | `F1` | Integrated documentation, keyboard shortcut cheat-sheet, and version info. |
+| **Help** | Keyboard Shortcuts Reference Guide, Open SysAdmin Handbook, Open Visual Walkthrough, Online AD DS Documentation, About Studio | `F1` | Integrated documentation, keyboard shortcut cheat-sheet, and version info. |
 
 ### Global Keyboard Accelerators
 
@@ -154,7 +153,7 @@ cd ad-management-studio
 The included automation CLI enables unattended administration, scheduled security audits, batch LDIF execution, and LDAP-SQL exports in CI/CD pipelines:
 
 ```powershell
-# Run all 48 security hygiene audits and export an executive HTML report
+# Run all 53 security hygiene audits and export an executive HTML report
 .\tools\ad-studio-cli.ps1 -Audit -Category All -OutReport "reports/audit-report.html"
 
 # Execute an LDAP-SQL query and export results to CSV
@@ -169,24 +168,24 @@ The included automation CLI enables unattended administration, scheduled securit
 
 ---
 
-## 📦 Release History & Version Milestones
+## 📦 Version History & Milestones
 
-Active Directory Management Studio adheres to [Semantic Versioning](https://semver.org/). Comprehensive release notes and full commit mappings are maintained in [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/).
+Active Directory Management Studio adheres to [Semantic Versioning](https://semver.org/). Comprehensive version notes and full commit mappings are maintained in [`CHANGELOG.md`](CHANGELOG.md).
 
-| Version | Release Date | Status | Key Highlights | Notes & Artifacts |
+| Version | Date | Status | Key Highlights | Notes |
 | :--- | :---: | :---: | :--- | :---: |
-| [**v3.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.4.0) | 2026-11-16 | **Latest** | RFC 2696 LDAP paging (>1k objects), RFC 3268 incremental range retrieval, streamed exports, multi-instance HTML dossier tabs, non-blocking `RunspacePool` async engine with status cancel, unified `ThemeService` (`Themes/*.xaml` + `InputPromptDialog.xaml`), `WorkspaceService` fragment caching (`25/25` workspaces), `SuiteRailTabControl` navigation, HTTP/TLS, TraceRoute/WhoIs, LDAP Perf Benchmark, and Mail/Proxy/Quota diagnostics. | [Release Notes](docs/releases/v3.4.0.md) |
-| [**v3.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.3.0) | 2026-10-23 | Stable | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Release Notes](docs/releases/v3.3.0.md) |
-| [**v3.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.2.0) | 2026-10-20 | Stable | Native Windows horizontal menu bar (11 menus), DNS SRV DC auto-detect with ping latency, Quick Tools dropdown, 19 gallery screenshots. | [Release Notes](docs/releases/v3.2.0.md) |
-| [**v3.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.1.0) | 2026-10-15 | Stable | Deep stability hardening across 24 panels, PSScriptAnalyzer compliance, ISO 8601 logging, multi-dossier tab preservation. | [Release Notes](docs/releases/v3.1.0.md) |
-| [**v3.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v3.0.0) | 2026-10-13 | Stable | In-process multi-instance detached floating windows with zero-latency dock-back, headless automation CLI (`ad-studio-cli.ps1`). | [Release Notes](docs/releases/v3.0.0.md) |
-| [**v2.4.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.4.0) | 2026-10-08 | Stable | High-contrast Light Theme, in-app HTML technical identity dossier, 16-module NetTools diagnostics suite, tab drag-and-drop. | [Release Notes](docs/releases/v2.4.0.md) |
-| [**v2.3.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.3.0) | 2026-10-07 | Stable | Softerra & Apache Studio parity, SCIM 2.0 cloud export, AD Recycle Bin, 48 security hygiene audits, LDIF Document Outline. | [Release Notes](docs/releases/v2.3.0.md) |
-| [**v2.2.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.2.0) | 2026-10-06 | Stable | Dynamic column chooser, group membership manager dialog, responsive toolbars with WrapPanels. | [Release Notes](docs/releases/v2.2.0.md) |
-| [**v2.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.1.0) | 2026-10-05 | Stable | Real-time attribute search, live schema population, dynamic LDAP-SQL DataGrid columns. | [Release Notes](docs/releases/v2.1.0.md) |
-| [**v2.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v2.0.0) | 2026-10-02 | Stable | Professional SysAdmin edition overhaul, Softerra LDAP engines, SysAdmin Handbook. | [Release Notes](docs/releases/v2.0.0.md) |
-| [**v1.0.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v1.0.0) | 2026-09-23 | Stable | Foundation release refactoring legacy project into PowerShell & WPF/XAML architecture. | [Release Notes](docs/releases/v1.0.0.md) |
-| [**v0.1.0**](https://github.com/catmuf/ad-management-studio/releases/tag/v0.1.0) | 2024-08-27 | Pre-release | Initial repository genesis and baseline user management scripts. | [Release Notes](docs/releases/v0.1.0.md) |
+| [**v3.4.0**](CHANGELOG.md#v340---2026-11-17) | 2026-11-17 | **Latest** | RFC 2696 LDAP paging (>1k objects), RFC 3268 incremental range retrieval, streamed exports, multi-instance HTML dossier tabs, non-blocking `RunspacePool` async engine with cancellation, unified `ThemeService` (Light Mode default with saved preference preservation), `WorkspaceService` fragment caching (`25/25` workspaces), live remote DC connection profile binding with pure ADSI/LDAP fallback, session-only connection profiles (`"Profiles": []` in `config.json`), `-Force` module reloading with global `Import-ServiceLazy`, `SuiteRailTabControl` navigation, HTTP/TLS, TraceRoute/WhoIs, LDAP Perf Benchmark, and Mail/Proxy/Quota diagnostics. | [Changelog](CHANGELOG.md#v340---2026-11-17) |
+| [**v3.3.0**](CHANGELOG.md#v330---2026-10-23) | 2026-10-23 | Stable | Sub-second streaming startup, simple search mode with collapsible filters, expandable DC connection table, `Ctrl+B` sidebar toggle, JIT modular architecture, referral hang prevention, DWM resilience. | [Changelog](CHANGELOG.md#v330---2026-10-23) |
+| [**v3.2.0**](CHANGELOG.md#v320---2026-10-20) | 2026-10-20 | Stable | Native Windows horizontal menu bar (11 menus), DNS SRV DC auto-detect with ping latency, Quick Tools dropdown, 19 gallery screenshots. | [Changelog](CHANGELOG.md#v320---2026-10-20) |
+| [**v3.1.0**](CHANGELOG.md#v310---2026-10-15) | 2026-10-15 | Stable | Deep stability hardening across 24 panels, PSScriptAnalyzer compliance, ISO 8601 logging, multi-dossier tab preservation. | [Changelog](CHANGELOG.md#v310---2026-10-15) |
+| [**v3.0.0**](CHANGELOG.md#v300---2026-10-13) | 2026-10-13 | Stable | In-process multi-instance detached floating windows with zero-latency dock-back, headless automation CLI (`ad-studio-cli.ps1`). | [Changelog](CHANGELOG.md#v300---2026-10-13) |
+| [**v2.4.0**](CHANGELOG.md#v240---2026-10-08) | 2026-10-08 | Stable | High-contrast Light Theme, in-app HTML technical identity dossier, 16-module NetTools diagnostics suite, tab drag-and-drop. | [Changelog](CHANGELOG.md#v240---2026-10-08) |
+| [**v2.3.0**](CHANGELOG.md#v230---2026-10-07) | 2026-10-07 | Stable | Softerra & Apache Studio parity, SCIM 2.0 cloud export, AD Recycle Bin, 53 security hygiene audits, LDIF Document Outline. | [Changelog](CHANGELOG.md#v230---2026-10-07) |
+| [**v2.2.0**](CHANGELOG.md#v220---2026-10-06) | 2026-10-06 | Stable | Dynamic column chooser, group membership manager dialog, responsive toolbars with WrapPanels. | [Changelog](CHANGELOG.md#v220---2026-10-06) |
+| [**v2.1.0**](CHANGELOG.md#v210---2026-10-05) | 2026-10-05 | Stable | Real-time attribute search, live schema population, dynamic LDAP-SQL DataGrid columns. | [Changelog](CHANGELOG.md#v210---2026-10-05) |
+| [**v2.0.0**](CHANGELOG.md#v200---2026-10-02) | 2026-10-02 | Stable | Professional SysAdmin edition overhaul, Softerra LDAP engines, SysAdmin Handbook. | [Changelog](CHANGELOG.md#v200---2026-10-02) |
+| [**v1.0.0**](CHANGELOG.md#v100---2026-09-23) | 2026-09-23 | Stable | Foundation release refactoring legacy project into PowerShell & WPF/XAML architecture. | [Changelog](CHANGELOG.md#v100---2026-09-23) |
+| [**v0.1.0**](CHANGELOG.md#v010---2024-08-27) | 2024-08-27 | Initial | Initial repository genesis and baseline user management scripts. | [Changelog](CHANGELOG.md#v010---2024-08-27) |
 
 ---
 
@@ -195,12 +194,13 @@ Active Directory Management Studio adheres to [Semantic Versioning](https://semv
 ```
 ad-management-studio/
 ├── main.ps1                           # Application entrypoint & STA launcher
-├── config.json                        # Configuration persistence & connection profiles
+├── Export-ADToolCli.ps1               # Headless batch export utility script
+├── config.json                        # Settings & preferences (session-only Profiles: [])
+├── CHANGELOG.md                       # Complete version-by-version commit changelog
 ├── HANDBOOK.md                        # SysAdmin Handbook & Technical Reference
-├── WALKTHROUGH.md                     # Visual Operator Walkthrough (10 Scenarios)
+├── WALKTHROUGH.md                     # Visual Operator Walkthrough (14 Scenarios)
 ├── README.md                          # Repository showcase & documentation
 ├── docs/
-│   ├── releases/                      # Versioned release notes (v0.1.0 through v3.4.0)
 │   └── images/                        # 19 High-resolution Light theme application screenshots
 │       ├── 01_dashboard_overview.png
 │       ├── 02_users_and_inspector.png
@@ -225,16 +225,15 @@ ad-management-studio/
 │   ├── ad-studio-cli.ps1              # Unattended automation CLI engine
 │   ├── benchmark-launch-speed.ps1     # Sub-second launch speed & XAML streaming benchmark
 │   ├── Capture-AppScreenshots.ps1     # Automated WPF Light theme screen capture engine
-│   ├── Generate-Changelog.ps1         # Full git history changelog & release note generator
-│   ├── Publish-AllGitHubReleases.ps1  # Automated GitHub REST API release publisher
+│   ├── Generate-Changelog.ps1         # Full git history changelog generator
 │   ├── test-core-operations.ps1       # Comprehensive GUI test harness (Panels 1-12)
 │   ├── test-advanced-diagnostics.ps1  # Advanced diagnostics test harness (Panels 13-24)
 │   ├── test-html-dossier-buttons-and-tabs.ps1 # Multi-user HTML dossier tabs & button/menu test harness
 │   ├── test-directory-search-layout.ps1       # Directory search layout & attribute combobox test harness
 │   └── test-all-workspaces.ps1        # Full regression validation harness
 ├── Themes/
-│   ├── DarkTheme.xaml                 # Default dark semantic resource tokens & contrast palette
-│   └── LightTheme.xaml                # High-contrast daylight semantic resource tokens
+│   ├── LightTheme.xaml                # Factory default high-contrast daylight semantic resource tokens
+│   └── DarkTheme.xaml                 # Optional dark semantic resource tokens & contrast palette
 ├── Modules/
 │   ├── AsyncService.psm1              # Isolated RunspacePool async engine with cancellation tokens
 │   ├── ThemeService.psm1              # O(1) dictionary-cached Light/Dark theme & accent engine
@@ -253,7 +252,7 @@ ad-management-studio/
 │   ├── TemplateService.psm1           # Provisioning templates, macro expansions, collision handling
 │   ├── ValidationService.psm1         # UAC bitmask, LargeInteger, GUID, SID, filter validation
 │   ├── ExportService.psm1             # CSV, JSON, LDIF, and HTML Executive Report exporter
-│   ├── ConfigService.psm1             # Settings persistence, Profiles, and RootDSE discovery
+│   ├── ConfigService.psm1             # Settings persistence (session-only Profiles), and RootDSE discovery
 │   ├── GpoService.psm1                # GPO SYSVOL consistency and versioning checker
 │   └── LoggingService.psm1            # ISO 8601 millisecond logger (logs/YYYY-MM-DD.log)
 ├── Views/
@@ -264,7 +263,7 @@ ad-management-studio/
 │   ├── GpoExplorerDialog.xaml         # GPO consistency and policy explorer modal
 │   ├── AttributeEditDialog.xaml       # Multi-mode attribute editor
 │   ├── ColumnChooserDialog.xaml       # DataGrid dynamic column customizer modal
-│   ├── ConnectionDialog.xaml          # Connection profile modal with live TCP diagnostics
+│   ├── ConnectionDialog.xaml          # Session connection dialog with SSL, credentials & live TCP diagnostics
 │   ├── UserDialog.xaml                # User provisioning and modification modal
 │   ├── UserDetailDialog.xaml          # User inspection and group membership viewer
 │   ├── PasswordDialog.xaml            # Password reset and generator modal
@@ -272,7 +271,7 @@ ad-management-studio/
 │   ├── MemberDialog.xaml              # Group membership manager modal
 │   ├── OUDialog.xaml                  # Organizational Unit creation modal
 │   └── MoveDialog.xaml                # Object OU mover modal
-└── tests/                             # Automated unit & parity suites (296 unit assertions across 6 suites + 22 parity checks)
+└── tests/                             # Automated unit & parity suites (Test-ADConnectionAndFallback.ps1, unit assertions & parity checks)
 ```
 
 ---

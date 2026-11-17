@@ -3,9 +3,8 @@
     Generates full historical changelog from all git commits since project inception.
 .DESCRIPTION
     Extracts every commit from initial commit (cc155ca) to HEAD, maps each commit to
-    its specific Semantic Version release milestone (v0.1.0 through v3.4.0), and exports:
-    1. Root CHANGELOG.md (comprehensive version-by-version release history + commit matrix)
-    2. docs/releases/v*.md (individual GitHub Release markdown bodies for all 12 releases)
+    its specific Semantic Version milestone (v0.1.0 through v3.4.0), and exports:
+    1. Root CHANGELOG.md (comprehensive version-by-version history + commit matrix)
 .EXAMPLE
     pwsh -NoProfile -File tools/Generate-Changelog.ps1
 #>
@@ -50,11 +49,11 @@ Write-Host "[INFO] Loaded $($allCommits.Count) commits from git history." -Foreg
 $milestones = @(
     [PSCustomObject]@{
         Version     = "v3.4.0"
-        Title       = "RFC 2696 Paging, RFC 3268 Range Retrieval & Multi-Instance Dossier Tabs"
-        Date        = "2026-10-23"
+        Title       = "RFC 2696 Paging, RFC 3268 Range Retrieval, Multi-Instance Dossiers & Live DC Fallback"
+        Date        = "2026-11-17"
         StartCommit = "da403e8"
         TipCommit   = "HEAD"
-        Summary     = "Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits."
+        Summary     = "Implements RFC 2696 LDAP Simple Paged Results to bypass the 1,000-object MaxPageSize limit, RFC 3268 incremental range retrieval (member;range=0-1499) for large Active Directory groups, memory-safe streamed exports, multi-instance HTML identity dossier tabs with deduplication and in-tab address navigation, consolidated attribute search in Directory Search, non-blocking RunspacePool async execution, unified Light/Dark ThemeService (Light Mode default with saved preference preservation), WorkspaceService 25-panel fragment caching, live remote DC connection profile binding with pure ADSI/LDAP fallback and session-only profile privacy (no profiles persisted in config.json), -Force module reloading with global Import-ServiceLazy, and runtime fixes for COM maxPwdAge and DateTime parsing in security audits."
     },
     [PSCustomObject]@{
         Version     = "v3.3.0"
@@ -194,83 +193,9 @@ function Format-CommitItem($list) {
     return $sb.ToString().TrimEnd()
 }
 
-# 5. Build individual release files in docs/releases/
-$releaseDir = Join-Path $projectRoot "docs\releases"
-if (-not (Test-Path $releaseDir)) {
-    [void](New-Item -ItemType Directory -Path $releaseDir -Force)
-}
-
 $utf8Bom = [System.Text.UTF8Encoding]::new($true)
 
-foreach ($m in $milestones) {
-    $mCommits = $allCommits | Where-Object { $_.Version -eq $m.Version }
-    # Reverse so newest commit within release is first
-    $mCommitsReversed = @($mCommits)
-    [array]::Reverse($mCommitsReversed)
-
-    $feats = @($mCommitsReversed | Where-Object { $_.Subject -match '^(feat|Implement|Enable)' })
-    $fixes = @($mCommitsReversed | Where-Object { $_.Subject -match '^(fix|Fix)' })
-    $perfs = @($mCommitsReversed | Where-Object { $_.Subject -match '^perf' })
-    $docss = @($mCommitsReversed | Where-Object { $_.Subject -match '^docs' })
-    $qa    = @($mCommitsReversed | Where-Object { $_.Subject -match '^(refactor|style|test|chore|qa)' })
-    $other = @($mCommitsReversed | Where-Object { $_ -notin $feats -and $_ -notin $fixes -and $_ -notin $perfs -and $_ -notin $docss -and $_ -notin $qa })
-
-    $mBody = [System.Text.StringBuilder]::new()
-    $tipLink = "[" + [char]96 + $m.TipCommit + [char]96 + "]($RepoUrl/commit/$($m.TipCommit))"
-    $startLink = "[" + [char]96 + $m.StartCommit + [char]96 + "]($RepoUrl/commit/$($m.StartCommit))"
-
-    [void]$mBody.AppendLine("## Active Directory Management Studio $($m.Version) - $($m.Title)")
-    [void]$mBody.AppendLine("")
-    [void]$mBody.AppendLine("**Release Date:** $($m.Date) | **Total Commits:** $($mCommits.Count) | **Tip Commit:** $tipLink")
-    [void]$mBody.AppendLine("")
-    [void]$mBody.AppendLine("### ⚡ Overview & Highlights")
-    [void]$mBody.AppendLine($m.Summary)
-    [void]$mBody.AppendLine("")
-    [void]$mBody.AppendLine("---")
-    [void]$mBody.AppendLine("")
-    [void]$mBody.AppendLine("### 📋 Commits in this Release")
-
-    if ($feats.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### ✨ Features & Capabilities ($($feats.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $feats))
-    }
-    if ($fixes.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### 🐛 Bug Fixes & UX Hardening ($($fixes.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $fixes))
-    }
-    if ($perfs.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### ⚡ Performance Optimizations ($($perfs.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $perfs))
-    }
-    if ($docss.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### 📚 Documentation & Manuals ($($docss.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $docss))
-    }
-    if ($qa.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### 🛡️ Stability & Code Quality ($($qa.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $qa))
-    }
-    if ($other.Count -gt 0) {
-        [void]$mBody.AppendLine("")
-        [void]$mBody.AppendLine("#### 📦 Project Genesis & Maintenance ($($other.Count))")
-        [void]$mBody.AppendLine((Format-CommitItem $other))
-    }
-
-    [void]$mBody.AppendLine("")
-    [void]$mBody.AppendLine("---")
-    [void]$mBody.AppendLine("*Generated automatically by [tools/Generate-Changelog.ps1]($RepoUrl/blob/main/tools/Generate-Changelog.ps1).*")
-
-    $relFile = Join-Path $releaseDir "$($m.Version).md"
-    [System.IO.File]::WriteAllText($relFile, $mBody.ToString(), $utf8Bom)
-    Write-Host "[SUCCESS] Wrote release notes for $($m.Version) to $relFile" -ForegroundColor Green
-}
-
-# 6. Build Comprehensive CHANGELOG.md
+# 5. Build Comprehensive CHANGELOG.md
 $sbChange = [System.Text.StringBuilder]::new()
 [void]$sbChange.AppendLine("# Changelog")
 [void]$sbChange.AppendLine("All notable changes to **Active Directory Management Studio** are documented in this file.")
@@ -320,9 +245,8 @@ foreach ($m in $milestones) {
     [void]$sbChange.AppendLine("")
     $startLink = "[" + [char]96 + $m.StartCommit + [char]96 + "]($RepoUrl/commit/$($m.StartCommit))"
     $tipLink   = "[" + [char]96 + $m.TipCommit + [char]96 + "]($RepoUrl/commit/$($m.TipCommit))"
-    [void]$sbChange.AppendLine("- **Release Commit Range**: $startLink .. $tipLink")
-    [void]$sbChange.AppendLine("- **Commits in Release**: $($mCommits.Count)")
-    [void]$sbChange.AppendLine("- **Dedicated Release Notes**: [docs/releases/$($m.Version).md](docs/releases/$($m.Version).md)")
+    [void]$sbChange.AppendLine("- **Milestone Commit Range**: $startLink .. $tipLink")
+    [void]$sbChange.AppendLine("- **Commits in Milestone**: $($mCommits.Count)")
 
     if ($feats.Count -gt 0) {
         [void]$sbChange.AppendLine("")

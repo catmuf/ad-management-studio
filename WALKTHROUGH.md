@@ -17,11 +17,12 @@
 - [Scenario 6: Access Control & Permissions: 6-Way Effective Rights](#scenario-6-access-control--permissions-6-way-effective-rights)
 - [Scenario 7: Kerberos Authentication & PAC Bloat Troubleshooting](#scenario-7-kerberos-authentication--pac-bloat-troubleshooting)
 - [Scenario 8: Forensic Graph Analysis: Circular Group Loop Detection](#scenario-8-forensic-graph-analysis-circular-group-loop-detection)
-- [Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports](#scenario-9-enterprise-security-posture--48-hygiene-audit-reports)
+- [Scenario 9: Enterprise Security Posture & 53 Hygiene Audit Reports](#scenario-9-enterprise-security-posture--53-hygiene-audit-reports)
 - [Scenario 10: Infrastructure Diagnostics: NetTools 7-Tier UNC Share Checker](#scenario-10-infrastructure-diagnostics-nettools-7-tier-unc-share-checker)
 - [Scenario 11: Enterprise Directory Search, RFC 2696 Paging & Multi-Identity Dossier Tabs](#scenario-11-enterprise-directory-search-rfc-2696-paging--multi-identity-dossier-tabs)
 - [Scenario 12: Competitor Parity Forensics: Omnibar 2.0, Client IP LPM Resolver, Group Member Diff & Duplicate SPNs](#scenario-12-competitor-parity-forensics-omnibar-20-client-ip-lpm-resolver-group-member-diff--duplicate-spns)
 - [Scenario 13: Non-Blocking Async Sweeps, Suite-Rail Navigation & Extended NetTools Utilities](#scenario-13-non-blocking-async-sweeps-suite-rail-navigation--extended-nettools-utilities)
+- [Scenario 14: Live Remote DC Connection Profile Binding, ADSI Fallback & Session-Only Profile Privacy](#scenario-14-live-remote-dc-connection-profile-binding-adsi-fallback--session-only-profile-privacy)
 - [Conclusion & Best Practices](#conclusion--best-practices)
 
 ---
@@ -48,7 +49,7 @@ Assess forest-wide Active Directory health, monitor key identity metrics, verify
    ```powershell
    pwsh -NoProfile -STA -File .\main.ps1
    ```
-   The application initializes with sub-second streaming launch and loads directly into the default **Light Theme** presentation.
+   The application reloads core service modules cleanly with `-Force`, exports `global:Import-ServiceLazy` for detached windows and secondary tab closures, silently skips missing RSAT probe warnings on non-domain clients via ADSI/LDAP fallback, and opens in the factory default **Light Theme** (`"Theme": "Light"` in `config.json`) while honoring any previously saved user theme preference.
 2. **Inspect the Active Directory Overview & Health View**:
    - The top KPI ribbon surfaces key directory metrics at a glance:
      * **Total Users**: Forest user account count (`1,248`).
@@ -277,12 +278,12 @@ Scan Active Directory for circular group nesting loops (infinite recursive loops
 
 ---
 
-## Scenario 9: Enterprise Security Posture & 48 Hygiene Audit Reports
+## Scenario 9: Enterprise Security Posture & 53 Hygiene Audit Reports
 
 ### Objective
-Execute automated compliance audits, identify stale/unprotected accounts, and export an executive HTML security report for audit compliance.
+Execute automated compliance audits across 6 security categories (including **Entra Connect & Cloud Sync Readiness**), identify stale/unprotected accounts, and export an executive HTML security report for audit compliance.
 
-![Enterprise Security and 48 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
+![Enterprise Security and 53 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
 
 ### Step-by-Step Walkthrough
 1. **Navigate to Audit Reports**:
@@ -429,6 +430,32 @@ Execute long-running AD diagnostic sweeps asynchronously with cancellation, navi
 4. **Compact Overflow Toolbar & Unified Theme Modal Prompts**:
    - In **Users**, access secondary actions (Clone, Add to Basket, Column Chooser) cleanly via the **More Actions (`▾`)** toolbar overflow popup without crowding the top ribbon.
    - Any prompt action (such as bulk basket attribute entry, column addition, or error code lookup) opens the theme-synchronized `InputPromptDialog.xaml` matching Light or Dark mode.
+
+---
+
+## Scenario 14: Live Remote DC Connection Profile Binding, ADSI Fallback & Session-Only Profile Privacy
+
+### Objective
+Bind live to a remote Active Directory Domain Controller (including over LDAPS Port `636` with custom `PSCredential` authentication from a non-RSAT workstation), verify immediate live synchronization across all directory trees and KPI cards, and confirm zero connection profiles are persisted to `config.json`.
+
+![Connection Profiles & Server Monitor](docs/images/19_connection_profiles_manager.png)
+
+### Step-by-Step Walkthrough
+1. **Open Connection Manager**:
+   - Click **Connections** on the left sidebar or select **File ➔ Connect Profile** (`Ctrl+P`).
+   - Click **➕ New Profile** to open `ConnectionDialog.xaml`.
+2. **Configure Remote Domain Controller & Credentials**:
+   - Enter a session profile name, target DC hostname or IP address, port (`389` LDAP or `636` LDAPS SSL), and optional Search Base DN.
+   - Uncheck `Use Current Windows Credentials` (`ChkCurrentCredentials`) to supply explicit `DOMAIN\username` and password credentials, or check `Read-Only Safe Mode` (`ChkReadOnlyProfile`) to prevent accidental writes.
+   - Click **📡 Test Connection** (`BtnTestConnection`) to verify fast TCP reachability (`2,500 ms` preflight) and RootDSE naming context discovery.
+3. **Bind Live via `⚡ Save & Connect`**:
+   - Click **⚡ Save & Connect** (`BtnSaveProfile`)—or **Save Only** (`BtnSaveOnly`) to stage the profile in memory first.
+   - `Connect-ADProfileContext` updates the module-scoped context via `Set-ADConnectionContext` and binds through native .NET ADSI (`New-ADDirectoryEntry`) even when RSAT `ActiveDirectory` is not installed.
+4. **Verify Immediate Multi-Panel Refresh**:
+   - **Header & Status Bar**: Displays `Connected: <domain>`, active DC host badge, `ldaps://<server>:636` URI, and active bind identity.
+   - **Navigation & Directory Grids**: `TreeOUs`, `CmbUserOUFilter`, `TxtSearchBaseDn`, `GridUsers`, `GridGroups`, and **Dashboard** KPI cards refresh automatically without restarting the studio.
+5. **Confirm Session-Only Profile Privacy (`config.json`)**:
+   - Connection profiles exist solely in memory for your active session. `ConfigService.psm1` enforces `"Profiles": []` inside `config.json` on disk so target DC hostnames and Search Base DNs are never stored in the repository JSON file.
 
 ---
 

@@ -1235,7 +1235,7 @@
             <MenuItem Header="_Help">
                 <MenuItem Name="MenuHelpHandbook" Header="📖 SysAdmin Handbook (F1)" InputGestureText="F1"/>
                 <MenuItem Name="MenuHelpWalkthrough" Header="🚀 Visual Operator Walkthrough"/>
-                <MenuItem Name="MenuHelpWiki" Header="🌐 Online Documentation &amp; Wiki"/>
+                <MenuItem Name="MenuHelpWiki" Header="🌐 Online AD DS Documentation"/>
                 <Separator/>
                 <MenuItem Name="MenuHelpRequestLog" Header="📡 Protocol Request Log &amp; Telemetry"/>
                 <MenuItem Name="MenuHelpOpenLogs" Header="📁 Open Application Logs Folder..." InputGestureText="Ctrl+Shift+L"/>

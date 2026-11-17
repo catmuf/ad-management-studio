@@ -16,7 +16,7 @@
 - [2. Installation, Prerequisites & Launch Procedure](#2-installation-prerequisites--launch-procedure)
   - [Prerequisites](#prerequisites)
   - [Launching the Application](#launching-the-application)
-- [3. Workspace Catalog (24 Enterprise Workspaces)](#3-workspace-catalog-24-enterprise-workspaces)
+- [3. Workspace Catalog (25 Enterprise Workspaces)](#3-workspace-catalog-25-enterprise-workspaces)
 - [4. User Lifecycle & Attribute Management (Users Workspace)](#4-user-lifecycle--attribute-management-users-workspace)
   - [Key Operational Capabilities](#key-operational-capabilities)
   - [4.1. In-App HTML Technical Dossier (Multi-Instance Tabs & Deduplication)](#41-in-app-html-technical-dossier-multi-instance-tabs--deduplication)
@@ -34,9 +34,10 @@
   - [7.1. 6-Way Effective Rights & ACL Security](#71-6-way-effective-rights--acl-security)
   - [7.2. Kerberos PAC Bloat & MaxTokenSize Calculator](#72-kerberos-pac-bloat--maxtokensize-calculator)
   - [7.3. Circular Group Loop Diagnostics](#73-circular-group-loop-diagnostics)
-  - [7.4. 48 Enterprise Security Audit Reports](#74-48-enterprise-security-audit-reports)
+  - [7.4. 53 Enterprise Security Audit Reports](#74-53-enterprise-security-audit-reports)
   - [7.5. NetTools 7-Tier UNC Share & Port Matrix Diagnostics](#75-nettools-7-tier-unc-share--port-matrix-diagnostics)
   - [7.6. Client IP Site Resolver (LPM), Group Member Diff & Duplicate SPN Scanner](#76-client-ip-site-resolver-lpm-group-member-diff--duplicate-spn-scanner)
+  - [7.7. Live Connection Profile Binding & Session-Only Privacy](#77-live-connection-profile-binding--session-only-privacy)
 - [8. Headless Automation CLI (`tools/ad-studio-cli.ps1`)](#8-headless-automation-cli-toolsad-studio-clips1)
   - [8.1. Primary Automation Modes (-Export, -ImportLDIF, -Audit, -QuerySQL)](#81-primary-automation-modes--export--importldif--audit--querysql)
   - [8.2. Identity Diagnostic Subcommands (-Command)](#82-identity-diagnostic-subcommands--command)
@@ -72,10 +73,12 @@ The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config
 ### 1.2. Key Architectural Pillars
 
 1. **Unified Dual-Mode Presentation Engine (`Themes/DarkTheme.xaml`, `Themes/LightTheme.xaml`, `ThemeService.psm1`)**:
-   - High-contrast `DynamicResource` palettes engineered for both well-lit daytime jump boxes and low-eyestrain dark NOC consoles, with O(1) dictionary caching, synchronized accent overrides, and the native themed `Views/InputPromptDialog.xaml` modal (eliminating legacy OS `Interaction.InputBox` calls).
-2. **Dual-Engine Directory Access**:
-   - Leverages the RSAT `ActiveDirectory` PowerShell module when present on domain controllers and administrative workstations.
-   - Gracefully falls back to pure .NET `System.DirectoryServices.Protocols` (S.DS.P) and ADSI interfaces when running on unmanaged client workstations without RSAT, ensuring zero-footprint portability.
+   - Launches in **Light Mode** by default (`"Theme": "Light"` in `config.json`) while preserving any saved theme preference (`Dark` or `Light`) on startup. High-contrast `DynamicResource` palettes are engineered for both well-lit daytime jump boxes and low-eyestrain dark NOC consoles, with O(1) dictionary caching, synchronized accent overrides, and the native themed `Views/InputPromptDialog.xaml` modal (eliminating legacy OS `Interaction.InputBox` calls).
+2. **Dual-Engine Directory Access, Live Profile Binding & Session-Only Privacy**:
+   - Leverages the RSAT `ActiveDirectory` PowerShell module when present on domain controllers and administrative workstations, while silently suppressing RSAT availability probe noise on non-RSAT clients.
+   - Gracefully falls back to pure .NET `System.DirectoryServices` (`New-ADDirectoryEntry`), ADSI, and `System.DirectoryServices.Protocols` (S.DS.P) when running on unmanaged or non-domain workstations without RSAT.
+   - **Live Remote DC Connection Context (`Connect-ADProfileContext`, `Set-ADConnectionContext`, `Get-ADConnectionContext`, `Resolve-ADEffectiveConnection`)**: Switch live to any remote Domain Controller over LDAP (`389`), LDAPS (`636`), or Global Catalog (`3268`) with optional `PSCredential` authentication and immediate refresh of `TreeOUs`, `GridUsers`, `GridGroups`, `TxtSearchBaseDn`, header/status badges, and Dashboard KPIs without restarting.
+   - **Zero-Profile Disk Privacy (`ConfigService.psm1`)**: Connection profiles remain strictly in-memory for the active session; `Get-AppSettings` and `Save-AppSettings` guarantee `"Profiles": []` remains empty on disk in `config.json`.
 3. **25-Workspace Fragment Engine & STA Window Detachment (`WorkspaceService.psm1`)**:
    - Dedicated workspace module instantiates secondary tabs and floating multi-monitor windows from pre-parsed cached XAML panel fragments across all **25 workspace panels** (`25/25` full multi-instance parity) with zero-latency dock-back and decoupled `DataGrid` / `VirtualizingStackPanel` scrolling.
 4. **RFC & Industry Standard Compliance**:
@@ -86,8 +89,8 @@ The studio launches by default in **Light Theme** (`"Theme": "Light"` in `config
    - **RFC 2696**: LDAP Simple Paged Results Control (bypassing the 1,000-object `MaxPageSize` limit).
    - **RFC 3268**: Incremental Range Retrieval (`member;range=0-1499`) for large group enumeration.
    - **RFC 7643 / RFC 7644**: SCIM 2.0 Core/Enterprise Schemas & Protocol.
-5. **Sub-Second Streaming, Async RunspacePool & JIT Modular Architecture**:
-   - Direct XAML streaming and lazy module loading (`100%` `$script:ServiceAutoLoadMap` coverage) achieve sub-second cold start (`~507 ms` avg).
+5. **Sub-Second Streaming, Async RunspacePool & Force-Reloaded JIT Modular Architecture**:
+   - Direct XAML streaming, `-Force` module reloading at launch, global `Import-ServiceLazy` export for secondary tab/detached closures, and lazy module loading (`100%` `$script:ServiceAutoLoadMap` coverage) achieve sub-second cold start (`~507 ms` avg).
    - Heavy directory sweeps (`AuditReportService`, Duplicate SPNs, Latency Probes, Multi-DC LastLogon, Group Cycles, 7-Tier UNC) execute asynchronously inside `AsyncService.psm1`'s `RunspacePool` with live status progress and one-click cancellation (`BtnCancelStatusTask`).
 
 ### 1.3. Query Scalability: RFC 2696 Simple Paged Results & RFC 3268 Range Retrieval
@@ -159,9 +162,9 @@ On startup, the studio performs automated environment discovery:
 
 ---
 
-## 3. Workspace Catalog (24 Enterprise Workspaces)
+## 3. Workspace Catalog (25 Enterprise Workspaces)
 
-The sidebar organizes 24 specialized workspaces into 4 functional domains:
+The sidebar and `WorkspaceService.psm1` fragment cache organize **25 specialized workspaces** across 4 functional domains:
 
 | Category | Workspace | Purpose & Operational Capability | Shortcut / Access |
 | :--- | :--- | :--- | :--- |
@@ -172,23 +175,24 @@ The sidebar organizes 24 specialized workspaces into 4 functional domains:
 | | **Computers** | Workstation and server inventory, operating systems, and stale computer identification. | `Ctrl+5` / Sidebar |
 | | **AD Recycle Bin** | Deleted object recovery, tombstone reanimation, and lifetime management. | Sidebar |
 | **Softerra & Apache Studio** | **Directory Search** | Visual LDAP Filter Builder (AND/OR/NOT blocks), Simple Search mode with collapsible advanced filters, consolidated attribute filter, RFC 2696 paged queries, and presets. | `Ctrl+F` / Sidebar |
-| | **LDAP-SQL Console** | ANSI-SQL query interface over Active Directory (`SELECT ... FROM SUBTREE WHERE ...`). | Sidebar |
+| | **LDAP-SQL Console** | ANSI-SQL query interface over Active Directory (`SELECT ... FROM SUBTREE WHERE ...`). | `Ctrl+Q` / Sidebar |
 | | **Raw Attribute Editor**| Multi-valued array manipulation, operational attributes, bitmask decoders. | Sidebar |
 | | **HTML Dossier View** | Multi-instance identity dossiers, dedicated tabs with deduplication, in-tab address navigation, 4 templates, print-ready reports. | Context Menu / Omnibar / Sidebar |
 | | **Object Compare** | Side-by-side object attribute diffing, delta tracking, and sync scripting. | Sidebar |
 | | **LDIF Studio** | RFC 2849 batch script generation, validation, and dry-run execution. | Sidebar |
-| | **Security Audits** | 48 pre-packaged enterprise hygiene audit reports with HTML export. | Sidebar |
+| | **Security Audits** | 53 pre-packaged enterprise hygiene audit reports across 6 categories with HTML export. | Sidebar |
 | | **Schema Browser** | Object class inheritance, attribute syntax definitions, and schema export. | Sidebar |
 | | **Bulk Operations** | Mass batch updates, CSV import, attribute overriding across multiple objects. | Sidebar |
 | | **Directory Basket** | Cross-OU object staging cart for batch moving, updating, and export. | `Ctrl+Shift+B` / Sidebar |
 | **Identity & Standards** | **SCIM 2.0 Studio** | RFC 7644 SCIM query translation to native LDAP filters, RFC 7643 schema mapping. | Sidebar |
 | | **Object Studio** | Specialized editors: Hex/Binary dump, X.509 certs, photo cropping, date conversion. | Context Menu / Toolbar |
 | **Diagnostics & NetTools** | **Security & ACL Suite** | 6-Way Effective Rights matrix, DACL/SACL browser, 1-Click AdminSDHolder fix. | Sidebar |
-| | **Kerberos Suite** | PAC Bloat & MaxTokenSize estimator (`1200 + 40d + 8s`), ticket cache inspector (`klist`). | Sidebar |
-| | **Replication Suite** | Multi-DC replication metadata, USN vector sync, metadata forensics. | Sidebar |
-| | **Diagnostics Toolbox**| Circular group loop DFS scanner, side-by-side group diff, lockout tracer. | Sidebar |
-| | **Network Diagnostics**| 7-Tier UNC share diagnostic checker, 8-port DC latency matrix. | Sidebar |
-| | **Connections** | Multi-profile directory manager, custom SSL ports, rootDSE discovery, expandable DC table with compact toggle, sortable ping latency, and live connection search. | Top Toolbar / Sidebar |
+| | **Kerberos Suite** | PAC Bloat & MaxTokenSize estimator (`1200 + 40d + 8s`), Duplicate SPN Scanner, ticket cache inspector (`klist`). | Sidebar |
+| | **Replication Suite** | Multi-DC replication metadata, USN vector sync, Client IP LPM resolver, metadata forensics. | Sidebar |
+| | **Diagnostics Toolbox**| Circular group loop DFS scanner, 3-Way Group Member Diff, lockout tracer, Mail/Quota audits. | Sidebar |
+| | **Network Diagnostics**| 7-Tier UNC share diagnostic checker, 8-port DC latency matrix, HTTP/TLS, TraceRoute, LDAP Perf. | Sidebar |
+| | **Protocol Request Log & Server Monitor** | Live LDAPv3 wire protocol audit stream with Inverse LDIF Rollback generation and DC telemetry monitoring. | Sidebar / Help Menu |
+| | **Connections & Settings** | Session-only connection manager (`"Profiles": []` in `config.json`), custom SSL ports, RootDSE discovery, and application theme/startup configuration. | Top Toolbar / Sidebar / `Ctrl+,` |
 
 ---
 
@@ -361,16 +365,18 @@ Circular group nesting (e.g. `Group A` $\in$ `Group B` $\in$ `Group C` $\in$ `Gr
 - **1-Click Disconnect Action**: Breaks the recursive link safely with a single click (`Disconnect-CircularGroupReference`).
 - **Light Theme Presentation**: Detected loops are highlighted with a high-visibility amber `LOOP DETECTED` badge and breadcrumb path arrows.
 
-### 7.4. 48 Enterprise Security Audit Reports
+### 7.4. 53 Enterprise Security Audit Reports
 Continuous security hygiene is vital to prevent privilege escalation and lateral movement.
 
-![Enterprise Security and 48 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
+![Enterprise Security and 53 Hygiene Audit Reports](docs/images/09_audit_reports_48.png)
 
-The **Security Audits** workspace categorizes 48 operational reports:
-- **Account Hygiene**: Inactive users (> 90 days), never logged on, disabled users in security groups.
-- **Privileged Access**: `adminCount=1` with broken inheritance, Schema Admins, Enterprise Admins.
-- **Kerberos & Delegation**: Unconstrained delegation servers (`TRUSTED_FOR_DELEGATION`), constrained delegation, AS-REP roastable accounts (`DONT_REQ_PREAUTH`).
-- **Password Hygiene**: Passwords never expire, reversible encryption enabled, weak password policies.
+The **Security Audits** workspace categorizes **53 operational reports** across **6 security categories**:
+- **Account Security & Hygiene**: Inactive users (> 90 days), never logged on, disabled users in security groups, orphaned accounts.
+- **Privileged Access**: `adminCount=1` with broken inheritance (AdminSDHolder), Schema Admins, Enterprise Admins.
+- **Kerberos & Delegation**: Unconstrained delegation servers (`TRUSTED_FOR_DELEGATION`), constrained delegation, AS-REP roastable accounts (`DONT_REQ_PREAUTH`), Kerberoastable SPNs.
+- **Password & PKI/Certificate Hygiene**: Passwords never expire, `PASSWD_NOTREQD`, reversible encryption enabled, weak password policies, ESC1/ESC2 AD CS template exposures.
+- **Computer & Infrastructure Hygiene**: Stale computer accounts, unprotected OUs, empty groups.
+- **Entra Connect & Cloud Sync Readiness**: Non-routable UPN suffixes (`.local`, `.lan`), invalid sync characters, duplicate UPNs, and colliding `proxyAddresses` SMTP records.
 - **Output Formats**: Exportable to CSV or executive-styled HTML reports for CISO compliance reviews.
 - **Light Theme Presentation**: Category selector and days threshold slider feed into a clean slate DataGrid with finding count badges.
 
@@ -395,6 +401,22 @@ Troubleshooting domain controller accessibility and file share synchronization a
   - **Mail & Proxy Conflicts / Top Quota Usage (`Find-ADMailProxyConflicts`, `Get-ADTopQuotaUsage`)**: Surfaces duplicate SMTP/SIP `proxyAddresses` conflicts and highest directory quota/tombstone consumers inside Diagnostics Toolbox.
   - **Suite-Rail Left Navigation (`SuiteRailTabControl`)**: Vertical left-hand sub-tool rail with collapsible grouping across Security ACL, Replication Suite, Diagnostics Toolbox, and Network Diagnostics.
 - **Light Theme Presentation**: Sequential diagnostic steps render with individual `PASS` badges, millisecond latency readings, and detailed diagnostic notes.
+
+### 7.6. Client IP Site Resolver (LPM), Group Member Diff & Duplicate SPN Scanner
+- **Client IP Site & Subnet Resolver (LPM)**: Evaluates client IPv4 addresses against AD Subnets using Longest Prefix Match (LPM) logic, detecting shadowed CIDR ranges and identifying mapped Domain Controllers inside **Replication Suite**.
+- **Group Member Diff Engine (3-Way Venn)**: Compares two AD groups side-by-side (`In Both Groups`, `Only in Group A`, `Only in Group B`) with optional recursive principal expansion and CSV export inside **Diagnostics Toolbox**.
+- **Kerberos Duplicate SPN Scanner**: Sweeps all `servicePrincipalName` registrations across user and computer objects to surface colliding SPNs causing `KRB_AP_ERR_MODIFIED` errors and generates exact `setspn -D` remediation commands inside **Kerberos Suite**.
+
+### 7.7. Live Connection Profile Binding & Session-Only Privacy
+Active Directory Management Studio supports instant live switching between Domain Controllers and cross-forest directories—even from non-domain or RSAT-free endpoints—without persisting server targets or credentials to `config.json`:
+- **Connection Dialog (`Views/ConnectionDialog.xaml`)**:
+  - Configure target Domain Controller FQDN/IP, port (`389` LDAP, `636` LDAPS SSL, `3268` Global Catalog), optional custom Search Base DN, Read-Only mode (`ChkReadOnlyProfile`), and either current Windows SSO (`ChkCurrentCredentials`) or explicit `PSCredential` bind credentials (`CORP\username`).
+  - Click **📡 Test Connection** (`BtnTestConnection`) to validate TCP socket reachability (with fast 2,500 ms timeout preflight) and query RootDSE naming contexts before binding.
+  - Choose **Save Only** (`BtnSaveOnly`) to stage the profile in memory for the current session or **⚡ Save & Connect** (`BtnSaveProfile`) to bind immediately via `Connect-ADProfileContext`.
+- **Automatic Live UI Refresh (`Set-ADConnectionContext` & `New-ADDirectoryEntry`)**:
+  - On connect, header badges (`Connected: <domain>` & DC host), status bar server URI (`ldap://` / `ldaps://`) and bind identity, `TxtSearchBaseDn`, `TreeOUs`, `CmbUserOUFilter`, `GridUsers`, `GridGroups`, and Dashboard KPIs refresh immediately without restarting the application.
+- **Session-Only JSON Privacy (`ConfigService.psm1`)**:
+  - Both `Get-AppSettings` and `Save-AppSettings` enforce `"Profiles": []` in `config.json` on disk (temporarily clearing and restoring `$Config.Profiles` during serialization), ensuring hostnames, Search Base DNs, and profile usernames remain strictly in-memory during the session.
 
 ---
 
@@ -466,6 +488,6 @@ All scripts adhere to Microsoft PowerShell best practices:
 
 ## 10. Companion Resources & Navigation
 
-- [🚀 Step-by-Step Operator Walkthrough (WALKTHROUGH.md)](WALKTHROUGH.md): Visual user guide with 10 end-to-end operational scenarios.
+- [🚀 Step-by-Step Operator Walkthrough (WALKTHROUGH.md)](WALKTHROUGH.md): Visual user guide with 14 end-to-end operational scenarios.
 - [📁 Project Overview & Setup (README.md)](README.md): Quick start guide and architecture highlights.
 - [🛠️ CLI Automation Engine (`tools/ad-studio-cli.ps1`)](tools/ad-studio-cli.ps1): Headless command-line interface.
